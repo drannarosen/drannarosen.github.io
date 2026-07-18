@@ -1,0 +1,156 @@
+---
+/*
+ * ClusterHero — the site's signature "first light".
+ * A physically-sampled star cluster (see lib/imf.ts) rendered behind an
+ * editorial hero statement. The canvas is decorative (aria-hidden) and the
+ * page reads fully without it; a visible, persisted "pause motion" control
+ * sits in the corner for anyone who wants stillness.
+ */
+interface Props {
+  eyebrow?: string;
+  heading: string;
+  lede: string;
+}
+const { eyebrow, heading, lede } = Astro.props;
+---
+
+<section class="hero" aria-labelledby="hero-heading">
+  <canvas class="hero__canvas" aria-hidden="true"></canvas>
+  <div class="hero__scrim" aria-hidden="true"></div>
+
+  <div class="hero__inner wrap-wide">
+    {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
+    <h1 id="hero-heading" class="hero__heading">{heading}</h1>
+    <p class="hero__lede prose">{lede}</p>
+    <slot />
+  </div>
+
+  <button
+    type="button"
+    class="hero__motion"
+    data-motion-toggle
+    aria-pressed="false"
+  >
+    <span data-motion-label>Pause motion</span>
+  </button>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    isolation: isolate;
+    min-block-size: min(92svh, 56rem);
+    display: grid;
+    align-items: center;
+    overflow: hidden;
+    padding-block: var(--space-3xl) var(--space-2xl);
+  }
+
+  .hero__canvas {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    z-index: var(--z-hero-canvas);
+  }
+
+  /* Readability scrim: darkens the left column where text sits, lets the
+     cluster breathe on the right. Never lets contrast drop. */
+  .hero__scrim {
+    position: absolute;
+    inset: 0;
+    z-index: calc(var(--z-hero-canvas) + 1);
+    background:
+      linear-gradient(
+        105deg,
+        var(--bg-void) 6%,
+        color-mix(in oklch, var(--bg-void) 55%, transparent) 42%,
+        transparent 68%
+      ),
+      linear-gradient(to top, var(--bg-void) 2%, transparent 22%);
+  }
+
+  .hero__inner {
+    position: relative;
+    z-index: var(--z-content);
+  }
+
+  .hero__eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--spec-cyan);
+    margin-block-end: var(--space-s);
+  }
+
+  .hero__heading {
+    max-inline-size: 20ch;
+    font-size: var(--step-5);
+    margin-block-end: var(--space-m);
+  }
+
+  .hero__lede {
+    font-size: var(--step-1);
+    color: var(--ink-soft);
+    margin-block-end: var(--space-l);
+  }
+
+  .hero__motion {
+    position: absolute;
+    inset-block-end: var(--space-s);
+    inset-inline-end: var(--space-s);
+    z-index: var(--z-content);
+    padding: var(--space-3xs) var(--space-xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    background: color-mix(in oklch, var(--bg-surface) 70%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out);
+  }
+  .hero__motion:hover {
+    color: var(--ink);
+    border-color: var(--border-strong);
+  }
+</style>
+
+<script>
+  import { initClusterField } from "../lib/clusterField";
+
+  const canvas = document.querySelector<HTMLCanvasElement>(".hero__canvas");
+  const toggle = document.querySelector<HTMLButtonElement>("[data-motion-toggle]");
+  const label = toggle?.querySelector<HTMLSpanElement>("[data-motion-label]");
+
+  const STORAGE_KEY = "cluster-motion-paused";
+
+  if (canvas) {
+    let paused = localStorage.getItem(STORAGE_KEY) === "true";
+    let cleanup: (() => void) | null = null;
+
+    function render(): void {
+      cleanup?.();
+      cleanup = initClusterField({ canvas: canvas!, reducedMotion: paused });
+    }
+
+    function syncButton(): void {
+      if (!toggle || !label) return;
+      toggle.setAttribute("aria-pressed", String(paused));
+      label.textContent = paused ? "Resume motion" : "Pause motion";
+    }
+
+    render();
+    syncButton();
+
+    toggle?.addEventListener("click", () => {
+      paused = !paused;
+      localStorage.setItem(STORAGE_KEY, String(paused));
+      syncButton();
+      render();
+    });
+  }
+</script>
