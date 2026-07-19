@@ -1,0 +1,277 @@
+---
+/*
+ * StageInitialConditions — Step 1 of the "model a cluster from first
+ * principles" explorable. Samples a real cluster from the Kroupa IMF
+ * (lib/imf.ts) and shows two honest views of the SAME stars:
+ *   • left  — the cluster in space (a Plummer sphere), colored by spectral type
+ *   • right — the mass histogram: the initial mass function itself
+ * Controls let the reader resample and change N. Everything is computed live;
+ * with JS off, the static text below still makes the point.
+ */
+---
+
+<div class="ic">
+  <div class="ic__controls">
+    <button type="button" class="ic__btn" data-resample>↻ Resample cluster</button>
+    <label class="ic__field">
+      <span>Stars: <output data-n-out>500</output></span>
+      <input type="range" min="80" max="1200" step="20" value="500" data-n />
+    </label>
+    <p class="ic__readout" data-readout aria-live="polite"></p>
+  </div>
+
+  <div class="ic__panels">
+    <figure class="ic__panel">
+      <canvas class="ic__canvas" data-cluster
+        aria-label="A star cluster drawn in space, with each star colored by its type from blue for hot massive stars to red for cool low-mass stars."
+      ></canvas>
+      <figcaption>The cluster in space — every dot is a star.</figcaption>
+    </figure>
+    <figure class="ic__panel">
+      <canvas class="ic__canvas" data-imf
+        aria-label="A histogram of stellar masses showing many low-mass stars and very few high-mass stars."
+      ></canvas>
+      <figcaption>The same stars, counted by mass — the initial mass function.</figcaption>
+    </figure>
+  </div>
+
+  <noscript>
+    <p class="ic__fallback">
+      A star cluster is a population of stars drawn from an <em>initial mass
+      function</em> — a rule that produces many low-mass stars and only a rare
+      few massive ones. Enable JavaScript to sample and explore one live.
+    </p>
+  </noscript>
+</div>
+
+<script>
+  import { sampleCluster, massToTeff, teffToRGB, type Star } from "../../lib/imf";
+
+  const root = document.querySelector<HTMLElement>(".ic");
+  if (root) initStage(root);
+
+  function initStage(root: HTMLElement): void {
+    const clusterCanvas = root.querySelector<HTMLCanvasElement>("[data-cluster]")!;
+    const imfCanvas = root.querySelector<HTMLCanvasElement>("[data-imf]")!;
+    const resampleBtn = root.querySelector<HTMLButtonElement>("[data-resample]")!;
+    const nInput = root.querySelector<HTMLInputElement>("[data-n]")!;
+    const nOut = root.querySelector<HTMLOutputElement>("[data-n-out]")!;
+    const readout = root.querySelector<HTMLParagraphElement>("[data-readout]")!;
+
+    const cctx = clusterCanvas.getContext("2d")!;
+    const ictx = imfCanvas.getContext("2d")!;
+    const MAX_DPR = 2;
+
+    let seed = 1;
+    let stars: Star[] = [];
+
+    const css = (name: string) =>
+      getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const ink = () => css("--ink-soft") || "#cfd3da";
+    const dim = () => css("--ink-dim") || "#8b93a1";
+    const teal = () => css("--spec-teal-bright") || "#4fd6c4";
+
+    function fit(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
+      const r = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+      canvas.width = Math.round(r.width * dpr);
+      canvas.height = Math.round(r.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { w: r.width, h: r.height };
+    }
+
+    function drawCluster() {
+      const { w, h } = fit(clusterCanvas, cctx);
+      cctx.clearRect(0, 0, w, h);
+      const scale = Math.min(w, h) * 0.3;
+      const cx = w / 2;
+      const cy = h / 2;
+      cctx.globalCompositeOperation = "lighter";
+      for (const s of stars) {
+        const sx = cx + s.x * scale;
+        const sy = cy + s.y * scale;
+        const [r, g, b] = s.color;
+        const cr = Math.round(r * 255);
+        const cg = Math.round(g * 255);
+        const cb = Math.round(b * 255);
+        const radius = Math.max(0.6, s.sizePx * 1.1);
+        if (radius > 1.8) {
+          const grad = cctx.createRadialGradient(sx, sy, 0, sx, sy, radius * 4.5);
+          grad.addColorStop(0, `rgba(${cr},${cg},${cb},0.5)`);
+          grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+          cctx.fillStyle = grad;
+          cctx.beginPath();
+          cctx.arc(sx, sy, radius * 4.5, 0, Math.PI * 2);
+          cctx.fill();
+        }
+        cctx.fillStyle = `rgba(${cr},${cg},${cb},${s.baseOpacity})`;
+        cctx.beginPath();
+        cctx.arc(sx, sy, radius, 0, Math.PI * 2);
+        cctx.fill();
+      }
+      cctx.globalCompositeOperation = "source-over";
+    }
+
+    function drawIMF() {
+      const { w, h } = fit(imfCanvas, ictx);
+      ictx.clearRect(0, 0, w, h);
+      const padL = 30;
+      const padR = 12;
+      const padT = 14;
+      const padB = 26;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      // log-mass bins from 0.1 to 60 Msun
+      const lmMin = Math.log10(0.1);
+      const lmMax = Math.log10(60);
+      const nbins = 16;
+      const bins = new Array(nbins).fill(0);
+      for (const s of stars) {
+        const t = (Math.log10(s.mass) - lmMin) / (lmMax - lmMin);
+        const bi = Math.min(nbins - 1, Math.max(0, Math.floor(t * nbins)));
+        bins[bi]++;
+      }
+      const maxCount = Math.max(1, ...bins);
+      const gap = 2;
+      const bw = plotW / nbins;
+
+      for (let i = 0; i < nbins; i++) {
+        const lm = lmMin + ((i + 0.5) / nbins) * (lmMax - lmMin);
+        const m = Math.pow(10, lm);
+        const [r, g, b] = teffToRGB(massToTeff(m));
+        const bh = (bins[i] / maxCount) * plotH;
+        const x = padL + i * bw;
+        const y = padT + plotH - bh;
+        ictx.fillStyle = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},0.85)`;
+        ictx.fillRect(x + gap / 2, y, bw - gap, bh);
+      }
+
+      // axis line
+      ictx.strokeStyle = dim();
+      ictx.globalAlpha = 0.5;
+      ictx.beginPath();
+      ictx.moveTo(padL, padT + plotH + 0.5);
+      ictx.lineTo(padL + plotW, padT + plotH + 0.5);
+      ictx.stroke();
+      ictx.globalAlpha = 1;
+
+      // axis labels
+      ictx.fillStyle = dim();
+      ictx.font = "11px ui-monospace, monospace";
+      ictx.textBaseline = "top";
+      ictx.fillText("0.1", padL - 6, padT + plotH + 6);
+      ictx.fillText("1", padL + plotW * 0.36, padT + plotH + 6);
+      ictx.fillText("10", padL + plotW * 0.72, padT + plotH + 6);
+      ictx.fillText("60 M☉", padL + plotW - 34, padT + plotH + 6);
+
+      ictx.fillStyle = ink();
+      ictx.textAlign = "left";
+      ictx.fillText("← many small stars", padL + 2, padT + 2);
+      ictx.textAlign = "right";
+      ictx.fillText("few giants →", padL + plotW - 2, padT + 2);
+      ictx.textAlign = "left";
+    }
+
+    function updateReadout() {
+      // O/B stars: roughly Teff > 10,000 K ⇒ mass ≳ 3 Msun via our MS relation
+      const massive = stars.filter((s) => s.mass >= 3).length;
+      const heaviest = stars.reduce((a, s) => Math.max(a, s.mass), 0);
+      readout.innerHTML =
+        `<strong>${stars.length}</strong> stars · ` +
+        `<strong>${massive}</strong> massive (≥3 M☉, the blue ones) · ` +
+        `heaviest ≈ <strong>${heaviest.toFixed(0)} M☉</strong>`;
+    }
+
+    function resample() {
+      const n = parseInt(nInput.value, 10);
+      stars = sampleCluster({ count: n, seed: seed++ });
+      drawCluster();
+      drawIMF();
+      updateReadout();
+    }
+
+    resampleBtn.addEventListener("click", resample);
+    nInput.addEventListener("input", () => {
+      nOut.textContent = nInput.value;
+      resample();
+    });
+    window.addEventListener("resize", () => {
+      drawCluster();
+      drawIMF();
+    }, { passive: true });
+
+    resample();
+  }
+</script>
+
+<style>
+  .ic {
+    margin-block: var(--space-l);
+  }
+  .ic__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-m);
+    margin-block-end: var(--space-m);
+  }
+  .ic__btn {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink);
+    background: color-mix(in srgb, var(--spec-teal) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--spec-teal) 45%, transparent);
+    border-radius: 999px;
+    padding: var(--space-2xs) var(--space-m);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  .ic__btn:hover {
+    background: color-mix(in srgb, var(--spec-teal) 26%, transparent);
+  }
+  .ic__field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .ic__field input {
+    accent-color: var(--spec-teal);
+    inline-size: 12rem;
+    max-inline-size: 40vw;
+  }
+  .ic__readout {
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .ic__readout strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .ic__panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--space-m);
+  }
+  .ic__panel {
+    margin: 0;
+  }
+  .ic__canvas {
+    inline-size: 100%;
+    block-size: clamp(15rem, 34vw, 22rem);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .ic__panel figcaption {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .ic__fallback {
+    color: var(--ink-soft);
+  }
+</style>

@@ -1,0 +1,153 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import StageInitialConditions from "../components/story/StageInitialConditions.astro";
+
+const stages = [
+  { n: 1, name: "Initial conditions", tag: "You can't study a cluster until you can build one." },
+  { n: 2, name: "Dynamics", tag: "Stars pull on each other. Gravity moves them." },
+  { n: 3, name: "Observables", tag: "We never see masses — only light." },
+  { n: 4, name: "Inference", tag: "Run it backwards: what could the light ever tell us?" },
+];
+---
+
+<BaseLayout
+  title="Modeling a star cluster, from first principles — Anna Rosen"
+  description="An interactive, first-principles walk through how a differentiable model builds a star cluster — from initial conditions to what its light can reveal."
+  path="/model-path"
+>
+  <PageHeader
+    eyebrow="Explore · from first principles"
+    title="How we model a star cluster"
+    lede="My group builds star clusters inside a computer — from the ground up — so we can ask what their light could ever tell us. Here is that path, one honest step at a time. Nothing below assumes you've seen it before."
+  />
+
+  <div class="mp wrap">
+    <ol class="mp__map" role="list" aria-label="The model path">
+      {
+        stages.map((s) => (
+          <li class="mp__step">
+            <span class="mp__num">{String(s.n).padStart(2, "0")}</span>
+            <span class="mp__name">{s.name}</span>
+            <span class="mp__tag">{s.tag}</span>
+          </li>
+        ))
+      }
+    </ol>
+
+    <section class="mp__section" aria-labelledby="step-1">
+      <p class="mp__kicker">Step 01 · Initial conditions</p>
+      <h2 id="step-1" class="mp__h2">First, make a cluster</h2>
+      <div class="mp__prose prose">
+        <p>
+          A star cluster is just a crowd of stars that formed together. To model
+          one, the first question is deceptively simple: <em>how many stars, how
+          heavy is each, and where do they sit?</em>
+        </p>
+        <p>
+          Nature answers the "how heavy" part with a remarkably consistent rule
+          called the <strong>initial mass function</strong> (IMF): it makes
+          <em>many</em> small stars and only a rare <em>few</em> massive ones.
+          Below, each star is drawn from that rule — a broken power law measured
+          across real clusters. Resample it, and watch: the crowd is always
+          mostly faint red stars, with a scarce handful of brilliant blue giants.
+          Those giants are rare, but they run the show — a theme you'll meet
+          again in every step that follows.
+        </p>
+      </div>
+
+      <StageInitialConditions />
+
+      <p class="mp__aside">
+        The masses come from the Kroupa (2001) IMF; each star's color follows its
+        mass through a main-sequence temperature relation. Same code that draws
+        the cluster on the homepage — here it's yours to poke.
+      </p>
+    </section>
+
+    <section class="mp__next">
+      <p class="mp__kicker">Coming next</p>
+      <h2 class="mp__h2">Then: let it evolve</h2>
+      <p class="mp__prose prose">
+        With a cluster in hand, the next steps set it in motion — gravity pulls
+        the stars into orbits and ejects some entirely; the light we'd actually
+        observe is projected onto the sky and blurred by noise; and finally we
+        run the whole chain <em>backwards</em> to ask what that light could ever
+        have told us about how the cluster was born. Those steps are on the way.
+      </p>
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  .mp {
+    padding-block: var(--space-l) var(--space-3xl);
+  }
+
+  .mp__map {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--space-s);
+    margin-block-end: var(--space-2xl);
+  }
+  .mp__step {
+    display: grid;
+    gap: var(--space-3xs);
+    padding: var(--space-s);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    background: var(--bg-deep);
+  }
+  .mp__num {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: color-mix(in srgb, var(--spec-teal) 65%, transparent);
+  }
+  .mp__name {
+    font-family: var(--font-display);
+    font-size: var(--step-0);
+    color: var(--ink);
+  }
+  .mp__tag {
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+
+  .mp__section {
+    padding-block-start: var(--space-l);
+    border-block-start: 1px solid var(--border);
+  }
+  .mp__kicker {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--spec-teal-bright);
+    margin-block-end: var(--space-2xs);
+  }
+  .mp__h2 {
+    font-size: var(--step-3);
+    margin-block-end: var(--space-m);
+  }
+  .mp__prose {
+    color: var(--ink-soft);
+  }
+  .mp__prose p + p {
+    margin-block-start: var(--space-s);
+  }
+  .mp__prose strong {
+    color: var(--ink);
+  }
+  .mp__aside {
+    margin-block-start: var(--space-m);
+    font-size: var(--step--1);
+    color: var(--ink-faint);
+    max-inline-size: var(--width-prose);
+  }
+  .mp__next {
+    margin-block-start: var(--space-2xl);
+    padding-block-start: var(--space-l);
+    border-block-start: 1px solid var(--border);
+    opacity: 0.85;
+  }
+</style>
