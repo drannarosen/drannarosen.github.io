@@ -10,6 +10,8 @@ export interface DatedEntry {
   org?: string;
   date: string;
   note?: string;
+  /** Optional link for the note (e.g. the ADS record for a thesis). */
+  href?: string;
 }
 
 export interface Publication {
@@ -53,13 +55,33 @@ export const employment: DatedEntry[] = [
 ];
 
 export const education: DatedEntry[] = [
-  { role: "Ph.D., Astronomy & Astrophysics", org: "UC Santa Cruz", date: "2017", note: "Thesis: The Destructive Birth of Massive Stars & Massive Star Clusters" },
+  {
+    role: "Ph.D., Astronomy & Astrophysics",
+    org: "UC Santa Cruz",
+    date: "2017",
+    note: "Thesis: The Destructive Birth of Massive Stars & Massive Star Clusters",
+    href: "https://ui.adsabs.harvard.edu/abs/2017PhDT.......182R/abstract",
+  },
   { role: "M.S., Astronomy & Astrophysics", org: "UC Santa Cruz", date: "2012" },
   { role: "B.A., Physics & Astrophysics (double major)", org: "UC Berkeley", date: "2009" },
   { role: "Community College Transfer Student", org: "Los Angeles Pierce College", date: "2007" },
 ];
 
 /** Selected awards; the full list is in the PDF. */
+/*
+ * Service to the community — editorial work, panels, refereeing. Kept out of the
+ * publication list on purpose: an editorial is service, not a research paper.
+ */
+export const service: DatedEntry[] = [
+  {
+    role: "Editorial: Star formation — numerical simulations and what they teach us",
+    org: "Frontiers in Astronomy and Space Sciences",
+    date: "2024",
+    note: "Co-authored Research Topic editorial",
+    href: "https://doi.org/10.3389/fspas.2024.1462935",
+  },
+];
+
 export const awards: DatedEntry[] = [
   { role: "Assigned Time for Research", org: "SDSU Division of Research & Innovation", date: "2026" },
   { role: "ATHENA Faculty Champion", org: "SDSU", date: "2024" },

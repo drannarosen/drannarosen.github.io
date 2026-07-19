@@ -13,9 +13,16 @@
 
   "exclude": [
     {
-      "_example": true,
-      "doi": "10.0000/replace-me",
-      "reason": "Example entry - delete or replace. Matching is by doi, bibcode, or title."
+      "doi": "10.3389/fspas.2024.1462935",
+      "reason": "Editorial, not a research paper - listed under Service on the CV instead."
+    },
+    {
+      "bibcode": "2017PhDT.......182R",
+      "reason": "Ph.D. thesis - linked from Education on the CV instead of the paper list."
+    },
+    {
+      "bibcode": "2012ASPC..465...98R",
+      "reason": "Conference proceedings, not a refereed paper."
     }
   ]
 }

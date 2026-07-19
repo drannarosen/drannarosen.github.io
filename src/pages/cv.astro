@@ -5,6 +5,7 @@ import {
   cvProfile,
   employment,
   education,
+  service,
   awards,
   selectedPublications,
   type DatedEntry,
@@ -18,6 +19,7 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
 const sections: { title: string; entries: DatedEntry[] }[] = [
   { title: "Appointments", entries: employment },
   { title: "Education", entries: education },
+  { title: "Service", entries: service },
   { title: "Selected Awards & Honors", entries: awards },
 ];
 ---
@@ -65,7 +67,14 @@ const sections: { title: string; entries: DatedEntry[] }[] = [
               <div class="cv-entry__body">
                 <p class="cv-entry__role">{e.role}</p>
                 {e.org && <p class="cv-entry__org">{e.org}</p>}
-                {e.note && <p class="cv-entry__note">{e.note}</p>}
+                {e.note &&
+                  (e.href ? (
+                    <p class="cv-entry__note">
+                      <a href={e.href} rel="noopener">{e.note}</a>
+                    </p>
+                  ) : (
+                    <p class="cv-entry__note">{e.note}</p>
+                  ))}
               </div>
               <span class="cv-entry__date">{e.date}</span>
             </li>
