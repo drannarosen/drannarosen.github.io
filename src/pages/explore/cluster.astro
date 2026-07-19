@@ -1,0 +1,191 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+/*
+ * /explore/cluster — "Birth of a cluster" scrollytelling. One sticky WebGL cluster
+ * (the shared engine); scroll scrubs a continuous parameter t across six scenes,
+ * each a target {alpha, expel, zoom} that the engine lerps between. Scene copy +
+ * params are the single source below; the client reads params off data-* attrs.
+ */
+interface Scene {
+  title: string;
+  caption: string;
+  alpha: number; // star opacity
+  expel: number; // gas expulsion 0..1
+  zoom: number; // camera zoom (<1 = closer)
+}
+
+const scenes: Scene[] = [
+  {
+    title: "A turbulent cloud",
+    caption:
+      "Stars are born inside cold, turbulent molecular clouds. This one is real — a gravoturbulent density field from progenax, sculpted into filaments and a dense central clump by supersonic turbulence.",
+    alpha: 0, expel: 0, zoom: 1.05,
+  },
+  {
+    title: "Down to the dense core",
+    caption:
+      "Gravity wins where the gas piles up. We fall toward the cloud's dense heart — the self-gravitating gas that is about to collapse into stars.",
+    alpha: 0, expel: 0, zoom: 0.75,
+  },
+  {
+    title: "The stars ignite",
+    caption:
+      "Ten thousand stars switch on — sampled from a real initial mass function and placed by the density they formed in. Cool red dwarfs are common; the rare hot stars are the whole story.",
+    alpha: 1, expel: 0, zoom: 0.9,
+  },
+  {
+    title: "The massive stars",
+    caption:
+      "A handful of O and B stars — enlarged here — outshine everything else. Born in the densest gas, they sit deep in the cluster, and they will not go quietly.",
+    alpha: 1, expel: 0, zoom: 1.0,
+  },
+  {
+    title: "Feedback clears the gas",
+    caption:
+      "Their radiation and winds drive the leftover gas outward, unbinding the cloud. The natal gas thins and clears — the physics my radiation-hydrodynamics work models.",
+    alpha: 1, expel: 0.6, zoom: 1.05,
+  },
+  {
+    title: "A bare star cluster",
+    caption:
+      "The gas is gone; the stars remain. What began as a turbulent clump is now a young star cluster — the endpoint this whole site is about.",
+    alpha: 1, expel: 1.0, zoom: 1.15,
+  },
+];
+---
+
+<BaseLayout
+  title="Birth of a cluster — Anna Rosen"
+  description="A scroll-driven story of how a star cluster is born: a turbulent cloud collapses, ignites its stars, and blows itself clear — rendered from a real gravoturb model."
+  path="/explore/cluster"
+>
+  <div class="story" data-story>
+    <div class="story__stage">
+      <canvas data-cluster aria-label="A star cluster forming and dispersing its natal gas."></canvas>
+    </div>
+    <div class="story__steps">
+      {
+        scenes.map((s, i) => (
+          <section
+            class="story__step"
+            data-scene
+            data-alpha={s.alpha}
+            data-expel={s.expel}
+            data-zoom={s.zoom}
+          >
+            <div class="story__card">
+              <p class="story__num">{String(i + 1).padStart(2, "0")} · {scenes.length}</p>
+              <h2 class="story__title">{s.title}</h2>
+              <p class="story__caption">{s.caption}</p>
+            </div>
+          </section>
+        ))
+      }
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { loadScene, createEngine } from "../../lib/cluster";
+
+  const story = document.querySelector<HTMLElement>("[data-story]");
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-cluster]");
+  const steps = [...document.querySelectorAll<HTMLElement>("[data-scene]")];
+  if (story && canvas && steps.length) {
+    const num = (el: HTMLElement, k: string) => parseFloat(el.dataset[k] ?? "0");
+    const alpha = steps.map((s) => num(s, "alpha"));
+    const expel = steps.map((s) => num(s, "expel"));
+    const zoom = steps.map((s) => num(s, "zoom"));
+    const N = steps.length;
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+    const smooth = (t: number) => t * t * (3 - 2 * t);
+
+    (async () => {
+      const scene = await loadScene();
+      const engine = createEngine(canvas, scene, { autoExpel: false, emphasizeHot: true });
+
+      const apply = () => {
+        const total = story.offsetHeight - window.innerHeight;
+        const p = total > 0 ? Math.min(1, Math.max(0, -story.getBoundingClientRect().top / total)) : 0;
+        const t = p * (N - 1);
+        const i = Math.min(N - 2, Math.floor(t));
+        const f = smooth(t - i);
+        engine.setStarAlpha(lerp(alpha[i], alpha[i + 1], f));
+        engine.setExpel(lerp(expel[i], expel[i + 1], f));
+        engine.setView({ zoom: lerp(zoom[i], zoom[i + 1], f) });
+      };
+      window.addEventListener("scroll", apply, { passive: true });
+      window.addEventListener("resize", apply, { passive: true });
+      apply();
+
+      // Lecture nav: arrows jump between scenes.
+      window.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        const cur = Math.round(((-story.getBoundingClientRect().top) / (story.offsetHeight - window.innerHeight)) * (N - 1));
+        const next = Math.min(N - 1, Math.max(0, cur + (e.key === "ArrowRight" ? 1 : -1)));
+        steps[next].scrollIntoView({ behavior: "smooth" });
+        e.preventDefault();
+      });
+    })();
+  }
+</script>
+
+<style>
+  .story { position: relative; }
+  .story__stage {
+    position: sticky;
+    inset-block-start: 0;
+    block-size: 100vh;
+    inline-size: 100vw;
+    margin-inline: calc(50% - 50vw); /* full-bleed break-out */
+    display: grid;
+    place-items: center;
+    z-index: 0;
+    background: radial-gradient(120% 120% at 50% 45%, #0a0f12, var(--bg-void));
+  }
+  .story__stage :global(canvas) {
+    inline-size: 100%;
+    block-size: 100%;
+    display: block;
+  }
+  .story__steps {
+    position: relative;
+    margin-block-start: -100vh; /* pull the steps up to overlay the pinned stage */
+    z-index: 1;
+  }
+  .story__step {
+    min-block-size: 100vh;
+    display: flex;
+    align-items: center;
+    padding-inline: clamp(var(--space-m), 6vw, var(--space-3xl));
+    pointer-events: none;
+  }
+  .story__card {
+    max-inline-size: 26rem;
+    padding: var(--space-m) var(--space-l);
+    background: color-mix(in oklab, var(--bg-void) 72%, transparent);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .story__num {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    letter-spacing: var(--tracking-wide);
+    color: var(--spec-cyan, #4fd6c4);
+  }
+  .story__title {
+    font-size: var(--step-2);
+    margin-block: var(--space-2xs) var(--space-xs);
+  }
+  .story__caption {
+    color: var(--ink-soft);
+    font-size: var(--step-0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* still readable as a scrolled article; the engine renders static frames */
+    .story__card { background: color-mix(in oklab, var(--bg-void) 85%, transparent); }
+  }
+</style>

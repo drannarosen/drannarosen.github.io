@@ -35,6 +35,8 @@ export interface ClusterEngine {
   setGamma(v: number): void;
   /** [0,1] scrubs the gas expulsion; null resumes the auto timeline. */
   setExpel(v: number | null): void;
+  /** [0,1] global star opacity (scrollytelling ignition). */
+  setStarAlpha(a: number): void;
   /** Replace the star set (n*6: x,y,z,mass,teff,radius) — e.g. mass re-pairing. */
   setStars(stars: Float32Array): void;
   setView(v: Partial<View>): void;
@@ -97,7 +99,7 @@ function buildStarBuffer(stars: Float32Array, emphasizeHot = false): Float32Arra
 
 function noopEngine(scene: Scene): ClusterEngine {
   return {
-    setEmit() {}, setAbsorb() {}, setFloor() {}, setGamma() {}, setExpel() {},
+    setEmit() {}, setAbsorb() {}, setFloor() {}, setGamma() {}, setExpel() {}, setStarAlpha() {},
     setStars() {}, setView() {}, getView: () => ({ yaw: DEFAULT_YAW, pitch: 0, zoom: DEFAULT_ZOOM, panX: 0, panY: 0, spin: false }),
     resetView() {}, redraw() {}, cleanup() {},
     meta: { floors: { median: scene.floorMedian, mean: scene.floorMean }, box: scene.box, ngrid: scene.ngrid },
@@ -170,8 +172,10 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
   const uSPix = gl.getUniformLocation(starProg, "uPix");
   const uZoomStar = gl.getUniformLocation(starProg, "uZoom");
   const uPanStar = gl.getUniformLocation(starProg, "uPan");
+  const uStarAlpha = gl.getUniformLocation(starProg, "uStarAlpha");
   gl.useProgram(starProg);
   gl.uniform1f(gl.getUniformLocation(starProg, "uBox"), scene.box);
+  gl.uniform1f(uStarAlpha, 1.0);
 
   // ── view state (camera), shared with interaction.ts via setView/getView ──
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -287,6 +291,11 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
     setFloor: (v) => setUniform(uFloorL, v),
     setGamma: (v) => setUniform(uGammaL, v),
     setExpel: (v) => { expelOverride = v; if (!running) redraw(); },
+    setStarAlpha: (a) => {
+      gl!.useProgram(starProg);
+      gl!.uniform1f(uStarAlpha, Math.min(1, Math.max(0, a)));
+      if (!running) redraw();
+    },
     setStars: (stars) => {
       n = stars.length / 6;
       gl!.bindBuffer(gl!.ARRAY_BUFFER, vbo);

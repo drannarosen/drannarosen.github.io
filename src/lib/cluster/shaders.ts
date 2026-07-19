@@ -98,6 +98,7 @@ void main(){
 export const STAR_FS = `#version 300 es
 precision highp float;
 in vec3 vColor;
+uniform float uStarAlpha;   // 0..1 global star fade (scrollytelling ignition)
 out vec4 outColor;
 void main(){
   float r = length(gl_PointCoord - 0.5);
@@ -105,5 +106,5 @@ void main(){
   float core = smoothstep(0.30, 0.0, r);   // bright center
   vec3 c = vColor * (a + core * 0.9);      // brighten center IN the star's hue
   c += vec3(core*core*0.5);                // small white-hot pip only at the very center
-  outColor = vec4(c, a);
+  outColor = vec4(c, a) * uStarAlpha;      // additive blend => multiply to fade
 }`;
