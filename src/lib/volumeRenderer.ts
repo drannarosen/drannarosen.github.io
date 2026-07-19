@@ -83,6 +83,7 @@ uniform sampler3D uVol;
 uniform vec2 uRes;
 uniform float uAngle, uEmit, uAbsorb, uZoom, uFloor, uGamma;
 uniform float uExpel, uLogRange; // expulsion phase; log10 dynamic range of the cube
+uniform vec2 uPan;               // view pan, in uv (screen-height) units
 
 bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1){
   vec3 inv = 1.0/rd;
@@ -94,7 +95,7 @@ bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1){
 mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
 
 void main(){
-  vec2 uv = (gl_FragCoord.xy - 0.5*uRes)/uRes.y;
+  vec2 uv = (gl_FragCoord.xy - 0.5*uRes)/uRes.y - uPan;   // pan shifts the view
   vec3 ro = vec3(0.,0.,1.7);
   vec3 rd = normalize(vec3(uv*1.15*uZoom, -1.6));   // uZoom>1 => cube smaller, more frame
   // rotate ray into the (static) volume's model space
@@ -141,6 +142,7 @@ in vec3 aPos;    // pc
 in vec3 aColor;  // 0..1
 in float aSize;  // sqrt(radius) scale
 uniform float uAngle, uBox, uPix, uZoom;
+uniform vec2 uPan;
 out vec3 vColor;
 mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
 void main(){
@@ -148,7 +150,8 @@ void main(){
   float denom = 1.7 - P.z;
   float clipx = (P.x*1.6/(1.15*uZoom))/denom;   // match the volume's zoom
   float clipy = (P.y*1.6/(1.15*uZoom))/denom;
-  gl_Position = vec4(clipx*2.0, clipy*2.0, 0.0, 1.0);
+  // + uPan to match the volume FS (which subtracts uPan from uv); *2 => clip space.
+  gl_Position = vec4((clipx + uPan.x)*2.0, (clipy + uPan.y)*2.0, 0.0, 1.0);
   gl_PointSize = clamp(aSize * uPix / (denom*uZoom), 1.8, 44.0);
   vColor = aColor;
 }`;
@@ -194,8 +197,11 @@ function program(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgr
 export interface VolumeOptions {
   rotationPeriodSec?: number;
   reducedMotion?: boolean;
+  interactive?: boolean; // enable wheel/pinch zoom + drag pan on the canvas
 }
 const MAX_DPR = 1.5;
+const DEFAULT_ZOOM = 1.0; // <1 fills more of the frame; user can zoom in/out
+const ZOOM_MIN = 0.35, ZOOM_MAX = 4.0;
 
 function noopControls(): VolumeControls {
   return {
@@ -277,17 +283,31 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   gl.uniform1i(gl.getUniformLocation(volProg, "uVol"), 0);
   gl.uniform1f(uEmitL, 9.5);
   gl.uniform1f(uAbsorbL, 9.0);
-  gl.uniform1f(gl.getUniformLocation(volProg, "uZoom"), 1.55);
   // Log colorbar: rho_0 = median density (from meta); gamma slightly above faithful.
   gl.uniform1f(uFloorL, scene.densityFloor);
   gl.uniform1f(uGammaL, 1.1);
   gl.uniform1f(gl.getUniformLocation(volProg, "uLogRange"), scene.logRange);
+  const uZoomVol = gl.getUniformLocation(volProg, "uZoom");
+  const uPanVol = gl.getUniformLocation(volProg, "uPan");
   const uSAngle = gl.getUniformLocation(starProg, "uAngle");
   const uSBox = gl.getUniformLocation(starProg, "uBox");
   const uSPix = gl.getUniformLocation(starProg, "uPix");
+  const uZoomStar = gl.getUniformLocation(starProg, "uZoom");
+  const uPanStar = gl.getUniformLocation(starProg, "uPan");
   gl.useProgram(starProg);
   gl.uniform1f(uSBox, scene.box);
-  gl.uniform1f(gl.getUniformLocation(starProg, "uZoom"), 1.55);
+
+  // View (zoom + pan), shared by both programs and kept in lockstep.
+  let zoom = DEFAULT_ZOOM, panX = 0, panY = 0;
+  function applyView(): void {
+    gl!.useProgram(volProg);
+    gl!.uniform1f(uZoomVol, zoom);
+    gl!.uniform2f(uPanVol, panX, panY);
+    gl!.useProgram(starProg);
+    gl!.uniform1f(uZoomStar, zoom);
+    gl!.uniform2f(uPanStar, panX, panY);
+  }
+  applyView();
 
   const rotationPeriod = opts.rotationPeriodSec ?? 110;
   // Gas-expulsion timeline (seconds): sit embedded, then feedback drives the gas
@@ -375,6 +395,58 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   document.addEventListener("visibilitychange", onVisibility);
   play();
 
+  // ── interaction: wheel/pinch zoom + drag pan (opt-in) ────────────────
+  const ac = new AbortController();
+  function viewChanged(): void { applyView(); if (!running) redraw(); }
+  if (opts.interactive) {
+    const sig: AddEventListenerOptions = { signal: ac.signal };
+    canvas.style.cursor = "grab";
+    canvas.style.touchAction = "none";
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * Math.exp(e.deltaY * 0.001)));
+      viewChanged();
+    }, { signal: ac.signal, passive: false });
+    const pts = new Map<number, { x: number; y: number }>();
+    let pinch = 0;
+    const spread = (): number => {
+      const v = [...pts.values()];
+      return Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y);
+    };
+    canvas.addEventListener("pointerdown", (e) => {
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+      if (pts.size === 2) pinch = spread();
+    }, sig);
+    canvas.addEventListener("pointermove", (e) => {
+      const prev = pts.get(e.pointerId);
+      if (!prev) return;
+      const h = canvas.getBoundingClientRect().height;
+      if (pts.size === 1) {
+        panX += (e.clientX - prev.x) / h; // drag right => cluster follows
+        panY -= (e.clientY - prev.y) / h;
+      }
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2 && pinch > 0) {
+        const d = spread();
+        zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, (zoom * pinch) / d)); // spread => zoom in
+        pinch = d;
+      }
+      viewChanged();
+    }, sig);
+    const release = (e: PointerEvent): void => {
+      pts.delete(e.pointerId);
+      pinch = 0;
+      if (pts.size === 0) canvas.style.cursor = "grab";
+    };
+    canvas.addEventListener("pointerup", release, sig);
+    canvas.addEventListener("pointercancel", release, sig);
+    canvas.addEventListener("dblclick", () => {
+      zoom = DEFAULT_ZOOM; panX = 0; panY = 0; viewChanged(); // reset view
+    }, sig);
+  }
+
   function setVol(loc: WebGLUniformLocation | null, v: number): void {
     gl!.useProgram(volProg);
     gl!.uniform1f(loc, v);
@@ -384,6 +456,7 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   return {
     cleanup(): void {
       stop();
+      ac.abort();
       io.disconnect();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);

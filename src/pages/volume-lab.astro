@@ -11,7 +11,7 @@ import PageHeader from "../components/PageHeader.astro";
   <PageHeader
     eyebrow="Prototype · not linked"
     title="The turbulent cube"
-    lede="Your real gravoturb density volume (128³) + 10,000 stars, raymarched in WebGL as a yt-style log colorbar. Every knob below is live — nothing is baked in."
+    lede="Your real gravoturb density volume (128³) + 10,000 stars, raymarched in WebGL as a yt-style log colorbar. Scroll/pinch to zoom, drag to pan, double-click to reset. Every knob below is live — nothing is baked in."
   />
 
   <div class="vl wrap">
@@ -62,7 +62,7 @@ import PageHeader from "../components/PageHeader.astro";
     try {
       const scene = await loadScene();
       if (!canvas) return;
-      const ctl = initScene(canvas, scene);
+      const ctl = initScene(canvas, scene, { interactive: true });
 
       const stars = scene.stars.length / 6;
       if (status) {
