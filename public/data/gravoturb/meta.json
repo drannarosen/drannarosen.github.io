@@ -23,7 +23,7 @@
   "gas_log_min": 0.5424343943595886,
   "gas_log_max": 4.960205078125,
   "gas_field": "log10(Sigma_cl / [Msun pc^-2]), row-major NGRID x NGRID",
-  "n_gas_points": 40000,
+  "n_gas_points": 55000,
   "gas_point_fields": [
     "i",
     "j",

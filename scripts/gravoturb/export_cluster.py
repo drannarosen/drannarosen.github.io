@@ -59,7 +59,7 @@ from progenax.stellar import zams_effective_temperature, zams_radius  # noqa: E4
 # --- knobs -------------------------------------------------------------------
 LAMBDA_CORR = 0.6  # mass<->natal-density coupling (0 = none, 0.6 = career figure)
 NGRID = 128  # gas-field grid resolution (career figure uses 96; higher = crisper)
-GAS_POINTS = 40000  # 3D gas "motes" sampled ∝ density (for the rotating/expelling cloud)
+GAS_POINTS = 55000  # 3D gas "motes" (for the rotating/expelling cloud)
 
 # Override the module's grid so build() constructs the field at NGRID^3. Higher
 # resolution RE-SAMPLES the turbulent field (finer structure), same physics/params.
@@ -90,7 +90,11 @@ def main() -> None:
     # the stars and drive the gas-expulsion animation (fade + radial outflow). ---
     rng = np.random.default_rng(0)
     flat = rho.reshape(-1)
-    idx = rng.choice(flat.size, size=GAS_POINTS, replace=True, p=flat / flat.sum())
+    # Sample ∝ rho^0.55 (not rho): spreads motes into the diffuse gas so the
+    # cloud fills, instead of cramming them all in the dense core. The per-mote
+    # density value below still carries the TRUE density for brightness/size.
+    wsamp = np.power(flat, 0.55)
+    idx = rng.choice(flat.size, size=GAS_POINTS, replace=True, p=wsamp / wsamp.sum())
     ijk = np.stack(np.unravel_index(idx, rho.shape), axis=1).astype(np.uint8)  # 0..NGRID-1
     dpt = flat[idx]
     dpt_log = np.log10(np.maximum(dpt, dpt[dpt > 0].min()))

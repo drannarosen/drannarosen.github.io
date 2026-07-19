@@ -86,14 +86,15 @@ interface Prepared {
   sy: Float32Array;
   sz: Float32Array;
   color: string[]; // "r,g,b" per star
-  core: Float32Array; // crisp core radius (px)
+  core: Float32Array; // crisp core radius (px), ∝ sqrt(radius/Rsun)
+  coreA: Float32Array; // core alpha (∝ luminosity, so faint stars are dim)
   glow: Float32Array; // glow radius (px)
   glowA: Float32Array; // glow alpha
   hot: Float32Array; // white-hot core factor 0..1 (hottest stars sparkle)
   gx: Float32Array;
   gy: Float32Array;
   gz: Float32Array;
-  gsize: Float32Array; // mote size (px), ∝ density
+  gdens: Float32Array; // mote density 0..1 (drives soft-blob size)
 }
 
 function prepare(data: ClusterData): Prepared {
@@ -106,10 +107,12 @@ function prepare(data: ClusterData): Prepared {
   const sz = new Float32Array(n);
   const color: string[] = new Array(n);
   const core = new Float32Array(n);
+  const coreA = new Float32Array(n);
   const glow = new Float32Array(n);
   const glowA = new Float32Array(n);
   const hot = new Float32Array(n);
   const logL = new Float32Array(n);
+  const rsz = new Float32Array(n); // sqrt(radius/Rsun) — the size driver
 
   for (let i = 0; i < n; i++) {
     const o = i * 6;
@@ -118,7 +121,8 @@ function prepare(data: ClusterData): Prepared {
     sz[i] = stars[o + 2];
     const teff = stars[o + 4];
     const radius = stars[o + 5];
-    // Luminosity (Lsun): L = R^2 (Teff/Tsun)^4
+    rsz[i] = Math.sqrt(Math.min(30, Math.max(0.05, radius))); // radius already in Rsun
+    // Luminosity (Lsun): L = R^2 (Teff/Tsun)^4 — used for BRIGHTNESS only
     const L = radius * radius * Math.pow(teff / 5772, 4);
     logL[i] = Math.log10(Math.max(1e-4, L));
     const [r, g, b] = spectralRGB(teff);
@@ -134,10 +138,11 @@ function prepare(data: ClusterData): Prepared {
     if (logL[i] > hi) hi = logL[i];
   }
   for (let i = 0; i < n; i++) {
-    const b = (logL[i] - lo) / (hi - lo); // 0..1
-    core[i] = 0.55 + 1.7 * Math.pow(b, 0.8); // small crisp core
-    glow[i] = b > 0.42 ? 2 + 15 * Math.pow(b, 1.7) : 0; // luminous stars get a halo
-    glowA[i] = 0.12 + 0.32 * b;
+    const b = (logL[i] - lo) / (hi - lo); // 0..1 luminosity
+    core[i] = 0.7 + 1.15 * rsz[i]; // SIZE ∝ sqrt(radius/Rsun)
+    coreA[i] = 0.42 + 0.5 * b; // BRIGHTNESS ∝ luminosity (faint stars dim)
+    glow[i] = b > 0.5 ? core[i] * 1.9 : 0; // modest halo, tied to size not L
+    glowA[i] = 0.1 + 0.22 * b;
   }
 
   // draw order: faint first, bright last (on top)
@@ -152,16 +157,16 @@ function prepare(data: ClusterData): Prepared {
   const gx = new Float32Array(m);
   const gy = new Float32Array(m);
   const gz = new Float32Array(m);
-  const gsize = new Float32Array(m);
+  const gdens = new Float32Array(m);
   for (let i = 0; i < m; i++) {
     const o = i * 4;
     gx[i] = ((gasPoints[o] + rng()) / ng) * box - box / 2;
     gy[i] = ((gasPoints[o + 1] + rng()) / ng) * box - box / 2;
     gz[i] = ((gasPoints[o + 2] + rng()) / ng) * box - box / 2;
-    gsize[i] = 0.7 + 1.8 * (gasPoints[o + 3] / 255);
+    gdens[i] = gasPoints[o + 3] / 255;
   }
 
-  return { order, sx, sy, sz, color, core, glow, glowA, hot, gx, gy, gz, gsize };
+  return { order, sx, sy, sz, color, core, coreA, glow, glowA, hot, gx, gy, gz, gdens };
 }
 
 export interface ClusterArtOptions {
@@ -210,6 +215,20 @@ export function initClusterArt(
     gctx.putImageData(img, 0, 0);
   }
 
+  // Soft gas-mote sprite (radial gradient) so 40k motes blend into a continuous
+  // haze instead of sparse dots.
+  const mote = document.createElement("canvas");
+  mote.width = 16;
+  mote.height = 16;
+  {
+    const mctx = mote.getContext("2d")!;
+    const gr = mctx.createRadialGradient(8, 8, 0, 8, 8, 8);
+    gr.addColorStop(0, "rgba(120,205,196,0.16)");
+    gr.addColorStop(1, "rgba(120,205,196,0)");
+    mctx.fillStyle = gr;
+    mctx.fillRect(0, 0, 16, 16);
+  }
+
   let dpr = 1;
   let w = 0;
   let h = 0;
@@ -243,7 +262,7 @@ export function initClusterArt(
       ctx!.fill();
     }
     // colored core
-    ctx!.fillStyle = `rgba(${col},0.95)`;
+    ctx!.fillStyle = `rgba(${col},${prep.coreA[i]})`;
     ctx!.beginPath();
     ctx!.arc(px, py, prep.core[i] * depth, 0, Math.PI * 2);
     ctx!.fill();
@@ -277,15 +296,14 @@ export function initClusterArt(
     const cosT = Math.cos(theta);
     const sinT = Math.sin(theta);
 
-    // gas motes (additive teal, size ∝ density) — a supporting haze, kept low
-    // so it never blows out the center or drowns the stars.
+    // gas motes as soft additive blobs (size ∝ density) — they overlap into a
+    // continuous teal haze that fills the cloud without blowing out the core.
     ctx!.globalCompositeOperation = "lighter";
-    ctx!.fillStyle = "rgba(80,170,165,0.13)";
     const m = data.meta.n_gas_points;
     for (let i = 0; i < m; i++) {
       const xr = prep.gx[i] * cosT + prep.gz[i] * sinT;
-      const s = prep.gsize[i];
-      ctx!.fillRect(cx + xr * scale - s / 2, cy + prep.gy[i] * scale - s / 2, s, s);
+      const s = 2 + 4.5 * prep.gdens[i];
+      ctx!.drawImage(mote, cx + xr * scale - s / 2, cy + prep.gy[i] * scale - s / 2, s, s);
     }
 
     // stars, faint -> bright, depth-shaded
