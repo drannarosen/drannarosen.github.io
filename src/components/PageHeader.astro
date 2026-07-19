@@ -3,18 +3,39 @@
  * PageHeader — consistent title block for interior pages. Keeps the H1 and
  * intent statement styled identically site-wide.
  */
+/*
+ * `title` and `lede` accept either a plain string prop or a named slot. Use the
+ * slot when the text needs rich content — e.g. <Math> for LaTeX:
+ *
+ *   <PageHeader title="Mass segregation">
+ *     <Fragment slot="lede">One knob, <Math tex="\lcorr" />, sets …</Fragment>
+ *   </PageHeader>
+ *
+ * A slot wins over the matching prop when both are supplied.
+ */
 interface Props {
   eyebrow?: string;
-  title: string;
+  /** Optional when a `title` slot is provided instead. */
+  title?: string;
   lede?: string;
 }
 const { eyebrow, title, lede } = Astro.props;
+const hasTitleSlot = Astro.slots.has("title");
+const hasLedeSlot = Astro.slots.has("lede");
 ---
 
 <header class="page-header wrap">
   {eyebrow && <p class="page-header__eyebrow">{eyebrow}</p>}
-  <h1 class="page-header__title">{title}</h1>
-  {lede && <p class="page-header__lede prose">{lede}</p>}
+  <h1 class="page-header__title">
+    {hasTitleSlot ? <slot name="title" /> : title}
+  </h1>
+  {
+    (hasLedeSlot || lede) && (
+      <p class="page-header__lede prose">
+        {hasLedeSlot ? <slot name="lede" /> : lede}
+      </p>
+    )
+  }
 </header>
 
 <style>

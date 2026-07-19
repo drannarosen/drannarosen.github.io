@@ -14,9 +14,10 @@
  * screen readers.
  */
 import katex from "katex";
+import { mathMacros } from "../lib/mathMacros";
 
 interface Props {
-  /** LaTeX source, e.g. "\\lambda_\\mathrm{corr}". */
+  /** LaTeX source, e.g. "\\lambda_\\mathrm{corr}" or the shorthand "\\lcorr". */
   tex: string;
   /** Render as a centered block instead of inline. */
   display?: boolean;
@@ -25,11 +26,12 @@ interface Props {
 const { tex, display = false } = Astro.props;
 
 // throwOnError:false → a malformed expression renders visibly in red rather than
-// failing the whole build.
+// failing the whole build. `macros` is the shared site preamble (src/lib/mathMacros).
 const html = katex.renderToString(tex, {
   displayMode: display,
   throwOnError: false,
   output: "htmlAndMathml", // MathML included for screen readers
+  macros: mathMacros,
 });
 ---
 
