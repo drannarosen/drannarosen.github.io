@@ -1,6 +1,11 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
+import SectionNav from "../components/SectionNav.astro";
+import { slugify } from "../lib/slug";
+import { publicationCount } from "../data/allPublications";
+import { courses } from "../data/teaching";
+import { allPackages, STATUS_LABEL } from "../data/jaxstro";
 import {
   cvProfile,
   employment,
@@ -15,11 +20,44 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
   return s.split("**").map((text, i) => ({ text, bold: i % 2 === 1 }));
 }
 
-const sections: { title: string; entries: DatedEntry[] }[] = [
-  { title: "Appointments", entries: employment },
-  { title: "Education", entries: education },
-  { title: "Selected Awards & Honors", entries: awards },
-];
+/*
+ * Section order follows standard faculty-CV convention: appointments and
+ * education, then funded/recognized work, then scholarly output, then
+ * teaching/service/outreach, then software. Sections whose data is empty are
+ * dropped rather than rendered as empty headings — the CV only ever claims
+ * what src/data actually contains.
+ *
+ * Teaching and Software reuse the /teaching and /software data sources so the
+ * CV can never disagree with those pages.
+ */
+type CvSection =
+  | { kind: "dated"; title: string; nav: string; entries: DatedEntry[] }
+  | { kind: "pubs"; title: string; nav: string };
+
+const teachingEntries: DatedEntry[] = courses.map((c) => ({
+  role: `${c.code} — ${c.title}`,
+  date: c.when,
+}));
+
+const softwareEntries: DatedEntry[] = allPackages.map((p) => ({
+  role: p.name,
+  org: p.tagline,
+  date: STATUS_LABEL[p.status],
+  note: p.maturity,
+}));
+
+const sections: CvSection[] = (
+  [
+    { kind: "dated", title: "Appointments", nav: "Appointments", entries: employment },
+    { kind: "dated", title: "Education", nav: "Education", entries: education },
+    { kind: "dated", title: "Selected Awards & Honors", nav: "Awards", entries: awards },
+    { kind: "pubs", title: "Selected Publications", nav: "Publications" },
+    { kind: "dated", title: "Teaching", nav: "Teaching", entries: teachingEntries },
+    { kind: "dated", title: "Software", nav: "Software", entries: softwareEntries },
+  ] satisfies CvSection[]
+).filter((s) => s.kind !== "dated" || s.entries.length > 0);
+
+const navItems = sections.map((s) => ({ id: slugify(s.title), label: s.nav }));
 ---
 
 <BaseLayout
@@ -29,6 +67,8 @@ const sections: { title: string; entries: DatedEntry[] }[] = [
 >
   <PageHeader eyebrow="Curriculum Vitae" title="Curriculum Vitae">
   </PageHeader>
+
+  <SectionNav items={navItems} label="CV sections" />
 
   <section class="wrap cv-top">
     <ul class="cv-stats" role="list">
@@ -55,68 +95,71 @@ const sections: { title: string; entries: DatedEntry[] }[] = [
 
   {
     sections.map((section) => (
-      <section class="wrap cv-section" aria-labelledby={`cv-${section.title}`}>
-        <h2 id={`cv-${section.title}`} class="cv-section__title">
+      <section class="wrap cv-section" aria-labelledby={slugify(section.title)}>
+        <h2 id={slugify(section.title)} class="cv-section__title">
           {section.title}
         </h2>
-        <ul class="cv-list" role="list">
-          {section.entries.map((e) => (
-            <li class="cv-entry">
-              <div class="cv-entry__body">
-                <p class="cv-entry__role">{e.role}</p>
-                {e.org && <p class="cv-entry__org">{e.org}</p>}
-                {e.note &&
-                  (e.href ? (
-                    <p class="cv-entry__note">
-                      <a href={e.href} rel="noopener">{e.note}</a>
-                    </p>
-                  ) : (
-                    <p class="cv-entry__note">{e.note}</p>
-                  ))}
-              </div>
-              <span class="cv-entry__date">{e.date}</span>
-            </li>
-          ))}
-        </ul>
+
+        {section.kind === "dated" && (
+          <ul class="cv-list" role="list">
+            {section.entries.map((e) => (
+              <li class="cv-entry">
+                <div class="cv-entry__body">
+                  <p class="cv-entry__role">{e.role}</p>
+                  {e.org && <p class="cv-entry__org">{e.org}</p>}
+                  {e.note &&
+                    (e.href ? (
+                      <p class="cv-entry__note">
+                        <a href={e.href} rel="noopener">{e.note}</a>
+                      </p>
+                    ) : (
+                      <p class="cv-entry__note">{e.note}</p>
+                    ))}
+                </div>
+                <span class="cv-entry__date">{e.date}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {section.kind === "pubs" && (
+          <>
+            <ol class="cv-pubs" role="list">
+              {selectedPublications.map((p) => (
+                <li class="cv-pub">
+                  <p class="cv-pub__title">{p.title}</p>
+                  <p class="cv-pub__authors">
+                    {authorParts(p.authors).map((part) =>
+                      part.bold ? <strong>{part.text}</strong> : part.text,
+                    )}
+                  </p>
+                  <p class="cv-pub__meta">
+                    <span class="cv-pub__venue">
+                      {p.year} · {p.venue}
+                    </span>
+                    {p.status === "submitted" && (
+                      <span class="cv-pub__badge">submitted</span>
+                    )}
+                    {p.ads && (
+                      <a class="cv-pub__ads" href={p.ads} rel="noopener">
+                        NASA ADS ↗
+                      </a>
+                    )}
+                  </p>
+                </li>
+              ))}
+            </ol>
+            <p class="cv-note">
+              Selected first-author work — see plain-language summaries on the{" "}
+              <a href="/publications">publications page</a>, or the full record
+              of {publicationCount} on{" "}
+              <a href={cvProfile.orcid} rel="me noopener">ORCID</a>.
+            </p>
+          </>
+        )}
       </section>
     ))
   }
-
-  <section class="wrap cv-section" aria-labelledby="cv-pubs">
-    <h2 id="cv-pubs" class="cv-section__title">Selected Publications</h2>
-    <ol class="cv-pubs" role="list">
-      {
-        selectedPublications.map((p) => (
-          <li class="cv-pub">
-            <p class="cv-pub__title">{p.title}</p>
-            <p class="cv-pub__authors">
-              {authorParts(p.authors).map((part) =>
-                part.bold ? <strong>{part.text}</strong> : part.text,
-              )}
-            </p>
-            <p class="cv-pub__meta">
-              <span class="cv-pub__venue">
-                {p.year} · {p.venue}
-              </span>
-              {p.status === "submitted" && (
-                <span class="cv-pub__badge">submitted</span>
-              )}
-              {p.ads && (
-                <a class="cv-pub__ads" href={p.ads} rel="noopener">
-                  NASA ADS ↗
-                </a>
-              )}
-            </p>
-          </li>
-        ))
-      }
-    </ol>
-    <p class="cv-note">
-      Selected first-author work — see plain-language summaries on the{" "}
-      <a href="/publications">publications page</a>, or the full record of 34 on{" "}
-      <a href={cvProfile.orcid} rel="me noopener">ORCID</a>.
-    </p>
-  </section>
 </BaseLayout>
 
 <style>
@@ -179,6 +222,11 @@ const sections: { title: string; entries: DatedEntry[] }[] = [
     padding-block-end: var(--space-2xs);
     margin-block-end: var(--space-m);
     border-block-end: 1px solid var(--border);
+    /* Jumping to /cv#software must not park the heading behind the site
+       header + the sticky section nav. --header-h is published by SectionNav. */
+    scroll-margin-block-start: calc(
+      var(--header-h, 3.25rem) + var(--secnav-h, 3.5rem) + var(--space-m)
+    );
   }
 
   .cv-list {
@@ -258,5 +306,26 @@ const sections: { title: string; entries: DatedEntry[] }[] = [
     margin-block-start: var(--space-l);
     color: var(--ink-dim);
     font-size: var(--step--1);
+  }
+
+  /*
+   * Print: a CV gets printed. Because every section is one continuous
+   * document (no tabs, no hidden panels), Cmd-P already yields the whole
+   * record — this just makes it legible on paper and stops sections from
+   * splitting across a page break mid-entry.
+   */
+  @media print {
+    .cv-stats,
+    .cv-actions {
+      display: none;
+    }
+    .cv-section {
+      padding-block: var(--space-s);
+      break-inside: avoid;
+    }
+    .cv-entry,
+    .cv-pub {
+      break-inside: avoid;
+    }
   }
 </style>

@@ -1,0 +1,159 @@
+---
+/*
+ * SectionNav.astro — sticky "on this page" navigation for long documents.
+ *
+ * Deliberately NOT tabs. A CV is a document, not an app: hiding sections in
+ * panels breaks browser find-in-page, printing, and deep links. This keeps one
+ * continuous scrolling document and only adds a way to jump around it.
+ *
+ * Progressive enhancement: the markup is plain anchor links, fully functional
+ * with JavaScript disabled. The script only adds scroll-spy highlighting.
+ */
+export interface NavItem {
+  /** Fragment id of the section heading (without the leading #). */
+  id: string;
+  /** Short label shown in the chip — may be shorter than the heading itself. */
+  label: string;
+}
+
+interface Props {
+  items: NavItem[];
+  label?: string;
+}
+
+const { items, label = "On this page" } = Astro.props;
+---
+
+{
+  items.length > 1 && (
+    <nav class="secnav" aria-label={label}>
+      <div class="wrap">
+      <ul class="secnav__list" role="list">
+        {items.map((i) => (
+          <li>
+            <a class="secnav__link" href={`#${i.id}`} data-secnav={i.id}>
+              {i.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+      </div>
+    </nav>
+  )
+}
+
+<style>
+  .secnav {
+    position: sticky;
+    /* Clears the sticky site header, whose height changes when its bar wraps
+       on narrow screens — measured at runtime, with a sane static fallback. */
+    inset-block-start: var(--header-h, 3.25rem);
+    /* Below the site header, above page content. */
+    z-index: calc(var(--z-nav) - 1);
+    background: color-mix(in oklch, var(--bg-void) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-block-end: 1px solid var(--border);
+  }
+  /* NOTE: `.wrap` (the shared content-column utility) sits on a wrapper div,
+     not on this list. Astro's scoped styles are unlayered and would otherwise
+     override the utility's margin-inline/padding-inline and break alignment. */
+  .secnav__list {
+    display: flex;
+    gap: var(--space-2xs);
+    padding-block: var(--space-2xs);
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Chips stay on one line and scroll horizontally on narrow screens. */
+    white-space: nowrap;
+  }
+  .secnav__list::-webkit-scrollbar {
+    display: none;
+  }
+  .secnav__link {
+    display: inline-block;
+    padding: var(--space-3xs) var(--space-xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    transition:
+      color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out);
+  }
+  .secnav__link:hover,
+  .secnav__link:focus-visible {
+    color: var(--ink);
+    border-color: var(--border-strong);
+  }
+  .secnav__link[aria-current="true"] {
+    color: var(--spec-teal-bright);
+    border-color: color-mix(in srgb, var(--spec-teal-bright) 45%, transparent);
+  }
+
+  /* A jump-nav is meaningless on paper. */
+  @media print {
+    .secnav {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  // Publish the sticky site header's height so this nav can sit directly below
+  // it, and so section headings can reserve matching scroll-margin. The header
+  // wraps on narrow screens, so this is measured rather than hard-coded.
+  // Both bars wrap/resize, so measure rather than hard-code: a guessed constant
+  // silently leaves anchored headings tucked under the sticky chrome.
+  const measure: [string, HTMLElement | null][] = [
+    ["--header-h", document.querySelector<HTMLElement>(".site-header")],
+    ["--secnav-h", document.querySelector<HTMLElement>(".secnav")],
+  ];
+  for (const [prop, el] of measure) {
+    if (!el) continue;
+    const publish = () =>
+      document.documentElement.style.setProperty(
+        prop,
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      );
+    publish();
+    if ("ResizeObserver" in window) new ResizeObserver(publish).observe(el);
+  }
+
+  // Scroll-spy: mark the chip for the section currently nearest the top.
+  // Purely decorative — the links work without this.
+  const links = [
+    ...document.querySelectorAll<HTMLAnchorElement>("[data-secnav]"),
+  ];
+  if (links.length > 0 && "IntersectionObserver" in window) {
+    const byId = new Map(links.map((l) => [l.dataset.secnav ?? "", l]));
+    const visible = new Set<string>();
+
+    const paint = () => {
+      // Pick the first section (in document order) that is on screen, so the
+      // highlight advances predictably rather than flickering between two.
+      const current = links.find((l) => visible.has(l.dataset.secnav ?? ""));
+      for (const l of links) l.removeAttribute("aria-current");
+      current?.setAttribute("aria-current", "true");
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) visible.add(e.target.id);
+          else visible.delete(e.target.id);
+        }
+        paint();
+      },
+      // Bias the viewport upward so a heading counts as "current" once it
+      // reaches the top third, not when it first peeks in at the bottom.
+      { rootMargin: "0px 0px -66% 0px" },
+    );
+
+    for (const id of byId.keys()) {
+      const target = document.getElementById(id);
+      if (target) io.observe(target);
+    }
+  }
+</script>
