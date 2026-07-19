@@ -30,7 +30,7 @@ actually looking at when we do.
 Stellar multiplicity rises steeply with mass. Roughly a fifth of M dwarfs have a
 companion; for O stars the fraction approaches 90%.
 
-<figure class="post-fig">
+<figure class="fig-wide">
   <img src="/images/astrobytes/confidently-wrong-binaries.png"
        alt="Three panels. (a) Binary fraction as a function of primary mass, rising in steps from about 0.22 for M dwarfs to 0.9 for O stars. (b) Distribution of mass ratio q for four primary masses, showing an excess of near-equal-mass 'twin' pairs at q close to 1. (c) The true initial mass function compared with the system mass function for four environments; the two curves separate at high mass."
        width="2955" height="817" loading="lazy" />
@@ -41,7 +41,7 @@ companion; for O stars the fraction approaches 90%.
     pairs. <strong>(c)</strong> The resulting <em>system</em> mass function
     (dashed) departs from the true IMF (solid) exactly where the high-mass slope
     is measured.
-    <span class="post-fig__credit">Figure 1 of Rosen (2026), submitted.</span>
+    <span class="fig-credit">Figure 1 of Rosen (2026), submitted.</span>
   </figcaption>
 </figure>
 
@@ -62,6 +62,14 @@ relation, an idealized best case for photometry. Real surveys sit between them.
 
 Here is the uncomfortable structure of the problem.
 
+<aside class="sidenote">
+  <strong>Credible interval</strong>
+  The Bayesian analogue of an error bar: the range that contains the parameter
+  with, say, 95% probability given the data and the model. "Given the model" is
+  where the trouble enters — an interval can only account for the errors the
+  model knows about.
+</aside>
+
 The width of your credible interval shrinks as $1/\sqrt{N}$: measure more stars,
 and your quoted uncertainty gets smaller, exactly as it should. But this bias is a
 property of *what fraction of your sample is unresolved binaries*, not of how many
@@ -69,10 +77,14 @@ stars you counted. It does not shrink at all.
 
 Two quantities, one falling and one flat, must eventually cross. Past that
 crossing, the bias is larger than your entire credible interval, and the true
-value of $\alpha$ sits outside the range you report. Your measurement is precise
-and it excludes the right answer. That is the regime I call *confidently wrong*.
+value of $\alpha$ sits outside the range you report.
 
-<figure class="post-fig">
+<p class="pullquote">
+  The measurement is precise, and it excludes the right answer. That is the
+  regime I call <em>confidently wrong</em>.
+</p>
+
+<figure class="fig-wide">
   <img src="/images/astrobytes/confidently-wrong-scaling.png"
        alt="Four log-log panels, one per environment. In each, solid lines showing 95 percent credible-interval width fall along a 1 over root N line, while dotted lines showing absolute bias stay roughly flat. A shaded region marks where the naive bias exceeds the interval width."
        width="2145" height="1579" loading="lazy" />
@@ -82,7 +94,7 @@ and it excludes the right answer. That is the regime I call *confidently wrong*.
     where bias exceeds the interval — where the posterior excludes the truth.
     Binary-aware fits (blue) track the same square-root scaling, with bias
     consistent with zero.
-    <span class="post-fig__credit">Figure 4 of Rosen (2026), submitted.</span>
+    <span class="fig-credit">Figure 4 of Rosen (2026), submitted.</span>
   </figcaption>
 </figure>
 
@@ -107,7 +119,7 @@ binary population: the mass-dependent multiplicity fraction and mass-ratio
 distribution in the figure above. The binary content becomes part of the model
 instead of an unmodeled contaminant.
 
-<figure class="post-fig">
+<figure class="fig-wide">
   <img src="/images/publications/binary-imf-recovery.png"
        alt="Two panels. Left: recovered versus true slope for four environments; binary-aware estimates lie on the one-to-one line while naive estimates fall below it. Right: posterior distributions of the error; naive posteriors are shifted left of zero, binary-aware posteriors are centred on zero."
        width="2131" height="856" loading="lazy" />
@@ -115,7 +127,7 @@ instead of an unmodeled contaminant.
     Naive fits (dashed, open) sit below the one-to-one line in every environment;
     binary-aware fits (solid, filled) recover the input slope, with residual
     posteriors centred on zero.
-    <span class="post-fig__credit">Figure 3 of Rosen (2026), submitted.</span>
+    <span class="fig-credit">Figure 3 of Rosen (2026), submitted.</span>
   </figcaption>
 </figure>
 
@@ -124,7 +136,7 @@ instead of an unmodeled contaminant.
 Published high-mass slopes scatter widely, and that scatter is usually read as
 genuine environmental variation in the IMF. Some of it may be.
 
-<figure class="post-fig post-fig--tall">
+<figure class="fig-side">
   <img src="/images/astrobytes/confidently-wrong-literature.png"
        alt="Forest plot of 48 published high-mass IMF slopes with error bars, spanning roughly 1.5 to 2.8, plotted against the Salpeter value of 2.35, with shaded bands marking the predicted bias from mass-addition and luminosity-addition."
        width="1592" height="2896" loading="lazy" />
@@ -132,7 +144,7 @@ genuine environmental variation in the IMF. Some of it may be.
     48 published high-mass slopes, against Salpeter (dashed) and the bias
     predicted here (shaded bands). The offsets this work predicts, 0.01–0.09, are
     comparable to the error bars many of these measurements carry.
-    <span class="post-fig__credit">Figure 8 of Rosen (2026), submitted.</span>
+    <span class="fig-credit">Figure 8 of Rosen (2026), submitted.</span>
   </figcaption>
 </figure>
 

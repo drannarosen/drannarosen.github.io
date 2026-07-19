@@ -56,7 +56,7 @@ const fmt = (d: Date) =>
     </div>
   </div>
 
-  <article class="wrap post prose">
+  <article class="wrap editorial post">
     <Content />
   </article>
 
@@ -127,67 +127,11 @@ const fmt = (d: Date) =>
     font-size: var(--step--1);
   }
 
+  /* Layout, figures, tables and editorial elements come from
+     src/styles/editorial.css via the `editorial` class, so any future
+     long-form collection gets the same treatment for free. */
   .post {
     padding-block-end: var(--space-2xl);
-    max-inline-size: 68ch;
-  }
-
-  /* Figures are authored as raw <figure> in the Markdown body, so they are
-     styled here rather than through the Figure component. Keeping them in the
-     prose flow lets a post interleave argument and evidence. */
-  .post :global(.post-fig) {
-    margin-block: var(--space-xl);
-  }
-  .post :global(.post-fig img) {
-    display: block;
-    inline-size: 100%;
-    block-size: auto;
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
-  }
-  /* The literature forest plot is a tall portrait; cap it so it cannot run
-     away with the page on a wide screen. */
-  .post :global(.post-fig--tall img) {
-    max-block-size: 90vh;
-    inline-size: auto;
-    /* Height-driven sizing can exceed the column on a short, narrow viewport,
-       so the width cap still has to win. */
-    max-inline-size: 100%;
-    margin-inline: auto;
-  }
-  .post :global(.post-fig figcaption) {
-    margin-block-start: var(--space-2xs);
-    font-size: var(--step--1);
-    color: var(--ink-dim);
-    line-height: 1.5;
-  }
-  .post :global(.post-fig__credit) {
-    display: block;
-    margin-block-start: var(--space-3xs);
-    font-family: var(--font-mono);
-    font-size: 0.66rem;
-    color: var(--ink-faint);
-  }
-
-  .post :global(table) {
-    inline-size: 100%;
-    border-collapse: collapse;
-    margin-block: var(--space-l);
-    font-size: var(--step--1);
-  }
-  .post :global(th),
-  .post :global(td) {
-    text-align: start;
-    padding: var(--space-2xs) var(--space-s);
-    border-block-end: 1px solid var(--border);
-  }
-  .post :global(th) {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--ink-dim);
   }
 
   .post-foot {

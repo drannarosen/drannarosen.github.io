@@ -9,6 +9,7 @@
  *   tokens     → design tokens (custom properties)
  *   reset      → minimal modern reset
  *   base       → bare-element defaults
+ *   editorial  → long-form article layout (in the `components` layer)
  *   components → (scoped .astro styles)
  *   utilities  → composable helpers
  */
@@ -18,4 +19,5 @@
 @import "./tokens.css";
 @import "./reset.css";
 @import "./base.css";
+@import "./editorial.css";
 @import "./utilities.css";

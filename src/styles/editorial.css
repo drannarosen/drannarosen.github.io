@@ -1,0 +1,273 @@
+/*
+ * editorial.css — long-form article layout for Markdown-authored posts.
+ *
+ * WHY normal flow instead of a grid: a named-line grid gives clean breakout
+ * widths, but grid items cannot float, and floats are the only way to get text
+ * to WRAP alongside a figure. Anna's figures are the argument, so a tall plot
+ * with prose running beside it matters more than grid purity. Normal flow with
+ * negative-margin breakouts gives both.
+ *
+ * Widths, from narrowest out:
+ *   (default)   the reading measure — everything sits here unless it opts out
+ *   --side      floats into the outer margin; text wraps beside it
+ *   --wide      breaks out symmetrically to the wide column
+ *   --full      edge to edge
+ *
+ * Reused by any long-form collection; not specific to astrobytes.
+ */
+@layer components {
+  /*
+   * The article fills its column; only the TEXT is constrained to a measure,
+   * and it is pinned flush left so it shares a left edge with the page title
+   * and standfirst. Centring the measure instead would put the body on a
+   * different axis from the header — two competing left edges, which reads as
+   * a mistake rather than a decision.
+   *
+   * The field left over on the right is then a real margin: figures and notes
+   * live in it instead of hanging into the viewport gutter.
+   */
+  .editorial {
+    --ed-measure: var(--width-prose);
+  }
+
+  .editorial > p,
+  .editorial > h2,
+  .editorial > h3,
+  .editorial > ul,
+  .editorial > ol,
+  .editorial > blockquote,
+  .editorial > .pullquote,
+  .editorial > table,
+  .editorial > figure {
+    max-inline-size: var(--ed-measure);
+  }
+
+  /* ---------- opening ---------- */
+
+  /* The first paragraph carries a drop cap: a single deliberate editorial
+     signal at the top of the piece, then the page gets out of the way. */
+  .editorial > p:first-of-type::first-letter {
+    float: inline-start;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 3.9em;
+    line-height: 0.82;
+    padding-inline-end: 0.09em;
+    padding-block-start: 0.04em;
+    color: var(--ink);
+  }
+
+  /* ---------- headings ---------- */
+
+  .editorial h2 {
+    margin-block: var(--space-xl) var(--space-s);
+    padding-block-start: var(--space-s);
+    border-block-start: 1px solid var(--border);
+    font-size: var(--step-1);
+    letter-spacing: -0.01em;
+  }
+  .editorial h3 {
+    margin-block: var(--space-l) var(--space-2xs);
+    font-size: var(--step-0);
+    color: var(--ink-soft);
+  }
+
+  /* ---------- body ---------- */
+
+  .editorial p {
+    margin-block-end: var(--space-s);
+    line-height: 1.68;
+    text-wrap: pretty;
+  }
+  .editorial a {
+    text-decoration-color: color-mix(in srgb, var(--spec-teal-bright) 55%, transparent);
+    text-underline-offset: 0.18em;
+  }
+
+  /* ---------- pull quote ---------- */
+
+  .editorial .pullquote {
+    margin-block: var(--space-l);
+    padding-inline-start: var(--space-m);
+    border-inline-start: 2px solid var(--spec-teal-bright);
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    line-height: 1.35;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+
+  /* ---------- margin note ---------- */
+
+  /* Defines a term without breaking the sentence that needed it — useful when
+     the audience is students rather than the subfield. */
+  .editorial .sidenote {
+    float: inline-end;
+    inline-size: 14rem;
+    /* Floating to the column's right edge already lands it beyond the measure,
+       so it sits in the margin field rather than interrupting the text. */
+    margin-inline: var(--space-l) 0;
+    margin-block: var(--space-3xs) var(--space-s);
+    padding-inline-start: var(--space-2xs);
+    border-inline-start: 1px solid var(--border-strong);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--ink-dim);
+  }
+  .editorial .sidenote strong {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  /* ---------- figures ---------- */
+
+  .editorial figure {
+    margin-block: var(--space-xl);
+  }
+
+  /* Matplotlib output is white-on-dark, so it gets a deliberate plate: padding
+     inside the white, not a raw rectangle punched through the page. */
+  .editorial figure img {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    background: #fff;
+    padding: var(--space-2xs);
+    border-radius: var(--radius-m);
+    box-shadow:
+      0 0 0 1px var(--border-strong),
+      0 18px 40px -24px rgb(0 0 0 / 0.9);
+  }
+
+  .editorial figcaption {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    line-height: 1.5;
+    color: var(--ink-dim);
+    text-wrap: pretty;
+  }
+  .editorial .fig-credit {
+    display: block;
+    margin-block-start: var(--space-3xs);
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: var(--ink-faint);
+  }
+
+  /* Break out of the measure to the full column width, still flush left, so
+     multi-panel figures get the width they need without breaking the axis. */
+  .editorial > figure.fig-wide {
+    max-inline-size: 100%;
+    inline-size: 100%;
+  }
+
+  /* Float into the right-hand field so prose runs alongside — the reason this
+     layout is normal flow rather than a grid: grid items cannot float. */
+  .editorial > figure.fig-side {
+    float: inline-end;
+    inline-size: min(20rem, 42%);
+    max-inline-size: none;
+    margin-inline: var(--space-l) 0;
+    margin-block: var(--space-2xs) var(--space-m);
+  }
+  /* Deliberately NOT height-capped. Sizing a lazy-loaded image by its height
+     needs `inline-size: auto`, which has no intrinsic width before load — the
+     figure collapses and the width/height attributes stop reserving space.
+     The figure's own width cap above already bounds it. */
+  .editorial > figure.fig-side img {
+    inline-size: 100%;
+    block-size: auto;
+  }
+
+  /* Clear floats so a heading never collides with a floated figure or note. */
+  .editorial h2,
+  .editorial h3 {
+    clear: both;
+  }
+
+  /* ---------- tables ---------- */
+
+  .editorial table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    margin-block: var(--space-l);
+    font-size: var(--step--1);
+  }
+  .editorial th,
+  .editorial td {
+    text-align: start;
+    padding: var(--space-2xs) var(--space-s);
+    border-block-end: 1px solid var(--border);
+  }
+  .editorial th {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-dim);
+    font-weight: 400;
+  }
+  .editorial tbody tr:last-child td {
+    border-block-end: none;
+  }
+
+  /* ---------- narrow screens ---------- */
+
+  /* Below roughly two columns' worth of room, floats stop helping and start
+     squeezing. Everything returns to a single column. */
+  @media (max-width: 60rem) {
+    /* Specificity must match the desktop rules above (`> figure.fig-*`);
+       a media query adds none of its own, so a looser selector would lose. */
+    .editorial > figure.fig-wide,
+    .editorial > figure.fig-side {
+      float: none;
+      inline-size: 100%;
+      max-inline-size: 100%;
+      margin-inline: 0;
+    }
+    .editorial .sidenote {
+      float: none;
+      inline-size: 100%;
+      margin-inline: 0;
+    }
+    .editorial .sidenote {
+      padding-block: var(--space-2xs);
+      border-inline-start: 2px solid var(--border-strong);
+    }
+    /* Stacked full-width, a 1:1.8 portrait would be overwhelming, so on narrow
+       screens the tall figure is the one place a height cap is worth the
+       reserved-space tradeoff. */
+    .editorial > figure.fig-side img {
+      max-block-size: 80vh;
+      inline-size: auto;
+      max-inline-size: 100%;
+      margin-inline: auto;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .editorial figure img {
+      transition: box-shadow var(--dur-slow, 400ms) var(--ease-out);
+    }
+  }
+
+  /* ---------- print ---------- */
+
+  @media print {
+    .editorial .fig-side,
+    .editorial .sidenote {
+      float: none;
+      inline-size: 100%;
+      margin-inline: 0;
+    }
+    .editorial figure img {
+      box-shadow: none;
+      border: 1px solid #ccc;
+    }
+  }
+}
