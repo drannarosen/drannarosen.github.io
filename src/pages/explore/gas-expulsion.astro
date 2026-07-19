@@ -1,0 +1,118 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+import PresentFrame from "../../components/explore/PresentFrame.astro";
+---
+
+<BaseLayout
+  title="Gas expulsion — Anna Rosen"
+  description="Stellar feedback drives a cluster's natal gas outward, revealing the bare cluster — scrub the expulsion or let it play."
+  path="/explore/gas-expulsion"
+>
+  <PageHeader
+    eyebrow="Explore · interactive"
+    title="Gas expulsion"
+    lede="Massive stars don't sit quietly. Their radiation, winds, and — eventually — supernovae drive the leftover natal gas outward, unbinding the cloud and leaving the young cluster behind. Scrub through the expulsion, or press play and watch the cloud clear."
+  />
+
+  <div class="ge wrap-wide">
+    <PresentFrame label="A star cluster expelling its natal gas" hint="drag to rotate · scroll to zoom · ←/→ scrubs · space plays · F fullscreen">
+      <canvas slot="stage" data-cluster aria-label="A star cluster whose gas is driven outward, revealing the bare cluster."></canvas>
+      <div slot="controls" class="ge__controls">
+        <label class="ge__label" for="expel">
+          Expulsion <span class="ge__val" data-expel-v>playing</span>
+          <span class="ge__endpts">embedded → gas cleared</span>
+        </label>
+        <input id="expel" type="range" min="0" max="1" step="0.01" value="0" autocomplete="off" data-expel-input />
+        <label class="ge__chk"><input type="checkbox" checked autocomplete="off" data-play /> play the loop</label>
+        <p class="ge__status" data-status aria-live="polite">Loading cluster…</p>
+      </div>
+    </PresentFrame>
+
+    <div class="ge__note prose wrap">
+      <p>
+        The gas here expands <em>homologously</em> — every parcel moves outward
+        together and thins as 1/volume, so it falls below the density colorbar and
+        clears from the outside in, while the stars, now decoupled from the gas,
+        stay put. It's a schematic of expulsion, not a feedback simulation: the
+        real thing is anisotropic — champagne flows and blister breakouts along the
+        least-dense channels. That physics is what my radiation-hydrodynamics work
+        models; this piece captures the story it tells.
+      </p>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { loadScene, createEngine, attachInteraction } from "../../lib/cluster";
+
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-cluster]");
+  const slider = document.querySelector<HTMLInputElement>("[data-expel-input]");
+  const expelV = document.querySelector<HTMLSpanElement>("[data-expel-v]");
+  const play = document.querySelector<HTMLInputElement>("[data-play]");
+  const status = document.querySelector<HTMLParagraphElement>("[data-status]");
+  const frame = canvas?.closest<HTMLElement>("[data-present]");
+  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+
+  (async () => {
+    if (!canvas || !slider || !play) return;
+    try {
+      const scene = await loadScene();
+      const engine = createEngine(canvas, scene, { autoExpel: true });
+      attachInteraction(canvas, engine);
+
+      const setManual = (v: number) => {
+        const x = clamp(v);
+        play.checked = false;
+        engine.setExpel(x);
+        slider.value = String(x);
+        if (expelV) expelV.textContent = `${Math.round(x * 100)}% expelled`;
+      };
+      const setPlay = (on: boolean) => {
+        play.checked = on;
+        if (on) { engine.setExpel(null); if (expelV) expelV.textContent = "playing"; }
+        else setManual(+slider.value);
+      };
+      slider.addEventListener("input", () => setManual(+slider.value));
+      play.addEventListener("change", () => setPlay(play.checked));
+
+      frame?.addEventListener("present:next", () => setManual(+slider.value + 0.05));
+      frame?.addEventListener("present:prev", () => setManual(+slider.value - 0.05));
+      frame?.addEventListener("present:reset", () => { slider.value = "0"; setPlay(true); });
+
+      setPlay(true); // default: play the loop
+      if (status) status.textContent = "homologous expansion · real gravoturb cloud + 10,000 stars";
+    } catch (err) {
+      if (status) status.textContent = `Failed to load: ${String(err)}`;
+    }
+  })();
+</script>
+
+<style>
+  .ge { padding-block: var(--space-l) var(--space-3xl); }
+  .ge__controls { margin-block-start: var(--space-m); display: grid; gap: var(--space-2xs); }
+  .ge__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+  }
+  .ge__val { color: var(--spec-cyan, #4fd6c4); font-size: var(--step-0); }
+  .ge__endpts { color: var(--ink-dim); font-size: var(--step--2); }
+  .ge__controls input[type="range"] { inline-size: 100%; accent-color: var(--spec-cyan, #4fd6c4); }
+  .ge__chk {
+    display: flex;
+    gap: 0.4em;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    cursor: pointer;
+  }
+  .ge__chk input { accent-color: var(--spec-cyan, #4fd6c4); }
+  .ge__status { font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
+  .ge__note { margin-block-start: var(--space-xl); }
+</style>
