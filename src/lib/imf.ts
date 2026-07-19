@@ -210,7 +210,7 @@ export function sampleCluster(opts: ClusterOptions): Star[] {
       color,
       sizePx,
       baseOpacity: 0.55 + 0.45 * sizeFrac,
-      twinkles: sizeFrac > 0.35,
+      twinkles: sizeFrac > 0.18,
     });
   }
   // Painter's order: faint/back stars first, bright/front last.

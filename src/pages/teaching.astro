@@ -15,6 +15,30 @@ import { courses, learningResources } from "../data/teaching";
     lede="Scientific software does not only change how research is conducted. It changes what students are able to see, manipulate, question, and understand. My teaching and my research build the same glass-box tools."
   />
 
+  <section class="wrap te-section" aria-labelledby="learn-heading">
+    <h2 id="learn-heading" class="te-title">Learning environments &amp; documentation</h2>
+    <p class="te-lede prose">
+      Interactive tools and learner-centered documentation, so that good
+      scientific software — and the physics inside it — is open to newcomers,
+      not gated behind undocumented research code.
+    </p>
+    <ul class="te-resources" role="list">
+      {
+        learningResources.map((r) => (
+          <li class="te-resource">
+            <span class="te-resource__kind">{r.kind}</span>
+            <h3 class="te-resource__name">
+              <a href={r.url} rel="noopener">
+                {r.name} ↗
+              </a>
+            </h3>
+            <p class="te-resource__blurb">{r.blurb}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
   <section class="wrap te-section" aria-labelledby="courses-heading">
     <h2 id="courses-heading" class="te-title">Courses</h2>
     <ul class="te-courses" role="list">
@@ -35,30 +59,6 @@ import { courses, learningResources } from "../data/teaching";
               )}
             </h3>
             <p class="te-course__blurb">{c.blurb}</p>
-          </li>
-        ))
-      }
-    </ul>
-  </section>
-
-  <section class="wrap te-section" aria-labelledby="learn-heading">
-    <h2 id="learn-heading" class="te-title">Learning environments &amp; documentation</h2>
-    <p class="te-lede prose">
-      Beyond the classroom: interactive tools and learner-centered documentation
-      so that good scientific software — and the physics inside it — is open to
-      newcomers, not gated behind undocumented research code.
-    </p>
-    <ul class="te-resources" role="list">
-      {
-        learningResources.map((r) => (
-          <li class="te-resource">
-            <span class="te-resource__kind">{r.kind}</span>
-            <h3 class="te-resource__name">
-              <a href={r.url} rel="noopener">
-                {r.name} ↗
-              </a>
-            </h3>
-            <p class="te-resource__blurb">{r.blurb}</p>
           </li>
         ))
       }

@@ -81,5 +81,15 @@ export const researchQuestions: ResearchQuestion[] = [
       "Scientific software",
     ],
     related: [{ label: "The JAXSTRO ecosystem", href: "/software" }],
+    figure: {
+      src: "/images/research/gravoturb-cluster.webp",
+      alt: "Three panels: a synthetic cluster's natal gas surface density with an embedded stellar population, then the same stars placed without and with mass–gas coupling, colored by spectral type from blue O stars to red M stars.",
+      caption:
+        "A truth-known synthetic cluster generated with progenax: the natal gas surface density with an IMF-sampled stellar population (left), placed without (center) and with (right) realistic mass–gas coupling. When coupling is on, massive O/B stars preferentially trace dense gas — a controlled knob for primordial mass segregation, and exactly the kind of birth condition a differentiable model lets us test against data.",
+      credit: "A. L. Rosen · JAXSTRO (progenax). Preliminary.",
+      width: 1600,
+      height: 486,
+      preliminary: true,
+    },
   },
 ];

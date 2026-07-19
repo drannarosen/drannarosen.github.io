@@ -37,7 +37,7 @@ export function initClusterField(config: ClusterFieldConfig): () => void {
   if (!ctx) return () => {};
 
   const count = config.count ?? 520;
-  const rotationPeriod = config.rotationPeriodSec ?? 480;
+  const rotationPeriod = config.rotationPeriodSec ?? 240;
   const scaleFrac = config.scaleFrac ?? 0.32;
   const centerFrac = config.center ?? { x: 0.62, y: 0.46 };
 
@@ -88,7 +88,7 @@ export function initClusterField(config: ClusterFieldConfig): () => void {
 
       let opacity = s.baseOpacity * (0.85 + 0.15 * depth);
       if (!reduceMotion && s.twinkles) {
-        opacity *= 0.82 + 0.18 * Math.sin(timeSec * 1.3 + s.mass * 3.1);
+        opacity *= 0.68 + 0.32 * Math.sin(timeSec * 1.7 + s.mass * 3.1);
       }
       opacity = Math.min(1, Math.max(0, opacity));
 
