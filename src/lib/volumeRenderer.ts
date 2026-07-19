@@ -90,9 +90,11 @@ void main(){
   for(int i=0;i<STEPS;i++){
     vec3 sp = rom + rdm*t + 0.5;
     float d = texture(uVol, sp).r;
-    float dd = pow(d, 1.7);
+    // Steep transfer on the (log) density: the real ~2.4-dex central rise then
+    // dominates, the diffuse floor darkens, and the cubic box edges vanish.
+    float dd = pow(d, 3.2);
     float a = 1.0 - exp(-dd*uAbsorb*dt);
-    vec3 col = mix(deep, pale, dd) * dd * uEmit;  // diffuse teal -> pale core
+    vec3 col = mix(deep, pale, pow(d, 1.5)) * dd * uEmit;  // teal -> pale core
     acc += (1.0-alpha)*a*col;
     alpha += (1.0-alpha)*a;
     if(alpha>0.99) break;
@@ -225,8 +227,8 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   const uVAngle = gl.getUniformLocation(volProg, "uAngle");
   gl.useProgram(volProg);
   gl.uniform1i(gl.getUniformLocation(volProg, "uVol"), 0);
-  gl.uniform1f(gl.getUniformLocation(volProg, "uEmit"), 2.4);
-  gl.uniform1f(gl.getUniformLocation(volProg, "uAbsorb"), 9.0);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uEmit"), 4.6);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uAbsorb"), 7.5);
   const uSAngle = gl.getUniformLocation(starProg, "uAngle");
   const uSBox = gl.getUniformLocation(starProg, "uBox");
   const uSPix = gl.getUniformLocation(starProg, "uPix");
