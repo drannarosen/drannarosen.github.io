@@ -1,158 +1,237 @@
 /*
- * volumeRenderer.ts — WebGL2 raymarch of Anna's real gravoturb density cube.
+ * volumeRenderer.ts — WebGL2 raymarch of Anna's real gravoturb density cube,
+ * with the cluster stars rendered as 3D points inside it.
  *
- * Uploads the 128^3 uint8 density volume (from export_cluster.py) as a 3D
- * texture and ray-marches it in a fragment shader: a genuine rotating 3D
- * turbulent nebula, trilinearly smoothed, with the density gradient visible
- * from every angle. Emission is a restrained teal; absorption gives depth.
+ * The volume is uploaded as a 3D texture (uint8, visually lossless for a
+ * color-mapped field) and ray-marched with emission/absorption. Stars share the
+ * SAME analytic camera + rotation so they sit correctly inside the gas.
  *
- * Lifecycle mirrors the canvas renderers: DPR cap, resize, reduced-motion,
- * pause when hidden/offscreen, cleanup(). Fails gracefully without WebGL2.
+ * Lifecycle: DPR cap, resize, reduced-motion, pause when hidden/offscreen,
+ * initial static frame, cleanup(). Fails gracefully without WebGL2.
  */
 
-export interface VolumeData {
-  data: Uint8Array; // ngrid^3, C-order (i,j,k)
+export interface Scene {
+  volume: Uint8Array; // ngrid^3, C-order
   ngrid: number;
+  stars: Float32Array; // n*6: x,y,z,mass,teff,radius (pc, Msun, K, Rsun)
+  box: number; // pc
 }
 
-export async function loadVolume(base = "/data/gravoturb"): Promise<VolumeData> {
-  const [meta, buf] = await Promise.all([
+export async function loadScene(base = "/data/gravoturb"): Promise<Scene> {
+  const [meta, volBuf, starBuf] = await Promise.all([
     fetch(`${base}/meta.json`).then((r) => r.json()),
     fetch(`${base}/volume.u8`).then((r) => r.arrayBuffer()),
+    fetch(`${base}/stars.f32`).then((r) => r.arrayBuffer()),
   ]);
-  return { data: new Uint8Array(buf), ngrid: meta.volume_ngrid };
+  return {
+    volume: new Uint8Array(volBuf),
+    ngrid: meta.volume_ngrid,
+    stars: new Float32Array(starBuf),
+    box: meta.box_pc,
+  };
 }
 
-const VERT = `#version 300 es
-precision highp float;
-const vec2 verts[3] = vec2[3](vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0));
-void main() { gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0); }
-`;
+/* Anna's spectral palette, interpolated in log-Teff (matches clusterArt). */
+const SPEC_LOGT = [2980, 4386, 5586, 6708, 8660, 17320, 40620].map(Math.log10);
+const SPEC_RGB: [number, number, number][] = [
+  [194, 74, 40], [232, 121, 31], [243, 201, 90], [247, 243, 226],
+  [205, 217, 255], [154, 184, 255], [129, 114, 255],
+];
+function spectralRGB(teff: number): [number, number, number] {
+  const t = Math.log10(Math.min(55000, Math.max(2400, teff)));
+  if (t <= SPEC_LOGT[0]) return SPEC_RGB[0];
+  const last = SPEC_LOGT.length - 1;
+  if (t >= SPEC_LOGT[last]) return SPEC_RGB[last];
+  let i = 0;
+  while (i < last && t > SPEC_LOGT[i + 1]) i++;
+  const f = (t - SPEC_LOGT[i]) / (SPEC_LOGT[i + 1] - SPEC_LOGT[i]);
+  const a = SPEC_RGB[i], b = SPEC_RGB[i + 1];
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+}
 
-const FRAG = `#version 300 es
+/* ── shaders ─────────────────────────────────────────────────────── */
+const FULLSCREEN_VS = `#version 300 es
+precision highp float;
+const vec2 v[3] = vec2[3](vec2(-1.,-1.), vec2(3.,-1.), vec2(-1.,3.));
+void main(){ gl_Position = vec4(v[gl_VertexID], 0., 1.); }`;
+
+const VOLUME_FS = `#version 300 es
 precision highp float;
 precision highp sampler3D;
 out vec4 outColor;
-
 uniform sampler3D uVol;
 uniform vec2 uRes;
-uniform float uAngle;   // rotation about Y
-uniform float uEmit;    // emission strength
-uniform float uAbsorb;  // absorption strength
+uniform float uAngle, uEmit, uAbsorb;
 
-// ray-box intersection for the unit cube centered at origin, half-size 0.5
-bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1) {
-  vec3 inv = 1.0 / rd;
-  vec3 a = (vec3(-0.5) - ro) * inv;
-  vec3 b = (vec3( 0.5) - ro) * inv;
-  vec3 tmin = min(a, b), tmax = max(a, b);
-  t0 = max(max(tmin.x, tmin.y), tmin.z);
-  t1 = min(min(tmax.x, tmax.y), tmax.z);
-  return t1 > max(t0, 0.0);
+bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1){
+  vec3 inv = 1.0/rd;
+  vec3 a=(vec3(-0.5)-ro)*inv, b=(vec3(0.5)-ro)*inv;
+  vec3 lo=min(a,b), hi=max(a,b);
+  t0=max(max(lo.x,lo.y),lo.z); t1=min(min(hi.x,hi.y),hi.z);
+  return t1>max(t0,0.0);
 }
+mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
 
-mat3 rotY(float a){ float c=cos(a), s=sin(a); return mat3(c,0.0,s, 0.0,1.0,0.0, -s,0.0,c); }
-
-void main() {
-  vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y; // aspect-correct, y up
-  // simple perspective camera looking down -z at the cube
-  vec3 ro = vec3(0.0, 0.0, 1.7);
-  vec3 rd = normalize(vec3(uv * 1.15, -1.6));
-  mat3 R = rotY(uAngle);
-
-  float t0, t1;
-  if (!hitBox(ro, rd, t0, t1)) { outColor = vec4(0.0); return; }
-
-  const int STEPS = 96;
-  float dt = (t1 - t0) / float(STEPS);
-  // dither the start to kill slice banding
-  float seed = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453);
-  float t = t0 + dt * seed;
-
-  vec3 teal = vec3(0.32, 0.86, 0.80);
-  vec3 accum = vec3(0.0);
-  float alpha = 0.0;
-  for (int i = 0; i < STEPS; i++) {
-    vec3 p = ro + rd * t;              // world point in the cube
-    vec3 sp = R * p + 0.5;            // rotate, then to [0,1] texcoords
-    float d = texture(uVol, sp).r;    // density 0..1
-    float dd = pow(d, 2.4);           // contrast: reveal filaments
-    float a = 1.0 - exp(-dd * uAbsorb * dt);   // per-step opacity (Beer-Lambert)
-    vec3 c = teal * dd * uEmit;                 // teal emission ∝ density
-    accum += (1.0 - alpha) * a * c;             // front-to-back compositing
-    alpha += (1.0 - alpha) * a;
-    if (alpha > 0.99) break;
+void main(){
+  vec2 uv = (gl_FragCoord.xy - 0.5*uRes)/uRes.y;
+  vec3 ro = vec3(0.,0.,1.7);
+  vec3 rd = normalize(vec3(uv*1.15, -1.6));
+  // rotate ray into the (static) volume's model space
+  mat3 Rinv = rotY(-uAngle);
+  vec3 rom = Rinv*ro, rdm = Rinv*rd;
+  float t0,t1;
+  if(!hitBox(rom, rdm, t0, t1)){ outColor=vec4(0.); return; }
+  const int STEPS=112;
+  float dt=(t1-t0)/float(STEPS);
+  float seed=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);
+  float t=t0+dt*seed;
+  vec3 acc=vec3(0.); float alpha=0.;
+  vec3 deep=vec3(0.10,0.42,0.44), pale=vec3(0.55,0.95,0.92);
+  for(int i=0;i<STEPS;i++){
+    vec3 sp = rom + rdm*t + 0.5;
+    float d = texture(uVol, sp).r;
+    float dd = pow(d, 1.7);
+    float a = 1.0 - exp(-dd*uAbsorb*dt);
+    vec3 col = mix(deep, pale, dd) * dd * uEmit;  // diffuse teal -> pale core
+    acc += (1.0-alpha)*a*col;
+    alpha += (1.0-alpha)*a;
+    if(alpha>0.99) break;
     t += dt;
   }
-  outColor = vec4(accum, alpha);
-}
-`;
+  outColor = vec4(acc, alpha);
+}`;
+
+const STAR_VS = `#version 300 es
+precision highp float;
+in vec3 aPos;    // pc
+in vec3 aColor;  // 0..1
+in float aSize;  // sqrt(radius) scale
+uniform float uAngle, uBox, uPix;
+out vec3 vColor;
+mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
+void main(){
+  vec3 P = rotY(-uAngle) * (aPos / uBox);   // normalized, rotated to world
+  float denom = 1.7 - P.z;
+  float clipx = (P.x*1.6/1.15)/denom;
+  float clipy = (P.y*1.6/1.15)/denom;
+  // clipx above is in uv units; convert to NDC (uv normalized by height)
+  gl_Position = vec4(clipx*2.0, clipy*2.0, 0.0, 1.0);
+  gl_PointSize = clamp(aSize * uPix / denom, 1.0, 42.0);
+  vColor = aColor;
+}`;
+
+const STAR_FS = `#version 300 es
+precision highp float;
+in vec3 vColor;
+out vec4 outColor;
+void main(){
+  float r = length(gl_PointCoord - 0.5);
+  float a = smoothstep(0.5, 0.0, r);      // soft round point
+  float core = smoothstep(0.28, 0.0, r);  // bright center
+  vec3 c = vColor*a + vec3(a*a*0.35) + vec3(core*0.5);
+  outColor = vec4(c, a);
+}`;
 
 function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader | null {
-  const s = gl.createShader(type);
-  if (!s) return null;
+  const s = gl.createShader(type)!;
   gl.shaderSource(s, src);
   gl.compileShader(s);
   if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-    console.error("shader compile:", gl.getShaderInfoLog(s));
-    gl.deleteShader(s);
+    console.error("shader:", gl.getShaderInfoLog(s));
     return null;
   }
   return s;
+}
+function program(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram | null {
+  const v = compile(gl, gl.VERTEX_SHADER, vs);
+  const f = compile(gl, gl.FRAGMENT_SHADER, fs);
+  if (!v || !f) return null;
+  const p = gl.createProgram()!;
+  gl.attachShader(p, v);
+  gl.attachShader(p, f);
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    console.error("link:", gl.getProgramInfoLog(p));
+    return null;
+  }
+  return p;
 }
 
 export interface VolumeOptions {
   rotationPeriodSec?: number;
   reducedMotion?: boolean;
 }
-
 const MAX_DPR = 1.5;
 
-export function initVolume(
-  canvas: HTMLCanvasElement,
-  vol: VolumeData,
-  opts: VolumeOptions = {},
-): () => void {
+export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeOptions = {}): () => void {
   const gl = canvas.getContext("webgl2", { alpha: true, premultipliedAlpha: true });
   if (!gl) {
-    console.warn("WebGL2 unavailable — volume not rendered");
+    console.warn("WebGL2 unavailable");
     return () => {};
   }
 
-  const vs = compile(gl, gl.VERTEX_SHADER, VERT);
-  const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
-  const prog = gl.createProgram();
-  if (!vs || !fs || !prog) return () => {};
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.error("link:", gl.getProgramInfoLog(prog));
-    return () => {};
-  }
-  gl.useProgram(prog);
+  const volProg = program(gl, FULLSCREEN_VS, VOLUME_FS);
+  const starProg = program(gl, STAR_VS, STAR_FS);
+  if (!volProg || !starProg) return () => {};
 
-  // upload the density cube as a 3D texture (R8, trilinear)
+  // 3D density texture
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_3D, tex);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-  const N = vol.ngrid;
-  gl.texImage3D(gl.TEXTURE_3D, 0, gl.R8, N, N, N, 0, gl.RED, gl.UNSIGNED_BYTE, vol.data);
+  const N = scene.ngrid;
+  gl.texImage3D(gl.TEXTURE_3D, 0, gl.R8, N, N, N, 0, gl.RED, gl.UNSIGNED_BYTE, scene.volume);
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
 
-  const uRes = gl.getUniformLocation(prog, "uRes");
-  const uAngle = gl.getUniformLocation(prog, "uAngle");
-  const uEmit = gl.getUniformLocation(prog, "uEmit");
-  const uAbsorb = gl.getUniformLocation(prog, "uAbsorb");
-  gl.uniform1i(gl.getUniformLocation(prog, "uVol"), 0);
-  gl.uniform1f(uEmit, 1.6);
-  gl.uniform1f(uAbsorb, 14.0);
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // premultiplied over the page
+  // star buffer: interleaved [x,y,z, r,g,b, size]
+  const n = scene.stars.length / 6;
+  const sbuf = new Float32Array(n * 7);
+  for (let i = 0; i < n; i++) {
+    const o = i * 6;
+    const teff = scene.stars[o + 4];
+    const radius = scene.stars[o + 5];
+    const [r, g, b] = spectralRGB(teff);
+    const q = i * 7;
+    sbuf[q] = scene.stars[o];
+    sbuf[q + 1] = scene.stars[o + 1];
+    sbuf[q + 2] = scene.stars[o + 2];
+    sbuf[q + 3] = r / 255;
+    sbuf[q + 4] = g / 255;
+    sbuf[q + 5] = b / 255;
+    sbuf[q + 6] = Math.sqrt(Math.min(30, Math.max(0.05, radius)));
+  }
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const vbo = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, sbuf, gl.STATIC_DRAW);
+  const stride = 7 * 4;
+  const aPos = gl.getAttribLocation(starProg, "aPos");
+  const aColor = gl.getAttribLocation(starProg, "aColor");
+  const aSize = gl.getAttribLocation(starProg, "aSize");
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+  gl.enableVertexAttribArray(aColor);
+  gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, stride, 12);
+  gl.enableVertexAttribArray(aSize);
+  gl.vertexAttribPointer(aSize, 1, gl.FLOAT, false, stride, 24);
+  gl.bindVertexArray(null);
+
+  // uniforms
+  const uRes = gl.getUniformLocation(volProg, "uRes");
+  const uVAngle = gl.getUniformLocation(volProg, "uAngle");
+  gl.useProgram(volProg);
+  gl.uniform1i(gl.getUniformLocation(volProg, "uVol"), 0);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uEmit"), 2.4);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uAbsorb"), 9.0);
+  const uSAngle = gl.getUniformLocation(starProg, "uAngle");
+  const uSBox = gl.getUniformLocation(starProg, "uBox");
+  const uSPix = gl.getUniformLocation(starProg, "uPix");
+  gl.useProgram(starProg);
+  gl.uniform1f(uSBox, scene.box);
 
   const rotationPeriod = opts.rotationPeriodSec ?? 150;
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -165,29 +244,35 @@ export function initVolume(
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
     gl!.viewport(0, 0, canvas.width, canvas.height);
-    gl!.uniform2f(uRes, canvas.width, canvas.height);
   }
 
   function draw(angle: number): void {
-    gl!.uniform1f(uAngle, angle);
     gl!.clearColor(0, 0, 0, 0);
     gl!.clear(gl!.COLOR_BUFFER_BIT);
+    gl!.enable(gl!.BLEND);
+    // volume: premultiplied "over"
+    gl!.useProgram(volProg);
+    gl!.blendFunc(gl!.ONE, gl!.ONE_MINUS_SRC_ALPHA);
+    gl!.uniform2f(uRes, canvas.width, canvas.height);
+    gl!.uniform1f(uVAngle, angle);
+    gl!.bindTexture(gl!.TEXTURE_3D, tex);
     gl!.drawArrays(gl!.TRIANGLES, 0, 3);
+    // stars: additive, on top
+    gl!.useProgram(starProg);
+    gl!.blendFunc(gl!.ONE, gl!.ONE);
+    gl!.uniform1f(uSAngle, angle);
+    gl!.uniform1f(uSPix, canvas.height * 0.018);
+    gl!.bindVertexArray(vao);
+    gl!.drawArrays(gl!.POINTS, 0, n);
+    gl!.bindVertexArray(null);
   }
 
   /* ── lifecycle ─────────────────────────────────────────────────── */
-  let raf = 0;
-  let running = false;
-  let onScreen = true;
-  let startT: number | null = null;
-
+  let raf = 0, running = false, onScreen = true, startT: number | null = null;
   function frame(now: number): void {
     if (startT === null) startT = now;
     draw((2 * Math.PI * (now - startT)) / 1000 / rotationPeriod);
-    if (reduceMotion) {
-      running = false;
-      return;
-    }
+    if (reduceMotion) { running = false; return; }
     raf = requestAnimationFrame(frame);
   }
   function play(): void {
@@ -200,26 +285,15 @@ export function initVolume(
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
   }
-
-  const io = new IntersectionObserver(
-    (e) => {
-      onScreen = e[0]?.isIntersecting ?? true;
-      if (onScreen) play();
-      else stop();
-    },
-    { threshold: 0 },
-  );
-  function onVisibility(): void {
-    if (document.hidden) stop();
-    else play();
-  }
-  function onResize(): void {
-    resize();
-    if (!running) draw(reduceMotion ? 0.6 : startT === null ? 0.6 : (performance.now() - startT) / 1000 / rotationPeriod * 2 * Math.PI);
-  }
+  const io = new IntersectionObserver((e) => {
+    onScreen = e[0]?.isIntersecting ?? true;
+    if (onScreen) play(); else stop();
+  }, { threshold: 0 });
+  function onVisibility(): void { if (document.hidden) stop(); else play(); }
+  function onResize(): void { resize(); if (!running) draw(0.6); }
 
   resize();
-  draw(0.6); // initial static frame (never blank)
+  draw(0.6);
   io.observe(canvas);
   window.addEventListener("resize", onResize, { passive: true });
   document.addEventListener("visibilitychange", onVisibility);
@@ -231,6 +305,7 @@ export function initVolume(
     window.removeEventListener("resize", onResize);
     document.removeEventListener("visibilitychange", onVisibility);
     gl!.deleteTexture(tex);
-    gl!.deleteProgram(prog);
+    gl!.deleteProgram(volProg);
+    gl!.deleteProgram(starProg);
   };
 }

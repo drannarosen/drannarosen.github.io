@@ -21,16 +21,19 @@ import PageHeader from "../components/PageHeader.astro";
 </BaseLayout>
 
 <script>
-  import { loadVolume, initVolume } from "../lib/volumeRenderer";
+  import { loadScene, initScene } from "../lib/volumeRenderer";
 
   const status = document.querySelector<HTMLParagraphElement>("[data-status]");
   const canvas = document.querySelector<HTMLCanvasElement>("[data-volume]");
 
   (async () => {
     try {
-      const vol = await loadVolume();
-      if (canvas) initVolume(canvas, vol);
-      if (status) status.textContent = `volume ${vol.ngrid}³ · ${(vol.data.length / 1048576).toFixed(1)} MB in memory`;
+      const scene = await loadScene();
+      if (canvas) initScene(canvas, scene);
+      if (status) {
+        const stars = scene.stars.length / 6;
+        status.textContent = `volume ${scene.ngrid}³ + ${stars.toLocaleString()} stars · ${(scene.volume.length / 1048576).toFixed(1)} MB`;
+      }
     } catch (err) {
       if (status) status.textContent = `Failed: ${String(err)}`;
     }
