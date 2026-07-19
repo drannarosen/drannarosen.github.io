@@ -78,6 +78,24 @@ Manage the background dev server with `astro dev stop`, `astro dev status`,
 - Never fabricate publications, students, grants, collaborators, or software
   claims. Use clearly-labeled provisional records where needed to exercise the
   content system.
+- Write in the **first person**. This is Anna's own site: "I build…", not
+  "Anna Rosen builds…". Names stay in metadata (`og:site_name`, `author`,
+  `reviewedBy`) so provenance remains machine-readable.
+
+## Naming
+
+Settled 2026-07-19; do not "correct" these back.
+
+| form | use |
+| --- | --- |
+| **Jaxstro** | the ecosystem, in prose. Title case, never `JAXSTRO` or `JAXstro` |
+| `jaxstro` | the foundation package, in code/monospace — as with `progenax`, `gravax`, `startrax`, `fluxax`, `informax` |
+| **JAX** | the library only, e.g. "JAX-native", "collisional dynamics in JAX" |
+
+Why: the `-ax` suffix already signals the JAX ecosystem, so the name does not
+need to shout it; all-caps reads as an acronym and invites "what does it stand
+for?"; and internal caps would make `JAXstro` the only package in the family
+with a capital, right above five lowercase siblings on `/software`.
 
 ## Astro documentation
 

@@ -35,42 +35,19 @@ import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/
   <section class="wrap sw-packages" aria-labelledby="pkg-heading">
     <h2 id="pkg-heading" class="sw-section-title">The packages</h2>
 
-    {/* The foundation is set apart because it is not a peer of the pipeline
-        stages — everything below composes on top of it. */}
-    <article class="pkg pkg--foundation" id={`pkg-${foundation.name}`}>
-      <div class="pkg__rail">
-        <span class="pkg__stage">{foundation.stage}</span>
-      </div>
-      <div class="pkg__body">
-        <h3 class="pkg__name">
-          {foundation.docs ? (
-            <a href={foundation.docs} rel="noopener">{foundation.name}</a>
-          ) : foundation.name}
-        </h3>
-        <p class="pkg__tagline">{foundation.tagline}</p>
-        <p class="pkg__desc">{foundation.description}</p>
-        <div class="pkg__foot">
-          <span class="meter" title={foundation.maturity} aria-label={`Readiness: ${READINESS_LABEL[foundation.readiness]}`}>
-            {[1, 2, 3].map((i) => (
-              <span class:list={["meter__step", i <= READINESS_STEPS[foundation.readiness] && "is-on"]} />
-            ))}
-            <span class="meter__label">{READINESS_LABEL[foundation.readiness]}</span>
-          </span>
-          {foundation.maturity && <span class="pkg__note">{foundation.maturity}</span>}
-          {foundation.docs && <a class="pkg__link" href={foundation.docs} rel="noopener">Preview docs ↗</a>}
-        </div>
-      </div>
-    </article>
-
-    {/* The pipeline reads top-to-bottom in flow order. A three-column card grid
-        broke that chain across a row boundary, which was the main thing wrong
-        with the previous layout. */}
+    {/* One list, foundation first as 00. It was a separate boxed card, which
+        gave it visual weight that fought the chain below it; numbering it 00
+        keeps the distinction (it is not a stage, it is what the stages stand
+        on) without a second layout. */}
     <ol class="pipeline" role="list">
       {
-        pipeline.map((pkg, i) => (
-          <li class="pkg pkg--stage" id={`pkg-${pkg.name}`}>
+        [foundation, ...pipeline].map((pkg, i) => (
+          <li
+            class:list={["pkg", i === 0 ? "pkg--base" : "pkg--stage"]}
+            id={`pkg-${pkg.name}`}
+          >
             <div class="pkg__rail">
-              <span class="pkg__num">{String(i + 1).padStart(2, "0")}</span>
+              <span class="pkg__num">{String(i).padStart(2, "0")}</span>
               <span class="pkg__stage">{pkg.stage}</span>
             </div>
             <div class="pkg__body">
@@ -80,7 +57,11 @@ import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/
               <p class="pkg__tagline">{pkg.tagline}</p>
               <p class="pkg__desc">{pkg.description}</p>
               <div class="pkg__foot">
-                <span class="meter" title={pkg.maturity} aria-label={`Readiness: ${READINESS_LABEL[pkg.readiness]}`}>
+                <span
+                  class="meter"
+                  title={pkg.maturity}
+                  aria-label={`Readiness: ${READINESS_LABEL[pkg.readiness]}`}
+                >
                   {[1, 2, 3].map((n) => (
                     <span class:list={["meter__step", n <= READINESS_STEPS[pkg.readiness] && "is-on"]} />
                   ))}
@@ -138,12 +119,10 @@ import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/
     padding-block: var(--space-m);
     scroll-margin-block-start: var(--space-xl);
   }
-  .pkg--foundation {
-    padding: var(--space-m);
-    background: var(--bg-deep);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
-    margin-block-end: var(--space-l);
+  /* 00 is the substrate, not a step, so the connecting rail below starts at
+     01 and this row reads as the ground the chain stands on. */
+  .pkg--base .pkg__num {
+    color: var(--ink-faint);
   }
 
   .pipeline {
