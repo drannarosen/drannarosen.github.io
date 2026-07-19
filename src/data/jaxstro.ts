@@ -48,6 +48,19 @@ export interface JaxstroPackage {
   readiness: Readiness;
   repo?: string | null;
   docs?: string | null;
+  /**
+   * Optional proof-of-concept figure: evidence the package does what it claims,
+   * without publishing a scientific result. `preliminary` is not decoration —
+   * it mirrors `production_validated: false` in gravax's own provenance record.
+   */
+  figure?: {
+    src: string;
+    alt: string;
+    caption: string;
+    width: number;
+    height: number;
+    preliminary?: boolean;
+  };
 }
 
 export const STATUS_LABEL: Record<PackageStatus, string> = {
@@ -95,6 +108,15 @@ export const pipeline: JaxstroPackage[] = [
     maturity: "In active development",
     repo: null,
     docs: null,
+    figure: {
+      src: "/images/software/gravax-eff-imf-n512.webp",
+      alt: "Three panels. (a) A 512-star cluster in the x-y plane, points sized and coloured by stellar mass, with half-mass radii marked at t=0 and after three crossing times, and a central massive binary. (b) Cluster and binary scales versus time in units of the half-mass crossing time: the half-mass and 90-percent radii expand while the binary semimajor axis contracts in discrete steps. (c) Autodiff derivatives plotted against finite-difference derivatives for ten clusters, lying on the one-to-one line, with residuals of order 1e-9 in an inset.",
+      caption:
+        "A 512-star EFF cluster with a 31+28 M\u2609 hard binary, evolved for three half-mass crossing times. The binary hardens from 1000 to 896 AU while the cluster expands, and relative energy drift stays below 2\u00d710\u207b\u2075. Panel (c) is the point: autodiff gradients match finite differences to ~10\u207b\u2079, so the differentiability claim is measured, not asserted.",
+      width: 2518,
+      height: 1888,
+      preliminary: true,
+    },
   },
   {
     name: "startrax",

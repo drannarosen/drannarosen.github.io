@@ -71,6 +71,25 @@ import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/
                 {pkg.repo && <a class="pkg__link" href={pkg.repo} rel="noopener">Repository ↗</a>}
                 {pkg.docs && <a class="pkg__link" href={pkg.docs} rel="noopener">Preview docs ↗</a>}
               </div>
+
+              {pkg.figure && (
+                <figure class="pkg__fig">
+                  <img
+                    src={pkg.figure.src}
+                    alt={pkg.figure.alt}
+                    width={pkg.figure.width}
+                    height={pkg.figure.height}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <figcaption>
+                    {pkg.figure.preliminary && (
+                      <span class="pkg__prelim">Preliminary</span>
+                    )}
+                    {pkg.figure.caption}
+                  </figcaption>
+                </figure>
+              )}
             </div>
           </li>
         ))
@@ -208,6 +227,44 @@ import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/
   .pkg__link {
     font-family: var(--font-mono);
     font-size: var(--step--1);
+  }
+
+  /* Proof of concept: evidence the package works, not a scientific result. */
+  .pkg__fig {
+    margin-block-start: var(--space-m);
+  }
+  .pkg__fig img {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    background: #fff;
+    padding: var(--space-2xs);
+    border-radius: var(--radius-m);
+    box-shadow:
+      0 0 0 1px var(--border-strong),
+      0 18px 40px -24px rgb(0 0 0 / 0.9);
+  }
+  .pkg__fig figcaption {
+    margin-block-start: var(--space-2xs);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--ink-dim);
+    max-inline-size: 68ch;
+  }
+  /* Not decoration: this mirrors production_validated=false in the run's own
+     provenance record, so it must be impossible to miss. */
+  .pkg__prelim {
+    display: inline-block;
+    margin-inline-end: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: color-mix(in srgb, var(--spec-rose) 82%, white);
+    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
+    border-radius: 999px;
+    padding: 1px 7px;
+    vertical-align: 1px;
   }
 
   /* Readiness is what actually differs between packages; status does not. */

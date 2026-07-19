@@ -43,6 +43,16 @@
       "width": 1592,
       "height": 2896,
       "sha256": "5e8c9bf0776ce24f1497798c80b26ce08fecdb42fab3732d3957ae4ad6d9e9fa"
+    },
+    {
+      "path": "images/software/gravax-eff-imf-n512.webp",
+      "origin": "jaxstro-dev/gravax",
+      "script": "validation/preview/clusters/eff-imf-n512-proposal/2026-07-19-preview",
+      "paperFigure": "gravax preview run (N=512 EFF cluster, 3 crossing times)",
+      "width": 2518,
+      "height": 1888,
+      "sha256": "b0d877141b39b5be6a8136af3d61daadf0a0909913f54eb3b832f2826ded8c10",
+      "note": "PRELIMINARY. gravax's own provenance.json records production_validated=false: this is a preview run, not a production-validated result. config sha256 dfed5f7e…, IC sha256 39d42ceb…, JAX 0.10.2, CPU, seed 2213."
     }
   ]
 }
