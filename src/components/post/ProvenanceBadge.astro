@@ -21,8 +21,8 @@ interface Props {
 const { provenance: p, compact } = Astro.props;
 
 const LABEL: Record<Props["provenance"]["authorship"], string> = {
-  human: "Written by Anna Rosen",
-  "ai-drafted": "AI-drafted · reviewed by a human",
+  human: "Written by me",
+  "ai-drafted": "AI-drafted · reviewed by me",
   "machine-generated": "Machine-generated · not individually reviewed",
 };
 
@@ -52,9 +52,11 @@ const fmt = (d: Date) =>
         )}
         {p.reviewedBy && (
           <>
-            <dt>Reviewed by</dt>
+            <dt>Reviewed</dt>
             <dd>
-              {p.reviewedBy}
+              {/* `reviewedBy` stays a name in the data for provenance; the page
+                  speaks in Anna's own voice. */}
+              {p.reviewedBy === "Anna Rosen" ? "by me" : `by ${p.reviewedBy}`}
               {p.reviewedOn && <> · {fmt(p.reviewedOn)}</>}
             </dd>
           </>
