@@ -1,42 +1,48 @@
 {
   "_comment": "HUMAN-OWNED. Where each published figure came from, plus a sha256 of the exact file served. `pnpm check:figures` recomputes the hashes and fails if a figure changed without this record being updated — the site's copy of a paper figure cannot drift silently.",
-
   "_limits": [
     "This verifies the file has not changed since it was recorded. It does NOT",
     "re-run the paper's figure scripts — those live in a private repo with",
     "untracked data. When a figure is regenerated, update `sha256` and `note`",
     "in the same commit that replaces the image."
   ],
-
   "figures": [
     {
-      "path": "images/astrobytes/confidently-wrong-binaries.png",
+      "path": "images/astrobytes/confidently-wrong-binaries.webp",
       "origin": "rosen-binary-imf-2026",
       "script": "scripts/figure_1_binary_model.py",
       "paperFigure": "Figure 1",
-      "sha256": "298b4dcb0c57946ccd204a2d44b0f5bef6b88c02442931c7dc3b9aba62f4d02c"
+      "width": 2955,
+      "height": 817,
+      "sha256": "fb24039a92f9ab4fe18de0204415105b650a78bdb2aa703f2ba3b7a440898cd6"
     },
     {
-      "path": "images/astrobytes/confidently-wrong-scaling.png",
+      "path": "images/astrobytes/confidently-wrong-scaling.webp",
       "origin": "rosen-binary-imf-2026",
       "script": "scripts/figure_4_scaling.py",
       "paperFigure": "Figure 4",
-      "sha256": "db09d306ea7cf0af1e73c72bbb268a4da9e12ecd816f6cd7394ba57b0bb091be",
+      "width": 2145,
+      "height": 1579,
+      "sha256": "ef058071b1881a5d22b18318051ed58f449ba6c4be866140360ce96e97889ab8",
       "note": "Corrected build: the arXiv version renders a literal '95\\%' in the y-axis label and footer. Regenerated 2026-07-19 after a two-line fix; verified no pixel inside any data panel changed."
     },
     {
-      "path": "images/publications/binary-imf-recovery.png",
+      "path": "images/publications/binary-imf-recovery.webp",
       "origin": "rosen-binary-imf-2026",
       "script": "scripts/figure_3_recovery.py",
       "paperFigure": "Figure 3",
-      "sha256": "039e71a7ac99997e96c3f97aebda50f8d792605d6725fd07c5895259581df6cf"
+      "width": 2131,
+      "height": 856,
+      "sha256": "51ab3683d90f2d71a0a370590c596de05d0e6fad076d046d5862a539fd0a921b"
     },
     {
-      "path": "images/astrobytes/confidently-wrong-literature.png",
+      "path": "images/astrobytes/confidently-wrong-literature.webp",
       "origin": "rosen-binary-imf-2026",
       "script": "scripts/figure_8_literature.py",
       "paperFigure": "Figure 8",
-      "sha256": "3ecbf9f9a9867dea93f6329192a7a50110a792f3cc9e28946fac63453a69f15f"
+      "width": 1592,
+      "height": 2896,
+      "sha256": "5e8c9bf0776ce24f1497798c80b26ce08fecdb42fab3732d3957ae4ad6d9e9fa"
     }
   ]
 }
