@@ -4,11 +4,39 @@ import PageHeader from "../components/PageHeader.astro";
 import Figure from "../components/Figure.astro";
 import { cvProfile } from "../data/cv";
 import { featuredPublications } from "../data/publications";
-import { byYear, workUrl, publicationCount } from "../data/allPublications";
+import {
+  byYear,
+  workUrl,
+  authorLine,
+  publicationCount,
+  firstAuthored,
+  coAuthored,
+  unresolvedAuthorship,
+  type SyncedWork,
+} from "../data/allPublications";
 
 function authorParts(s: string): { text: string; bold: boolean }[] {
   return s.split("**").map((text, i) => ({ text, bold: i % 2 === 1 }));
 }
+
+/*
+ * The bibliography is SPLIT rather than filtered: first-author vs co-authored
+ * is the one division every reader wants, so making them click for it is pure
+ * friction. Both groups render into the page, so find-in-page, printing and
+ * JS-disabled browsing all see the complete record; the scope control below
+ * only narrows what is shown, and defaults to showing everything.
+ *
+ * Papers whose authorship could not be resolved ride with co-authored rather
+ * than being dropped — the record stays complete either way.
+ */
+const groups: { id: string; label: string; works: SyncedWork[] }[] = [
+  { id: "first-author", label: "First-author", works: firstAuthored },
+  {
+    id: "co-authored",
+    label: "Co-authored",
+    works: [...coAuthored, ...unresolvedAuthorship],
+  },
+];
 ---
 
 <BaseLayout
@@ -85,29 +113,81 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
     <h2 id="all-pubs" class="allpubs__heading">
       Full bibliography <span class="allpubs__count">{publicationCount} works</span>
     </h2>
+
+    {/* Progressive enhancement: without JS this control is absent and both
+        groups simply render, which is the complete bibliography. */}
+    <div class="scope" hidden data-scope-bar>
+      <span class="scope__label" id="scope-label">Show</span>
+      <div class="scope__opts" role="group" aria-labelledby="scope-label">
+        <button type="button" class="scope__btn" data-scope="all" aria-pressed="true">
+          All <span class="scope__n">{publicationCount}</span>
+        </button>
+        {
+          groups.map((g) => (
+            <button type="button" class="scope__btn" data-scope={g.id} aria-pressed="false">
+              {g.label} <span class="scope__n">{g.works.length}</span>
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
     {
-      byYear().map(({ year, works }) => (
-        <div class="allpubs__year">
-          <h3 class="allpubs__yr">{year}</h3>
-          <ul class="allpubs__list" role="list">
-            {works.map((w) => {
-              const href = workUrl(w);
-              return (
-                <li class="allpubs__item">
-                  {href ? (
-                    <a href={href} rel="noopener">{w.title}</a>
-                  ) : (
-                    <span>{w.title}</span>
-                  )}
-                  {w.venue && <span class="allpubs__venue">{w.venue}</span>}
-                </li>
-              );
-            })}
-          </ul>
+      groups.map((g) => (
+        <div class="allpubs__group" data-group={g.id}>
+          <h3 class="allpubs__grouphead">
+            {g.label} <span class="allpubs__count">{g.works.length}</span>
+          </h3>
+          {byYear(g.works).map(({ year, works }) => (
+            <div class="allpubs__year">
+              <h4 class="allpubs__yr">{year}</h4>
+              <ul class="allpubs__list" role="list">
+                {works.map((w) => {
+                  const href = workUrl(w);
+                  const line = authorLine(w);
+                  return (
+                    <li class="allpubs__item">
+                      {href ? (
+                        <a href={href} rel="noopener">{w.title}</a>
+                      ) : (
+                        <span>{w.title}</span>
+                      )}
+                      {line && <span class="allpubs__authors">{line}</span>}
+                      {w.venue && <span class="allpubs__venue">{w.venue}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </div>
       ))
     }
   </section>
+
+  <script>
+    // Scope control: narrows which group is visible. Revealed only once JS is
+    // running, so a no-JS visitor is never shown a control that does nothing.
+    const bar = document.querySelector<HTMLElement>("[data-scope-bar]");
+    const groupEls = [
+      ...document.querySelectorAll<HTMLElement>("[data-group]"),
+    ];
+    if (bar && groupEls.length > 0) {
+      bar.hidden = false;
+      const btns = [...bar.querySelectorAll<HTMLButtonElement>("[data-scope]")];
+      for (const btn of btns) {
+        btn.addEventListener("click", () => {
+          const scope = btn.dataset.scope;
+          for (const b of btns) {
+            b.setAttribute("aria-pressed", String(b === btn));
+          }
+          for (const g of groupEls) {
+            g.hidden = scope !== "all" && g.dataset.group !== scope;
+          }
+        });
+      }
+    }
+  </script>
 </BaseLayout>
 
 <style>
@@ -191,6 +271,65 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
     font-size: var(--step--2);
     color: var(--ink-dim);
   }
+  .scope {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s);
+    margin-block-start: var(--space-m);
+  }
+  .scope__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+  }
+  .scope__opts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+  .scope__btn {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-3xs);
+    padding: var(--space-3xs) var(--space-xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+      color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out);
+  }
+  .scope__btn:hover {
+    color: var(--ink);
+    border-color: var(--border-strong);
+  }
+  .scope__btn[aria-pressed="true"] {
+    color: var(--spec-teal-bright);
+    border-color: color-mix(in srgb, var(--spec-teal-bright) 45%, transparent);
+  }
+  .scope__n {
+    color: var(--ink-faint);
+    font-size: 0.66rem;
+  }
+
+  .allpubs__group {
+    margin-block-start: var(--space-l);
+  }
+  .allpubs__grouphead {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-s);
+    font-size: var(--step-0);
+    color: var(--ink-soft);
+    padding-block-end: var(--space-3xs);
+    border-block-end: 1px solid var(--border);
+  }
+
   .allpubs__year {
     display: grid;
     grid-template-columns: 4rem 1fr;
@@ -211,6 +350,12 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
   }
   .allpubs__item a { color: var(--ink); text-decoration-color: var(--border); }
   .allpubs__item a:hover { text-decoration-color: var(--spec-cyan, #4fd6c4); }
+  .allpubs__authors {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    line-height: 1.4;
+  }
   .allpubs__venue {
     display: block;
     font-family: var(--font-mono);
@@ -219,5 +364,11 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
   }
   @media (max-width: 34rem) {
     .allpubs__year { grid-template-columns: 1fr; gap: var(--space-2xs); }
+  }
+
+  /* On paper the scope control is meaningless and every group should print. */
+  @media print {
+    .scope { display: none; }
+    .allpubs__group[hidden] { display: block !important; }
   }
 </style>

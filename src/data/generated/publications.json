@@ -3,6 +3,9 @@
   "source": "https://orcid.org/0000-0003-4423-0660",
   "count": 36,
   "excluded": 2,
+  "firstAuthored": 8,
+  "coAuthored": 28,
+  "unresolved": 0,
   "works": [
     {
       "title": "Bridging Theory and Observation: Synthetic Far-infrared Insights into Star Formation Efficiency",
@@ -11,7 +14,13 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/ae6cdc",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Escamilla, Alexander",
+        "Grudić, Michael Y.",
+        "Rosen, Anna L."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Investigating the γ-Ray Emission from Explosive Dispersal Outflows with Fermi-LAT",
@@ -20,7 +29,19 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/ae4690",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Pandey, Paarmita",
+        "Lenker, Stephen C.",
+        "Lopez, Laura A.",
+        "Rosen, Anna L.",
+        "Linden, Tim",
+        "Thompson, Todd A.",
+        "Offner, Stella S. R.",
+        "Auchettl, Katie",
+        "Hirata, Christopher M."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Taming the Tarantula: How Stellar Wind Feedback Shapes Gas and Dust in 30 Doradus",
@@ -29,7 +50,18 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/ae3c7a",
       "bibcode": "2025arXiv251203129R",
-      "arxiv": "2512.03129"
+      "arxiv": "2512.03129",
+      "authors": [
+        "Rodriguez, Jennifer A.",
+        "Lopez, Laura A.",
+        "Lancaster, Lachlan",
+        "Rosen, Anna L.",
+        "Nayak, Omnarayani",
+        "Lopez, Sebastian",
+        "Holland-Ashford, Tyler",
+        "Webb, Trinity L."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Explosive Dispersal Outflows as a New Class of Fermi Gamma-Ray Sources: The Case of DR21",
@@ -38,7 +70,19 @@
       "type": "working-paper",
       "doi": "10.48550/arXiv.2509.02679",
       "bibcode": "2025arXiv250902679P",
-      "arxiv": "2509.02679"
+      "arxiv": "2509.02679",
+      "authors": [
+        "Pandey, Paarmita",
+        "Lenker, Stephen C.",
+        "Lopez, Laura A.",
+        "Rosen, Anna L.",
+        "Linden, Tim",
+        "Thompson, Todd A.",
+        "Offner, Stella S. R.",
+        "Auchettl, Katie",
+        "Hirata, Christopher M."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Constraining the Diffusion Coefficient and Cosmic-Ray Acceleration Efficiency Using Gamma-Ray Emission from the Star-forming Region RCW 38",
@@ -47,7 +91,16 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/ad83bc",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Pandey, Paarmita",
+        "Lopez, Laura A.",
+        "Rosen, Anna L.",
+        "Thompson, Todd A.",
+        "Linden, Tim",
+        "Blackstone, Ian"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Detection of Diffuse Hot Gas around the Young, Potential Superstar Cluster H72.97–69.39",
@@ -56,7 +109,19 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/ad8c41",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Webb, Trinity L.",
+        "Rodriguez, Jennifer A.",
+        "Lopez, Laura A.",
+        "Rosen, Anna L.",
+        "Lancaster, Lachlan",
+        "Nayak, Omnarayani",
+        "McLeod, Anna F.",
+        "Pandey, Paarmita",
+        "Olivier, Grace M."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Editorial: Star formation: numerical simulations and what they teach us",
@@ -65,7 +130,14 @@
       "type": "other",
       "doi": "10.3389/fspas.2024.1462935",
       "bibcode": "2024FrASS..1162935W",
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Wurster, James",
+        "Hennebelle, Patrick",
+        "Tomida, Kengo",
+        "Rosen, Anna"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "FORGE'd in FIRE III: The IMF in Quasar Accretion Disks from STARFORGE",
@@ -74,7 +146,16 @@
       "type": "journal-article",
       "doi": "10.33232/001c.122857",
       "bibcode": "2024OJAp....7E..71H",
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Hopkins, Philip F.",
+        "Grudic, Michael Y.",
+        "Kremer, Kyle",
+        "Offner, Stella S. R.",
+        "Guszejnov, David",
+        "Rosen, Anna L."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "The High-resolution Accretion Disks of Embedded protoStars (HADES) simulations",
@@ -83,7 +164,14 @@
       "type": "journal-article",
       "doi": "10.1051/0004-6361/202451842",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Gaches, Brandt A. L.",
+        "Tan, Jonathan C.",
+        "Rosen, Anna L.",
+        "Kuiper, Rolf"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Stellar populations in STARFORGE: the origin and evolution of star clusters and associations",
@@ -92,7 +180,15 @@
       "type": "journal-article",
       "doi": "10.1093/mnras/stad3609",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Farias, Juan P",
+        "Offner, Stella S R",
+        "Grudić, Michael Y",
+        "Guszejnov, Dávid",
+        "Rosen, Anna L"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "The TEMPO Survey. I. Predicting Yields of Transiting Exosatellites, Moons, and Planets from a 30 days Survey of Orion with the Roman Space Telescope",
@@ -101,7 +197,25 @@
       "type": "journal-article",
       "doi": "10.1088/1538-3873/acafa4",
       "bibcode": "2023PASP..135a4401L",
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Limbach, Mary Anne",
+        "Soares-Furtado, Melinda",
+        "Vanderburg, Andrew",
+        "Best, William M. J.",
+        "Cody, Ann Marie",
+        "D’Onghia, Elena",
+        "Heller, René",
+        "Hensley, Brandon S.",
+        "Kounkel, Marina",
+        "Kraus, Adam",
+        "Mann, Andrew W.",
+        "Robberto, Massimo",
+        "Rosen, Anna L.",
+        "Townsend, Richard",
+        "Vos, Johanna M."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "What Sets the Star Formation Rate of Molecular Clouds? The Density Distribution as a Fingerprint of Compression and Expansion Rates",
@@ -110,7 +224,16 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/ace897",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Appel, Sabrina M.",
+        "Burkhart, Blakesley",
+        "Semenov, Vadim A.",
+        "Federrath, Christoph",
+        "Rosen, Anna L.",
+        "Tan, Jonathan C."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "A Massive Star Is Born: How Feedback from Stellar Winds, Radiation Pressure, and Collimated Outflows Limits Accretion onto Massive Stars",
@@ -119,7 +242,11 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/ac9f3d",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Rosen, Anna L."
+      ],
+      "firstAuthor": true
     },
     {
       "title": "Cluster assembly and the origin of mass segregation in the STARFORGE simulations",
@@ -128,7 +255,17 @@
       "type": "journal-article",
       "doi": "10.1093/mnras/stac1737",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Guszejnov, Dávid",
+        "Markey, Carleen",
+        "Offner, Stella S R",
+        "Grudić, Michael Y",
+        "Faucher-Giguère, Claude-André",
+        "Rosen, Anna L",
+        "Hopkins, Philip F"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Dust in the wind with resonant drag instabilities – I. The dynamics of dust-driven outflows in GMCs and H ii regions",
@@ -137,7 +274,17 @@
       "type": "journal-article",
       "doi": "10.1093/mnras/stac1784",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Hopkins, Philip F",
+        "Rosen, Anna L",
+        "Squire, Jonathan",
+        "Panopoulou, Georgia V",
+        "Soliman, Nadine H",
+        "Seligman, Darryl",
+        "Steinwandel, Ulrich P"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Effects of the environment and feedback physics on the initial mass function of stars in the STARFORGE simulations",
@@ -146,7 +293,16 @@
       "type": "journal-article",
       "doi": "10.1093/mnras/stac2060",
       "bibcode": "2022MNRAS.515.4929G",
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Guszejnov, Dávid",
+        "Grudić, Michael Y",
+        "Offner, Stella S R",
+        "Faucher-Giguère, Claude-André",
+        "Hopkins, Philip F",
+        "Rosen, Anna L"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Effects of the environment on the multiplicity properties of stars in the STARFORGE simulations",
@@ -155,7 +311,17 @@
       "type": "journal-article",
       "doi": "10.1093/mnras/stac3268",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Guszejnov, Dávid",
+        "Raju, Aman N",
+        "Offner, Stella S R",
+        "Grudić, Michael Y",
+        "Faucher-Giguère, Claude-André",
+        "Hopkins, Philip F",
+        "Rosen, Anna L"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Less wrong: a more realistic initial condition for simulations of turbulent molecular clouds",
@@ -164,7 +330,16 @@
       "type": "journal-article",
       "doi": "10.1093/mnras/stab3739",
       "bibcode": "2022MNRAS.510.4767L",
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Lane, Henry B",
+        "Grudić, Michael Y",
+        "Guszejnov, Dávid",
+        "Offner, Stella S R",
+        "Faucher-Giguère, Claude-André",
+        "Rosen, Anna L"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "The dynamics and outcome of star formation with jets, radiation, winds, and supernovae in concert",
@@ -173,7 +348,17 @@
       "type": "journal-article",
       "doi": "10.1093/mnras/stac526",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Grudić, Michael Y",
+        "Guszejnov, Dávid",
+        "Offner, Stella S R",
+        "Rosen, Anna L",
+        "Raju, Aman N",
+        "Faucher-Giguère, Claude-André",
+        "Hopkins, Philip F"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "The Effects of Magnetic Fields and Outflow Feedback on the Shape and Evolution of the Density Probability Distribution Function in Turbulent Star-forming Clouds",
@@ -182,7 +367,15 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/ac4be3",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Appel, Sabrina M.",
+        "Burkhart, Blakesley",
+        "Semenov, Vadim A.",
+        "Federrath, Christoph",
+        "Rosen, Anna L."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Continuity of accretion from clumps to Class 0 high-mass protostars in SDC335",
@@ -191,7 +384,19 @@
       "type": "journal-article",
       "doi": "10.1051/0004-6361/201936043",
       "bibcode": "2021A&A...645A.142A",
-      "arxiv": "2012.08948"
+      "arxiv": "2012.08948",
+      "authors": [
+        "Avison, A.",
+        "Fuller, G. A.",
+        "Peretto, N.",
+        "Duarte-Cabral, A.",
+        "Rosen, A. L.",
+        "Traficante, A.",
+        "Pineda, J. E.",
+        "Güsten, R.",
+        "Cunningham, N."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Evolution of Stellar Feedback in H ii Regions",
@@ -200,7 +405,17 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/abd24a",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Olivier, Grace M.",
+        "Lopez, Laura A.",
+        "Rosen, Anna L.",
+        "Nayak, Omnarayani",
+        "Reiter, Megan",
+        "Krumholz, Mark R.",
+        "Bolatto, Alberto D."
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Observations of the Ag(3 × 1) phase on Ge(111)",
@@ -209,7 +424,13 @@
       "type": "journal-article",
       "doi": "10.1116/6.0001183",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Mullet, Cory H.",
+        "Rosen, Anna L.",
+        "Chiang, Shirley"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "ORION2: A magnetohydrodynamics code for star formation",
@@ -218,7 +439,20 @@
       "type": "journal-article",
       "doi": "10.21105/joss.03771",
       "bibcode": "2021JOSS....6.3771L",
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Li, Pak",
+        "Cunningham, Andrew",
+        "Gaches, Brandt",
+        "Klein, Richard",
+        "Krumholz, Mark",
+        "Lee, Aaron",
+        "McKee, Christopher",
+        "Offner, Stella",
+        "Rosen, Anna",
+        "Skinner, Aaron"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Circumbinary Disks: Accretion and Torque as a Function of Mass Ratio and Disk Viscosity",
@@ -227,7 +461,17 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/abab95",
       "bibcode": "2020ApJ...901...25D",
-      "arxiv": "1911.05506"
+      "arxiv": "1911.05506",
+      "authors": [
+        "Duffell, Paul C.",
+        "D’Orazio, Daniel",
+        "Derdzinski, Andrea",
+        "Haiman, Zoltan",
+        "MacFadyen, Andrew",
+        "Rosen, Anna L.",
+        "Zrake, Jonathan"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Formation and Evolution of Disks Around Young Stellar Objects",
@@ -236,7 +480,22 @@
       "type": "journal-article",
       "doi": "10.1007/s11214-020-00664-z",
       "bibcode": "2020SSRv..216...43Z",
-      "arxiv": "2004.01342"
+      "arxiv": "2004.01342",
+      "authors": [
+        "Zhao, Bo",
+        "Tomida, Kengo",
+        "Hennebelle, Patrick",
+        "Tobin, John J.",
+        "Maury, Anaëlle",
+        "Hirota, Tomoya",
+        "Sánchez-Monge, Álvaro",
+        "Kuiper, Rolf",
+        "Rosen, Anna",
+        "Bhandare, Asmita",
+        "Padovani, Marco",
+        "Lee, Yueh-Ning"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "The Role of Outflows, Radiation Pressure, and Magnetic Fields in Massive Star Formation",
@@ -245,7 +504,12 @@
       "type": "journal-article",
       "doi": "10.3847/1538-3881/ab9abf",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Rosen, Anna L.",
+        "Krumholz, Mark R."
+      ],
+      "firstAuthor": true
     },
     {
       "title": "Winds in Star Clusters Drive Kolmogorov Turbulence",
@@ -254,7 +518,15 @@
       "type": "journal-article",
       "doi": "10.3847/2041-8213/ababae",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Gallegos-Garcia, Monica",
+        "Burkhart, Blakesley",
+        "Rosen, Anna L.",
+        "Naiman, Jill P.",
+        "Ramirez-Ruiz, Enrico"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Zooming in on Individual Star Formation: Low- and High-Mass Stars",
@@ -263,7 +535,16 @@
       "type": "journal-article",
       "doi": "10.1007/s11214-020-00688-5",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Rosen, Anna L.",
+        "Offner, Stella S. R.",
+        "Sadavoy, Sarah I.",
+        "Bhandare, Asmita",
+        "Vázquez-Semadeni, Enrique",
+        "Ginsburg, Adam"
+      ],
+      "firstAuthor": true
     },
     {
       "title": "Massive-star Formation via the Collapse of Subvirial and Virialized Turbulent Massive Cores",
@@ -272,7 +553,14 @@
       "type": "journal-article",
       "doi": "10.3847/1538-4357/ab54c6",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Rosen, Anna L.",
+        "Li, Pak Shing",
+        "Zhang, Qizhou",
+        "Burkhart, Blakesley"
+      ],
+      "firstAuthor": true
     },
     {
       "title": "unyt: Handle, manipulate, and convert data with units in Python",
@@ -281,7 +569,15 @@
       "type": "journal-article",
       "doi": "10.21105/joss.00809",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "J. Goldbaum, Nathan",
+        "A. ZuHone, John",
+        "J. Turk, Matthew",
+        "Kowalik, Kacper",
+        "L. Rosen, Anna"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Hybrid Adaptive Ray-Moment Method (HARM2): A highly parallel method for radiation hydrodynamics on adaptive grids",
@@ -290,7 +586,15 @@
       "type": "journal-article",
       "doi": "10.1016/j.jcp.2016.10.048",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Rosen, A.L.",
+        "Krumholz, M.R.",
+        "Oishi, J.S.",
+        "Lee, A.T.",
+        "Klein, R.I."
+      ],
+      "firstAuthor": true
     },
     {
       "title": "An unstable truth: how massive stars get their mass",
@@ -299,7 +603,14 @@
       "type": "journal-article",
       "doi": "10.1093/mnras/stw2153",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Rosen, Anna L.",
+        "Krumholz, Mark R.",
+        "McKee, Christopher F.",
+        "Klein, Richard I."
+      ],
+      "firstAuthor": true
     },
     {
       "title": "Very Massive Stars in the local Universe",
@@ -308,7 +619,39 @@
       "type": "journal-article",
       "doi": "10.1017/S1743921314004657",
       "bibcode": "2015HiA....16...51V",
-      "arxiv": "1302.2021"
+      "arxiv": "1302.2021",
+      "authors": [
+        "Vink, Jorick S.",
+        "Heger, Alexander",
+        "Krumholz, Mark R.",
+        "Puls, Joachim",
+        "Banerjee, S.",
+        "Castro, N.",
+        "Chen, K.-J.",
+        "Chenè, A.-N.",
+        "Crowther, P. A.",
+        "Daminelli, A.",
+        "Gräfener, G.",
+        "Groh, J. H.",
+        "Hamann, W.-R.",
+        "Heap, S.",
+        "Herrero, A.",
+        "Kaper, L.",
+        "Najarro, F.",
+        "Oskinova, L. M.",
+        "Roman-Lopes, A.",
+        "Rosen, A.",
+        "Sander, A.",
+        "Shirazi, M.",
+        "Sugawara, Y.",
+        "Tramper, F.",
+        "Vanbeveren, D.",
+        "Voss, R.",
+        "Wofford, A.",
+        "Zhang, Y.",
+        "the participants of JD2"
+      ],
+      "firstAuthor": false
     },
     {
       "title": "Gone with the wind: Where is the missing stellar wind energy from massive star clusters?",
@@ -317,7 +660,14 @@
       "type": "journal-article",
       "doi": "10.1093/mnras/stu1037",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Rosen, Anna L.",
+        "Lopez, Laura A.",
+        "Krumholz, Mark R.",
+        "Ramirez-Ruiz, Enrico"
+      ],
+      "firstAuthor": true
     },
     {
       "title": "WHAT SETS THE INITIAL ROTATION RATES OF MASSIVE STARS?",
@@ -326,7 +676,13 @@
       "type": "journal-article",
       "doi": "10.1088/0004-637x/748/2/97",
       "bibcode": null,
-      "arxiv": null
+      "arxiv": null,
+      "authors": [
+        "Rosen, Anna L.",
+        "Krumholz, Mark R.",
+        "Ramirez-Ruiz, Enrico"
+      ],
+      "firstAuthor": true
     }
   ]
 }
