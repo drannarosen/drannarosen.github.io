@@ -117,15 +117,18 @@ Extras (YAGNI-gated): highlight m>8 M⊙; a small radial-mass mini-plot.
 New export: `export_massseg.py` → positions + per-star local density + masses.
 Present mode: ←/→ step λ_corr.
 
-### `/explore/inference` — informax posterior (real NPE, mock obs v1)
+### `/explore/inference` — **PAUSED** (2026-07-19)
 
-Offline `export_inference.py` runs informax NPE on a **synthetic** cluster
-observation and exports: a sequence of posteriors as N_obs grows, and the truth.
-The page shows (a) the cluster engine rendering the current posterior-mean cluster,
-and (b) a **corner plot** (canvas 2D) over cluster params (mass, age, r_t, …) that
-tightens as you step "observations added". Honestly labeled: real informax
-inference, synthetic observation. `B` (live in-browser) is a later upgrade.
-Present mode: ←/→ step N_obs.
+Deferred at Anna's direction: this piece will be built on **startrax** rather than
+the informax path scoped below. Not started; the hub card stays honestly marked
+"in progress". Revisit when startrax is ready.
+
+Prior scoping (kept for reference): informax's `progenax_dispersion_problem`
+infers θ = (r_a, M, r_h) — anisotropy radius, total mass, half-mass radius — from
+a projected velocity-dispersion profile (Binney & Mamon Osipkov-Merritt Plummer
+Jeans model), with a survey-depth knob (stars/bin) setting the noise floor. That
+knob was to be the interaction: slide depth, watch the posterior over cluster mass
+contract toward a known truth. Real method, synthetic observation.
 
 ## Data / exports (bridge pattern)
 
@@ -140,13 +143,13 @@ Each ships gz-small (≤ a couple MB); routes lazy-load. Budget noted in each ex
 
 ## Build sequence (reviewable increments)
 
-1. **Foundation** — split `volumeRenderer.ts` into `src/lib/cluster/*`; keep
-   `volume-lab` working via the barrel. Extract `ControlPanel`. (No behavior change.)
-2. **Present shell + hub** — `PresentFrame.astro`, `/explore` hub, nav "Explore";
-   move the sandbox to `/explore/cluster` (or keep `volume-lab` as raw sandbox).
-3. **Mass-segregation** — export + TS pairing + page. (Fastest striking win.)
-4. **Scrollytelling** — scene system + `/explore/cluster` story.
-5. **Inference** — informax export + corner plot + page.
+1. ✅ **Foundation** — `volumeRenderer.ts` split into `src/lib/cluster/*`
+   (shaders / spectral / scene / engine / interaction / massSegregation + barrel).
+2. ✅ **Present shell + hub** — `PresentFrame.astro`, `/explore` hub, nav "Explore".
+3. ✅ **Mass-segregation** — `local_density.f32` export + McLuster A1 TS port + page.
+4. ✅ **Scrollytelling** — six-scene scrubbing story at `/explore/cluster`.
+4b. ✅ **Gas expulsion** — added as its own explorable at `/explore/gas-expulsion`.
+5. ⏸ **Inference** — PAUSED; will be rebuilt on **startrax** (see above).
 
 Each increment builds green, is verified in-browser, and is pushed for live review.
 
