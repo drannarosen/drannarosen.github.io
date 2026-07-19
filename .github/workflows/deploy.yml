@@ -24,6 +24,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Runs BEFORE the build, so a figure that drifted from its recorded
+      # provenance blocks the deploy rather than shipping unnoticed. Needs no
+      # dependencies — plain Node reading files in this repo.
+      - name: Verify figure provenance
+        run: node scripts/figures/check.mjs
+
       - name: Build Astro site
         # Auto-detects pnpm from the lockfile, runs `astro build`, and
         # uploads the dist/ artifact for the deploy job.

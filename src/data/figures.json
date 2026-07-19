@@ -1,0 +1,42 @@
+{
+  "_comment": "HUMAN-OWNED. Where each published figure came from, plus a sha256 of the exact file served. `pnpm check:figures` recomputes the hashes and fails if a figure changed without this record being updated — the site's copy of a paper figure cannot drift silently.",
+
+  "_limits": [
+    "This verifies the file has not changed since it was recorded. It does NOT",
+    "re-run the paper's figure scripts — those live in a private repo with",
+    "untracked data. When a figure is regenerated, update `sha256` and `note`",
+    "in the same commit that replaces the image."
+  ],
+
+  "figures": [
+    {
+      "path": "images/astrobytes/confidently-wrong-binaries.png",
+      "origin": "rosen-binary-imf-2026",
+      "script": "scripts/figure_1_binary_model.py",
+      "paperFigure": "Figure 1",
+      "sha256": "298b4dcb0c57946ccd204a2d44b0f5bef6b88c02442931c7dc3b9aba62f4d02c"
+    },
+    {
+      "path": "images/astrobytes/confidently-wrong-scaling.png",
+      "origin": "rosen-binary-imf-2026",
+      "script": "scripts/figure_4_scaling.py",
+      "paperFigure": "Figure 4",
+      "sha256": "db09d306ea7cf0af1e73c72bbb268a4da9e12ecd816f6cd7394ba57b0bb091be",
+      "note": "Corrected build: the arXiv version renders a literal '95\\%' in the y-axis label and footer. Regenerated 2026-07-19 after a two-line fix; verified no pixel inside any data panel changed."
+    },
+    {
+      "path": "images/publications/binary-imf-recovery.png",
+      "origin": "rosen-binary-imf-2026",
+      "script": "scripts/figure_3_recovery.py",
+      "paperFigure": "Figure 3",
+      "sha256": "039e71a7ac99997e96c3f97aebda50f8d792605d6725fd07c5895259581df6cf"
+    },
+    {
+      "path": "images/astrobytes/confidently-wrong-literature.png",
+      "origin": "rosen-binary-imf-2026",
+      "script": "scripts/figure_8_literature.py",
+      "paperFigure": "Figure 8",
+      "sha256": "3ecbf9f9a9867dea93f6329192a7a50110a792f3cc9e28946fac63453a69f15f"
+    }
+  ]
+}
