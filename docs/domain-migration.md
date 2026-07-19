@@ -22,15 +22,44 @@ Because there's no email on the domain, the usual "don't touch MX/SPF/DKIM"
 warning below is precautionary only — there is currently nothing there to
 disturb. (If you ever add email later, that changes.)
 
-**Two ways to take DNS control** so you can point at GitHub Pages:
-- **Option A (recommended): move DNS to the registrar.** At Squarespace, switch
-  the domain's nameservers to Squarespace's own DNS (or to Cloudflare), then add
-  the GitHub records there. Cleanest separation from WordPress.
-- **Option B: edit records at WordPress.com.** Keep the WP.com nameservers but
-  change the A/CNAME records to GitHub's. You may first need to *disconnect* the
-  domain from the WordPress site in the WP.com dashboard.
+## The two flips (they are independent)
+
+The single most useful thing to understand: **your DNS provider is not your web
+host.** WordPress.com happens to be *both* right now, but they are separate jobs,
+and you can change one without touching the other.
+
+| Flip | What changes | Visible effect | Reversible? |
+|------|--------------|----------------|-------------|
+| **1. Move nameservers** (WordPress.com → Cloudflare), records unchanged | *Who answers* DNS | **Nothing.** WordPress keeps serving the site exactly as today | Yes — switch nameservers back |
+| **2. Repoint A/CNAME** (WordPress → GitHub Pages) | *What the answer is* | The new site goes live | Yes — restore the old records |
+
+Flip 1 is a **safe no-op**: you can do it, verify nothing broke, and sit there for
+as long as you like before doing flip 2. Moving DNS does **not** move or delete
+your WordPress site.
+
+### Two paths — pick one
+
+- **Path A — Cloudflare first (recommended long-term).** Do flip 1 (nameservers →
+  Cloudflare, keeping the WordPress records), confirm the old site still loads,
+  then later do flip 2 by editing records at Cloudflare. This gets DNS control out
+  of WordPress cleanly and sets up Cloudflare Pages later if you ever want it.
+- **Path B — fastest to launch.** Skip Cloudflare for now; just edit the A/CNAME
+  records **at WordPress.com** to point at GitHub Pages (flip 2 only). Fewest
+  moving parts. You may first need to *disconnect* the domain from the WordPress
+  site in the WP.com dashboard. You can still move to Cloudflare any time later.
 
 Either way the GitHub records are the same (below).
+
+### Cloudflare DNS vs Cloudflare Pages — not the same thing
+
+| | What it is | What it replaces |
+|---|---|---|
+| **Cloudflare DNS** | The phone book: answers "where does `anna-rosen.com` live?" Hosts nothing. Free. | WordPress.com's nameservers |
+| **Cloudflare Pages** | A *host*: builds from the GitHub repo and serves files on Cloudflare's CDN | GitHub Pages |
+
+You can use Cloudflare DNS while still hosting on GitHub Pages — that is the
+recommended Phase 1. Only adopt Pages if you later want per-branch preview
+deploys or a stronger CDN for the heavy `/explore` data files.
 
 ## First, know the four roles (they're often different companies)
 
@@ -93,9 +122,37 @@ Once the domain reliably serves the new site **and** email is confirmed working:
 - Cancel the WordPress **hosting** plan (not the domain registration, and not
   email if it's bundled — check first).
 
-Keep a backup/export of the old WordPress content first (the URL inventory is in
-`docs/wordpress-migration-inventory.md` when created). Don't cancel anything on
-the same day you cut over — give it a few days in case you need to roll back.
+Don't cancel anything on the same day you cut over — give it a few days in case
+you need to roll back.
+
+**On the prepaid year: it's a sunk cost.** You've paid whether or not you use it,
+so there's no value in delaying the switch — waiting only means `anna-rosen.com`
+keeps showing the outdated site for months. Repoint the domain now, let the plan
+run out unused (the WordPress site stays reachable at its `*.wordpress.com`
+address as a private archive), and simply don't renew.
+
+#### Export checklist — do this BEFORE the plan lapses
+
+> ⚠️ **The trap:** the XML export contains posts and pages, but **media files are
+> only referenced by URL** — the images themselves live in WordPress's media
+> library and disappear with the plan. Export the text *and* download the media,
+> or you'll be left with an archive full of dead image links.
+
+- [ ] **Tools → Export → All content** → save the `.xml` file
+- [ ] **Download the media library** separately (Media → select all → download, or
+      an export plugin / `wget` mirror of the site)
+- [ ] Note any URLs worth preserving as redirects (old permalinks)
+- [ ] Commit anything worth keeping into this repo (`public/` for images, markdown
+      for text) so it is version-controlled and served for free
+
+What you give up, and what replaces it:
+
+| Lose with WordPress | Replacement here |
+|---------------------|------------------|
+| Media / file storage | `public/` in the repo (Git-tracked, free) |
+| CMS editing UI | Markdown + Astro content collections |
+| Contact form | `mailto:` link (email already in `src/lib/site.ts`) |
+| Comments / plugins / analytics | Intentionally none (ADR-0007, privacy-first) |
 
 ## Rollback
 If something's wrong, revert the DNS A/CNAME records to their old values at the
