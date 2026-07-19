@@ -38,7 +38,13 @@ import { allPackages } from "../data/jaxstro";
         allPackages.map((pkg) => (
           <li class="sw-card" id={`pkg-${pkg.name}`}>
             <div class="sw-card__head">
-              <h3 class="sw-card__name">{pkg.name}</h3>
+              <h3 class="sw-card__name">
+                {pkg.docs ? (
+                  <a href={pkg.docs} rel="noopener">{pkg.name}</a>
+                ) : (
+                  pkg.name
+                )}
+              </h3>
               <StatusBadge status={pkg.status} />
             </div>
             <p class="sw-card__stage">
@@ -120,6 +126,14 @@ import { allPackages } from "../data/jaxstro";
     font-family: var(--font-mono);
     font-size: var(--step-1);
     color: var(--spec-teal-bright);
+  }
+  .sw-card__name a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .sw-card__name a:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
   .sw-card__stage {
     font-family: var(--font-mono);
