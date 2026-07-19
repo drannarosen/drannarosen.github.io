@@ -8,9 +8,11 @@ interface Props {
   description: string;
   /** Path for canonical URL, e.g. "/research". Defaults to the current route. */
   path?: string;
+  /** Keep the page out of search engines (unlisted dev sandboxes). */
+  noindex?: boolean;
 }
 
-const { title, description, path } = Astro.props;
+const { title, description, path, noindex } = Astro.props;
 const canonical = new URL(path ?? Astro.url.pathname, Astro.site).href;
 ---
 
@@ -41,6 +43,7 @@ const canonical = new URL(path ?? Astro.url.pathname, Astro.site).href;
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <meta name="author" content="Anna Rosen" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />

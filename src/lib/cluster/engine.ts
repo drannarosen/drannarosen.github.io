@@ -186,12 +186,21 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
   const view: View = {
     yaw: DEFAULT_YAW, pitch: 0, zoom: DEFAULT_ZOOM, panX: 0, panY: 0, spin: !reduceMotion,
   };
+  /* uv is normalized by HEIGHT, so a portrait viewport has a narrow horizontal
+     field of view and crops the cluster. Widen the view by 1/aspect on portrait
+     so the whole cluster fits. Applied per-draw since it depends on canvas size. */
+  function fitScale(): number {
+    const a = canvas.height > 0 ? canvas.width / canvas.height : 1;
+    // Capped: full 1/aspect compensation on a phone (~2.2x) fits the width exactly
+    // but leaves the cluster tiny in a tall frame. 1.7 keeps it large and mostly
+    // uncropped — a deliberate compromise, not an exact fit.
+    return a < 1 ? Math.min(1.7, 1 / a) : 1;
+  }
+  /* Pan only — zoom is aspect-dependent and set per-draw. */
   function applyView(): void {
     gl!.useProgram(volProg);
-    gl!.uniform1f(uZoomVol, view.zoom);
     gl!.uniform2f(uPanVol, view.panX, view.panY);
     gl!.useProgram(starProg);
-    gl!.uniform1f(uZoomStar, view.zoom);
     gl!.uniform2f(uPanStar, view.panX, view.panY);
   }
   applyView();
@@ -228,7 +237,9 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
     gl!.enable(gl!.BLEND);
     gl!.useProgram(volProg);
     gl!.blendFunc(gl!.ONE, gl!.ONE_MINUS_SRC_ALPHA);
+    const zf = view.zoom * fitScale();
     gl!.uniform2f(uRes, canvas.width, canvas.height);
+    gl!.uniform1f(uZoomVol, zf);
     gl!.uniform1f(uVYaw, view.yaw);
     gl!.uniform1f(uVPitch, view.pitch);
     gl!.uniform1f(uVExpel, expel);
@@ -238,6 +249,7 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
     gl!.blendFunc(gl!.ONE, gl!.ONE);
     gl!.uniform1f(uSYaw, view.yaw);
     gl!.uniform1f(uSPitch, view.pitch);
+    gl!.uniform1f(uZoomStar, zf); // same aspect-fitted zoom as the volume
     gl!.uniform1f(uSAspect, canvas.height > 0 ? canvas.width / canvas.height : 1);
     gl!.uniform1f(uSPix, canvas.height * 0.018);
     gl!.bindVertexArray(vao);

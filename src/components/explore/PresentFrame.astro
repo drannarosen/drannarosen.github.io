@@ -116,23 +116,33 @@ const { label = "Interactive cluster", hint } = Astro.props;
     margin-block-start: var(--space-xs);
   }
 
-  /* Fullscreen (present) mode: the frame fills the screen, stage grows, controls
-     enlarge for projector legibility. */
+  /* Fullscreen (present) mode: the frame fills the screen and the stage sizes
+     itself from whatever the controls leave over, so nothing overflows. (A fixed
+     82vh stage + controls + padding exceeded 100vh and pushed the controls off
+     the bottom.) */
   .present.is-present {
-    block-size: 100vh;
+    block-size: 100dvh;
     display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: center;
+    /* minmax(0,1fr) — grid items default to min-height:auto, so a plain 1fr row
+       refuses to shrink and the square stage blows past the viewport. */
+    grid-template-rows: minmax(0, 1fr) auto;
     gap: var(--space-s);
-    padding: var(--space-l);
+    padding: var(--space-m);
     background: var(--bg-void);
   }
   .present.is-present .present__stage {
     inline-size: auto;
-    block-size: min(100%, 82vh);
+    block-size: 100%;
+    min-block-size: 0;
+    max-inline-size: 100%;
     aspect-ratio: 1;
+    align-self: stretch;
+    justify-self: center;
   }
-  .present.is-present .present__stage :global(canvas) { block-size: 100%; inline-size: auto; }
-  .present.is-present .present__controls { font-size: 1.15rem; }
+  .present.is-present .present__controls {
+    inline-size: min(100%, 34rem);
+    font-size: 1.1rem; /* projector legibility */
+    place-self: center;
+  }
   .present.is-present .present__hint { display: none; }
 </style>
