@@ -26,6 +26,8 @@ export interface EngineOptions {
   autoExpel?: boolean;
   /** Enlarge hot O/B stars so massive-star structure (e.g. segregation) reads clearly. */
   emphasizeHot?: boolean;
+  /** Seconds for one full expulsion loop (embedded → expel → bare → re-form). */
+  expelPeriodSec?: number;
 }
 
 export interface ClusterEngine {
@@ -173,6 +175,7 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
   const uZoomStar = gl.getUniformLocation(starProg, "uZoom");
   const uPanStar = gl.getUniformLocation(starProg, "uPan");
   const uStarAlpha = gl.getUniformLocation(starProg, "uStarAlpha");
+  const uSAspect = gl.getUniformLocation(starProg, "uAspect");
   gl.useProgram(starProg);
   gl.uniform1f(gl.getUniformLocation(starProg, "uBox"), scene.box);
   gl.uniform1f(uStarAlpha, 1.0);
@@ -195,9 +198,9 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
 
   // ── gas-expulsion timeline ──
   const rotationPeriod = opts.rotationPeriodSec ?? 110;
-  const EXPEL_PERIOD = 34;
+  const expelPeriod = opts.expelPeriodSec ?? 34;
   function expelAt(tSec: number): number {
-    const p = (tSec / EXPEL_PERIOD) % 1;
+    const p = (tSec / expelPeriod) % 1;
     if (p < 0.45) return 0;
     if (p < 0.70) { const u = (p - 0.45) / 0.25; return u * u * (3 - 2 * u); }
     if (p < 0.80) return 1;
@@ -235,6 +238,7 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
     gl!.blendFunc(gl!.ONE, gl!.ONE);
     gl!.uniform1f(uSYaw, view.yaw);
     gl!.uniform1f(uSPitch, view.pitch);
+    gl!.uniform1f(uSAspect, canvas.height > 0 ? canvas.width / canvas.height : 1);
     gl!.uniform1f(uSPix, canvas.height * 0.018);
     gl!.bindVertexArray(vao);
     gl!.drawArrays(gl!.POINTS, 0, n);

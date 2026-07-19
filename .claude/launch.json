@@ -4,8 +4,8 @@
     {
       "name": "site",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev", "--port", "4321"],
-      "port": 4321
+      "runtimeArgs": ["dev"],
+      "autoPort": true
     }
   ]
 }

@@ -58,7 +58,9 @@ import PresentFrame from "../../components/explore/PresentFrame.astro";
     if (!canvas || !slider || !play) return;
     try {
       const scene = await loadScene();
-      const engine = createEngine(canvas, scene, { autoExpel: true });
+      // Short loop: the default 34 s spends ~15 s embedded, which reads as "broken"
+      // on a page about expulsion. 15 s starts the outflow within a few seconds.
+      const engine = createEngine(canvas, scene, { autoExpel: true, expelPeriodSec: 15 });
       attachInteraction(canvas, engine);
 
       const setManual = (v: number) => {

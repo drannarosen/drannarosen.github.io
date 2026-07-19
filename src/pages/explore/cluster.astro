@@ -144,7 +144,13 @@ const scenes: Scene[] = [
     z-index: 0;
     background: radial-gradient(120% 120% at 50% 45%, #0a0f12, var(--bg-void));
   }
+  /* Pin the canvas to the stage box. Without this the canvas's intrinsic
+     aspect-ratio (from its width/height buffer attributes) drives its CSS height,
+     which feeds back into the buffer size — the canvas grows and the render
+     stretches. inset:0 constrains both axes and defeats aspect-ratio. */
   .story__stage :global(canvas) {
+    position: absolute;
+    inset: 0;
     inline-size: 100%;
     block-size: 100%;
     display: block;

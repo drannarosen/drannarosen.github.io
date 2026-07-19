@@ -80,6 +80,7 @@ in vec3 aPos;    // pc
 in vec3 aColor;  // 0..1
 in float aSize;  // sqrt(radius) scale
 uniform float uYaw, uPitch, uBox, uPix, uZoom;
+uniform float uAspect;   // canvas width/height — the volume normalizes uv by height
 uniform vec2 uPan;
 out vec3 vColor;
 mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
@@ -90,7 +91,8 @@ void main(){
   float clipx = (P.x*1.6/(1.15*uZoom))/denom;   // match the volume's zoom
   float clipy = (P.y*1.6/(1.15*uZoom))/denom;
   // + uPan to match the volume FS (which subtracts uPan from uv); *2 => clip space.
-  gl_Position = vec4((clipx + uPan.x)*2.0, (clipy + uPan.y)*2.0, 0.0, 1.0);
+  // x is divided by uAspect because uv spans +-aspect/2 horizontally but clip spans +-1.
+  gl_Position = vec4((clipx + uPan.x)*2.0/uAspect, (clipy + uPan.y)*2.0, 0.0, 1.0);
   gl_PointSize = clamp(aSize * uPix / (denom*uZoom), 1.8, 44.0);
   vColor = aColor;
 }`;
