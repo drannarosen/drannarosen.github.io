@@ -1,0 +1,147 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import Figure from "../components/Figure.astro";
+import { cvProfile } from "../data/cv";
+import { featuredPublications } from "../data/publications";
+
+function authorParts(s: string): { text: string; bold: boolean }[] {
+  return s.split("**").map((text, i) => ({ text, bold: i % 2 === 1 }));
+}
+---
+
+<BaseLayout
+  title="Publications — Anna Rosen, Ph.D."
+  description="Selected first-author publications in computational astrophysics, each with a plain-language summary: massive-star formation, feedback, star clusters, and the IMF."
+  path="/publications"
+>
+  <PageHeader
+    eyebrow="Publications"
+    title="Selected work, in plain language"
+    lede="First-author papers, each with a short summary of what it did and why it matters. The full record of 34 publications is on ADS and ORCID."
+  />
+
+  <div class="pubs wrap">
+    {
+      featuredPublications.map((p) => (
+        <article class="pub">
+          <p class="pub__meta">
+            <span class="pub__venue">
+              {p.year} · {p.venue}
+            </span>
+            {p.status === "submitted" && (
+              <span class="pub__badge">submitted</span>
+            )}
+          </p>
+          <h2 class="pub__title">{p.title}</h2>
+          <p class="pub__authors">
+            {authorParts(p.authors).map((part) =>
+              part.bold ? <strong>{part.text}</strong> : part.text,
+            )}
+          </p>
+          <p class="pub__summary prose">{p.summary}</p>
+          <p class="pub__links">
+            {p.arxiv && (
+              <a href={p.arxiv} rel="noopener">
+                arXiv ↗
+              </a>
+            )}
+            {p.ads && (
+              <a href={p.ads} rel="noopener">
+                NASA ADS ↗
+              </a>
+            )}
+          </p>
+          {p.figure && (
+            <div class="pub__figure">
+              <Figure
+                src={p.figure.src}
+                alt={p.figure.alt}
+                caption={p.figure.caption}
+                credit={p.figure.credit}
+                width={p.figure.width}
+                height={p.figure.height}
+                preliminary={p.figure.preliminary}
+                contain={p.figure.contain}
+              />
+            </div>
+          )}
+        </article>
+      ))
+    }
+  </div>
+
+  <p class="pubs__note wrap">
+    This is a selected, first-author subset. The complete list — including
+    co-authored work — is on{" "}
+    <a href={cvProfile.orcid} rel="me noopener">ORCID</a> and{" "}
+    <a href="https://ui.adsabs.harvard.edu/search/q=author%3A%22Rosen%2C%20Anna%22" rel="noopener">
+      NASA ADS
+    </a>.
+  </p>
+</BaseLayout>
+
+<style>
+  .pubs {
+    display: grid;
+    gap: var(--space-2xl);
+    padding-block: var(--space-l) var(--space-xl);
+  }
+  .pub {
+    padding-block-start: var(--space-l);
+    border-block-start: 1px solid var(--border);
+  }
+  .pub__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    margin-block-end: var(--space-2xs);
+  }
+  .pub__badge {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: color-mix(in srgb, var(--spec-rose) 82%, white);
+    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
+    border-radius: 999px;
+    padding: 1px 7px;
+  }
+  .pub__title {
+    font-size: var(--step-2);
+    max-inline-size: 40ch;
+    margin-block-end: var(--space-2xs);
+  }
+  .pub__authors {
+    color: var(--ink-soft);
+    font-size: var(--step-0);
+  }
+  .pub__authors strong {
+    color: var(--spec-teal-bright);
+    font-weight: 600;
+  }
+  .pub__summary {
+    margin-block-start: var(--space-s);
+    color: var(--ink-soft);
+    font-size: var(--step-1);
+  }
+  .pub__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-m);
+    margin-block-start: var(--space-s);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+  .pub__figure {
+    margin-block-start: var(--space-l);
+  }
+  .pubs__note {
+    padding-block-end: var(--space-2xl);
+    color: var(--ink-dim);
+    font-size: var(--step--1);
+  }
+</style>

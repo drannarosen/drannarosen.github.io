@@ -17,6 +17,7 @@ export interface ExternalLink {
 /** Primary navigation shown in the header. */
 const nav: NavItem[] = [
   { label: "Research", href: "/research" },
+  { label: "Publications", href: "/publications" },
   { label: "Software", href: "/software" },
   { label: "Teaching", href: "/teaching" },
   { label: "Group", href: "/group" },

@@ -1,0 +1,89 @@
+---
+/*
+ * Figure — accessible scientific figure with caption, credit, and an optional
+ * "preliminary" flag for unpublished/in-prep work. Requires explicit width/
+ * height to reserve space (no layout shift); lazy-loads below the fold.
+ */
+interface Props {
+  src: string;
+  alt: string;
+  caption: string;
+  credit?: string;
+  width: number;
+  height: number;
+  preliminary?: boolean;
+  /** Constrain very tall images to a sensible max height. */
+  contain?: boolean;
+}
+const { src, alt, caption, credit, width, height, preliminary, contain } =
+  Astro.props;
+---
+
+<figure class="fig">
+  <div class:list={["fig__frame", { "fig__frame--contain": contain }]}>
+    <img
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      loading="lazy"
+      decoding="async"
+    />
+    {preliminary && <span class="fig__flag">Preliminary · in&nbsp;prep</span>}
+  </div>
+  <figcaption class="fig__cap">
+    {caption}
+    {credit && <span class="fig__credit">{credit}</span>}
+  </figcaption>
+</figure>
+
+<style>
+  .fig {
+    margin: 0;
+  }
+  .fig__frame {
+    position: relative;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+  }
+  .fig__frame img {
+    inline-size: 100%;
+    block-size: auto;
+  }
+  .fig__frame--contain img {
+    max-block-size: 32rem;
+    inline-size: auto;
+    max-inline-size: 100%;
+    margin-inline: auto;
+  }
+  .fig__flag {
+    position: absolute;
+    inset-block-start: var(--space-2xs);
+    inset-inline-end: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--spec-rose) 85%, white);
+    background: color-mix(in srgb, var(--bg-void) 78%, transparent);
+    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
+    border-radius: 999px;
+    padding: 2px 8px;
+    backdrop-filter: blur(4px);
+  }
+  .fig__cap {
+    margin-block-start: var(--space-s);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    line-height: var(--leading-snug);
+  }
+  .fig__credit {
+    display: block;
+    margin-block-start: var(--space-3xs);
+    color: var(--ink-faint);
+    font-style: italic;
+  }
+</style>

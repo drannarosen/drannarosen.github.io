@@ -10,6 +10,17 @@ export interface RelatedLink {
   href: string;
 }
 
+export interface ResearchFigure {
+  src: string;
+  alt: string;
+  caption: string;
+  credit?: string;
+  width: number;
+  height: number;
+  preliminary?: boolean;
+  contain?: boolean;
+}
+
 export interface ResearchQuestion {
   /** The driving question. */
   question: string;
@@ -19,6 +30,8 @@ export interface ResearchQuestion {
   threads: string[];
   /** Optional links to software, publications, etc. */
   related?: RelatedLink[];
+  /** Optional supporting figure. */
+  figure?: ResearchFigure;
 }
 
 export const researchQuestions: ResearchQuestion[] = [

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
+import Figure from "../components/Figure.astro";
 import { researchQuestions } from "../data/research";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -36,6 +37,20 @@ const pad = (n: number) => String(n).padStart(2, "0");
                   <a href={r.href}>{r.label} →</a>
                 ))}
               </p>
+            )}
+            {q.figure && (
+              <div class="rq__figure">
+                <Figure
+                  src={q.figure.src}
+                  alt={q.figure.alt}
+                  caption={q.figure.caption}
+                  credit={q.figure.credit}
+                  width={q.figure.width}
+                  height={q.figure.height}
+                  preliminary={q.figure.preliminary}
+                  contain={q.figure.contain}
+                />
+              </div>
             )}
           </div>
         </li>
@@ -103,6 +118,10 @@ const pad = (n: number) => String(n).padStart(2, "0");
     gap: var(--space-m);
     font-family: var(--font-mono);
     font-size: var(--step--1);
+  }
+
+  .rq__figure {
+    margin-block-start: var(--space-l);
   }
 
   /* ── Narrow: index sits above the question ─────────────────────── */
