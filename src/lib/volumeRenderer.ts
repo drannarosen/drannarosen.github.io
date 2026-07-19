@@ -29,8 +29,12 @@ export async function loadScene(base = "/data/gravoturb"): Promise<Scene> {
     fetch(`${base}/stars.f32`).then((r) => r.arrayBuffer()),
   ]);
   const lo = meta.volume_log_min, hi = meta.volume_log_max;
-  const mean = meta.volume_log_mean ?? lo; // rho_0 = volume-weighted mean density
-  const densityFloor = hi > lo ? (mean - lo) / (hi - lo) : 0;
+  // rho_0 for the log colorbar. The volume-weighted MEAN sits ~1 dex above the
+  // median for this lognormal field, so a mean floor shows only the dense core.
+  // Anchor at the MEDIAN density so the filamentary cloud beyond the core shows;
+  // the spherical mask keeps the cube corners suppressed at the lower floor.
+  const ref = meta.volume_log_median ?? meta.volume_log_mean ?? lo;
+  const densityFloor = hi > lo ? (ref - lo) / (hi - lo) : 0;
   return {
     volume: new Uint8Array(volBuf),
     ngrid: meta.volume_ngrid,
