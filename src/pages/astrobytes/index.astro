@@ -1,0 +1,118 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+
+const posts = (await getCollection("astrobytes", ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+
+// Format in UTC: frontmatter dates are bare (2026-07-19) and parse to UTC
+// midnight, so formatting in a west-of-UTC local zone would render a day early.
+const fmt = (d: Date) =>
+  d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+---
+
+<BaseLayout
+  title="Astrobytes — Anna Rosen, Ph.D."
+  description="Short, plain-language write-ups of individual papers: what the paper measured, how, and what it does and does not establish."
+  path="/astrobytes"
+>
+  <PageHeader
+    eyebrow="Astrobytes"
+    title="Papers, in plain language"
+    lede="Short write-ups of single papers — what was measured, the mechanism behind the result, and what it does and does not establish. Written for readers who know some physics but do not work in the subfield."
+  />
+
+  <div class="wrap ab-note">
+    <p>
+      Named in the spirit of <a href="https://astrobites.org" rel="noopener">Astrobites</a>,
+      the graduate-student-run paper digest, where I was an early author. These
+      posts are my own and are not affiliated with Astrobites.
+    </p>
+  </div>
+
+  <ul class="wrap ab-list" role="list">
+    {
+      posts.map((p) => (
+        <li class="ab-card">
+          <p class="ab-card__meta">
+            <time datetime={p.data.date.toISOString()}>{fmt(p.data.date)}</time>
+            <span class="ab-card__level">{p.data.level}</span>
+          </p>
+          <h2 class="ab-card__title">
+            <a href={`/astrobytes/${p.id}`}>{p.data.title}</a>
+          </h2>
+          <p class="ab-card__dek prose">{p.data.dek}</p>
+          <p class="ab-card__paper">
+            on <cite>{p.data.paper.title}</cite> — {p.data.paper.authors} (
+            {p.data.paper.year})
+          </p>
+        </li>
+      ))
+    }
+    {posts.length === 0 && <li class="ab-empty">No posts yet.</li>}
+  </ul>
+</BaseLayout>
+
+<style>
+  .ab-note {
+    padding-block-end: var(--space-l);
+    color: var(--ink-dim);
+    font-size: var(--step--1);
+    max-inline-size: 62ch;
+  }
+  .ab-list {
+    display: grid;
+    gap: var(--space-l);
+    padding-block-end: var(--space-3xl);
+  }
+  .ab-card {
+    padding-block-start: var(--space-m);
+    border-block-start: 1px solid var(--border);
+  }
+  .ab-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-s);
+    align-items: baseline;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+  }
+  .ab-card__level {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.66rem;
+    color: var(--ink-faint);
+  }
+  .ab-card__title {
+    font-size: var(--step-2);
+    max-inline-size: 34ch;
+    margin-block: var(--space-3xs) var(--space-2xs);
+  }
+  .ab-card__title a {
+    color: var(--ink);
+    text-decoration-color: var(--border);
+  }
+  .ab-card__title a:hover {
+    text-decoration-color: var(--spec-teal-bright);
+  }
+  .ab-card__dek {
+    color: var(--ink-soft);
+    max-inline-size: 62ch;
+  }
+  .ab-card__paper {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .ab-empty {
+    color: var(--ink-dim);
+  }
+</style>

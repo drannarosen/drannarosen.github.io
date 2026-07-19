@@ -1,4 +1,5 @@
 ---
+import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
 import Figure from "../components/Figure.astro";
@@ -18,6 +19,17 @@ import {
 function authorParts(s: string): { text: string; bold: boolean }[] {
   return s.split("**").map((text, i) => ({ text, bold: i % 2 === 1 }));
 }
+
+/*
+ * Link a featured paper to its astrobyte automatically, matched on the arXiv
+ * URL the post already declares. Nothing here needs updating when a post is
+ * added — writing the post is what creates the link.
+ */
+const byteFor = new Map(
+  (await getCollection("astrobytes", ({ data }) => !data.draft))
+    .filter((p) => p.data.paper.arxiv)
+    .map((p) => [p.data.paper.arxiv!, p.id]),
+);
 
 /*
  * The bibliography is SPLIT rather than filtered: first-author vs co-authored
@@ -80,6 +92,11 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
                 NASA ADS ↗
               </a>
             )}
+            {p.arxiv && byteFor.has(p.arxiv) && (
+              <a class="pub__byte" href={`/astrobytes/${byteFor.get(p.arxiv)}`}>
+                Read the astrobyte →
+              </a>
+            )}
           </p>
           {p.figure && (
             <div class="pub__figure">
@@ -101,6 +118,8 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   </div>
 
   <p class="pubs__note wrap">
+    Longer plain-language write-ups of individual papers live in{" "}
+    <a href="/astrobytes">astrobytes</a>.
     The summaries above cover selected first-author papers. The complete list
     below is synced automatically from{" "}
     <a href={cvProfile.orcid} rel="me noopener">ORCID</a>, and is also on{" "}
@@ -245,6 +264,9 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     margin-block-start: var(--space-s);
     font-family: var(--font-mono);
     font-size: var(--step--1);
+  }
+  .pub__byte {
+    color: var(--spec-teal-bright);
   }
   .pub__figure {
     margin-block-start: var(--space-l);
