@@ -28,6 +28,9 @@ jobs:
         # Auto-detects pnpm from the lockfile, runs `astro build`, and
         # uploads the dist/ artifact for the deploy job.
         uses: withastro/action@v3
+        with:
+          # Astro 7 requires Node >= 22.12 (the action defaults to 20).
+          node-version: 22
 
   deploy:
     needs: build
