@@ -1,0 +1,49 @@
+---
+/*
+ * Math — LaTeX rendered with KaTeX at BUILD time (no client JS, no CDN).
+ *
+ * Renders to static HTML during the Astro build, so pages ship real typeset math
+ * with zero runtime cost and no third-party requests (ADR-0007, privacy-first).
+ * The KaTeX stylesheet + fonts are self-hosted via the npm package and imported
+ * once in BaseLayout.
+ *
+ *   <Math tex="\lambda_\mathrm{corr}" />        inline
+ *   <Math tex="\rho = \rho_0 e^{s}" display />  block
+ *
+ * `alt` overrides the accessible text; otherwise KaTeX's own MathML is used by
+ * screen readers.
+ */
+import katex from "katex";
+
+interface Props {
+  /** LaTeX source, e.g. "\\lambda_\\mathrm{corr}". */
+  tex: string;
+  /** Render as a centered block instead of inline. */
+  display?: boolean;
+}
+
+const { tex, display = false } = Astro.props;
+
+// throwOnError:false → a malformed expression renders visibly in red rather than
+// failing the whole build.
+const html = katex.renderToString(tex, {
+  displayMode: display,
+  throwOnError: false,
+  output: "htmlAndMathml", // MathML included for screen readers
+});
+---
+
+<span class:list={["math", { "math--display": display }]} set:html={html} />
+
+<style>
+  .math {
+    /* Inherit surrounding colour; KaTeX defaults to currentColor already. */
+    line-height: normal;
+  }
+  .math--display {
+    display: block;
+    margin-block: var(--space-s);
+    overflow-x: auto; /* long equations scroll rather than break the layout */
+    overflow-y: hidden;
+  }
+</style>

@@ -2,6 +2,7 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import PresentFrame from "../../components/explore/PresentFrame.astro";
+import Math from "../../components/Math.astro";
 ---
 
 <BaseLayout
@@ -31,10 +32,12 @@ import PresentFrame from "../../components/explore/PresentFrame.astro";
 
     <div class="ge__note prose wrap">
       <p>
-        The gas here expands <em>homologously</em> — every parcel moves outward
-        together and thins as 1/volume, so it falls below the density colorbar and
-        clears from the outside in, while the stars, now decoupled from the gas,
-        stay put. It's a schematic of expulsion, not a feedback simulation: the
+        The gas here expands <em>homologously</em> — every parcel moves outward by
+        the same factor <Math tex="S" />, so a shell at radius <Math tex="r" /> goes
+        to <Math tex="rS" /> and, by mass conservation, the density thins as
+        <Math tex={String.raw`\rho \to \rho/S^{3}`} />. It falls below the density
+        colorbar and clears from the outside in, while the stars, now decoupled from
+        the gas, stay put. It's a schematic of expulsion, not a feedback simulation: the
         real thing is anisotropic — champagne flows and blister breakouts along the
         least-dense channels. That physics is what my radiation-hydrodynamics work
         models; this piece captures the story it tells.

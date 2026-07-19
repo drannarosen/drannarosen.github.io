@@ -2,6 +2,9 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import PresentFrame from "../../components/explore/PresentFrame.astro";
+import Math from "../../components/Math.astro";
+
+const LAMBDA = String.raw`\lambda_\mathrm{corr}`;
 ---
 
 <BaseLayout
@@ -12,15 +15,15 @@ import PresentFrame from "../../components/explore/PresentFrame.astro";
   <PageHeader
     eyebrow="Explore · interactive"
     title="Mass segregation"
-    lede="Young clusters are often born already segregated — the most massive stars sit deepest, where the gas was densest. One knob, λ_corr, sets how tightly a star's mass is tied to the density of the cell it forms in. Slide it up and watch the big blue stars migrate to the core."
+    lede="Young clusters are often born already segregated — the most massive stars sit deepest, where the gas was densest. One coupling parameter sets how tightly a star's mass is tied to the density of the cell it forms in. Slide it up and watch the big blue stars migrate to the core."
   />
 
   <div class="ms wrap-wide">
-    <PresentFrame label="Star cluster with tunable mass segregation" hint="drag to rotate · scroll to zoom · ←/→ steps λ_corr · F fullscreen">
+    <PresentFrame label="Star cluster with tunable mass segregation" hint="drag to rotate · scroll to zoom · ←/→ steps the coupling · F fullscreen">
       <canvas slot="stage" data-cluster aria-label="A star cluster; massive stars move to the core as segregation increases."></canvas>
       <div slot="controls" class="ms__controls">
         <label class="ms__label" for="lam">
-          Coupling λ<sub>corr</sub> <span class="ms__val" data-lam>0.00</span>
+          Coupling <Math tex={LAMBDA} /> <span class="ms__val" data-lam>0.00</span>
           <span class="ms__endpts">0 = random · 1 = massive stars in the densest gas</span>
         </label>
         <input id="lam" type="range" min="0" max="1" step="0.01" value="0" autocomplete="off" data-lam-input />
@@ -31,12 +34,12 @@ import PresentFrame from "../../components/explore/PresentFrame.astro";
     <div class="ms__note prose wrap">
       <p>
         Nothing here is choreographed. The star <em>positions</em> and the gas are
-        fixed; λ<sub>corr</sub> only changes <em>which</em> star lands in each
+        fixed; <Math tex={LAMBDA} /> only changes <em>which</em> star lands in each
         position, via the same rank-coupling (McLuster Eq. A1) that
         <code>progenax</code> uses to build segregated initial conditions. At
-        λ<sub>corr</sub> = 1 the most massive star takes the single densest cell;
-        at 0 the pairing is random. The 10,000 stars re-pair in your browser as
-        you drag.
+        <Math tex={String.raw`\lambda_\mathrm{corr} = 1`} /> the most massive star
+        takes the single densest cell; at <Math tex="0" /> the pairing is random.
+        The 10,000 stars re-pair in your browser as you drag.
       </p>
     </div>
   </div>
