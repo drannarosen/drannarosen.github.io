@@ -50,7 +50,7 @@ import PageHeader from "../components/PageHeader.astro";
 </BaseLayout>
 
 <script>
-  import { loadScene, initScene } from "../lib/volumeRenderer";
+  import { loadScene, createEngine, attachInteraction } from "../lib/cluster";
 
   const status = document.querySelector<HTMLParagraphElement>("[data-status]");
   const canvas = document.querySelector<HTMLCanvasElement>("[data-volume]");
@@ -62,7 +62,8 @@ import PageHeader from "../components/PageHeader.astro";
     try {
       const scene = await loadScene();
       if (!canvas) return;
-      const ctl = initScene(canvas, scene, { interactive: true });
+      const ctl = createEngine(canvas, scene);
+      attachInteraction(canvas, ctl);
 
       const stars = scene.stars.length / 6;
       if (status) {
@@ -169,8 +170,8 @@ import PageHeader from "../components/PageHeader.astro";
     letter-spacing: 0.02em;
   }
   .ctl__v { color: var(--spec-teal-bright, #4fd6c4); margin-inline-start: 0.4em; }
-  .ctl input[type="range" autocomplete="off"] { inline-size: 100%; accent-color: var(--spec-teal-bright, #4fd6c4); }
-  .ctl input[type="range" autocomplete="off"]:disabled { opacity: 0.4; }
+  .ctl input[type="range"] { inline-size: 100%; accent-color: var(--spec-teal-bright, #4fd6c4); }
+  .ctl input[type="range"]:disabled { opacity: 0.4; }
   .ctl__row { display: flex; gap: var(--space-xs); align-items: center; }
   .ctl__row button {
     font-family: var(--font-mono);
