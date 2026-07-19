@@ -248,7 +248,7 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   gl.uniform1f(gl.getUniformLocation(volProg, "uZoom"), 1.55);
   // Log colorbar: rho_0 = mean density (from meta), gamma=1 => faithful log stretch.
   gl.uniform1f(gl.getUniformLocation(volProg, "uFloor"), scene.densityFloor);
-  gl.uniform1f(gl.getUniformLocation(volProg, "uGamma"), 1.0);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uGamma"), 1.3);
   const uSAngle = gl.getUniformLocation(starProg, "uAngle");
   const uSBox = gl.getUniformLocation(starProg, "uBox");
   const uSPix = gl.getUniformLocation(starProg, "uPix");
