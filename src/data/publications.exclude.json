@@ -13,10 +13,6 @@
 
   "exclude": [
     {
-      "doi": "10.3389/fspas.2024.1462935",
-      "reason": "Editorial, not a research paper - listed under Service on the CV instead."
-    },
-    {
       "bibcode": "2017PhDT.......182R",
       "reason": "Ph.D. thesis - linked from Education on the CV instead of the paper list."
     },

@@ -5,6 +5,8 @@
  * invented — every entry traces to the CV.
  */
 
+import { publicationCount } from "./allPublications";
+
 export interface DatedEntry {
   role: string;
   org?: string;
@@ -31,7 +33,8 @@ export const cvProfile = {
   /** Set when a PDF is hosted at /documents/. Null → the download link hides. */
   pdf: null as string | null,
   stats: [
-    { value: "34", label: "Publications" },
+    // Derived from the ORCID sync so it can't drift out of date.
+    { value: String(publicationCount), label: "Publications" },
     { value: "55+", label: "Invited talks" },
     { value: "9", label: "Grad students mentored" },
     { value: "5", label: "Courses developed" },
@@ -68,20 +71,6 @@ export const education: DatedEntry[] = [
 ];
 
 /** Selected awards; the full list is in the PDF. */
-/*
- * Service to the community — editorial work, panels, refereeing. Kept out of the
- * publication list on purpose: an editorial is service, not a research paper.
- */
-export const service: DatedEntry[] = [
-  {
-    role: "Editorial: Star formation — numerical simulations and what they teach us",
-    org: "Frontiers in Astronomy and Space Sciences",
-    date: "2024",
-    note: "View editorial",
-    href: "https://doi.org/10.3389/fspas.2024.1462935",
-  },
-];
-
 export const awards: DatedEntry[] = [
   { role: "Assigned Time for Research", org: "SDSU Division of Research & Innovation", date: "2026" },
   { role: "ATHENA Faculty Champion", org: "SDSU", date: "2024" },
@@ -92,7 +81,7 @@ export const awards: DatedEntry[] = [
   { role: "NSF Graduate Research Fellowship", date: "2011" },
 ];
 
-/** Selected first-author publications. Full list of 34 on ADS / in the PDF. */
+/** Selected first-author publications; the full synced list is on /publications. */
 export const selectedPublications: Publication[] = [
   {
     title: "Confidently Wrong: Why Ignoring Binaries Biases IMF Inference at Large Sample Sizes",
