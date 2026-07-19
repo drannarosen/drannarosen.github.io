@@ -1,0 +1,21 @@
+{
+  "_comment": "HUMAN-OWNED. Hand-edit this; the ORCID sync reads it and never overwrites it. Use it to drop works you don't want in the public bibliography. Add a `reason` so future-you knows why.",
+
+  "_howToUse": [
+    "excludeTypes: drop whole ORCID work types. Your record currently contains:",
+    "  journal-article (34), working-paper (1), other (1), dissertation-thesis (1), conference-paper (1).",
+    "  e.g. set [\"conference-paper\", \"other\"] to keep only papers + thesis + preprints.",
+    "exclude: drop individual works. Match on doi (preferred), bibcode, or exact title.",
+    "Run `pnpm sync:pubs` after editing to regenerate."
+  ],
+
+  "excludeTypes": [],
+
+  "exclude": [
+    {
+      "_example": true,
+      "doi": "10.0000/replace-me",
+      "reason": "Example entry - delete or replace. Matching is by doi, bibcode, or title."
+    }
+  ]
+}
