@@ -19,6 +19,7 @@ export interface Scene {
   // log range: floor01 = (log10(rho_0) - logMin) / (logMax - logMin). rho_0 is
   // the volume-weighted mean, so the shader's log colorbar spans [mean, max].
   densityFloor: number;
+  logRange: number; // logMax - logMin (dex), for the expansion's 1/S^3 dilution
 }
 
 export async function loadScene(base = "/data/gravoturb"): Promise<Scene> {
@@ -36,6 +37,7 @@ export async function loadScene(base = "/data/gravoturb"): Promise<Scene> {
     stars: new Float32Array(starBuf),
     box: meta.box_pc,
     densityFloor,
+    logRange: hi - lo,
   };
 }
 
@@ -70,6 +72,7 @@ out vec4 outColor;
 uniform sampler3D uVol;
 uniform vec2 uRes;
 uniform float uAngle, uEmit, uAbsorb, uZoom, uFloor, uGamma;
+uniform float uExpel, uLogRange;   // 0..1 expulsion phase; log10 dynamic range of the cube
 
 bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1){
   vec3 inv = 1.0/rd;
@@ -95,18 +98,21 @@ void main(){
   float t=t0+dt*seed;
   vec3 acc=vec3(0.); float alpha=0.;
   vec3 deep=vec3(0.09,0.40,0.44), pale=vec3(0.60,0.96,0.92), warm=vec3(0.92,0.66,0.55);
+  float S = 1.0 + uExpel*3.5;                           // homologous expansion factor
+  float dilute = 3.0*(log(S)/2.302585)/uLogRange;       // 1/S^3 mass loss, in log10 units
   for(int i=0;i<STEPS;i++){
-    vec3 sp = rom + rdm*t + 0.5;
-    float d = texture(uVol, sp).r;                      // normalized log10(rho)
-    // yt-style LOG COLORBAR: window to [rho_0, rho_max]. d is already normalized
-    // log10(rho), so s = (d-uFloor)/(1-uFloor) = log10(rho/rho_0) rescaled 0..1;
-    // gas below rho_0 (the mean density) is transparent -> the diffuse envelope
-    // clears, the cube rounds off, and the full ramp maps the overdense gas.
+    vec3 sp = rom + rdm*t + 0.5;                        // view-space texcoord
+    // Feedback expels the gas homologously: sample the ORIGINAL cube at a
+    // contracted coord so the cloud balloons outward, and dilute density by 1/S^3
+    // (a -3*log10(S) shift in log space). Stars don't move -> bare cluster emerges.
+    vec3 src = 0.5 + (sp - 0.5)/S;
+    float d = texture(uVol, src).r - dilute;            // normalized log10(rho), diluted
+    // yt-style LOG COLORBAR: window to [rho_0, rho_max]. s = (d-uFloor)/(1-uFloor)
+    // = log10(rho/rho_0) rescaled 0..1; gas below rho_0 (mean) is transparent.
     float s = clamp((d - uFloor)/(1.0 - uFloor), 0.0, 1.0);
-    // Spherical mask: the turbulent field fills the CUBIC computational box and its
-    // dense filaments get truncated flat at the walls (reads as a cube). Fade to
-    // zero beyond the inscribed sphere so we show the cloud's spherical extent.
-    float rr = length(sp - 0.5) * 2.0;                  // 1.0 at a face center
+    // Spherical mask on the SOURCE coord: hides the cubic-domain corners AND rides
+    // outward with the expanding shell (radius S*0.5), so the gas leaves the frame.
+    float rr = length(src - 0.5) * 2.0;                 // 1.0 at a face center
     s *= 1.0 - smoothstep(0.80, 1.02, rr);
     float sg = pow(s, uGamma);                          // uGamma=1 => faithful log
     float a = 1.0 - exp(-sg*uAbsorb*dt);
@@ -254,6 +260,8 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   // Log colorbar: rho_0 = mean density (from meta), gamma=1 => faithful log stretch.
   gl.uniform1f(gl.getUniformLocation(volProg, "uFloor"), scene.densityFloor);
   gl.uniform1f(gl.getUniformLocation(volProg, "uGamma"), 1.1);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uLogRange"), scene.logRange);
+  const uVExpel = gl.getUniformLocation(volProg, "uExpel");
   const uSAngle = gl.getUniformLocation(starProg, "uAngle");
   const uSBox = gl.getUniformLocation(starProg, "uBox");
   const uSPix = gl.getUniformLocation(starProg, "uPix");
@@ -262,6 +270,16 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   gl.uniform1f(gl.getUniformLocation(starProg, "uZoom"), 1.55);
 
   const rotationPeriod = opts.rotationPeriodSec ?? 110;
+  // Gas-expulsion timeline (seconds): sit embedded, then feedback drives the gas
+  // out, the bare cluster is briefly revealed, then it re-forms and the loop breathes.
+  const EXPEL_PERIOD = 34;
+  function expelAt(tSec: number): number {
+    const p = (tSec / EXPEL_PERIOD) % 1;
+    if (p < 0.45) return 0;                              // embedded (hero default)
+    if (p < 0.70) { const u = (p - 0.45) / 0.25; return u * u * (3 - 2 * u); } // expel
+    if (p < 0.80) return 1;                              // bare cluster revealed
+    const u = (p - 0.80) / 0.20; return 1 - u * u * (3 - 2 * u); // re-form
+  }
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   let reduceMotion = opts.reducedMotion ?? motionQuery.matches;
 
@@ -274,7 +292,7 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     gl!.viewport(0, 0, canvas.width, canvas.height);
   }
 
-  function draw(angle: number): void {
+  function draw(angle: number, expel: number): void {
     gl!.clearColor(0, 0, 0, 0);
     gl!.clear(gl!.COLOR_BUFFER_BIT);
     gl!.enable(gl!.BLEND);
@@ -283,6 +301,7 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     gl!.blendFunc(gl!.ONE, gl!.ONE_MINUS_SRC_ALPHA);
     gl!.uniform2f(uRes, canvas.width, canvas.height);
     gl!.uniform1f(uVAngle, angle);
+    gl!.uniform1f(uVExpel, expel);
     gl!.bindTexture(gl!.TEXTURE_3D, tex);
     gl!.drawArrays(gl!.TRIANGLES, 0, 3);
     // stars: additive, on top
@@ -299,7 +318,8 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   let raf = 0, running = false, onScreen = true, startT: number | null = null;
   function frame(now: number): void {
     if (startT === null) startT = now;
-    draw((2 * Math.PI * (now - startT)) / 1000 / rotationPeriod);
+    const elapsed = (now - startT) / 1000;
+    draw((2 * Math.PI * elapsed) / rotationPeriod, reduceMotion ? 0 : expelAt(elapsed));
     if (reduceMotion) { running = false; return; }
     raf = requestAnimationFrame(frame);
   }
@@ -318,10 +338,10 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     if (onScreen) play(); else stop();
   }, { threshold: 0 });
   function onVisibility(): void { if (document.hidden) stop(); else play(); }
-  function onResize(): void { resize(); if (!running) draw(0.6); }
+  function onResize(): void { resize(); if (!running) draw(0.6, 0); }
 
   resize();
-  draw(0.6);
+  draw(0.6, 0);
   io.observe(canvas);
   window.addEventListener("resize", onResize, { passive: true });
   document.addEventListener("visibilitychange", onVisibility);
