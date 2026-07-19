@@ -1,8 +1,8 @@
 /*
  * publications.ts — featured first-author papers with plain-language
  * ("astrobites-style") summaries. Summaries are drafted from each paper's
- * published abstract and are pending Anna's review. The full record of 34
- * publications lives on ADS/ORCID.
+ * published abstract and are pending Anna's review. The full record is synced
+ * from ORCID — see src/data/allPublications.ts.
  *
  * `authors`: wrap Anna's name in **…** for emphasis.
  */
@@ -43,6 +43,16 @@ export const featuredPublications: Publication[] = [
     ads: "https://ui.adsabs.harvard.edu/abs/2026arXiv260315779R/abstract",
     summary:
       "The stellar mass function's high-mass slope is usually measured by fitting single-star models to clusters — but most massive stars have unseen binary companions, and ignoring them biases the answer by a fixed amount. Because statistical error shrinks with sample size while this bias does not, huge upcoming surveys (Gaia, JWST, Roman, LSST) will report slopes that are precise yet wrong — a regime I call \"confidently wrong.\" A binary-aware analysis recovers the true slope.",
+    figure: {
+      src: "/images/publications/binary-imf-recovery.png",
+      alt: "Two panels. Left: recovered versus true high-mass IMF slope for four environments; binary-aware estimates (filled circles) sit on the one-to-one line while naive estimates (open diamonds) fall consistently below it. Right: posterior distributions of the error in the recovered slope; every naive posterior (dashed) is shifted left of zero, while every binary-aware posterior (solid) is centred on zero.",
+      caption:
+        "Ignoring binaries does not add noise — it moves the answer. Naive fits (dashed, open) are offset low in all four environments; binary-aware fits (solid, filled) recover the truth.",
+      credit: "Figure 3 of Rosen (2026), submitted.",
+      width: 2131,
+      height: 856,
+      contain: true,
+    },
   },
   {
     title:
