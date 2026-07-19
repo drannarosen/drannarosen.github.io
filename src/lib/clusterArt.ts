@@ -94,7 +94,7 @@ interface Prepared {
   gx: Float32Array;
   gy: Float32Array;
   gz: Float32Array;
-  gdens: Float32Array; // mote density 0..1 (drives soft-blob size)
+  gsz: Float32Array; // mote size (px): grows toward the sparse outskirts
 }
 
 function prepare(data: ClusterData): Prepared {
@@ -157,16 +157,24 @@ function prepare(data: ClusterData): Prepared {
   const gx = new Float32Array(m);
   const gy = new Float32Array(m);
   const gz = new Float32Array(m);
-  const gdens = new Float32Array(m);
+  const gsz = new Float32Array(m);
+  const half = box / 2;
   for (let i = 0; i < m; i++) {
     const o = i * 4;
-    gx[i] = ((gasPoints[o] + rng()) / ng) * box - box / 2;
-    gy[i] = ((gasPoints[o + 1] + rng()) / ng) * box - box / 2;
-    gz[i] = ((gasPoints[o + 2] + rng()) / ng) * box - box / 2;
-    gdens[i] = gasPoints[o + 3] / 255;
+    const x = ((gasPoints[o] + rng()) / ng) * box - half;
+    const y = ((gasPoints[o + 1] + rng()) / ng) * box - half;
+    const z = ((gasPoints[o + 2] + rng()) / ng) * box - half;
+    gx[i] = x;
+    gy[i] = y;
+    gz[i] = z;
+    const d = gasPoints[o + 3] / 255;
+    const rr = Math.min(1.3, Math.sqrt(x * x + y * y + z * z) / half); // 0..~1 radial
+    // adaptive: bigger, softer motes where the gas is sparse (outskirts) so it
+    // smooths there without over-blurring the dense, structured core.
+    gsz[i] = (1.8 + 3.4 * d) * (1 + 1.15 * rr);
   }
 
-  return { order, sx, sy, sz, color, core, coreA, glow, glowA, hot, gx, gy, gz, gdens };
+  return { order, sx, sy, sz, color, core, coreA, glow, glowA, hot, gx, gy, gz, gsz };
 }
 
 export interface ClusterArtOptions {
@@ -304,24 +312,18 @@ export function initClusterArt(
     const cosT = Math.cos(theta);
     const sinT = Math.sin(theta);
 
-    // gas -> offscreen buffer (additive soft blobs), then blurred onto the main
-    // canvas into a smooth nebula.
-    gasCtx.clearRect(0, 0, w, h);
-    gasCtx.globalCompositeOperation = "lighter";
-    const m = data.meta.n_gas_points;
-    for (let i = 0; i < m; i++) {
-      const xr = prep.gx[i] * cosT + prep.gz[i] * sinT;
-      const s = 2 + 4.5 * prep.gdens[i];
-      gasCtx.drawImage(mote, cx + xr * scale - s / 2, cy + prep.gy[i] * scale - s / 2, s, s);
-    }
+    // Gas: the smooth projected field (spherical, real data) — the same the 2D
+    // panel shows. The gas is ~spherically symmetric, so a fixed projection reads
+    // correctly while the stars rotate in 3D on top of it.
     ctx!.clearRect(0, 0, w, h);
-    ctx!.save();
-    ctx!.filter = "blur(3px)";
     ctx!.imageSmoothingEnabled = true;
-    ctx!.drawImage(gasBuf, 0, 0, w, h);
-    ctx!.restore();
+    const gwid = box * scale;
+    ctx!.globalAlpha = 0.95;
+    ctx!.drawImage(gasImg, cx - gwid / 2, cy - gwid / 2, gwid, gwid);
+    ctx!.globalAlpha = 1;
 
-    // stars, faint -> bright, depth-shaded — crisp, on top of the smooth gas
+    // stars, faint -> bright, depth-shaded — additive, on top of the smooth gas
+    ctx!.globalCompositeOperation = "lighter";
     for (let k = 0; k < prep.order.length; k++) {
       const i = prep.order[k];
       const xr = prep.sx[i] * cosT + prep.sz[i] * sinT;

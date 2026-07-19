@@ -79,6 +79,16 @@ def main() -> None:
 
     # --- gas: project the 3D cloud density to a 2D surface density, take log10 ---
     rho = np.asarray(ic.gas.rho_cloud)  # (NGRID, NGRID, NGRID)
+
+    # Spherical window: the turbulent field fills the CUBIC box, which reads as a
+    # cube when rendered. Fade the density to zero beyond an inscribed sphere so
+    # the cloud (2D projection AND 3D motes) is spherical. Smoothstep taper.
+    ax = (np.arange(NGRID) + 0.5) / NGRID - 0.5
+    XX, YY, ZZ = np.meshgrid(ax, ax, ax, indexing="ij")
+    rr = np.sqrt(XX * XX + YY * YY + ZZ * ZZ) / 0.5  # 1.0 at a face center
+    win = np.clip((0.98 - rr) / (0.98 - 0.5), 0.0, 1.0)
+    win = win * win * (3 - 2 * win)  # smoothstep 1 -> 0 between r=0.5 and 0.98
+    rho = rho * win.astype(rho.dtype)
     cell_volume = float(ic.gas.cell_volume)
     col = rho.sum(axis=2) * cell_volume / DX**2  # M_sun / pc^2
     floor = float(col[col > 0].min())
