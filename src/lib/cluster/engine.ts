@@ -22,6 +22,8 @@ const DEFAULT_YAW = 0.6;
 export interface EngineOptions {
   rotationPeriodSec?: number;
   reducedMotion?: boolean;
+  /** Run the auto gas-expulsion breathing loop (default false = stable embedded cloud). */
+  autoExpel?: boolean;
 }
 
 export interface ClusterEngine {
@@ -190,10 +192,11 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
     if (p < 0.80) return 1;
     const u = (p - 0.80) / 0.20; return 1 - u * u * (3 - 2 * u);
   }
+  const autoExpel = opts.autoExpel ?? false;
   let expelOverride: number | null = null;
   function currentExpel(elapsed: number): number {
     if (expelOverride !== null) return expelOverride;
-    return reduceMotion ? 0 : expelAt(elapsed);
+    return autoExpel && !reduceMotion ? expelAt(elapsed) : 0;
   }
 
   let dpr = 1;

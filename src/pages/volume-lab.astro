@@ -62,7 +62,7 @@ import PageHeader from "../components/PageHeader.astro";
     try {
       const scene = await loadScene();
       if (!canvas) return;
-      const ctl = createEngine(canvas, scene);
+      const ctl = createEngine(canvas, scene, { autoExpel: true });
       attachInteraction(canvas, ctl);
 
       const stars = scene.stars.length / 6;
