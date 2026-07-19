@@ -29,8 +29,8 @@ jobs:
         # uploads the dist/ artifact for the deploy job.
         uses: withastro/action@v3
         with:
-          # Astro 7 requires Node >= 22.12 (the action defaults to 20).
-          node-version: 22
+          # Node 24 (current). Astro 7 requires >= 22.12; the action defaults to 20.
+          node-version: 24
 
   deploy:
     needs: build
