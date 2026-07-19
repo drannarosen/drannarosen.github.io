@@ -1,0 +1,29 @@
+/*
+ * fonts.css — self-hosted variable fonts (no runtime external requests).
+ * Migrated from Anna's Cosmic Playground: Outfit (display) + Source Sans 3
+ * (body). font-display: swap avoids invisible text; the small subsets keep
+ * the network cost low. Preloaded in BaseLayout to prevent layout shift.
+ */
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/Outfit.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("/fonts/SourceSans3.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("/fonts/SourceSans3-Italic.woff2") format("woff2");
+}

@@ -52,9 +52,11 @@
     --step-4:  clamp(2.07rem, 1.71rem + 1.80vw, 3.53rem);
     --step-5:  clamp(2.49rem, 1.95rem + 2.68vw, 4.63rem);
 
-    /* ── Type families (system-first now; self-host variable fonts later) ── */
-    --font-display: "Newsreader", Georgia, "Times New Roman", serif;
-    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+    /* ── Type families (self-hosted, from Cosmic Playground) ─────────
+     * Outfit for display headings, Source Sans 3 for body. See fonts.css. */
+    --font-display: "Outfit", ui-sans-serif, system-ui, -apple-system,
+      "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-sans: "Source Sans 3", ui-sans-serif, system-ui, -apple-system,
       "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code",
       Menlo, Consolas, monospace;

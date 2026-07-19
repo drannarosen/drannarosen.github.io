@@ -1,0 +1,86 @@
+/*
+ * base.css — default styling for bare elements (body, headings, links,
+ * focus, selection, skip link). Tuned for Outfit (display) + Source Sans 3.
+ */
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    font-size: var(--step-0);
+    color: var(--ink);
+    background-color: var(--bg-void);
+    /* faint vertical gradient — reads as depth without an image.
+       A whisper of teal at the top ties into the brand accent. */
+    background-image: radial-gradient(
+      120% 80% at 50% -10%,
+      color-mix(in srgb, var(--spec-teal) 14%, var(--bg-deep)) 0%,
+      var(--bg-void) 55%
+    );
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  h1 {
+    font-size: var(--step-5);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  h2 { font-size: var(--step-3); }
+  h3 { font-size: var(--step-2); }
+
+  a {
+    color: var(--spec-teal-bright);
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: 1px;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  a:hover {
+    color: var(--ink);
+  }
+
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+    border-radius: var(--radius-s);
+  }
+
+  /* Accessible skip link */
+  .skip-link {
+    position: absolute;
+    inset-block-start: var(--space-2xs);
+    inset-inline-start: var(--space-2xs);
+    z-index: var(--z-skip);
+    padding: var(--space-2xs) var(--space-s);
+    background: var(--bg-surface);
+    color: var(--ink);
+    border-radius: var(--radius-s);
+    transform: translateY(-150%);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--spec-teal) 32%, transparent);
+    color: var(--ink);
+  }
+}
+
+/* Global reduced-motion override — unlayered !important so it always wins. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
