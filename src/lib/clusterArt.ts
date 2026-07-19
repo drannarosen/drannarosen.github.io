@@ -211,13 +211,15 @@ export function initClusterArt(
     const ghi = data.meta.gas_log_max;
     for (let j = 0; j < ng; j++) {
       for (let i = 0; i < ng; i++) {
-        const v = (data.gas[j * ng + i] - glo) / (ghi - glo);
-        const a = Math.pow(Math.max(0, v), 1.2);
+        const v = Math.max(0, (data.gas[j * ng + i] - glo) / (ghi - glo));
+        // High-contrast ramp: diffuse gas stays dark, dense filaments & the
+        // central concentration brighten toward pale teal — so turbulence shows.
+        const bright = Math.pow(v, 2.0); // steep -> reveals structure
         const p = (j * ng + i) * 4;
-        img.data[p] = 55 + 100 * a;
-        img.data[p + 1] = 150 + 85 * a;
-        img.data[p + 2] = 150 + 75 * a;
-        img.data[p + 3] = 255 * a;
+        img.data[p] = 24 + 165 * bright;
+        img.data[p + 1] = 88 + 155 * bright;
+        img.data[p + 2] = 88 + 148 * bright;
+        img.data[p + 3] = 255 * Math.pow(v, 1.45);
       }
     }
     gctx.putImageData(img, 0, 0);

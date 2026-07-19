@@ -80,6 +80,14 @@ def main() -> None:
     # --- gas: project the 3D cloud density to a 2D surface density, take log10 ---
     rho = np.asarray(ic.gas.rho_cloud)  # (NGRID, NGRID, NGRID)
 
+    # --- 3D density VOLUME (uint8, log-scaled) for WebGL raymarching ----------
+    # The true cube, untapered. C-order (i,j,k); the shader trilinearly samples
+    # it. uint8 is visually lossless once mapped to a screen color.
+    vfloor = float(rho[rho > 0].min())
+    vlog = np.log10(np.maximum(rho, vfloor))
+    vlo, vhi = float(vlog.min()), float(vlog.max())
+    vol_u8 = ((vlog - vlo) / (vhi - vlo) * 255.0).astype(np.uint8)  # (N,N,N)
+
     # Spherical window: the turbulent field fills the CUBIC box, which reads as a
     # cube when rendered. Fade the density to zero beyond an inscribed sphere so
     # the cloud (2D projection AND 3D motes) is spherical. Smoothstep taper.
@@ -132,6 +140,7 @@ def main() -> None:
     stars.tofile(OUT / "stars.f32")
     gas_log.tofile(OUT / "gas.f32")
     gas_points.tofile(OUT / "gas_points.u8")
+    vol_u8.tofile(OUT / "volume.u8")
     meta = {
         "provenance": "progenax gravoturb IC (feasibility_figure.build)",
         "lambda_corr": LAMBDA_CORR,
@@ -148,6 +157,12 @@ def main() -> None:
         "gas_point_encoding": (
             "uint8: i,j,k are grid indices 0..NGRID-1 "
             "(pc = (idx+0.5)/NGRID*box - box/2); dens is log-scaled 0..255"
+        ),
+        "volume_ngrid": int(NGRID),
+        "volume_log_min": vlo,
+        "volume_log_max": vhi,
+        "volume_encoding": (
+            "uint8 log10(rho) rescaled 0..255, C-order (i,j,k), cube of side box_pc"
         ),
     }
     (OUT / "meta.json").write_text(json.dumps(meta, indent=2))

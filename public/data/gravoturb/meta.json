@@ -30,5 +30,9 @@
     "k",
     "dens"
   ],
-  "gas_point_encoding": "uint8: i,j,k are grid indices 0..NGRID-1 (pc = (idx+0.5)/NGRID*box - box/2); dens is log-scaled 0..255"
+  "gas_point_encoding": "uint8: i,j,k are grid indices 0..NGRID-1 (pc = (idx+0.5)/NGRID*box - box/2); dens is log-scaled 0..255",
+  "volume_ngrid": 128,
+  "volume_log_min": -3.516667319954694,
+  "volume_log_max": 6.283193298048315,
+  "volume_encoding": "uint8 log10(rho) rescaled 0..255, C-order (i,j,k), cube of side box_pc"
 }

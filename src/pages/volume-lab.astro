@@ -1,0 +1,60 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+---
+
+<BaseLayout
+  title="Volume lab — Anna Rosen"
+  description="Prototype: WebGL raymarch of the real gravoturb density cube."
+  path="/volume-lab"
+>
+  <PageHeader
+    eyebrow="Prototype · not linked"
+    title="The turbulent cube"
+    lede="Your real gravoturb density volume (128³), raymarched in WebGL and rotating in true 3D. Gas only for now — stars next."
+  />
+
+  <div class="vl wrap">
+    <canvas class="vl__canvas" data-volume aria-label="A rotating 3D turbulent gas cube."></canvas>
+    <p class="vl__status" data-status aria-live="polite">Loading volume…</p>
+  </div>
+</BaseLayout>
+
+<script>
+  import { loadVolume, initVolume } from "../lib/volumeRenderer";
+
+  const status = document.querySelector<HTMLParagraphElement>("[data-status]");
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-volume]");
+
+  (async () => {
+    try {
+      const vol = await loadVolume();
+      if (canvas) initVolume(canvas, vol);
+      if (status) status.textContent = `volume ${vol.ngrid}³ · ${(vol.data.length / 1048576).toFixed(1)} MB in memory`;
+    } catch (err) {
+      if (status) status.textContent = `Failed: ${String(err)}`;
+    }
+  })();
+</script>
+
+<style>
+  .vl {
+    padding-block: var(--space-l) var(--space-3xl);
+  }
+  .vl__canvas {
+    inline-size: min(100%, 40rem);
+    aspect-ratio: 1;
+    display: block;
+    margin-inline: auto;
+    background: radial-gradient(120% 120% at 50% 45%, #0a0f12, var(--bg-void));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .vl__status {
+    margin-block-start: var(--space-s);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+</style>
