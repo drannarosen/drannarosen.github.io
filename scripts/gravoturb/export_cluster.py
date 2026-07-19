@@ -171,9 +171,17 @@ def main() -> None:
         [xyz[:, 0], xyz[:, 1], xyz[:, 2], mass, teff, radius]
     ).astype(np.float32)
 
+    # Local gas density at each star's cell — the coupling KEY the mass-segregation
+    # explorer re-pairs on (correlated_mass_assignment sorts positions by this and
+    # assigns massive stars to dense cells with strength lambda_corr). Sampled from
+    # the raw density field at the star's grid cell.
+    cell = np.clip(np.floor((pos + origin[:3]) / BOX * NGRID).astype(int), 0, NGRID - 1)
+    local_density = np.asarray(rho)[cell[:, 0], cell[:, 1], cell[:, 2]].astype(np.float32)
+
     # --- write -----------------------------------------------------------------
     OUT.mkdir(parents=True, exist_ok=True)
     stars.tofile(OUT / "stars.f32")
+    local_density.tofile(OUT / "local_density.f32")
     gas_log.tofile(OUT / "gas.f32")
     gas_points.tofile(OUT / "gas_points.u8")
     vol_u8.tofile(OUT / "volume.u8")

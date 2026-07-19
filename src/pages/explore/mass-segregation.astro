@@ -1,0 +1,123 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+import PresentFrame from "../../components/explore/PresentFrame.astro";
+---
+
+<BaseLayout
+  title="Mass segregation — Anna Rosen"
+  description="Watch massive stars sink to a star cluster's core as primordial mass segregation strengthens — computed live from the real progenax density-coupling."
+  path="/explore/mass-segregation"
+>
+  <PageHeader
+    eyebrow="Explore · interactive"
+    title="Mass segregation"
+    lede="Young clusters are often born already segregated — the most massive stars sit deepest, where the gas was densest. One knob, λ_corr, sets how tightly a star's mass is tied to the density of the cell it forms in. Slide it up and watch the big blue stars migrate to the core."
+  />
+
+  <div class="ms wrap-wide">
+    <PresentFrame label="Star cluster with tunable mass segregation" hint="drag to rotate · scroll to zoom · ←/→ steps λ_corr · F fullscreen">
+      <canvas slot="stage" data-cluster aria-label="A star cluster; massive stars move to the core as segregation increases."></canvas>
+      <div slot="controls" class="ms__controls">
+        <label class="ms__label" for="lam">
+          Coupling λ<sub>corr</sub> <span class="ms__val" data-lam>0.00</span>
+          <span class="ms__endpts">0 = random · 1 = massive stars in the densest gas</span>
+        </label>
+        <input id="lam" type="range" min="0" max="1" step="0.01" value="0" autocomplete="off" data-lam-input />
+        <p class="ms__status" data-status aria-live="polite">Loading cluster…</p>
+      </div>
+    </PresentFrame>
+
+    <div class="ms__note prose wrap">
+      <p>
+        Nothing here is choreographed. The star <em>positions</em> and the gas are
+        fixed; λ<sub>corr</sub> only changes <em>which</em> star lands in each
+        position, via the same rank-coupling (McLuster Eq. A1) that
+        <code>progenax</code> uses to build segregated initial conditions. At
+        λ<sub>corr</sub> = 1 the most massive star takes the single densest cell;
+        at 0 the pairing is random. The 10,000 stars re-pair in your browser as
+        you drag.
+      </p>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { sceneFromParts, createEngine, attachInteraction, makeSegregator } from "../../lib/cluster";
+
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-cluster]");
+  const slider = document.querySelector<HTMLInputElement>("[data-lam-input]");
+  const val = document.querySelector<HTMLSpanElement>("[data-lam]");
+  const status = document.querySelector<HTMLParagraphElement>("[data-status]");
+  const frame = canvas?.closest<HTMLElement>("[data-present]");
+
+  const LAMBDA0 = 0;
+  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+
+  (async () => {
+    if (!canvas) return;
+    try {
+      const base = "/data/gravoturb";
+      const [meta, volBuf, starBuf, densBuf] = await Promise.all([
+        fetch(`${base}/meta.json`).then((r) => r.json()),
+        fetch(`${base}/volume.u8`).then((r) => r.arrayBuffer()),
+        fetch(`${base}/stars.f32`).then((r) => r.arrayBuffer()),
+        fetch(`${base}/local_density.f32`).then((r) => r.arrayBuffer()),
+      ]);
+      const stars = new Float32Array(starBuf);
+      const seg = makeSegregator(stars, new Float32Array(densBuf));
+      const scene = sceneFromParts(meta, new Uint8Array(volBuf), seg.at(LAMBDA0));
+      const engine = createEngine(canvas, scene);
+      attachInteraction(canvas, engine);
+
+      let lambda = LAMBDA0;
+      const setLambda = (v: number) => {
+        lambda = clamp(v);
+        engine.setStars(seg.at(lambda));
+        if (slider) slider.value = String(lambda);
+        if (val) val.textContent = lambda.toFixed(2);
+      };
+      slider?.addEventListener("input", () => setLambda(+slider.value));
+
+      // Present-mode keyboard routing (from PresentFrame).
+      frame?.addEventListener("present:next", () => setLambda(lambda + 0.05));
+      frame?.addEventListener("present:prev", () => setLambda(lambda - 0.05));
+      frame?.addEventListener("present:reset", () => setLambda(LAMBDA0));
+
+      setLambda(LAMBDA0);
+      if (status) status.textContent = `${seg.n.toLocaleString()} stars · re-paired live from real density coupling`;
+    } catch (err) {
+      if (status) status.textContent = `Failed to load: ${String(err)}`;
+    }
+  })();
+</script>
+
+<style>
+  .ms { padding-block: var(--space-l) var(--space-3xl); }
+  .ms__controls {
+    margin-block-start: var(--space-m);
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .ms__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+  }
+  .ms__val { color: var(--spec-cyan, #4fd6c4); font-size: var(--step-0); }
+  .ms__endpts { color: var(--ink-dim); font-size: var(--step--2); }
+  .ms__controls input[type="range"] {
+    inline-size: 100%;
+    accent-color: var(--spec-cyan, #4fd6c4);
+  }
+  .ms__status {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+  }
+  .ms__note { margin-block-start: var(--space-xl); }
+</style>

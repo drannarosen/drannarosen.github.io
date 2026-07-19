@@ -11,3 +11,5 @@ export type { ClusterEngine, EngineOptions } from "./engine";
 export { createEngine, DEFAULT_ZOOM, ZOOM_MIN, ZOOM_MAX } from "./engine";
 export { attachInteraction } from "./interaction";
 export { spectralRGB } from "./spectral";
+export type { Segregator } from "./massSegregation";
+export { makeSegregator } from "./massSegregation";

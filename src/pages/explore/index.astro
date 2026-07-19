@@ -1,0 +1,129 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+
+/*
+ * /explore — hub for the interactive cluster explorables. Each card links a piece
+ * built on the shared cluster engine. `status: "soon"` cards are honest
+ * placeholders (not yet linked) so nothing overpromises.
+ */
+interface Card {
+  title: string;
+  href: string;
+  status: "live" | "soon";
+  blurb: string;
+}
+
+const cards: Card[] = [
+  {
+    title: "Mass segregation",
+    href: "/explore/mass-segregation",
+    status: "live",
+    blurb:
+      "Turn one knob and watch the most massive stars sink to the cluster core — primordial mass segregation, computed live from the real density-coupling used in progenax.",
+  },
+  {
+    title: "Birth of a cluster",
+    href: "/explore/cluster",
+    status: "soon",
+    blurb:
+      "A turbulent cloud grows dense, ignites its stars, and blows itself clear with feedback — the life of a star cluster, told scroll by scroll from a real gravoturb model.",
+  },
+  {
+    title: "Inference",
+    href: "/explore/inference",
+    status: "soon",
+    blurb:
+      "Watch a posterior over a cluster's mass, age, and size tighten as observations arrive — real differentiable inference from informax, on a synthetic cluster.",
+  },
+];
+---
+
+<BaseLayout
+  title="Explore — Anna Rosen"
+  description="Interactive explorables built on real gravoturb star-cluster models: mass segregation, cluster birth, and differentiable inference."
+  path="/explore"
+>
+  <PageHeader
+    eyebrow="Interactive"
+    title="Explore the cluster"
+    lede="Hands-on pieces built straight from my real JAXSTRO models — for curiosity, for talks, for the classroom. Drag, zoom, and turn the knobs; the physics is honest, not decorative."
+  />
+
+  <ul class="cards wrap-wide" role="list">
+    {
+      cards.map((c) => (
+        <li class:list={["card", { "card--soon": c.status === "soon" }]}>
+          {c.status === "live" ? (
+            <a class="card__link" href={c.href}>
+              <h2 class="card__title">{c.title}</h2>
+              <p class="card__blurb">{c.blurb}</p>
+              <span class="card__cta">Open →</span>
+            </a>
+          ) : (
+            <div class="card__link" aria-disabled="true">
+              <h2 class="card__title">
+                {c.title} <span class="card__tag">in progress</span>
+              </h2>
+              <p class="card__blurb">{c.blurb}</p>
+            </div>
+          )}
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+
+<style>
+  .cards {
+    list-style: none;
+    padding: 0;
+    margin-block: var(--space-l) var(--space-3xl);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: var(--space-m);
+  }
+  .card { margin: 0; }
+  .card__link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+    block-size: 100%;
+    padding: var(--space-m);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    background: color-mix(in oklab, var(--bg-void) 55%, transparent);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  a.card__link:hover {
+    border-color: var(--spec-cyan, #4fd6c4);
+    transform: translateY(-2px);
+  }
+  .card--soon .card__link { opacity: 0.62; }
+  .card__title {
+    font-size: var(--step-1);
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+  }
+  .card__tag {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .card__blurb {
+    color: var(--ink-soft);
+    font-size: var(--step--1);
+  }
+  .card__cta {
+    margin-block-start: auto;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--spec-cyan, #4fd6c4);
+  }
+</style>

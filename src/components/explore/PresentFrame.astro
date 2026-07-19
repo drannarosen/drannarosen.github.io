@@ -1,0 +1,135 @@
+---
+/*
+ * PresentFrame — shared shell for every /explore explorable.
+ *
+ * Wraps a WebGL/canvas "stage" plus a controls slot, and provides the
+ * lecture-ready affordances once, so all pieces inherit them:
+ *   - fullscreen toggle (Fullscreen API on the frame element)
+ *   - keyboard routing while focused/fullscreen: ->/space = next, <- = prev,
+ *     R = reset, F = fullscreen. Keys are dispatched as CustomEvents on the frame
+ *     ("present:next|prev|reset") that the mounted island listens for and maps to
+ *     its own action (step a slider, advance a scene, …).
+ *
+ * Slots: `stage` (the canvas), `controls` (the piece's control panel), default
+ * (captions / prose beneath).
+ */
+interface Props {
+  /** Accessible label for the stage region. */
+  label?: string;
+  /** Hint shown under the stage (e.g. "drag to rotate · scroll to zoom"). */
+  hint?: string;
+}
+const { label = "Interactive cluster", hint } = Astro.props;
+---
+
+<section class="present" data-present tabindex="0" aria-label={label}>
+  <div class="present__stage">
+    <slot name="stage" />
+    <button class="present__fs" data-present-fullscreen type="button" aria-label="Toggle fullscreen">
+      <span aria-hidden="true">⛶</span>
+    </button>
+  </div>
+  {hint && <p class="present__hint">{hint}</p>}
+  <div class="present__controls">
+    <slot name="controls" />
+  </div>
+  <slot />
+</section>
+
+<script>
+  for (const frame of document.querySelectorAll<HTMLElement>("[data-present]")) {
+    const fsBtn = frame.querySelector<HTMLButtonElement>("[data-present-fullscreen]");
+    const toggleFs = () => {
+      if (document.fullscreenElement === frame) document.exitFullscreen();
+      else frame.requestFullscreen?.();
+    };
+    fsBtn?.addEventListener("click", toggleFs);
+    document.addEventListener("fullscreenchange", () => {
+      const on = document.fullscreenElement === frame;
+      frame.classList.toggle("is-present", on);
+      if (on) frame.focus();
+    });
+
+    const keymap: Record<string, string> = {
+      ArrowRight: "present:next", " ": "present:next",
+      ArrowLeft: "present:prev",
+      r: "present:reset", R: "present:reset",
+    };
+    frame.addEventListener("keydown", (e) => {
+      if (e.key === "f" || e.key === "F") { toggleFs(); e.preventDefault(); return; }
+      const type = keymap[e.key];
+      if (type) { frame.dispatchEvent(new CustomEvent(type)); e.preventDefault(); }
+    });
+  }
+</script>
+
+<style>
+  .present {
+    display: block;
+    outline: none;
+  }
+  .present:focus-visible {
+    box-shadow: 0 0 0 2px var(--spec-cyan, #4fd6c4);
+    border-radius: var(--radius-m);
+  }
+  .present__stage {
+    position: relative;
+    inline-size: min(100%, 46rem);
+    margin-inline: auto;
+  }
+  .present__stage :global(canvas) {
+    inline-size: 100%;
+    aspect-ratio: 1;
+    display: block;
+    background: radial-gradient(120% 120% at 50% 45%, #0a0f12, var(--bg-void));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .present__fs {
+    position: absolute;
+    inset-block-start: var(--space-2xs);
+    inset-inline-end: var(--space-2xs);
+    inline-size: 2rem;
+    block-size: 2rem;
+    display: grid;
+    place-items: center;
+    font-size: 1rem;
+    color: var(--ink-dim);
+    background: color-mix(in oklab, var(--bg-void) 55%, transparent);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    cursor: pointer;
+  }
+  .present__fs:hover { color: var(--ink); border-color: var(--spec-cyan, #4fd6c4); }
+  .present__hint {
+    margin-block-start: var(--space-2xs);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+  }
+  .present__controls {
+    inline-size: min(100%, 46rem);
+    margin-inline: auto;
+  }
+
+  /* Fullscreen (present) mode: the frame fills the screen, stage grows, controls
+     enlarge for projector legibility. */
+  .present.is-present {
+    block-size: 100vh;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    align-items: center;
+    gap: var(--space-s);
+    padding: var(--space-l);
+    background: var(--bg-void);
+  }
+  .present.is-present .present__stage {
+    inline-size: auto;
+    block-size: min(100%, 82vh);
+    aspect-ratio: 1;
+  }
+  .present.is-present .present__stage :global(canvas) { block-size: 100%; inline-size: auto; }
+  .present.is-present .present__controls { font-size: 1.15rem; }
+  .present.is-present .present__hint { display: none; }
+</style>
