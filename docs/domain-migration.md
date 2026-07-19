@@ -9,6 +9,29 @@ Goal: serve this site at **anna-rosen.com** and retire the old WordPress site �
 > email. Leave them exactly as they are and email keeps working through the
 > whole migration.
 
+## Your current setup (discovered from public DNS, 2026-07)
+
+| Role | Who | Notes |
+|------|-----|-------|
+| **Registrar** | Squarespace Domains (formerly Google Domains) | Where you log in to manage the domain |
+| **DNS** | WordPress.com (`ns1/2/3.wordpress.com`) | Records are edited via WordPress.com today |
+| **Web host** | WordPress.com (`192.0.78.24/25`) | The site you're replacing |
+| **Email** | **None** — no `MX` records exist | ✅ No email to break; the migration is low-risk |
+
+Because there's no email on the domain, the usual "don't touch MX/SPF/DKIM"
+warning below is precautionary only — there is currently nothing there to
+disturb. (If you ever add email later, that changes.)
+
+**Two ways to take DNS control** so you can point at GitHub Pages:
+- **Option A (recommended): move DNS to the registrar.** At Squarespace, switch
+  the domain's nameservers to Squarespace's own DNS (or to Cloudflare), then add
+  the GitHub records there. Cleanest separation from WordPress.
+- **Option B: edit records at WordPress.com.** Keep the WP.com nameservers but
+  change the A/CNAME records to GitHub's. You may first need to *disconnect* the
+  domain from the WordPress site in the WP.com dashboard.
+
+Either way the GitHub records are the same (below).
+
 ## First, know the four roles (they're often different companies)
 
 | Role | What it does | How to find it |
