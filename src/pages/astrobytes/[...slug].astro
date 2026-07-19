@@ -32,6 +32,9 @@ const fmt = (d: Date) =>
   title={`${title} — Astrobytes — Anna Rosen, Ph.D.`}
   description={dek}
   path={`/astrobytes/${post.id}`}
+  ogType="article"
+  ogImage={`astrobytes-${post.id}.png`}
+  ogImageAlt={`Key figure from ${paper.title}`}
 >
   <PageHeader eyebrow="Astrobytes" title={title} lede={dek} />
 

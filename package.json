@@ -15,7 +15,9 @@
     "astro": "astro",
     "sync:pubs": "node scripts/publications/sync_orcid.mjs",
     "sync:pubs:check": "node scripts/publications/sync_orcid.mjs --check",
-    "check:figures": "node scripts/figures/check.mjs"
+    "check:figures": "node scripts/figures/check.mjs",
+    "og": "node scripts/og/generate.mjs",
+    "prebuild": "node scripts/figures/check.mjs && node scripts/og/generate.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.2.1",
