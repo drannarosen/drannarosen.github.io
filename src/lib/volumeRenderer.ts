@@ -81,7 +81,7 @@ precision highp sampler3D;
 out vec4 outColor;
 uniform sampler3D uVol;
 uniform vec2 uRes;
-uniform float uAngle, uEmit, uAbsorb, uZoom, uFloor, uGamma;
+uniform float uYaw, uPitch, uEmit, uAbsorb, uZoom, uFloor, uGamma;
 uniform float uExpel, uLogRange; // expulsion phase; log10 dynamic range of the cube
 uniform vec2 uPan;               // view pan, in uv (screen-height) units
 
@@ -93,13 +93,14 @@ bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1){
   return t1>max(t0,0.0);
 }
 mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
+mat3 rotX(float a){ float c=cos(a),s=sin(a); return mat3(1.,0.,0., 0.,c,-s, 0.,s,c); }
 
 void main(){
   vec2 uv = (gl_FragCoord.xy - 0.5*uRes)/uRes.y - uPan;   // pan shifts the view
   vec3 ro = vec3(0.,0.,1.7);
   vec3 rd = normalize(vec3(uv*1.15*uZoom, -1.6));   // uZoom>1 => cube smaller, more frame
-  // rotate ray into the (static) volume's model space
-  mat3 Rinv = rotY(-uAngle);
+  // rotate ray into the (static) volume's model space (yaw about Y, pitch about X)
+  mat3 Rinv = rotX(-uPitch)*rotY(-uYaw);
   vec3 rom = Rinv*ro, rdm = Rinv*rd;
   float t0,t1;
   if(!hitBox(rom, rdm, t0, t1)){ outColor=vec4(0.); return; }
@@ -141,12 +142,13 @@ precision highp float;
 in vec3 aPos;    // pc
 in vec3 aColor;  // 0..1
 in float aSize;  // sqrt(radius) scale
-uniform float uAngle, uBox, uPix, uZoom;
+uniform float uYaw, uPitch, uBox, uPix, uZoom;
 uniform vec2 uPan;
 out vec3 vColor;
 mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
+mat3 rotX(float a){ float c=cos(a),s=sin(a); return mat3(1.,0.,0., 0.,c,-s, 0.,s,c); }
 void main(){
-  vec3 P = rotY(-uAngle) * (aPos / uBox);   // normalized, rotated to world
+  vec3 P = rotX(-uPitch)*rotY(-uYaw) * (aPos / uBox);   // same rotation as the volume
   float denom = 1.7 - P.z;
   float clipx = (P.x*1.6/(1.15*uZoom))/denom;   // match the volume's zoom
   float clipy = (P.y*1.6/(1.15*uZoom))/denom;
@@ -273,7 +275,8 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   // uniforms — volume program. The values the on-page controls can change are kept
   // in mutable state alongside their locations so setters can update them live.
   const uRes = gl.getUniformLocation(volProg, "uRes");
-  const uVAngle = gl.getUniformLocation(volProg, "uAngle");
+  const uVYaw = gl.getUniformLocation(volProg, "uYaw");
+  const uVPitch = gl.getUniformLocation(volProg, "uPitch");
   const uVExpel = gl.getUniformLocation(volProg, "uExpel");
   const uEmitL = gl.getUniformLocation(volProg, "uEmit");
   const uFloorL = gl.getUniformLocation(volProg, "uFloor");
@@ -289,7 +292,8 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   gl.uniform1f(gl.getUniformLocation(volProg, "uLogRange"), scene.logRange);
   const uZoomVol = gl.getUniformLocation(volProg, "uZoom");
   const uPanVol = gl.getUniformLocation(volProg, "uPan");
-  const uSAngle = gl.getUniformLocation(starProg, "uAngle");
+  const uSYaw = gl.getUniformLocation(starProg, "uYaw");
+  const uSPitch = gl.getUniformLocation(starProg, "uPitch");
   const uSBox = gl.getUniformLocation(starProg, "uBox");
   const uSPix = gl.getUniformLocation(starProg, "uPix");
   const uZoomStar = gl.getUniformLocation(starProg, "uZoom");
@@ -332,7 +336,7 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     gl!.viewport(0, 0, canvas.width, canvas.height);
   }
 
-  function draw(angle: number, expel: number): void {
+  function draw(yaw: number, pitch: number, expel: number): void {
     gl!.clearColor(0, 0, 0, 0);
     gl!.clear(gl!.COLOR_BUFFER_BIT);
     gl!.enable(gl!.BLEND);
@@ -340,14 +344,16 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     gl!.useProgram(volProg);
     gl!.blendFunc(gl!.ONE, gl!.ONE_MINUS_SRC_ALPHA);
     gl!.uniform2f(uRes, canvas.width, canvas.height);
-    gl!.uniform1f(uVAngle, angle);
+    gl!.uniform1f(uVYaw, yaw);
+    gl!.uniform1f(uVPitch, pitch);
     gl!.uniform1f(uVExpel, expel);
     gl!.bindTexture(gl!.TEXTURE_3D, tex);
     gl!.drawArrays(gl!.TRIANGLES, 0, 3);
     // stars: additive, on top
     gl!.useProgram(starProg);
     gl!.blendFunc(gl!.ONE, gl!.ONE);
-    gl!.uniform1f(uSAngle, angle);
+    gl!.uniform1f(uSYaw, yaw);
+    gl!.uniform1f(uSPitch, pitch);
     gl!.uniform1f(uSPix, canvas.height * 0.018);
     gl!.bindVertexArray(vao);
     gl!.drawArrays(gl!.POINTS, 0, n);
@@ -356,7 +362,9 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
 
   /* ── lifecycle ─────────────────────────────────────────────────── */
   let raf = 0, running = false, onScreen = true, startT: number | null = null;
-  let lastAngle = 0.6;
+  let yaw = 0.6, pitch = 0;         // view orientation (yaw about Y, pitch about X)
+  let spin = !reduceMotion;         // auto-rotate until the user grabs it
+  let lastNow: number | null = null;
   let expelOverride: number | null = null; // null = follow the auto timeline
   function currentExpel(elapsed: number): number {
     if (expelOverride !== null) return expelOverride;
@@ -365,12 +373,15 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   function frame(now: number): void {
     if (startT === null) startT = now;
     const elapsed = (now - startT) / 1000;
-    lastAngle = (2 * Math.PI * elapsed) / rotationPeriod;
-    draw(lastAngle, currentExpel(elapsed));
+    if (lastNow !== null && spin) {
+      yaw += ((2 * Math.PI) / rotationPeriod) * ((now - lastNow) / 1000);
+    }
+    lastNow = now;
+    draw(yaw, pitch, currentExpel(elapsed));
     if (reduceMotion) { running = false; return; }
     raf = requestAnimationFrame(frame);
   }
-  function redraw(): void { draw(lastAngle, expelOverride ?? 0); }
+  function redraw(): void { draw(yaw, pitch, expelOverride ?? 0); }
   function play(): void {
     if (running || document.hidden || !onScreen) return;
     running = true;
@@ -386,10 +397,10 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     if (onScreen) play(); else stop();
   }, { threshold: 0 });
   function onVisibility(): void { if (document.hidden) stop(); else play(); }
-  function onResize(): void { resize(); if (!running) draw(0.6, 0); }
+  function onResize(): void { resize(); if (!running) draw(yaw, pitch, 0); }
 
   resize();
-  draw(0.6, 0);
+  draw(yaw, pitch, 0);
   io.observe(canvas);
   window.addEventListener("resize", onResize, { passive: true });
   document.addEventListener("visibilitychange", onVisibility);
@@ -409,23 +420,34 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     }, { signal: ac.signal, passive: false });
     const pts = new Map<number, { x: number; y: number }>();
     let pinch = 0;
+    let mode: "rotate" | "pan" = "rotate";
+    const ROT = 3.0; // radians per full canvas-height drag
     const spread = (): number => {
       const v = [...pts.values()];
       return Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y);
     };
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault(), sig);
     canvas.addEventListener("pointerdown", (e) => {
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       canvas.setPointerCapture(e.pointerId);
       canvas.style.cursor = "grabbing";
-      if (pts.size === 2) pinch = spread();
+      if (pts.size === 1) mode = (e.shiftKey || e.button === 2) ? "pan" : "rotate";
+      if (pts.size === 2) { mode = "pan"; pinch = spread(); }
     }, sig);
     canvas.addEventListener("pointermove", (e) => {
       const prev = pts.get(e.pointerId);
       if (!prev) return;
       const h = canvas.getBoundingClientRect().height;
+      const dx = (e.clientX - prev.x) / h, dy = (e.clientY - prev.y) / h;
       if (pts.size === 1) {
-        panX += (e.clientX - prev.x) / h; // drag right => cluster follows
-        panY -= (e.clientY - prev.y) / h;
+        if (mode === "pan") {
+          panX += dx; // drag => cluster follows
+          panY -= dy;
+        } else {
+          spin = false; // user grabbed it — stop auto-rotate
+          yaw += dx * ROT;
+          pitch = Math.max(-1.45, Math.min(1.45, pitch + dy * ROT));
+        }
       }
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pts.size === 2 && pinch > 0) {
@@ -443,7 +465,9 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     canvas.addEventListener("pointerup", release, sig);
     canvas.addEventListener("pointercancel", release, sig);
     canvas.addEventListener("dblclick", () => {
-      zoom = DEFAULT_ZOOM; panX = 0; panY = 0; viewChanged(); // reset view
+      zoom = DEFAULT_ZOOM; panX = 0; panY = 0;
+      yaw = 0.6; pitch = 0; spin = !reduceMotion; lastNow = null; // resume auto-spin
+      viewChanged();
     }, sig);
   }
 
