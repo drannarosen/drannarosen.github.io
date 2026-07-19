@@ -3,7 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
 import JaxstroEcosystem from "../components/JaxstroEcosystem.astro";
 import StatusBadge from "../components/StatusBadge.astro";
-import { allPackages } from "../data/jaxstro";
+import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/jaxstro";
 ---
 
 <BaseLayout
@@ -33,45 +33,75 @@ import { allPackages } from "../data/jaxstro";
 
   <section class="wrap sw-packages" aria-labelledby="pkg-heading">
     <h2 id="pkg-heading" class="sw-section-title">The packages</h2>
-    <ul class="sw-cards" role="list">
+
+    {/* The foundation is set apart because it is not a peer of the pipeline
+        stages — everything below composes on top of it. */}
+    <article class="pkg pkg--foundation" id={`pkg-${foundation.name}`}>
+      <div class="pkg__rail">
+        <span class="pkg__stage">{foundation.stage}</span>
+      </div>
+      <div class="pkg__body">
+        <h3 class="pkg__name">
+          {foundation.docs ? (
+            <a href={foundation.docs} rel="noopener">{foundation.name}</a>
+          ) : foundation.name}
+        </h3>
+        <p class="pkg__tagline">{foundation.tagline}</p>
+        <p class="pkg__desc">{foundation.description}</p>
+        <div class="pkg__foot">
+          <span class="meter" title={foundation.maturity} aria-label={`Readiness: ${READINESS_LABEL[foundation.readiness]}`}>
+            {[1, 2, 3].map((i) => (
+              <span class:list={["meter__step", i <= READINESS_STEPS[foundation.readiness] && "is-on"]} />
+            ))}
+            <span class="meter__label">{READINESS_LABEL[foundation.readiness]}</span>
+          </span>
+          {foundation.maturity && <span class="pkg__note">{foundation.maturity}</span>}
+          {foundation.docs && <a class="pkg__link" href={foundation.docs} rel="noopener">Preview docs ↗</a>}
+        </div>
+      </div>
+    </article>
+
+    {/* The pipeline reads top-to-bottom in flow order. A three-column card grid
+        broke that chain across a row boundary, which was the main thing wrong
+        with the previous layout. */}
+    <ol class="pipeline" role="list">
       {
-        allPackages.map((pkg) => (
-          <li class="sw-card" id={`pkg-${pkg.name}`}>
-            <div class="sw-card__head">
-              <h3 class="sw-card__name">
-                {pkg.docs ? (
-                  <a href={pkg.docs} rel="noopener">{pkg.name}</a>
-                ) : (
-                  pkg.name
-                )}
-              </h3>
-              <StatusBadge status={pkg.status} />
+        pipeline.map((pkg, i) => (
+          <li class="pkg pkg--stage" id={`pkg-${pkg.name}`}>
+            <div class="pkg__rail">
+              <span class="pkg__num">{String(i + 1).padStart(2, "0")}</span>
+              <span class="pkg__stage">{pkg.stage}</span>
             </div>
-            <p class="sw-card__stage">
-              {pkg.stage}
-              {pkg.maturity && <span class="sw-card__maturity"> · {pkg.maturity}</span>}
-            </p>
-            <p class="sw-card__desc">{pkg.description}</p>
-            {(pkg.repo || pkg.docs) && (
-              <p class="sw-card__links">
-                {pkg.repo && <a href={pkg.repo} rel="noopener">Repository ↗</a>}
-                {pkg.docs && (
-                  <a href={pkg.docs} rel="noopener">Preview docs ↗</a>
-                )}
-              </p>
-            )}
+            <div class="pkg__body">
+              <h3 class="pkg__name">
+                {pkg.docs ? <a href={pkg.docs} rel="noopener">{pkg.name}</a> : pkg.name}
+              </h3>
+              <p class="pkg__tagline">{pkg.tagline}</p>
+              <p class="pkg__desc">{pkg.description}</p>
+              <div class="pkg__foot">
+                <span class="meter" title={pkg.maturity} aria-label={`Readiness: ${READINESS_LABEL[pkg.readiness]}`}>
+                  {[1, 2, 3].map((n) => (
+                    <span class:list={["meter__step", n <= READINESS_STEPS[pkg.readiness] && "is-on"]} />
+                  ))}
+                  <span class="meter__label">{READINESS_LABEL[pkg.readiness]}</span>
+                </span>
+                {pkg.maturity && <span class="pkg__note">{pkg.maturity}</span>}
+                {pkg.repo && <a class="pkg__link" href={pkg.repo} rel="noopener">Repository ↗</a>}
+                {pkg.docs && <a class="pkg__link" href={pkg.docs} rel="noopener">Preview docs ↗</a>}
+              </div>
+            </div>
           </li>
         ))
       }
-    </ul>
+    </ol>
+
     <p class="sw-note prose">
-      Every package is an <strong>active build</strong> — validated in
-      substantial part and advancing, but not yet publicly released; methods
-      papers come first. The maturity note on each indicates how far along it
-      is. <strong>Preview documentation</strong> is shared for
-      <code>jaxstro</code> and <code>progenax</code> to show the direction of
-      the work; the source and full API will be released with each package's
-      methods paper.
+      No package is publicly released yet; methods papers come first. The
+      readiness meter above is the honest signal — every package is under
+      active development, and they differ in how far along they are.
+      <strong>Preview documentation</strong> is shared for <code>jaxstro</code>
+      and <code>progenax</code> to show the direction of the work; source and
+      full API follow each package's methods paper.
     </p>
   </section>
 </BaseLayout>
@@ -98,66 +128,147 @@ import { allPackages } from "../data/jaxstro";
     padding-block-end: var(--space-2xl);
   }
 
-  .sw-cards {
+  /* A staged chain, not a card grid: the foundation sits apart and the five
+     pipeline stages read top-to-bottom in flow order. */
+  .pkg {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-    gap: var(--space-m);
+    grid-template-columns: 11rem minmax(0, 1fr);
+    gap: var(--space-l);
+    padding-block: var(--space-m);
+    scroll-margin-block-start: var(--space-xl);
   }
-  .sw-card {
+  .pkg--foundation {
     padding: var(--space-m);
     background: var(--bg-deep);
     border: 1px solid var(--border);
     border-radius: var(--radius-m);
-    scroll-margin-block-start: var(--space-xl);
-    transition: border-color var(--dur-base) var(--ease-out);
+    margin-block-end: var(--space-l);
   }
-  .sw-card:target,
-  .sw-card:hover {
-    border-color: color-mix(in srgb, var(--spec-teal) 40%, var(--border));
+
+  .pipeline {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    counter-reset: stage;
   }
-  .sw-card__head {
+  /* The connecting rule down the rail is the pipeline made visible. */
+  .pkg--stage {
+    border-block-start: 1px solid var(--border);
+    position: relative;
+  }
+  .pkg--stage::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: calc(11rem - var(--space-l) / 2);
+    inline-size: 1px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      color-mix(in srgb, var(--spec-teal) 35%, transparent) 12%,
+      color-mix(in srgb, var(--spec-teal) 35%, transparent) 88%,
+      transparent
+    );
+  }
+
+  .pkg__rail {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-s);
-    margin-block-end: var(--space-3xs);
+    flex-direction: column;
+    gap: var(--space-3xs);
   }
-  .sw-card__name {
+  .pkg__num {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--spec-teal-bright);
+  }
+  .pkg__stage {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    line-height: 1.4;
+  }
+
+  .pkg__name {
     font-family: var(--font-mono);
     font-size: var(--step-1);
     color: var(--spec-teal-bright);
   }
-  .sw-card__name a {
+  .pkg__name a {
     color: inherit;
     text-decoration: none;
   }
-  .sw-card__name a:hover {
+  .pkg__name a:hover {
     text-decoration: underline;
     text-underline-offset: 0.2em;
   }
-  .sw-card__stage {
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--ink-dim);
-    margin-block-end: var(--space-2xs);
+  .pkg__tagline {
+    color: var(--ink);
+    font-size: var(--step-0);
+    margin-block: var(--space-3xs) var(--space-2xs);
   }
-  .sw-card__maturity {
-    text-transform: none;
-    letter-spacing: 0;
+  .pkg__desc {
+    color: var(--ink-soft);
+    font-size: var(--step--1);
+    max-inline-size: 62ch;
+    line-height: 1.6;
+  }
+  .pkg__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs) var(--space-m);
+    margin-block-start: var(--space-s);
+  }
+  .pkg__note {
+    font-size: 0.72rem;
     color: var(--ink-faint);
   }
-  .sw-card__desc {
-    color: var(--ink-soft);
-    font-size: var(--step-0);
-  }
-  .sw-card__links {
-    margin-block-start: var(--space-s);
-    display: flex;
-    gap: var(--space-m);
+  .pkg__link {
     font-family: var(--font-mono);
     font-size: var(--step--1);
+  }
+
+  /* Readiness is what actually differs between packages; status does not. */
+  .meter {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .meter__step {
+    inline-size: 14px;
+    block-size: 3px;
+    border-radius: 2px;
+    background: var(--bg-surface);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .meter__step.is-on {
+    background: var(--spec-teal-bright);
+    box-shadow: none;
+  }
+  .meter__label {
+    margin-inline-start: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-dim);
+  }
+
+  @media (max-width: 46rem) {
+    .pkg {
+      grid-template-columns: 1fr;
+      gap: var(--space-2xs);
+    }
+    .pkg--stage::before {
+      display: none;
+    }
+    .pkg__rail {
+      flex-direction: row;
+      align-items: baseline;
+      gap: var(--space-2xs);
+    }
   }
 
   .sw-note {

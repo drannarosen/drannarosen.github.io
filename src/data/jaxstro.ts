@@ -10,6 +10,28 @@
 
 export type PackageStatus = "active-build" | "established" | "planned";
 
+/**
+ * How far along a package is, as an ordinal so the page can SHOW it rather
+ * than bury it in prose. Every package currently shares one `status`, which
+ * makes that field carry no information; readiness is what actually differs.
+ * These are a faithful re-encoding of the `maturity` notes below, not new
+ * claims about any package.
+ */
+export type Readiness = "developing" | "advanced" | "mature";
+
+export const READINESS_LABEL: Record<Readiness, string> = {
+  developing: "In development",
+  advanced: "Far along",
+  mature: "Mature",
+};
+
+/** Filled steps out of 3, for the readiness meter. */
+export const READINESS_STEPS: Record<Readiness, number> = {
+  developing: 1,
+  advanced: 2,
+  mature: 3,
+};
+
 export interface JaxstroPackage {
   /** Package name (lowercase, as imported). */
   name: string;
@@ -22,6 +44,8 @@ export interface JaxstroPackage {
   status: PackageStatus;
   /** How far along, shown as a small note (e.g. "Mature · methods paper in prep"). */
   maturity?: string;
+  /** Ordinal form of `maturity`, so the UI can rank rather than just print. */
+  readiness: Readiness;
   repo?: string | null;
   docs?: string | null;
 }
@@ -35,6 +59,7 @@ export const STATUS_LABEL: Record<PackageStatus, string> = {
 /** The shared numerical foundation every package builds on. */
 export const foundation: JaxstroPackage = {
   name: "jaxstro",
+  readiness: "mature",
   stage: "Foundation",
   tagline: "The shared numerical substrate.",
   description:
@@ -49,6 +74,7 @@ export const foundation: JaxstroPackage = {
 export const pipeline: JaxstroPackage[] = [
   {
     name: "progenax",
+    readiness: "mature",
     stage: "Birth populations",
     tagline: "Truth-known cluster birth conditions.",
     description:
@@ -60,6 +86,7 @@ export const pipeline: JaxstroPackage[] = [
   },
   {
     name: "gravax",
+    readiness: "developing",
     stage: "Dynamics",
     tagline: "Differentiable collisional dynamics.",
     description:
@@ -71,6 +98,7 @@ export const pipeline: JaxstroPackage[] = [
   },
   {
     name: "startrax",
+    readiness: "developing",
     stage: "Stellar evolution",
     tagline: "From birth mass to stellar state and remnants.",
     description:
@@ -82,6 +110,7 @@ export const pipeline: JaxstroPackage[] = [
   },
   {
     name: "fluxax",
+    readiness: "advanced",
     stage: "Observables",
     tagline: "Physical states → survey observables.",
     description:
@@ -93,6 +122,7 @@ export const pipeline: JaxstroPackage[] = [
   },
   {
     name: "informax",
+    readiness: "advanced",
     stage: "Inference & design",
     tagline: "What the data can actually recover.",
     description:
