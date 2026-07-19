@@ -1,0 +1,56 @@
+---
+/*
+ * PostFigure — the figure primitive for long-form posts.
+ *
+ * Replaces hand-written <figure> HTML in Markdown, which had two failure modes:
+ * the markup was duplicated per figure, and `remark-math` never visits raw HTML
+ * blocks, so math in a caption silently rendered its own source. The caption is
+ * a slot, so <Math> (or any component) works inside it.
+ *
+ * Layout comes from src/styles/editorial.css:
+ *   variant="wide" → breaks out to the full column
+ *   variant="side" → floats into the margin field; prose runs alongside
+ */
+import { slugify } from "../../lib/slug";
+
+interface Props {
+  src: string;
+  /** What the figure SHOWS, for a reader who cannot see it — not its title. */
+  alt: string;
+  /** Intrinsic pixel dimensions; required so the image reserves its space. */
+  width: number;
+  height: number;
+  variant?: "wide" | "side";
+  /** Attribution, e.g. "Figure 3 of Rosen (2026), submitted." */
+  credit?: string;
+  /**
+   * Where this figure came from, for the figure-drift gate. Recorded per figure
+   * so CI can verify the site's copy still matches what the script produces.
+   */
+  source?: {
+    repo?: string;
+    script?: string;
+    commit?: string;
+  };
+  eager?: boolean;
+}
+
+const { src, alt, width, height, variant, credit, eager } = Astro.props;
+const cls = ["figure", variant && `fig-${variant}`].filter(Boolean).join(" ");
+const id = `fig-${slugify(src.split("/").pop() ?? "figure")}`;
+---
+
+<figure class={cls} id={id}>
+  <img
+    src={src}
+    alt={alt}
+    width={width}
+    height={height}
+    loading={eager ? "eager" : "lazy"}
+    decoding="async"
+  />
+  <figcaption>
+    <slot />
+    {credit && <span class="fig-credit">{credit}</span>}
+  </figcaption>
+</figure>

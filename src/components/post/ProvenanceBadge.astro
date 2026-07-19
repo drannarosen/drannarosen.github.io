@@ -1,0 +1,131 @@
+---
+/*
+ * ProvenanceBadge — states publicly how a page was authored.
+ *
+ * Anna teaches computational methods; "here is exactly how I use AI, and the
+ * guardrails on it" is a stronger position than silence. The badge is only
+ * worth anything if it is accurate, so the schema (src/content.config.ts)
+ * refuses to build a model-touched post that lacks a named reviewer and date.
+ */
+interface Props {
+  provenance: {
+    authorship: "human" | "ai-drafted" | "machine-generated";
+    reviewedBy?: string;
+    reviewedOn?: Date;
+    model?: string;
+    note?: string;
+  };
+  compact?: boolean;
+}
+
+const { provenance: p, compact } = Astro.props;
+
+const LABEL: Record<Props["provenance"]["authorship"], string> = {
+  human: "Written by Anna Rosen",
+  "ai-drafted": "AI-drafted · reviewed by a human",
+  "machine-generated": "Machine-generated · not individually reviewed",
+};
+
+const fmt = (d: Date) =>
+  d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+---
+
+{
+  compact ? (
+    <span class:list={["prov-chip", `prov-chip--${p.authorship}`]}>
+      {p.authorship === "human" ? "human" : p.authorship === "ai-drafted" ? "AI-drafted" : "machine"}
+    </span>
+  ) : (
+    <aside class:list={["prov", `prov--${p.authorship}`]} aria-label="How this page was written">
+      <p class="prov__head">{LABEL[p.authorship]}</p>
+      <dl class="prov__grid">
+        {p.model && (
+          <>
+            <dt>Model</dt>
+            <dd>{p.model}</dd>
+          </>
+        )}
+        {p.reviewedBy && (
+          <>
+            <dt>Reviewed by</dt>
+            <dd>
+              {p.reviewedBy}
+              {p.reviewedOn && <> · {fmt(p.reviewedOn)}</>}
+            </dd>
+          </>
+        )}
+      </dl>
+      {p.note && <p class="prov__note">{p.note}</p>}
+    </aside>
+  )
+}
+
+<style>
+  .prov {
+    margin-block: var(--space-xl) 0;
+    padding: var(--space-s) var(--space-m);
+    border: 1px solid var(--border);
+    border-inline-start: 2px solid var(--ink-faint);
+    border-radius: var(--radius-s);
+    background: var(--bg-deep);
+    max-inline-size: var(--width-prose);
+  }
+  .prov--ai-drafted {
+    border-inline-start-color: var(--spec-teal-bright);
+  }
+  .prov--machine-generated {
+    border-inline-start-color: color-mix(in srgb, var(--spec-rose) 70%, white);
+  }
+  .prov__head {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  .prov__grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-3xs) var(--space-s);
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+  }
+  .prov__grid dt {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    align-self: baseline;
+  }
+  .prov__grid dd {
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .prov__note {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    line-height: 1.5;
+  }
+
+  .prov-chip {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1px 7px;
+  }
+  .prov-chip--ai-drafted {
+    color: color-mix(in srgb, var(--spec-teal-bright) 85%, white);
+    border-color: color-mix(in srgb, var(--spec-teal-bright) 40%, transparent);
+  }
+</style>

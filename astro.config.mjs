@@ -4,6 +4,8 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { mathMacros } from './src/lib/mathMacros.ts';
 
+import mdx from '@astrojs/mdx';
+
 // Deployed to GitHub Pages user site (root domain, no base path).
 // When migrating to anna-rosen.com, only `site` changes — see docs/domain-migration.md.
 // https://astro.build/config
@@ -27,4 +29,6 @@ export default defineConfig({
       ],
     ],
   },
+
+  integrations: [mdx()],
 });

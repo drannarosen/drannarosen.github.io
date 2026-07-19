@@ -2,6 +2,7 @@
 import { getCollection, render, type CollectionEntry } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
+import ProvenanceBadge from "../../components/post/ProvenanceBadge.astro";
 
 export async function getStaticPaths() {
   const posts = await getCollection("astrobytes", ({ data }) => !data.draft);
@@ -14,7 +15,7 @@ interface Props {
 
 const { post } = Astro.props;
 const { Content } = await render(post);
-const { title, dek, date, paper, level } = post.data;
+const { title, dek, date, paper, level, provenance, sources } = post.data;
 
 // Format in UTC: frontmatter dates are bare (2026-07-19) and parse to UTC
 // midnight, so formatting in a west-of-UTC local zone would render a day early.
@@ -59,6 +60,24 @@ const fmt = (d: Date) =>
   <article class="wrap editorial post">
     <Content />
   </article>
+
+  <div class="wrap">
+    <ProvenanceBadge provenance={provenance} />
+    {
+      sources.length > 0 && (
+        <section class="sources" aria-labelledby="sources-head">
+          <h2 id="sources-head" class="sources__head">Sources</h2>
+          <ul class="sources__list" role="list">
+            {sources.map((s) => (
+              <li>
+                <a href={s.url} rel="noopener">{s.label}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+  </div>
 
   <div class="wrap post-foot">
     <a href="/astrobytes">← All astrobytes</a>
@@ -132,6 +151,25 @@ const fmt = (d: Date) =>
      long-form collection gets the same treatment for free. */
   .post {
     padding-block-end: var(--space-2xl);
+  }
+
+  .sources {
+    margin-block-start: var(--space-l);
+    max-inline-size: var(--width-prose);
+  }
+  .sources__head {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    margin-block-end: var(--space-2xs);
+  }
+  .sources__list {
+    display: grid;
+    gap: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-soft);
   }
 
   .post-foot {

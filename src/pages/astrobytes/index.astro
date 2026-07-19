@@ -2,6 +2,7 @@
 import { getCollection } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
+import ProvenanceBadge from "../../components/post/ProvenanceBadge.astro";
 
 const posts = (await getCollection("astrobytes", ({ data }) => !data.draft)).sort(
   (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
@@ -44,6 +45,7 @@ const fmt = (d: Date) =>
           <p class="ab-card__meta">
             <time datetime={p.data.date.toISOString()}>{fmt(p.data.date)}</time>
             <span class="ab-card__level">{p.data.level}</span>
+            <ProvenanceBadge provenance={p.data.provenance} compact />
           </p>
           <h2 class="ab-card__title">
             <a href={`/astrobytes/${p.id}`}>{p.data.title}</a>
