@@ -11,12 +11,41 @@ import PageHeader from "../components/PageHeader.astro";
   <PageHeader
     eyebrow="Prototype · not linked"
     title="The turbulent cube"
-    lede="Your real gravoturb density volume (128³), raymarched in WebGL and rotating in true 3D. Gas only for now — stars next."
+    lede="Your real gravoturb density volume (128³) + 10,000 stars, raymarched in WebGL as a yt-style log colorbar. Every knob below is live — nothing is baked in."
   />
 
   <div class="vl wrap">
-    <canvas class="vl__canvas" data-volume aria-label="A rotating 3D turbulent gas cube."></canvas>
+    <canvas class="vl__canvas" data-volume aria-label="A rotating 3D turbulent gas cube with an embedded star cluster."></canvas>
     <p class="vl__status" data-status aria-live="polite">Loading volume…</p>
+
+    <div class="vl__panel" data-panel hidden>
+      <div class="ctl">
+        <label for="c-floor">Floor <span class="ctl__v" data-floor-v></span></label>
+        <input id="c-floor" type="range" autocomplete="off" step="0.005" data-floor />
+        <div class="ctl__row">
+          <button type="button" data-floor-median>median</button>
+          <button type="button" data-floor-mean>mean</button>
+        </div>
+      </div>
+
+      <div class="ctl">
+        <label for="c-gamma">Gamma <span class="ctl__v" data-gamma-v>1.10</span></label>
+        <input id="c-gamma" type="range" autocomplete="off" min="0.8" max="1.6" step="0.02" value="1.1" data-gamma />
+      </div>
+
+      <div class="ctl">
+        <label for="c-emit">Exposure <span class="ctl__v" data-emit-v>9.5</span></label>
+        <input id="c-emit" type="range" autocomplete="off" min="3" max="16" step="0.5" value="9.5" data-emit />
+      </div>
+
+      <div class="ctl">
+        <label for="c-expel">Expulsion <span class="ctl__v" data-expel-v>auto</span></label>
+        <input id="c-expel" type="range" autocomplete="off" min="0" max="1" step="0.01" value="0" data-expel />
+        <div class="ctl__row">
+          <label class="ctl__chk"><input type="checkbox" checked autocomplete="off" data-auto /> auto loop</label>
+        </div>
+      </div>
+    </div>
   </div>
 </BaseLayout>
 
@@ -25,15 +54,76 @@ import PageHeader from "../components/PageHeader.astro";
 
   const status = document.querySelector<HTMLParagraphElement>("[data-status]");
   const canvas = document.querySelector<HTMLCanvasElement>("[data-volume]");
+  const panel = document.querySelector<HTMLDivElement>("[data-panel]");
+
+  const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 
   (async () => {
     try {
       const scene = await loadScene();
-      if (canvas) initScene(canvas, scene);
+      if (!canvas) return;
+      const ctl = initScene(canvas, scene);
+
+      const stars = scene.stars.length / 6;
       if (status) {
-        const stars = scene.stars.length / 6;
         status.textContent = `volume ${scene.ngrid}³ + ${stars.toLocaleString()} stars · ${(scene.volume.length / 1048576).toFixed(1)} MB`;
       }
+      if (panel) panel.hidden = false;
+
+      // ── floor: default at the median; buttons jump to median / mean ──────────
+      const floor = $<HTMLInputElement>("[data-floor]");
+      const floorV = $<HTMLSpanElement>("[data-floor-v]");
+      floor.min = String(Math.max(0.1, scene.floorMedian - 0.18));
+      floor.max = String(Math.min(0.95, scene.floorMean + 0.18));
+      floor.value = String(scene.densityFloor);
+      const labelFloor = (v: number) => {
+        const near = (a: number) => Math.abs(v - a) < 0.008;
+        floorV.textContent = near(scene.floorMedian)
+          ? `${v.toFixed(3)} · median`
+          : near(scene.floorMean)
+          ? `${v.toFixed(3)} · mean`
+          : v.toFixed(3);
+      };
+      labelFloor(scene.densityFloor);
+      floor.addEventListener("input", () => { const v = +floor.value; ctl.setFloor(v); labelFloor(v); });
+      $("[data-floor-median]").addEventListener("click", () => {
+        floor.value = String(scene.floorMedian); ctl.setFloor(scene.floorMedian); labelFloor(scene.floorMedian);
+      });
+      $("[data-floor-mean]").addEventListener("click", () => {
+        floor.value = String(scene.floorMean); ctl.setFloor(scene.floorMean); labelFloor(scene.floorMean);
+      });
+
+      // ── gamma ────────────────────────────────────────────────────────────────
+      const gamma = $<HTMLInputElement>("[data-gamma]");
+      const gammaV = $<HTMLSpanElement>("[data-gamma-v]");
+      gamma.addEventListener("input", () => { const v = +gamma.value; ctl.setGamma(v); gammaV.textContent = v.toFixed(2); });
+
+      // ── exposure (emit) ───────────────────────────────────────────────────────
+      const emit = $<HTMLInputElement>("[data-emit]");
+      const emitV = $<HTMLSpanElement>("[data-emit-v]");
+      emit.addEventListener("input", () => { const v = +emit.value; ctl.setEmit(v); emitV.textContent = v.toFixed(1); });
+
+      // ── expulsion: auto loop, or manual scrub ─────────────────────────────────
+      const expel = $<HTMLInputElement>("[data-expel]");
+      const expelV = $<HTMLSpanElement>("[data-expel-v]");
+      const auto = $<HTMLInputElement>("[data-auto]");
+      expel.disabled = auto.checked;
+      auto.addEventListener("change", () => {
+        expel.disabled = auto.checked;
+        if (auto.checked) { ctl.setExpel(null); expelV.textContent = "auto"; }
+        else { const v = +expel.value; ctl.setExpel(v); expelV.textContent = v.toFixed(2); }
+      });
+      expel.addEventListener("input", () => {
+        auto.checked = false; expel.disabled = false;
+        const v = +expel.value; ctl.setExpel(v); expelV.textContent = v.toFixed(2);
+      });
+
+      // Force known defaults so the DOM, labels, and uniforms always agree — the
+      // browser may restore stale slider positions from bfcache on reload.
+      gamma.value = "1.1"; gammaV.textContent = "1.10"; ctl.setGamma(1.1);
+      emit.value = "9.5"; emitV.textContent = "9.5"; ctl.setEmit(9.5);
+      floor.value = String(scene.densityFloor); ctl.setFloor(scene.densityFloor); labelFloor(scene.densityFloor);
+      auto.checked = true; expel.value = "0"; expel.disabled = true; expelV.textContent = "auto"; ctl.setExpel(null);
     } catch (err) {
       if (status) status.textContent = `Failed: ${String(err)}`;
     }
@@ -60,4 +150,39 @@ import PageHeader from "../components/PageHeader.astro";
     font-size: var(--step--1);
     color: var(--ink-dim);
   }
+  .vl__panel {
+    inline-size: min(100%, 40rem);
+    margin: var(--space-l) auto 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--space-m) var(--space-l);
+    padding: var(--space-m) var(--space-l);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    background: color-mix(in oklab, var(--bg-void) 60%, transparent);
+  }
+  .ctl { display: grid; gap: var(--space-2xs); align-content: start; }
+  .ctl label {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+  .ctl__v { color: var(--spec-teal-bright, #4fd6c4); margin-inline-start: 0.4em; }
+  .ctl input[type="range" autocomplete="off"] { inline-size: 100%; accent-color: var(--spec-teal-bright, #4fd6c4); }
+  .ctl input[type="range" autocomplete="off"]:disabled { opacity: 0.4; }
+  .ctl__row { display: flex; gap: var(--space-xs); align-items: center; }
+  .ctl__row button {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    padding: 0.15em 0.6em;
+    cursor: pointer;
+  }
+  .ctl__row button:hover { color: var(--ink); border-color: var(--spec-teal-bright, #4fd6c4); }
+  .ctl__chk { display: flex; gap: 0.4em; align-items: center; color: var(--ink-dim); cursor: pointer; }
+  .ctl__chk input { accent-color: var(--spec-teal-bright, #4fd6c4); }
 </style>

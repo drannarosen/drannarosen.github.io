@@ -20,6 +20,8 @@ export interface Scene {
   // the volume-weighted mean, so the shader's log colorbar spans [mean, max].
   densityFloor: number;
   logRange: number; // logMax - logMin (dex), for the expansion's 1/S^3 dilution
+  floorMedian: number; // normalized position of the median density (default floor)
+  floorMean: number; // normalized position of the volume-weighted mean density
 }
 
 export async function loadScene(base = "/data/gravoturb"): Promise<Scene> {
@@ -33,15 +35,19 @@ export async function loadScene(base = "/data/gravoturb"): Promise<Scene> {
   // median for this lognormal field, so a mean floor shows only the dense core.
   // Anchor at the MEDIAN density so the filamentary cloud beyond the core shows;
   // the spherical mask keeps the cube corners suppressed at the lower floor.
-  const ref = meta.volume_log_median ?? meta.volume_log_mean ?? lo;
-  const densityFloor = hi > lo ? (ref - lo) / (hi - lo) : 0;
+  const norm = (x: number) => (hi > lo ? (x - lo) / (hi - lo) : 0);
+  const median = meta.volume_log_median ?? meta.volume_log_mean ?? lo;
+  const mean = meta.volume_log_mean ?? median;
+  const floorMedian = norm(median), floorMean = norm(mean);
   return {
     volume: new Uint8Array(volBuf),
     ngrid: meta.volume_ngrid,
     stars: new Float32Array(starBuf),
     box: meta.box_pc,
-    densityFloor,
+    densityFloor: floorMedian, // default: median density opens up the filaments
     logRange: hi - lo,
+    floorMedian,
+    floorMean,
   };
 }
 
@@ -193,16 +199,23 @@ export interface VolumeOptions {
 }
 const MAX_DPR = 1.5;
 
-export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeOptions = {}): () => void {
+function noopControls(): VolumeControls {
+  return {
+    cleanup() {}, setEmit() {}, setAbsorb() {}, setFloor() {}, setGamma() {},
+    setExpel() {}, floors: { median: 0, mean: 0 },
+  };
+}
+
+export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeOptions = {}): VolumeControls {
   const gl = canvas.getContext("webgl2", { alpha: true, premultipliedAlpha: true });
   if (!gl) {
     console.warn("WebGL2 unavailable");
-    return () => {};
+    return noopControls();
   }
 
   const volProg = program(gl, FULLSCREEN_VS, VOLUME_FS);
   const starProg = program(gl, STAR_VS, STAR_FS);
-  if (!volProg || !starProg) return () => {};
+  if (!volProg || !starProg) return noopControls();
 
   // 3D density texture
   const tex = gl.createTexture();
@@ -253,19 +266,24 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   gl.vertexAttribPointer(aSize, 1, gl.FLOAT, false, stride, 24);
   gl.bindVertexArray(null);
 
-  // uniforms
+  // uniforms — volume program. The values the on-page controls can change are kept
+  // in mutable state alongside their locations so setters can update them live.
   const uRes = gl.getUniformLocation(volProg, "uRes");
   const uVAngle = gl.getUniformLocation(volProg, "uAngle");
+  const uVExpel = gl.getUniformLocation(volProg, "uExpel");
+  const uEmitL = gl.getUniformLocation(volProg, "uEmit");
+  const uFloorL = gl.getUniformLocation(volProg, "uFloor");
+  const uGammaL = gl.getUniformLocation(volProg, "uGamma");
+  const uAbsorbL = gl.getUniformLocation(volProg, "uAbsorb");
   gl.useProgram(volProg);
   gl.uniform1i(gl.getUniformLocation(volProg, "uVol"), 0);
-  gl.uniform1f(gl.getUniformLocation(volProg, "uEmit"), 9.5);
-  gl.uniform1f(gl.getUniformLocation(volProg, "uAbsorb"), 9.0);
+  gl.uniform1f(uEmitL, 9.5);
+  gl.uniform1f(uAbsorbL, 9.0);
   gl.uniform1f(gl.getUniformLocation(volProg, "uZoom"), 1.55);
-  // Log colorbar: rho_0 = mean density (from meta), gamma=1 => faithful log stretch.
-  gl.uniform1f(gl.getUniformLocation(volProg, "uFloor"), scene.densityFloor);
-  gl.uniform1f(gl.getUniformLocation(volProg, "uGamma"), 1.1);
+  // Log colorbar: rho_0 = median density (from meta); gamma slightly above faithful.
+  gl.uniform1f(uFloorL, scene.densityFloor);
+  gl.uniform1f(uGammaL, 1.1);
   gl.uniform1f(gl.getUniformLocation(volProg, "uLogRange"), scene.logRange);
-  const uVExpel = gl.getUniformLocation(volProg, "uExpel");
   const uSAngle = gl.getUniformLocation(starProg, "uAngle");
   const uSBox = gl.getUniformLocation(starProg, "uBox");
   const uSPix = gl.getUniformLocation(starProg, "uPix");
@@ -320,13 +338,21 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
 
   /* ── lifecycle ─────────────────────────────────────────────────── */
   let raf = 0, running = false, onScreen = true, startT: number | null = null;
+  let lastAngle = 0.6;
+  let expelOverride: number | null = null; // null = follow the auto timeline
+  function currentExpel(elapsed: number): number {
+    if (expelOverride !== null) return expelOverride;
+    return reduceMotion ? 0 : expelAt(elapsed);
+  }
   function frame(now: number): void {
     if (startT === null) startT = now;
     const elapsed = (now - startT) / 1000;
-    draw((2 * Math.PI * elapsed) / rotationPeriod, reduceMotion ? 0 : expelAt(elapsed));
+    lastAngle = (2 * Math.PI * elapsed) / rotationPeriod;
+    draw(lastAngle, currentExpel(elapsed));
     if (reduceMotion) { running = false; return; }
     raf = requestAnimationFrame(frame);
   }
+  function redraw(): void { draw(lastAngle, expelOverride ?? 0); }
   function play(): void {
     if (running || document.hidden || !onScreen) return;
     running = true;
@@ -351,13 +377,38 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   document.addEventListener("visibilitychange", onVisibility);
   play();
 
-  return function cleanup(): void {
-    stop();
-    io.disconnect();
-    window.removeEventListener("resize", onResize);
-    document.removeEventListener("visibilitychange", onVisibility);
-    gl!.deleteTexture(tex);
-    gl!.deleteProgram(volProg);
-    gl!.deleteProgram(starProg);
+  function setVol(loc: WebGLUniformLocation | null, v: number): void {
+    gl!.useProgram(volProg);
+    gl!.uniform1f(loc, v);
+    if (!running) redraw();
+  }
+
+  return {
+    cleanup(): void {
+      stop();
+      io.disconnect();
+      window.removeEventListener("resize", onResize);
+      document.removeEventListener("visibilitychange", onVisibility);
+      gl!.deleteTexture(tex);
+      gl!.deleteProgram(volProg);
+      gl!.deleteProgram(starProg);
+    },
+    setEmit: (v: number) => setVol(uEmitL, v),
+    setAbsorb: (v: number) => setVol(uAbsorbL, v),
+    setFloor: (v: number) => setVol(uFloorL, v),
+    setGamma: (v: number) => setVol(uGammaL, v),
+    // v in [0,1] scrubs expulsion manually; null resumes the auto timeline.
+    setExpel: (v: number | null) => { expelOverride = v; if (!running) redraw(); },
+    floors: { median: scene.floorMedian, mean: scene.floorMean },
   };
+}
+
+export interface VolumeControls {
+  cleanup(): void;
+  setEmit(v: number): void;
+  setAbsorb(v: number): void;
+  setFloor(v: number): void;
+  setGamma(v: number): void;
+  setExpel(v: number | null): void;
+  floors: { median: number; mean: number };
 }
