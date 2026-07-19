@@ -1,0 +1,44 @@
+name: Sync publications from ORCID
+
+# Keeps the full bibliography current without any manual transcription.
+# Runs monthly (and on demand), regenerates src/data/generated/publications.json
+# from the PUBLIC ORCID API — no token or secret required — and opens a pull
+# request if anything changed. Anna reviews the diff instead of retyping papers.
+# Curated summaries in src/data/publications.ts are never touched.
+
+on:
+  schedule:
+    - cron: "0 6 1 * *" # 06:00 UTC on the 1st of each month
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Regenerate bibliography from ORCID
+        run: node scripts/publications/sync_orcid.mjs
+
+      - name: Open a PR if the bibliography changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: src/data/generated/publications.json
+          branch: chore/sync-publications
+          delete-branch: true
+          commit-message: "Sync publications from ORCID"
+          title: "Sync publications from ORCID"
+          body: |
+            Automated refresh of the full bibliography from the public ORCID record.
+
+            Only `src/data/generated/publications.json` changes — curated summaries in
+            `src/data/publications.ts` are untouched. Review the diff and merge if it
+            looks right.

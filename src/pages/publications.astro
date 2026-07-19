@@ -4,6 +4,7 @@ import PageHeader from "../components/PageHeader.astro";
 import Figure from "../components/Figure.astro";
 import { cvProfile } from "../data/cv";
 import { featuredPublications } from "../data/publications";
+import { byYear, workUrl, publicationCount } from "../data/allPublications";
 
 function authorParts(s: string): { text: string; bold: boolean }[] {
   return s.split("**").map((text, i) => ({ text, bold: i % 2 === 1 }));
@@ -18,7 +19,7 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
   <PageHeader
     eyebrow="Publications"
     title="Selected work, in plain language"
-    lede="First-author papers, each with a short summary of what it did and why it matters. The full record of 34 publications is on ADS and ORCID."
+    lede={`First-author papers, each with a short summary of what it did and why it matters — followed by the full bibliography of ${publicationCount} works, synced from ORCID.`}
   />
 
   <div class="pubs wrap">
@@ -72,13 +73,41 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
   </div>
 
   <p class="pubs__note wrap">
-    This is a selected, first-author subset. The complete list — including
-    co-authored work — is on{" "}
-    <a href={cvProfile.orcid} rel="me noopener">ORCID</a> and{" "}
+    The summaries above cover selected first-author papers. The complete list
+    below is synced automatically from{" "}
+    <a href={cvProfile.orcid} rel="me noopener">ORCID</a>, and is also on{" "}
     <a href="https://ui.adsabs.harvard.edu/search/q=author%3A%22Rosen%2C%20Anna%22" rel="noopener">
       NASA ADS
     </a>.
   </p>
+
+  <section class="allpubs wrap" aria-labelledby="all-pubs">
+    <h2 id="all-pubs" class="allpubs__heading">
+      Full bibliography <span class="allpubs__count">{publicationCount} works</span>
+    </h2>
+    {
+      byYear().map(({ year, works }) => (
+        <div class="allpubs__year">
+          <h3 class="allpubs__yr">{year}</h3>
+          <ul class="allpubs__list" role="list">
+            {works.map((w) => {
+              const href = workUrl(w);
+              return (
+                <li class="allpubs__item">
+                  {href ? (
+                    <a href={href} rel="noopener">{w.title}</a>
+                  ) : (
+                    <span>{w.title}</span>
+                  )}
+                  {w.venue && <span class="allpubs__venue">{w.venue}</span>}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))
+    }
+  </section>
 </BaseLayout>
 
 <style>
@@ -143,5 +172,52 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
     padding-block-end: var(--space-2xl);
     color: var(--ink-dim);
     font-size: var(--step--1);
+  }
+
+  .allpubs {
+    padding-block: var(--space-xl) var(--space-3xl);
+    border-block-start: 1px solid var(--border);
+    margin-block-start: var(--space-xl);
+  }
+  .allpubs__heading {
+    font-size: var(--step-1);
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-s);
+    flex-wrap: wrap;
+  }
+  .allpubs__count {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+  }
+  .allpubs__year {
+    display: grid;
+    grid-template-columns: 4rem 1fr;
+    gap: var(--space-s);
+    margin-block-start: var(--space-m);
+  }
+  .allpubs__yr {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--spec-cyan, #4fd6c4);
+    margin-block-start: 0.15em;
+  }
+  .allpubs__list { display: grid; gap: var(--space-xs); padding: 0; margin: 0; }
+  .allpubs__item {
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    line-height: 1.45;
+  }
+  .allpubs__item a { color: var(--ink); text-decoration-color: var(--border); }
+  .allpubs__item a:hover { text-decoration-color: var(--spec-cyan, #4fd6c4); }
+  .allpubs__venue {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: var(--ink-dim);
+  }
+  @media (max-width: 34rem) {
+    .allpubs__year { grid-template-columns: 1fr; gap: var(--space-2xs); }
   }
 </style>
