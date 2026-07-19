@@ -229,6 +229,12 @@ export function initClusterArt(
     mctx.fillRect(0, 0, 16, 16);
   }
 
+  // Offscreen buffer: motes are drawn here, then blurred onto the main canvas
+  // into a smooth nebula — so the gas isn't spotty and the stars (drawn crisply
+  // on top afterward) stay visible.
+  const gasBuf = document.createElement("canvas");
+  const gasCtx = gasBuf.getContext("2d")!;
+
   let dpr = 1;
   let w = 0;
   let h = 0;
@@ -244,6 +250,9 @@ export function initClusterArt(
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+    gasBuf.width = canvas.width;
+    gasBuf.height = canvas.height;
+    gasCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     scale = (Math.min(w, h) / box) * 0.86;
     cx = w / 2;
     cy = h / 2;
@@ -291,22 +300,28 @@ export function initClusterArt(
   }
 
   function drawRotate(timeSec: number): void {
-    ctx!.clearRect(0, 0, w, h);
     const theta = reduceMotion ? 0.5 : (2 * Math.PI * timeSec) / rotationPeriod;
     const cosT = Math.cos(theta);
     const sinT = Math.sin(theta);
 
-    // gas motes as soft additive blobs (size ∝ density) — they overlap into a
-    // continuous teal haze that fills the cloud without blowing out the core.
-    ctx!.globalCompositeOperation = "lighter";
+    // gas -> offscreen buffer (additive soft blobs), then blurred onto the main
+    // canvas into a smooth nebula.
+    gasCtx.clearRect(0, 0, w, h);
+    gasCtx.globalCompositeOperation = "lighter";
     const m = data.meta.n_gas_points;
     for (let i = 0; i < m; i++) {
       const xr = prep.gx[i] * cosT + prep.gz[i] * sinT;
       const s = 2 + 4.5 * prep.gdens[i];
-      ctx!.drawImage(mote, cx + xr * scale - s / 2, cy + prep.gy[i] * scale - s / 2, s, s);
+      gasCtx.drawImage(mote, cx + xr * scale - s / 2, cy + prep.gy[i] * scale - s / 2, s, s);
     }
+    ctx!.clearRect(0, 0, w, h);
+    ctx!.save();
+    ctx!.filter = "blur(3px)";
+    ctx!.imageSmoothingEnabled = true;
+    ctx!.drawImage(gasBuf, 0, 0, w, h);
+    ctx!.restore();
 
-    // stars, faint -> bright, depth-shaded
+    // stars, faint -> bright, depth-shaded — crisp, on top of the smooth gas
     for (let k = 0; k < prep.order.length; k++) {
       const i = prep.order[k];
       const xr = prep.sx[i] * cosT + prep.sz[i] * sinT;
