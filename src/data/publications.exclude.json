@@ -9,16 +9,19 @@
     "Run `pnpm sync:pubs` after editing to regenerate."
   ],
 
-  "excludeTypes": [],
+  "_policy": [
+    "Conference proceedings are excluded BY TYPE, not one-by-one: in astronomy they",
+    "carry little weight and Anna does not want them in the bibliography. A type rule",
+    "means future deposits drop automatically instead of silently reappearing.",
+    "The Ph.D. thesis is excluded here because it is presented under Education on /cv."
+  ],
+
+  "excludeTypes": ["conference-paper"],
 
   "exclude": [
     {
       "bibcode": "2017PhDT.......182R",
-      "reason": "Ph.D. thesis - linked from Education on the CV instead of the paper list."
-    },
-    {
-      "bibcode": "2012ASPC..465...98R",
-      "reason": "Conference proceedings, not a refereed paper."
+      "reason": "Ph.D. thesis - presented under Education on /cv instead of the paper list."
     }
   ]
 }
