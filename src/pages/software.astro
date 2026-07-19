@@ -41,7 +41,10 @@ import { allPackages } from "../data/jaxstro";
               <h3 class="sw-card__name">{pkg.name}</h3>
               <StatusBadge status={pkg.status} />
             </div>
-            <p class="sw-card__stage">{pkg.stage}</p>
+            <p class="sw-card__stage">
+              {pkg.stage}
+              {pkg.maturity && <span class="sw-card__maturity"> · {pkg.maturity}</span>}
+            </p>
             <p class="sw-card__desc">{pkg.description}</p>
             {(pkg.repo || pkg.docs) && (
               <p class="sw-card__links">
@@ -54,11 +57,11 @@ import { allPackages } from "../data/jaxstro";
       }
     </ul>
     <p class="sw-note prose">
-      Status reflects real maturity: <strong>established</strong> packages have
-      passed numerical, physical, and truth-known validation;
-      <strong>active build</strong> packages are validated in part and advancing;
-      <strong>planned</strong> capabilities are designed but not yet released.
-      Repository and documentation links appear as each package goes public.
+      Every package is an <strong>active build</strong> — validated in
+      substantial part and advancing, but not yet publicly released; methods
+      papers come first. The maturity note on each indicates how far along it
+      is. Repository and documentation links will appear as each package goes
+      public.
     </p>
   </section>
 </BaseLayout>
@@ -121,6 +124,11 @@ import { allPackages } from "../data/jaxstro";
     text-transform: uppercase;
     color: var(--ink-dim);
     margin-block-end: var(--space-2xs);
+  }
+  .sw-card__maturity {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink-faint);
   }
   .sw-card__desc {
     color: var(--ink-soft);
