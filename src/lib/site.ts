@@ -26,8 +26,8 @@ const nav: NavItem[] = [
 
 /** External / profile links. `null` until confirmed — provide real URLs. */
 const links: ExternalLink[] = [
+  { label: "ORCID", href: "https://orcid.org/0000-0003-4423-0660" },
   { label: "GitHub", href: null },
-  { label: "ORCID", href: null },
   { label: "Google Scholar", href: null },
   { label: "CV (PDF)", href: null },
 ];

@@ -1,20 +1,254 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
-import Placeholder from "../components/Placeholder.astro";
+import {
+  cvProfile,
+  employment,
+  education,
+  awards,
+  selectedPublications,
+  type DatedEntry,
+} from "../data/cv";
+
+// Render an author string with Anna's name (wrapped in **…**) emphasized.
+function authorParts(s: string): { text: string; bold: boolean }[] {
+  return s.split("**").map((text, i) => ({ text, bold: i % 2 === 1 }));
+}
+
+const sections: { title: string; entries: DatedEntry[] }[] = [
+  { title: "Appointments", entries: employment },
+  { title: "Education", entries: education },
+  { title: "Selected Awards & Honors", entries: awards },
+];
 ---
 
 <BaseLayout
-  title="CV — Anna Rosen"
-  description="Curriculum vitae and academic record for Anna Rosen."
+  title="CV — Anna Rosen, Ph.D."
+  description="Curriculum vitae of Anna Rosen: appointments, education, awards, and selected publications in computational astrophysics."
   path="/cv"
 >
-  <PageHeader
-    eyebrow="Curriculum Vitae"
-    title="CV"
-    lede="Appointments, education, publications, talks, funding, service, and mentoring."
-  />
-  <Placeholder
-    what="This page will summarize the CV inline and link a downloadable PDF. Nothing here is populated until Anna provides the current CV; no record is invented."
-  />
+  <PageHeader eyebrow="Curriculum Vitae" title="Curriculum Vitae">
+  </PageHeader>
+
+  <section class="wrap cv-top">
+    <ul class="cv-stats" role="list">
+      {
+        cvProfile.stats.map((s) => (
+          <li class="cv-stat">
+            <span class="cv-stat__value">{s.value}</span>
+            <span class="cv-stat__label">{s.label}</span>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="cv-actions">
+      {
+        cvProfile.pdf && (
+          <a class="cv-btn" href={cvProfile.pdf}>
+            Download full CV (PDF)
+          </a>
+        )
+      }
+      <a class="cv-btn" href={cvProfile.orcid} rel="me noopener">ORCID</a>
+    </p>
+  </section>
+
+  {
+    sections.map((section) => (
+      <section class="wrap cv-section" aria-labelledby={`cv-${section.title}`}>
+        <h2 id={`cv-${section.title}`} class="cv-section__title">
+          {section.title}
+        </h2>
+        <ul class="cv-list" role="list">
+          {section.entries.map((e) => (
+            <li class="cv-entry">
+              <div class="cv-entry__body">
+                <p class="cv-entry__role">{e.role}</p>
+                {e.org && <p class="cv-entry__org">{e.org}</p>}
+                {e.note && <p class="cv-entry__note">{e.note}</p>}
+              </div>
+              <span class="cv-entry__date">{e.date}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+
+  <section class="wrap cv-section" aria-labelledby="cv-pubs">
+    <h2 id="cv-pubs" class="cv-section__title">Selected Publications</h2>
+    <ol class="cv-pubs" role="list">
+      {
+        selectedPublications.map((p) => (
+          <li class="cv-pub">
+            <p class="cv-pub__title">{p.title}</p>
+            <p class="cv-pub__authors">
+              {authorParts(p.authors).map((part) =>
+                part.bold ? <strong>{part.text}</strong> : part.text,
+              )}
+            </p>
+            <p class="cv-pub__meta">
+              <span class="cv-pub__venue">
+                {p.year} · {p.venue}
+              </span>
+              {p.status === "submitted" && (
+                <span class="cv-pub__badge">submitted</span>
+              )}
+              {p.ads && (
+                <a class="cv-pub__ads" href={p.ads} rel="noopener">
+                  NASA ADS ↗
+                </a>
+              )}
+            </p>
+          </li>
+        ))
+      }
+    </ol>
+    <p class="cv-note">
+      Selected first-author work. The full record of 34 publications is on{" "}
+      <a href={cvProfile.orcid} rel="me noopener">ORCID</a>.
+    </p>
+  </section>
 </BaseLayout>
+
+<style>
+  .cv-top {
+    padding-block-end: var(--space-xl);
+  }
+  .cv-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: var(--space-m);
+  }
+  .cv-stat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
+    padding: var(--space-m);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .cv-stat__value {
+    font-family: var(--font-display);
+    font-size: var(--step-3);
+    font-weight: 700;
+    color: var(--spec-teal-bright);
+    line-height: 1;
+  }
+  .cv-stat__label {
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+
+  .cv-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-s);
+    margin-block-start: var(--space-l);
+  }
+  .cv-btn {
+    display: inline-block;
+    padding: var(--space-2xs) var(--space-m);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink);
+    text-decoration: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .cv-btn:hover {
+    border-color: var(--spec-teal-bright);
+    color: var(--spec-teal-bright);
+  }
+
+  .cv-section {
+    padding-block: var(--space-l);
+  }
+  .cv-section__title {
+    font-size: var(--step-2);
+    padding-block-end: var(--space-2xs);
+    margin-block-end: var(--space-m);
+    border-block-end: 1px solid var(--border);
+  }
+
+  .cv-list {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .cv-entry {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-m);
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .cv-entry__role {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .cv-entry__org {
+    color: var(--ink-soft);
+    font-size: var(--step-0);
+  }
+  .cv-entry__note {
+    color: var(--ink-dim);
+    font-size: var(--step--1);
+    font-style: italic;
+    margin-block-start: var(--space-3xs);
+  }
+  .cv-entry__date {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+
+  .cv-pubs {
+    display: grid;
+    gap: var(--space-l);
+    counter-reset: pub;
+  }
+  .cv-pub__title {
+    font-weight: 600;
+    color: var(--ink);
+    margin-block-end: var(--space-3xs);
+  }
+  .cv-pub__authors {
+    color: var(--ink-soft);
+    font-size: var(--step-0);
+  }
+  .cv-pub__authors strong {
+    color: var(--spec-teal-bright);
+    font-weight: 600;
+  }
+  .cv-pub__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s);
+    margin-block-start: var(--space-3xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .cv-pub__badge {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: color-mix(in srgb, var(--spec-rose) 82%, white);
+    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
+    border-radius: 999px;
+    padding: 1px 7px;
+  }
+  .cv-pub__ads {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+  .cv-note {
+    margin-block-start: var(--space-l);
+    color: var(--ink-dim);
+    font-size: var(--step--1);
+  }
+</style>

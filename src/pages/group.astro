@@ -1,20 +1,149 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
-import Placeholder from "../components/Placeholder.astro";
+import { siteConfig } from "../lib/site";
+import { cvProfile } from "../data/cv";
 ---
 
 <BaseLayout
-  title="Group — Anna Rosen"
-  description="The research group, mentoring philosophy, and opportunities for prospective students and collaborators."
+  title="Group — Anna Rosen, Ph.D."
+  description="Research vision and opportunities: differentiable stellar astrophysics as a launchpad for many focused, tractable student projects."
   path="/group"
 >
   <PageHeader
-    eyebrow="Group"
-    title="People and opportunities"
-    lede="An ambitious, original research program built with students and collaborators."
+    eyebrow="Group & Opportunities"
+    title="A program built for many hands"
+    lede="The aim is a research program where differentiable software turns big questions into focused, tractable projects — so students do real science early, on tools they can actually read."
   />
-  <Placeholder
-    what="This page will list current group members, describe a mentoring philosophy and research areas, and provide clear information for prospective students and funded opportunities. No people or positions are listed until confirmed."
-  />
+
+  <section class="wrap gr-section" aria-labelledby="vision-heading">
+    <h2 id="vision-heading" class="gr-title">The idea</h2>
+    <div class="prose gr-prose">
+      <p>
+        The <code>jaxstro</code> ecosystem is deliberately modular. Because each
+        package owns one scientific stage and exposes clean, differentiable
+        interfaces, a single well-scoped question — a new IMF prescription, a
+        dynamical benchmark, a survey systematic, an identifiability test —
+        becomes a self-contained project a student can own end to end.
+      </p>
+      <p>
+        Paired with learner-centered documentation, that lowers the barrier to
+        doing real computational astrophysics. The goal is many compact,
+        publishable contributions rather than a few monolithic ones — and
+        software that outlasts any single result.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap gr-section" aria-labelledby="interests-heading">
+    <h2 id="interests-heading" class="gr-title">Research interests</h2>
+    <ul class="gr-tags" role="list">
+      {cvProfile.interests.map((i) => <li class="gr-tag">{i}</li>)}
+    </ul>
+  </section>
+
+  <section class="wrap gr-section" aria-labelledby="join-heading">
+    <h2 id="join-heading" class="gr-title">Ways in</h2>
+    <ul class="gr-ways" role="list">
+      <li class="gr-way">
+        <h3>Prospective graduate students</h3>
+        <p>
+          I mentor Master's students at SDSU on differentiable modeling,
+          stellar populations, and synthetic observations. If the questions here
+          resonate, get in touch with your background and what you'd like to
+          work on.
+        </p>
+      </li>
+      <li class="gr-way">
+        <h3>Undergraduate &amp; transfer students</h3>
+        <p>
+          SDSU is a Hispanic-Serving Institution, and I work with undergraduates
+          — including community-college transfer students — to lower barriers
+          into computational research through well-documented, glass-box tools.
+        </p>
+      </li>
+      <li class="gr-way">
+        <h3>Collaborators</h3>
+        <p>
+          The software is open and built to be extended. If you work on star
+          clusters, stellar populations, or survey inference and want to run new
+          models or design observing programs, let's talk.
+        </p>
+      </li>
+    </ul>
+    <p class="gr-cta">
+      <a class="gr-btn" href={`mailto:${siteConfig.email}`}>Email me →</a>
+    </p>
+  </section>
 </BaseLayout>
+
+<style>
+  .gr-section {
+    padding-block: var(--space-l) var(--space-xl);
+  }
+  .gr-title {
+    font-size: var(--step-2);
+    padding-block-end: var(--space-2xs);
+    margin-block-end: var(--space-m);
+    border-block-end: 1px solid var(--border);
+  }
+  .gr-prose p {
+    color: var(--ink-soft);
+    margin-block-end: var(--space-s);
+  }
+  .gr-prose code {
+    font-family: var(--font-mono);
+    color: var(--spec-teal-bright);
+  }
+
+  .gr-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-s);
+  }
+  .gr-tag {
+    padding: var(--space-3xs) var(--space-s);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+
+  .gr-ways {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .gr-way {
+    padding: var(--space-m);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .gr-way h3 {
+    font-size: var(--step-1);
+    margin-block-end: var(--space-2xs);
+  }
+  .gr-way p {
+    color: var(--ink-dim);
+  }
+  .gr-cta {
+    margin-block-start: var(--space-l);
+  }
+  .gr-btn {
+    display: inline-block;
+    padding: var(--space-2xs) var(--space-m);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink);
+    text-decoration: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .gr-btn:hover {
+    border-color: var(--spec-teal-bright);
+    color: var(--spec-teal-bright);
+  }
+</style>

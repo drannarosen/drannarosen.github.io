@@ -38,8 +38,8 @@ export const foundation: JaxstroPackage = {
   description:
     "Units and constants, coordinate transforms, numerical methods, derivative contracts, and provenance — so every package composes without silent inconsistencies.",
   status: "established",
-  repo: null,
-  docs: null,
+  repo: "https://github.com/jaxstro/jaxstro",
+  docs: "https://jaxstro.github.io/jaxstro/",
 };
 
 /** The differentiable birth-to-observation pipeline, in flow order. */
@@ -51,8 +51,8 @@ export const pipeline: JaxstroPackage[] = [
     description:
       "Differentiable IMFs (including environment-dependent forms), mass-dependent multiplicity, and true-equilibrium King/EFF/LIMEPY structure with anisotropy and primordial mass segregation.",
     status: "established",
-    repo: null,
-    docs: null,
+    repo: "https://github.com/jaxstro/progenax",
+    docs: "https://jaxstro.github.io/progenax/",
   },
   {
     name: "gravax",

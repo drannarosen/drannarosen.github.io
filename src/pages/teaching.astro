@@ -1,20 +1,168 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
-import Placeholder from "../components/Placeholder.astro";
+import { courses, learningResources } from "../data/teaching";
 ---
 
 <BaseLayout
-  title="Teaching — Anna Rosen"
-  description="Scientific learning environments — Cosmic Playground and Sophie — as extensions of a computational research program."
+  title="Teaching — Anna Rosen, Ph.D."
+  description="Courses and scientific learning environments — glass-box computational modeling, Cosmic Playground, and learner-centered software documentation."
   path="/teaching"
 >
   <PageHeader
     eyebrow="Teaching"
     title="Software changes what students can see"
-    lede="Scientific software does not only change how research is conducted. It changes what students are able to see, manipulate, question, and understand."
+    lede="Scientific software does not only change how research is conducted. It changes what students are able to see, manipulate, question, and understand. My teaching and my research build the same glass-box tools."
   />
-  <Placeholder
-    what="This page will present courses alongside the learning environments Anna created — Cosmic Playground and Sophie — framed as part of the same computational program, with clear authorship and no implied institutional endorsement."
-  />
+
+  <section class="wrap te-section" aria-labelledby="courses-heading">
+    <h2 id="courses-heading" class="te-title">Courses</h2>
+    <ul class="te-courses" role="list">
+      {
+        courses.map((c) => (
+          <li class="te-course">
+            <div class="te-course__head">
+              <span class="te-course__code">{c.code}</span>
+              <span class="te-course__when">{c.when}</span>
+            </div>
+            <h3 class="te-course__title">
+              {c.url ? (
+                <a href={c.url} rel="noopener">
+                  {c.title} ↗
+                </a>
+              ) : (
+                c.title
+              )}
+            </h3>
+            <p class="te-course__blurb">{c.blurb}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="wrap te-section" aria-labelledby="learn-heading">
+    <h2 id="learn-heading" class="te-title">Learning environments &amp; documentation</h2>
+    <p class="te-lede prose">
+      Beyond the classroom: interactive tools and learner-centered documentation
+      so that good scientific software — and the physics inside it — is open to
+      newcomers, not gated behind undocumented research code.
+    </p>
+    <ul class="te-resources" role="list">
+      {
+        learningResources.map((r) => (
+          <li class="te-resource">
+            <span class="te-resource__kind">{r.kind}</span>
+            <h3 class="te-resource__name">
+              <a href={r.url} rel="noopener">
+                {r.name} ↗
+              </a>
+            </h3>
+            <p class="te-resource__blurb">{r.blurb}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
 </BaseLayout>
+
+<style>
+  .te-section {
+    padding-block: var(--space-l) var(--space-xl);
+  }
+  .te-title {
+    font-size: var(--step-2);
+    padding-block-end: var(--space-2xs);
+    margin-block-end: var(--space-m);
+    border-block-end: 1px solid var(--border);
+  }
+  .te-lede {
+    color: var(--ink-soft);
+    margin-block-end: var(--space-l);
+  }
+
+  .te-courses {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .te-course {
+    padding: var(--space-m);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    transition: border-color var(--dur-base) var(--ease-out);
+  }
+  .te-course:hover {
+    border-color: color-mix(in srgb, var(--spec-teal) 40%, var(--border));
+  }
+  .te-course__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+  }
+  .te-course__code {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--spec-teal-bright);
+    letter-spacing: 0.03em;
+  }
+  .te-course__when {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .te-course__title {
+    font-size: var(--step-1);
+    margin-block: var(--space-2xs);
+  }
+  .te-course__title a {
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .te-course__title a:hover {
+    color: var(--spec-teal-bright);
+  }
+  .te-course__blurb {
+    color: var(--ink-dim);
+    font-size: var(--step-0);
+  }
+
+  .te-resources {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--space-m);
+  }
+  .te-resource {
+    padding: var(--space-m);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    transition: border-color var(--dur-base) var(--ease-out);
+  }
+  .te-resource:hover {
+    border-color: color-mix(in srgb, var(--spec-teal) 40%, var(--border));
+  }
+  .te-resource__kind {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--spec-rose);
+  }
+  .te-resource__name {
+    font-size: var(--step-1);
+    margin-block: var(--space-2xs);
+  }
+  .te-resource__name a {
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .te-resource__name a:hover {
+    color: var(--spec-teal-bright);
+  }
+  .te-resource__blurb {
+    color: var(--ink-dim);
+    font-size: var(--step-0);
+  }
+</style>
