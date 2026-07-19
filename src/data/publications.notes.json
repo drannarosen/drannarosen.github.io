@@ -1,0 +1,16 @@
+{
+  "_comment": "HUMAN-OWNED. Short annotations shown under individual works in the full bibliography. The ORCID sync never reads or writes this file, so notes survive every regeneration of generated/publications.json. Key on `doi` (preferred) or `bibcode`.",
+
+  "_howToUse": [
+    "Add an entry only where context genuinely helps a reader — an unexpected field,",
+    "an undergraduate paper, a dataset release. Most works need no note at all.",
+    "Notes are merged in at build time by src/data/allPublications.ts."
+  ],
+
+  "notes": [
+    {
+      "doi": "10.1116/6.0001183",
+      "note": "Surface-science work from my 2007 NSF REU at UC Davis, before I moved into astrophysics."
+    }
+  ]
+}

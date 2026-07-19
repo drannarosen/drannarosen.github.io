@@ -154,6 +154,7 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
                       )}
                       {line && <span class="allpubs__authors">{line}</span>}
                       {w.venue && <span class="allpubs__venue">{w.venue}</span>}
+                      {w.note && <span class="allpubs__note">{w.note}</span>}
                     </li>
                   );
                 })}
@@ -361,6 +362,17 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     font-family: var(--font-mono);
     font-size: 0.66rem;
     color: var(--ink-dim);
+  }
+  .allpubs__note {
+    display: block;
+    margin-block-start: var(--space-3xs);
+    padding-inline-start: var(--space-2xs);
+    border-inline-start: 2px solid
+      color-mix(in srgb, var(--spec-teal-bright) 35%, transparent);
+    font-size: 0.72rem;
+    font-style: italic;
+    color: var(--ink-dim);
+    line-height: 1.45;
   }
   @media (max-width: 34rem) {
     .allpubs__year { grid-template-columns: 1fr; gap: var(--space-2xs); }

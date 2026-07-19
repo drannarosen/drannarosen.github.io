@@ -10,6 +10,7 @@
  * Regenerate: `pnpm sync:pubs` (or the scheduled GitHub Action).
  */
 import generated from "./generated/publications.json";
+import annotations from "./publications.notes.json";
 
 export interface SyncedWork {
   title: string;
@@ -27,9 +28,32 @@ export interface SyncedWork {
    * review instead of quietly appearing as co-authored.
    */
   firstAuthor: boolean | null;
+  /**
+   * Short human-authored annotation, merged from the HUMAN-owned
+   * publications.notes.json. Kept out of the generated file on purpose: the
+   * sync rewrites that wholesale and would erase anything written into it.
+   */
+  note: string | null;
 }
 
-export const allPublications: SyncedWork[] = generated.works as SyncedWork[];
+/** doi/bibcode -> note, from the human-owned annotations file. */
+const noteIndex = new Map<string, string>(
+  annotations.notes.flatMap((n) =>
+    [n.doi, (n as { bibcode?: string }).bibcode]
+      .filter((k): k is string => Boolean(k))
+      .map((k) => [k.toLowerCase(), n.note] as [string, string]),
+  ),
+);
+
+export const allPublications: SyncedWork[] = (
+  generated.works as Omit<SyncedWork, "note">[]
+).map((w) => ({
+  ...w,
+  note:
+    noteIndex.get((w.doi ?? "").toLowerCase()) ??
+    noteIndex.get((w.bibcode ?? "").toLowerCase()) ??
+    null,
+}));
 export const publicationsSource: string = generated.source;
 export const publicationCount: number = generated.count;
 
