@@ -67,7 +67,7 @@ import PresentFrame from "../../components/explore/PresentFrame.astro";
       const stars = new Float32Array(starBuf);
       const seg = makeSegregator(stars, new Float32Array(densBuf));
       const scene = sceneFromParts(meta, new Uint8Array(volBuf), seg.at(LAMBDA0));
-      const engine = createEngine(canvas, scene);
+      const engine = createEngine(canvas, scene, { emphasizeHot: true });
       attachInteraction(canvas, engine);
 
       let lambda = LAMBDA0;
@@ -95,29 +95,32 @@ import PresentFrame from "../../components/explore/PresentFrame.astro";
 <style>
   .ms { padding-block: var(--space-l) var(--space-3xl); }
   .ms__controls {
-    margin-block-start: var(--space-m);
     display: grid;
-    gap: var(--space-2xs);
+    gap: 0.3rem;
+    max-inline-size: 26rem;
+    margin-inline: auto;
   }
   .ms__label {
     font-family: var(--font-mono);
-    font-size: var(--step--1);
+    font-size: var(--step--2);
     color: var(--ink);
     display: flex;
     align-items: baseline;
-    gap: var(--space-xs);
+    gap: 0.5em;
     flex-wrap: wrap;
   }
-  .ms__val { color: var(--spec-cyan, #4fd6c4); font-size: var(--step-0); }
-  .ms__endpts { color: var(--ink-dim); font-size: var(--step--2); }
+  .ms__val { color: var(--spec-cyan, #4fd6c4); font-size: var(--step--1); }
+  .ms__endpts { color: var(--ink-dim); font-size: 0.62rem; }
   .ms__controls input[type="range"] {
     inline-size: 100%;
+    block-size: 1rem;
     accent-color: var(--spec-cyan, #4fd6c4);
   }
   .ms__status {
     font-family: var(--font-mono);
-    font-size: var(--step--2);
+    font-size: 0.62rem;
     color: var(--ink-dim);
+    opacity: 0.75;
   }
-  .ms__note { margin-block-start: var(--space-xl); }
+  .ms__note { margin-block-start: var(--space-2xl); }
 </style>

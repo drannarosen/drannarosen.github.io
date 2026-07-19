@@ -24,6 +24,8 @@ export interface EngineOptions {
   reducedMotion?: boolean;
   /** Run the auto gas-expulsion breathing loop (default false = stable embedded cloud). */
   autoExpel?: boolean;
+  /** Enlarge hot O/B stars so massive-star structure (e.g. segregation) reads clearly. */
+  emphasizeHot?: boolean;
 }
 
 export interface ClusterEngine {
@@ -69,12 +71,13 @@ function program(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgr
 }
 
 /** Interleave stars (n*6) into the GPU buffer layout [x,y,z, r,g,b, size] (n*7). */
-function buildStarBuffer(stars: Float32Array): Float32Array {
+function buildStarBuffer(stars: Float32Array, emphasizeHot = false): Float32Array {
   const n = stars.length / 6;
   const sbuf = new Float32Array(n * 7);
   for (let i = 0; i < n; i++) {
     const o = i * 6, q = i * 7;
-    const [r, g, b] = spectralRGB(stars[o + 4]);
+    const teff = stars[o + 4];
+    const [r, g, b] = spectralRGB(teff);
     sbuf[q] = stars[o];
     sbuf[q + 1] = stars[o + 1];
     sbuf[q + 2] = stars[o + 2];
@@ -84,7 +87,10 @@ function buildStarBuffer(stars: Float32Array): Float32Array {
     // Two-regime size law, continuous at 1 Rsun: giants ∝ sqrt(r); dwarfs
     // (< 1 Rsun) ∝ r^0.18 so they shrink gently and stay visible.
     const rc = Math.min(30, Math.max(0.05, stars[o + 5]));
-    sbuf[q + 6] = rc >= 1 ? Math.sqrt(rc) : Math.pow(rc, 0.18);
+    let sz = rc >= 1 ? Math.sqrt(rc) : Math.pow(rc, 0.18);
+    // Emphasize hot massive stars so O/B structure (segregation) pops.
+    if (emphasizeHot) sz *= teff > 30000 ? 2.4 : teff > 10000 ? 1.7 : 1;
+    sbuf[q + 6] = sz;
   }
   return sbuf;
 }
@@ -121,12 +127,13 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
 
   // star buffer
+  const emphasizeHot = opts.emphasizeHot ?? false;
   let n = scene.stars.length / 6;
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
   const vbo = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-  gl.bufferData(gl.ARRAY_BUFFER, buildStarBuffer(scene.stars), gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, buildStarBuffer(scene.stars, emphasizeHot), gl.DYNAMIC_DRAW);
   const stride = 7 * 4;
   const aPos = gl.getAttribLocation(starProg, "aPos");
   const aColor = gl.getAttribLocation(starProg, "aColor");
@@ -283,7 +290,7 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
     setStars: (stars) => {
       n = stars.length / 6;
       gl!.bindBuffer(gl!.ARRAY_BUFFER, vbo);
-      gl!.bufferData(gl!.ARRAY_BUFFER, buildStarBuffer(stars), gl!.DYNAMIC_DRAW);
+      gl!.bufferData(gl!.ARRAY_BUFFER, buildStarBuffer(stars, emphasizeHot), gl!.DYNAMIC_DRAW);
       if (!running) redraw();
     },
     setView: (v) => {

@@ -29,10 +29,10 @@ const { label = "Interactive cluster", hint } = Astro.props;
       <span aria-hidden="true">⛶</span>
     </button>
   </div>
-  {hint && <p class="present__hint">{hint}</p>}
   <div class="present__controls">
     <slot name="controls" />
   </div>
+  {hint && <p class="present__hint">{hint}</p>}
   <slot />
 </section>
 
@@ -74,7 +74,7 @@ const { label = "Interactive cluster", hint } = Astro.props;
   }
   .present__stage {
     position: relative;
-    inline-size: min(100%, 46rem);
+    inline-size: min(100%, 32rem);
     margin-inline: auto;
   }
   .present__stage :global(canvas) {
@@ -102,15 +102,18 @@ const { label = "Interactive cluster", hint } = Astro.props;
   }
   .present__fs:hover { color: var(--ink); border-color: var(--spec-cyan, #4fd6c4); }
   .present__hint {
-    margin-block-start: var(--space-2xs);
+    margin-block-start: var(--space-s);
     text-align: center;
     font-family: var(--font-mono);
-    font-size: var(--step--2);
-    color: var(--ink-dim);
+    font-size: 0.66rem;
+    letter-spacing: 0.01em;
+    color: var(--ink-faint, var(--ink-dim));
+    opacity: 0.7;
   }
   .present__controls {
-    inline-size: min(100%, 46rem);
+    inline-size: min(100%, 32rem);
     margin-inline: auto;
+    margin-block-start: var(--space-xs);
   }
 
   /* Fullscreen (present) mode: the frame fills the screen, stage grows, controls
