@@ -77,7 +77,7 @@ export const service: DatedEntry[] = [
     role: "Editorial: Star formation — numerical simulations and what they teach us",
     org: "Frontiers in Astronomy and Space Sciences",
     date: "2024",
-    note: "Co-authored Research Topic editorial",
+    note: "View editorial",
     href: "https://doi.org/10.3389/fspas.2024.1462935",
   },
 ];
