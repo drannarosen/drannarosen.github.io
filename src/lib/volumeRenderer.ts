@@ -103,6 +103,11 @@ void main(){
     // gas below rho_0 (the mean density) is transparent -> the diffuse envelope
     // clears, the cube rounds off, and the full ramp maps the overdense gas.
     float s = clamp((d - uFloor)/(1.0 - uFloor), 0.0, 1.0);
+    // Spherical mask: the turbulent field fills the CUBIC computational box and its
+    // dense filaments get truncated flat at the walls (reads as a cube). Fade to
+    // zero beyond the inscribed sphere so we show the cloud's spherical extent.
+    float rr = length(sp - 0.5) * 2.0;                  // 1.0 at a face center
+    s *= 1.0 - smoothstep(0.80, 1.02, rr);
     float sg = pow(s, uGamma);                          // uGamma=1 => faithful log
     float a = 1.0 - exp(-sg*uAbsorb*dt);
     vec3 base = mix(deep, pale, pow(s, 0.7));           // colormap follows log density
