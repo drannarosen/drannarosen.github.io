@@ -1,0 +1,82 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+---
+
+<BaseLayout
+  title="Cluster lab — Anna Rosen"
+  description="Prototype: rendering a real gravoturb star cluster in the browser."
+  path="/cluster-lab"
+>
+  <PageHeader
+    eyebrow="Prototype · not linked"
+    title="Cluster, two ways"
+    lede="Your real gravoturb cluster (5,000 stars, mass-segregated, from progenax) rendered straight from the exported data — flat 2D on the left, 3D-rotating on the right. Deciding which."
+  />
+
+  <div class="lab wrap-wide">
+    <figure class="lab__panel">
+      <canvas class="lab__canvas" data-flat aria-label="Star cluster, flat 2D projection with gas field."></canvas>
+      <figcaption>2D — projected gas field + stars</figcaption>
+    </figure>
+    <figure class="lab__panel">
+      <canvas class="lab__canvas" data-rotate aria-label="Star cluster rotating in 3D with a gas cloud."></canvas>
+      <figcaption>3D — rotating stars + gas-mote cloud</figcaption>
+    </figure>
+  </div>
+
+  <p class="lab__status wrap" data-status aria-live="polite">Loading cluster data…</p>
+</BaseLayout>
+
+<script>
+  import { loadClusterData, initClusterArt } from "../lib/clusterArt";
+
+  const status = document.querySelector<HTMLParagraphElement>("[data-status]");
+  const flat = document.querySelector<HTMLCanvasElement>("[data-flat]");
+  const rotate = document.querySelector<HTMLCanvasElement>("[data-rotate]");
+
+  (async () => {
+    try {
+      const data = await loadClusterData();
+      if (flat) initClusterArt(flat, data, { mode: "flat" });
+      if (rotate) initClusterArt(rotate, data, { mode: "rotate" });
+      if (status) {
+        status.textContent = `${data.meta.n_stars.toLocaleString()} stars · ${data.meta.n_gas_points.toLocaleString()} gas motes · λ_corr ${data.meta.lambda_corr}`;
+      }
+    } catch (err) {
+      if (status) status.textContent = `Failed to load cluster data: ${String(err)}`;
+    }
+  })();
+</script>
+
+<style>
+  .lab {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: var(--space-m);
+    padding-block: var(--space-l);
+  }
+  .lab__panel {
+    margin: 0;
+  }
+  .lab__canvas {
+    inline-size: 100%;
+    aspect-ratio: 1;
+    background: radial-gradient(120% 120% at 50% 45%, #0c1114, var(--bg-void));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    display: block;
+  }
+  .lab__panel figcaption {
+    margin-block-start: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .lab__status {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    padding-block-end: var(--space-2xl);
+  }
+</style>

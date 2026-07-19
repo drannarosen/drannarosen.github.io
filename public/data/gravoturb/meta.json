@@ -1,0 +1,34 @@
+{
+  "provenance": "progenax gravoturb IC (feasibility_figure.build)",
+  "lambda_corr": 0.6,
+  "n_stars": 5000,
+  "star_fields": [
+    "x",
+    "y",
+    "z",
+    "mass",
+    "teff",
+    "radius"
+  ],
+  "star_units": [
+    "pc",
+    "pc",
+    "pc",
+    "Msun",
+    "K",
+    "Rsun"
+  ],
+  "ngrid": 128,
+  "box_pc": 6.0,
+  "gas_log_min": 0.5424343943595886,
+  "gas_log_max": 4.960205078125,
+  "gas_field": "log10(Sigma_cl / [Msun pc^-2]), row-major NGRID x NGRID",
+  "n_gas_points": 40000,
+  "gas_point_fields": [
+    "i",
+    "j",
+    "k",
+    "dens"
+  ],
+  "gas_point_encoding": "uint8: i,j,k are grid indices 0..NGRID-1 (pc = (idx+0.5)/NGRID*box - box/2); dens is log-scaled 0..255"
+}
