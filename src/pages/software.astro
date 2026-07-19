@@ -1,20 +1,146 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
-import Placeholder from "../components/Placeholder.astro";
+import JaxstroEcosystem from "../components/JaxstroEcosystem.astro";
+import StatusBadge from "../components/StatusBadge.astro";
+import { allPackages } from "../data/jaxstro";
 ---
 
 <BaseLayout
-  title="Software — Anna Rosen"
-  description="The JAXSTRO ecosystem: differentiable scientific software for stellar populations, evolution, dynamics, observations, and inference."
+  title="Software — Anna Rosen, Ph.D."
+  description="JAXSTRO: a JAX-native, differentiable stellar-astrophysics ecosystem spanning cluster birth, dynamics, stellar evolution, survey observables, and inference."
   path="/software"
 >
   <PageHeader
     eyebrow="Software"
-    title="Instruments, built to answer the questions"
-    lede="JAXSTRO is a connected ecosystem of differentiable packages. Each is an instrument for a part of the modeling-to-inference path — and each is labeled with its real development status."
+    title="Differentiable astrophysics, built as instruments"
+    lede="I build JAX-native scientific software where every step — from a cluster's birth to its survey observables — is a smooth, differentiable function. The pipeline returns not just a prediction, but its exact sensitivity to each physical parameter."
   />
-  <Placeholder
-    what="This page will feature the JAXSTRO packages (e.g. Progenax, StarTrax, Gravax, Fluxax, Informax) as a connected system with honest status badges — public, in development, or planned — plus repository and documentation links for the packages that are real today."
-  />
+
+  <section class="wrap sw-intro">
+    <p class="prose">
+      <strong>JAXSTRO</strong> is the spine of that program: a family of packages
+      that each own one scientific stage and remain independently useful. It powers
+      current work on star-cluster identifiability, and it is built to outlast any
+      single project — a foundation for questions I haven't asked yet.
+    </p>
+  </section>
+
+  <section class="wrap-wide sw-eco" aria-labelledby="eco-heading">
+    <h2 id="eco-heading" class="sw-section-title">The ecosystem</h2>
+    <JaxstroEcosystem />
+  </section>
+
+  <section class="wrap sw-packages" aria-labelledby="pkg-heading">
+    <h2 id="pkg-heading" class="sw-section-title">The packages</h2>
+    <ul class="sw-cards" role="list">
+      {
+        allPackages.map((pkg) => (
+          <li class="sw-card" id={`pkg-${pkg.name}`}>
+            <div class="sw-card__head">
+              <h3 class="sw-card__name">{pkg.name}</h3>
+              <StatusBadge status={pkg.status} />
+            </div>
+            <p class="sw-card__stage">{pkg.stage}</p>
+            <p class="sw-card__desc">{pkg.description}</p>
+            {(pkg.repo || pkg.docs) && (
+              <p class="sw-card__links">
+                {pkg.repo && <a href={pkg.repo}>Repository</a>}
+                {pkg.docs && <a href={pkg.docs}>Docs</a>}
+              </p>
+            )}
+          </li>
+        ))
+      }
+    </ul>
+    <p class="sw-note prose">
+      Status reflects real maturity: <strong>established</strong> packages have
+      passed numerical, physical, and truth-known validation;
+      <strong>active build</strong> packages are validated in part and advancing;
+      <strong>planned</strong> capabilities are designed but not yet released.
+      Repository and documentation links appear as each package goes public.
+    </p>
+  </section>
 </BaseLayout>
+
+<style>
+  .sw-intro {
+    padding-block-end: var(--space-xl);
+  }
+  .sw-intro .prose {
+    font-size: var(--step-1);
+    color: var(--ink-soft);
+  }
+  .sw-intro strong {
+    color: var(--spec-teal-bright);
+    font-weight: 600;
+  }
+
+  .sw-section-title {
+    font-size: var(--step-2);
+    margin-block-end: var(--space-m);
+  }
+
+  .sw-eco {
+    padding-block-end: var(--space-2xl);
+  }
+
+  .sw-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: var(--space-m);
+  }
+  .sw-card {
+    padding: var(--space-m);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    scroll-margin-block-start: var(--space-xl);
+    transition: border-color var(--dur-base) var(--ease-out);
+  }
+  .sw-card:target,
+  .sw-card:hover {
+    border-color: color-mix(in srgb, var(--spec-teal) 40%, var(--border));
+  }
+  .sw-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+    margin-block-end: var(--space-3xs);
+  }
+  .sw-card__name {
+    font-family: var(--font-mono);
+    font-size: var(--step-1);
+    color: var(--spec-teal-bright);
+  }
+  .sw-card__stage {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-block-end: var(--space-2xs);
+  }
+  .sw-card__desc {
+    color: var(--ink-soft);
+    font-size: var(--step-0);
+  }
+  .sw-card__links {
+    margin-block-start: var(--space-s);
+    display: flex;
+    gap: var(--space-m);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+
+  .sw-note {
+    margin-block-start: var(--space-xl);
+    color: var(--ink-dim);
+    font-size: var(--step--1);
+  }
+  .sw-note strong {
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+</style>
