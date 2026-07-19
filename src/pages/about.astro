@@ -1,20 +1,88 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
-import Placeholder from "../components/Placeholder.astro";
+import { siteConfig, activeLinks } from "../lib/site";
+
+const links = activeLinks();
 ---
 
 <BaseLayout
-  title="About — Anna Rosen"
-  description="Anna Rosen is a computational astrophysicist and Assistant Professor of Astronomy at San Diego State University."
+  title="About — Anna Rosen, Ph.D."
+  description="Anna Rosen is a computational astrophysicist and Assistant Professor of Astronomy at San Diego State University, studying massive stars, star clusters, feedback, and differentiable inference."
   path="/about"
 >
-  <PageHeader
-    eyebrow="About"
-    title="Anna Rosen"
-    lede="Computational astrophysicist and Assistant Professor of Astronomy at San Diego State University, working across stellar evolution, cluster dynamics, feedback, synthetic observations, and inference."
-  />
-  <Placeholder
-    what="This page will hold a proper biography, background, and appointments, plus a portrait with documented credit. Provisional until Anna supplies the bio text."
-  />
+  <PageHeader eyebrow="About" title="Anna Rosen" />
+
+  <section class="about wrap">
+    <div class="about__body prose">
+      <p>
+        Anna Rosen is a computational astrophysicist and Assistant Professor of
+        Astronomy at San Diego State University. She studies how stars —
+        especially massive stars and the clusters they are born in — form,
+        reshape their surroundings through feedback, and imprint themselves on
+        the stellar populations we observe. Increasingly, her group builds the
+        differentiable scientific software needed to connect those models to
+        real survey data, and to ask what that data can genuinely tell us.
+      </p>
+      <p>
+        Her early work used radiation-magnetohydrodynamic simulations to show
+        how massive stars keep accreting against their own radiation, winds, and
+        outflows, and how feedback from young clusters carves bubbles and stirs
+        turbulence in the interstellar medium. That work now drives a broader
+        program: the <strong>JAXSTRO</strong> ecosystem — a JAX-native,
+        differentiable pipeline from a cluster's birth to its survey observables,
+        built to make astrophysical inference rigorous and its limits honest.
+      </p>
+      <p>
+        Anna's own path ran through community college: she transferred from Los
+        Angeles Pierce College to UC Berkeley, earned her Ph.D. at UC Santa Cruz,
+        and held NASA Einstein and ITC fellowships at Harvard and NSF and UC
+        Chancellor's fellowships at UC San Diego before joining SDSU in 2023. At
+        a Hispanic-Serving Institution, she mentors students — including
+        community-college transfer students — and builds glass-box,
+        well-documented software so that doing real computational science is open
+        to newcomers, not gated behind undocumented research code.
+      </p>
+    </div>
+
+    <p class="about__links">
+      <a href="/cv">Curriculum vitae →</a>
+      <a href="/research">Research →</a>
+      <a href={`mailto:${siteConfig.email}`}>{siteConfig.email}</a>
+      {
+        links.map((l) => (
+          <a href={l.href} rel="me noopener">
+            {l.label} ↗
+          </a>
+        ))
+      }
+    </p>
+  </section>
 </BaseLayout>
+
+<style>
+  .about {
+    padding-block-end: var(--space-2xl);
+  }
+  .about__body {
+    font-size: var(--step-1);
+    color: var(--ink-soft);
+  }
+  .about__body p + p {
+    margin-block-start: var(--space-m);
+  }
+  .about__body strong {
+    color: var(--spec-teal-bright);
+    font-weight: 600;
+  }
+  .about__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-m);
+    margin-block-start: var(--space-xl);
+    padding-block-start: var(--space-m);
+    border-block-start: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+</style>
