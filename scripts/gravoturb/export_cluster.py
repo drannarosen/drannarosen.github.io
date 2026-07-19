@@ -65,6 +65,7 @@ GAS_POINTS = 55000  # 3D gas "motes" (for the rotating/expelling cloud)
 # resolution RE-SAMPLES the turbulent field (finer structure), same physics/params.
 ff.NGRID = NGRID
 ff.DX = ff.BOX / NGRID
+ff.N = 10000  # number of stars (career figure uses 5000); gas field is unaffected
 BOX = ff.BOX
 DX = ff.DX
 build = ff.build

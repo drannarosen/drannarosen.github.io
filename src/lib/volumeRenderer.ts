@@ -118,7 +118,7 @@ void main(){
   float clipy = (P.y*1.6/1.15)/denom;
   // clipx above is in uv units; convert to NDC (uv normalized by height)
   gl_Position = vec4(clipx*2.0, clipy*2.0, 0.0, 1.0);
-  gl_PointSize = clamp(aSize * uPix / denom, 1.0, 42.0);
+  gl_PointSize = clamp(aSize * uPix / denom, 1.8, 44.0);
   vColor = aColor;
 }`;
 
@@ -203,7 +203,10 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     sbuf[q + 3] = r / 255;
     sbuf[q + 4] = g / 255;
     sbuf[q + 5] = b / 255;
-    sbuf[q + 6] = Math.sqrt(Math.min(30, Math.max(0.05, radius)));
+    // Two-regime size law, continuous at 1 Rsun: giants ∝ sqrt(r); dwarfs
+    // (< 1 Rsun) ∝ r^0.18 so they shrink gently and stay visible.
+    const rc = Math.min(30, Math.max(0.05, radius));
+    sbuf[q + 6] = rc >= 1 ? Math.sqrt(rc) : Math.pow(rc, 0.18);
   }
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
@@ -235,7 +238,7 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   gl.useProgram(starProg);
   gl.uniform1f(uSBox, scene.box);
 
-  const rotationPeriod = opts.rotationPeriodSec ?? 150;
+  const rotationPeriod = opts.rotationPeriodSec ?? 110;
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   let reduceMotion = opts.reducedMotion ?? motionQuery.matches;
 
