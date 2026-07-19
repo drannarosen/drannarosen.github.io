@@ -1,0 +1,20 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import Placeholder from "../components/Placeholder.astro";
+---
+
+<BaseLayout
+  title="CV — Anna Rosen"
+  description="Curriculum vitae and academic record for Anna Rosen."
+  path="/cv"
+>
+  <PageHeader
+    eyebrow="Curriculum Vitae"
+    title="CV"
+    lede="Appointments, education, publications, talks, funding, service, and mentoring."
+  />
+  <Placeholder
+    what="This page will summarize the CV inline and link a downloadable PDF. Nothing here is populated until Anna provides the current CV; no record is invented."
+  />
+</BaseLayout>

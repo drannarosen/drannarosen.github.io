@@ -33,13 +33,10 @@ const nowBuilding = [
     heading="I build models of stars and stellar systems — and the software to understand them."
     lede="Anna Rosen is a computational astrophysicist and Assistant Professor of Astronomy at San Diego State University, connecting stellar evolution, cluster dynamics, feedback, synthetic observations, and inference through differentiable scientific software."
   >
-    <nav class="hero-links" aria-label="Primary">
-      <a href="/research">Research</a>
-      <a href="/software">Software</a>
-      <a href="/group">Group</a>
-      <a href="/cv">CV</a>
-      <a href="/contact">Contact</a>
-    </nav>
+    <div class="hero-cta">
+      <a class="btn btn--primary" href="/research">Explore the research</a>
+      <a class="btn" href="/software">See the software</a>
+    </div>
   </ClusterHero>
 
   <section class="now wrap" aria-labelledby="now-heading">
@@ -63,23 +60,35 @@ const nowBuilding = [
 </BaseLayout>
 
 <style>
-  .hero-links {
+  .hero-cta {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-m);
+    gap: var(--space-s);
+  }
+  .btn {
+    display: inline-block;
+    padding: var(--space-2xs) var(--space-m);
     font-family: var(--font-mono);
     font-size: var(--step--1);
-    letter-spacing: 0.02em;
-  }
-  .hero-links a {
-    color: var(--ink-soft);
-    text-decoration: none;
-    padding-block-end: 2px;
-    border-block-end: 1px solid transparent;
-  }
-  .hero-links a:hover {
     color: var(--ink);
-    border-block-end-color: var(--spec-cyan);
+    text-decoration: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    transition:
+      border-color var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out);
+  }
+  .btn:hover {
+    border-color: var(--spec-cyan);
+    background: color-mix(in oklch, var(--spec-cyan) 12%, transparent);
+  }
+  .btn--primary {
+    background: color-mix(in oklch, var(--spec-blue) 22%, transparent);
+    border-color: color-mix(in oklch, var(--spec-blue) 55%, transparent);
+  }
+  .btn--primary:hover {
+    background: color-mix(in oklch, var(--spec-blue) 32%, transparent);
+    border-color: var(--spec-blue);
   }
 
   .now {

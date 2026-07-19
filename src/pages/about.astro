@@ -1,0 +1,20 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import Placeholder from "../components/Placeholder.astro";
+---
+
+<BaseLayout
+  title="About — Anna Rosen"
+  description="Anna Rosen is a computational astrophysicist and Assistant Professor of Astronomy at San Diego State University."
+  path="/about"
+>
+  <PageHeader
+    eyebrow="About"
+    title="Anna Rosen"
+    lede="Computational astrophysicist and Assistant Professor of Astronomy at San Diego State University, working across stellar evolution, cluster dynamics, feedback, synthetic observations, and inference."
+  />
+  <Placeholder
+    what="This page will hold a proper biography, background, and appointments, plus a portrait with documented credit. Provisional until Anna supplies the bio text."
+  />
+</BaseLayout>

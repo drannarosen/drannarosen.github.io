@@ -1,0 +1,95 @@
+---
+/*
+ * SiteHeader — sticky, translucent header over the cosmos background.
+ * The nav is a plain list (no JS, no disclosure): an inline row on wide
+ * screens, wrapping beneath the brand on narrow ones. The current page is
+ * marked with aria-current.
+ */
+import { siteConfig } from "../lib/site";
+
+const here = Astro.url.pathname.replace(/\/$/, "") || "/";
+---
+
+<header class="site-header">
+  <div class="site-header__bar wrap-wide">
+    <a class="brand" href="/">
+      <span class="brand__name">{siteConfig.name}</span>
+      <span class="brand__role">{siteConfig.role}</span>
+    </a>
+
+    <nav class="nav" aria-label="Primary">
+      <ul class="nav__list" role="list">
+        {
+          siteConfig.nav.map((item) => {
+            const active = here === item.href;
+            return (
+              <li>
+                <a href={item.href} aria-current={active ? "page" : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            );
+          })
+        }
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: var(--z-nav);
+    background: color-mix(in oklch, var(--bg-void) 78%, transparent);
+    backdrop-filter: blur(10px);
+    border-block-end: 1px solid var(--border);
+  }
+  .site-header__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2xs) var(--space-m);
+    padding-block: var(--space-2xs);
+  }
+
+  .brand {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1.1;
+    text-decoration: none;
+  }
+  .brand__name {
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    color: var(--ink);
+  }
+  .brand__role {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  .nav__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(var(--space-s), 2.5vw, var(--space-l));
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+  .nav__list a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding-block: 4px;
+    border-block-end: 1px solid transparent;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  .nav__list a:hover,
+  .nav__list a[aria-current="page"] {
+    color: var(--ink);
+    border-block-end-color: var(--spec-cyan);
+  }
+</style>

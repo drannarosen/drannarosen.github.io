@@ -1,5 +1,7 @@
 ---
 import "../styles/global.css";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
 
 interface Props {
   title: string;
@@ -32,10 +34,10 @@ const canonical = new URL(path ?? Astro.url.pathname, Astro.site).href;
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <slot name="header" />
+    <SiteHeader />
     <main id="main">
       <slot />
     </main>
-    <slot name="footer" />
+    <SiteFooter />
   </body>
 </html>

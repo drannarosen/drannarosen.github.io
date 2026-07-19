@@ -1,0 +1,73 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import { siteConfig, activeLinks } from "../lib/site";
+
+const links = activeLinks();
+---
+
+<BaseLayout
+  title="Contact — Anna Rosen"
+  description="Get in touch with Anna Rosen, Assistant Professor of Astronomy at San Diego State University."
+  path="/contact"
+>
+  <PageHeader
+    eyebrow="Contact"
+    title="Get in touch"
+    lede="The best way to reach me is email. Prospective students: please include your background and what you'd like to work on."
+  />
+
+  <section class="contact wrap">
+    <p class="contact__label">Email</p>
+    <a class="contact__email" href={`mailto:${siteConfig.email}`}>
+      {siteConfig.email}
+    </a>
+    <p class="contact__affil">
+      {siteConfig.title}, {siteConfig.affiliation}
+    </p>
+
+    {
+      links.length > 0 && (
+        <ul class="contact__links" role="list">
+          {links.map((l) => (
+            <li>
+              <a href={l.href} rel="me noopener">
+                {l.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+</BaseLayout>
+
+<style>
+  .contact {
+    padding-block-end: var(--space-2xl);
+  }
+  .contact__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .contact__email {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: var(--step-2);
+    margin-block: var(--space-2xs) var(--space-s);
+  }
+  .contact__affil {
+    color: var(--ink-soft);
+  }
+  .contact__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-m);
+    margin-block-start: var(--space-l);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+</style>

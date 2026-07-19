@@ -1,0 +1,38 @@
+---
+/*
+ * Placeholder — a clearly-labeled provisional block so unfinished pages read as
+ * intentional scaffolding, never as fabricated content.
+ */
+interface Props {
+  what: string;
+}
+const { what } = Astro.props;
+---
+
+<div class="placeholder wrap" role="note">
+  <p class="placeholder__tag">Provisional</p>
+  <p class="placeholder__text">{what}</p>
+  <slot />
+</div>
+
+<style>
+  .placeholder {
+    margin-block: var(--space-l) var(--space-2xl);
+    padding: var(--space-l);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-m);
+    background: color-mix(in oklch, var(--bg-surface) 40%, transparent);
+  }
+  .placeholder__tag {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--spec-amber);
+    margin-block-end: var(--space-2xs);
+  }
+  .placeholder__text {
+    color: var(--ink-soft);
+    max-inline-size: var(--width-prose);
+  }
+</style>

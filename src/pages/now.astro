@@ -1,0 +1,41 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import Placeholder from "../components/Placeholder.astro";
+
+// Update this date whenever the agenda below changes.
+const updated = "July 2026";
+---
+
+<BaseLayout
+  title="Now — Anna Rosen"
+  description="What Anna Rosen is actively working on right now: questions, software, teaching, and writing in progress."
+  path="/now"
+>
+  <PageHeader
+    eyebrow={`Now · updated ${updated}`}
+    title="What I'm focused on"
+    lede="A living snapshot of current priorities — the questions I'm pursuing, packages under development, and writing in progress. Not a news feed."
+  />
+  <Placeholder
+    what="This page will be maintained by Anna as a genuine 'now' page: active research questions, packages in development, papers and proposals in progress, teaching experiments, and open opportunities. The list below is provisional structure only."
+  >
+    <ul class="now-list">
+      <li>Questions actively in play</li>
+      <li>Software under active development</li>
+      <li>Papers and proposals in progress</li>
+      <li>Teaching experiments</li>
+      <li>Opportunities for students and collaborators</li>
+    </ul>
+  </Placeholder>
+</BaseLayout>
+
+<style>
+  .now-list {
+    margin-block-start: var(--space-m);
+    padding-inline-start: var(--space-m);
+    color: var(--ink-dim);
+    display: grid;
+    gap: var(--space-2xs);
+  }
+</style>

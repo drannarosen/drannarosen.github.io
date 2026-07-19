@@ -1,0 +1,103 @@
+---
+/*
+ * SiteFooter — affiliation, direct email (no form), profile links, and
+ * authorship/license line. Only links with a known href render (see site.ts).
+ */
+import { siteConfig, activeLinks } from "../lib/site";
+
+const links = activeLinks();
+const year = 2026; // build-time constant; bump on next content refresh
+---
+
+<footer class="site-footer">
+  <div class="site-footer__inner wrap-wide">
+    <div class="site-footer__identity">
+      <p class="site-footer__name">{siteConfig.name}</p>
+      <p class="site-footer__meta">
+        {siteConfig.title}, {siteConfig.affiliation}
+      </p>
+      <a class="site-footer__email" href={`mailto:${siteConfig.email}`}>
+        {siteConfig.email}
+      </a>
+    </div>
+
+    {
+      links.length > 0 && (
+        <nav class="site-footer__links" aria-label="Profiles and documents">
+          <ul role="list">
+            {links.map((l) => (
+              <li>
+                <a href={l.href} rel="me noopener">
+                  {l.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )
+    }
+  </div>
+
+  <div class="site-footer__legal wrap-wide">
+    <p>© {year} {siteConfig.name}. Views are the author's own.</p>
+    <p>
+      Built with Astro. Source on GitHub. Content licensed for reuse with
+      attribution unless noted.
+    </p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-block-start: var(--space-3xl);
+    border-block-start: 1px solid var(--border);
+    background: var(--bg-deep);
+    padding-block: var(--space-xl);
+  }
+  .site-footer__inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xl);
+    justify-content: space-between;
+    align-items: start;
+  }
+  .site-footer__name {
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    color: var(--ink);
+  }
+  .site-footer__meta {
+    color: var(--ink-dim);
+    font-size: var(--step--1);
+    margin-block: var(--space-3xs) var(--space-2xs);
+  }
+  .site-footer__email {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+  .site-footer__links ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-m);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+  .site-footer__links a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-block-end: 1px solid transparent;
+  }
+  .site-footer__links a:hover {
+    color: var(--ink);
+    border-block-end-color: var(--spec-cyan);
+  }
+  .site-footer__legal {
+    margin-block-start: var(--space-l);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-l);
+    justify-content: space-between;
+    color: var(--ink-faint);
+    font-size: var(--step--1);
+  }
+</style>

@@ -6,31 +6,42 @@
  */
 @layer tokens {
   :root {
-    /* ── Background layers (deep space → surfaces) ───────────────── */
-    --bg-void: oklch(0.15 0.02 260);      /* page base, blue-black */
-    --bg-deep: oklch(0.18 0.025 262);     /* raised sections */
-    --bg-surface: oklch(0.22 0.03 264);   /* cards, wells */
-    --bg-hairline: oklch(0.32 0.03 264);  /* subtle dividers */
+    /* ── Background layers (deep space → surfaces) ───────────────────
+     * Adopted from Anna's Cosmic Playground / Sophie systems for brand
+     * lineage: near-black ink with cool neutral surfaces. */
+    --bg-void: #0f1115;   /* page base (CP --cp-bg0) */
+    --bg-deep: #171b22;   /* raised sections (CP --cp-bg1) */
+    --bg-surface: #21222b; /* cards, wells (CP --cp-bg2) */
+    --bg-hairline: #2b2d38; /* subtle dividers */
 
-    /* ── Text hierarchy ──────────────────────────────────────────── */
-    --ink: oklch(0.96 0.01 250);          /* primary text, warm white */
-    --ink-soft: oklch(0.82 0.015 250);    /* secondary */
-    --ink-dim: oklch(0.66 0.02 255);      /* captions, meta */
-    --ink-faint: oklch(0.52 0.02 258);    /* disabled, fine print */
+    /* ── Text hierarchy (white mixed into ink, no chroma) ────────── */
+    --ink: color-mix(in srgb, #ffffff 90%, var(--bg-void));
+    --ink-soft: color-mix(in srgb, #ffffff 66%, var(--bg-void));
+    --ink-dim: color-mix(in srgb, #ffffff 48%, var(--bg-void));
+    --ink-faint: color-mix(in srgb, #ffffff 33%, var(--bg-void));
 
-    /* ── Spectral accents (stellar-motivated) ────────────────────── */
-    --spec-blue: oklch(0.74 0.14 248);    /* hot, massive — primary accent */
-    --spec-cyan: oklch(0.83 0.11 210);
-    --spec-amber: oklch(0.82 0.13 72);    /* warm highlight */
-    --spec-rose: oklch(0.74 0.15 18);     /* cool, low-mass */
+    /* ── Brand accents (Anna's "muted spectral minimalism") ──────────
+     * Teal is the signature; rose + violet are secondary; amber is the
+     * warm/stellar highlight. Star colors in the hero stay physical
+     * (see imf.ts) — these are interface chrome only. */
+    --spec-teal: #2f8c8d;        /* muted teal (CP --cp-accent) */
+    --spec-teal-bright: #4fd6c4; /* bright teal (Sophie --sophie-home-teal) */
+    --spec-rose: #b07a93;        /* dusty rose (CP --cp-pink) */
+    --spec-violet: #6d7794;      /* slate violet (CP --cp-violet) */
+    --spec-amber: #fbbf24;       /* warm highlight (CP --cp-celestial-sun) */
 
-    --accent: var(--spec-blue);
+    --accent: var(--spec-teal);
+    --accent-bright: var(--spec-teal-bright);
     --accent-warm: var(--spec-amber);
 
+    /* Legacy aliases so existing components pick up the teal brand. */
+    --spec-blue: var(--spec-teal);
+    --spec-cyan: var(--spec-teal-bright);
+
     /* ── Borders / focus ─────────────────────────────────────────── */
-    --border: oklch(0.34 0.025 262 / 0.6);
-    --border-strong: oklch(0.5 0.03 262 / 0.8);
-    --focus-ring: var(--spec-cyan);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.18);
+    --focus-ring: var(--spec-teal-bright);
 
     /* ── Fluid type scale (major-third-ish, clamp) ───────────────── */
     --step--1: clamp(0.83rem, 0.79rem + 0.20vw, 0.94rem);
