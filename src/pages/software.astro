@@ -48,8 +48,10 @@ import { allPackages } from "../data/jaxstro";
             <p class="sw-card__desc">{pkg.description}</p>
             {(pkg.repo || pkg.docs) && (
               <p class="sw-card__links">
-                {pkg.repo && <a href={pkg.repo}>Repository</a>}
-                {pkg.docs && <a href={pkg.docs}>Docs</a>}
+                {pkg.repo && <a href={pkg.repo} rel="noopener">Repository ↗</a>}
+                {pkg.docs && (
+                  <a href={pkg.docs} rel="noopener">Preview docs ↗</a>
+                )}
               </p>
             )}
           </li>
@@ -60,8 +62,10 @@ import { allPackages } from "../data/jaxstro";
       Every package is an <strong>active build</strong> — validated in
       substantial part and advancing, but not yet publicly released; methods
       papers come first. The maturity note on each indicates how far along it
-      is. Repository and documentation links will appear as each package goes
-      public.
+      is. <strong>Preview documentation</strong> is shared for
+      <code>jaxstro</code> and <code>progenax</code> to show the direction of
+      the work; the source and full API will be released with each package's
+      methods paper.
     </p>
   </section>
 </BaseLayout>

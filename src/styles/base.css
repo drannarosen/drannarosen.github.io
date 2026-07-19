@@ -34,6 +34,12 @@
   h2 { font-size: var(--step-3); }
   h3 { font-size: var(--step-2); }
 
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    color: var(--spec-teal-bright);
+  }
+
   a {
     color: var(--spec-teal-bright);
     text-underline-offset: 0.18em;

@@ -42,7 +42,7 @@ export const foundation: JaxstroPackage = {
   status: "active-build",
   maturity: "Mature · methods paper in prep",
   repo: null,
-  docs: null,
+  docs: "https://jaxstro.github.io/jaxstro/",
 };
 
 /** The differentiable birth-to-observation pipeline, in flow order. */
@@ -56,7 +56,7 @@ export const pipeline: JaxstroPackage[] = [
     status: "active-build",
     maturity: "Mature · methods paper in prep",
     repo: null,
-    docs: null,
+    docs: "https://jaxstro.github.io/progenax/",
   },
   {
     name: "gravax",

@@ -1,20 +1,118 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
-import Placeholder from "../components/Placeholder.astro";
+import { researchQuestions } from "../data/research";
+
+const pad = (n: number) => String(n).padStart(2, "0");
 ---
 
 <BaseLayout
-  title="Research — Anna Rosen"
-  description="Massive-star formation, star clusters, stellar feedback, and the differentiable models that connect them to observations and inference."
+  title="Research — Anna Rosen, Ph.D."
+  description="A computational astrophysics program on massive-star formation, stellar feedback, star clusters, the initial mass function, and differentiable inference."
   path="/research"
 >
   <PageHeader
     eyebrow="Research"
     title="Questions that drive the work"
-    lede="The research is organized around scientific questions — not administrative categories. Each connects to projects, software, publications, and people."
+    lede="I organize the work around scientific questions, not topic categories. Each spans simulations, observations, and the software built to connect them — and each reaches beyond any single project."
   />
-  <Placeholder
-    what="This page will present 3–4 driving questions (e.g. how massive stars regulate their natal environments; how evolution, dynamics, and feedback shape clusters; what observations can constrain about unresolved populations; how differentiable models change inference), each linked to real projects and figures."
-  />
+
+  <ol class="rq" role="list">
+    {
+      researchQuestions.map((q, i) => (
+        <li class="rq__item">
+          <span class="rq__index" aria-hidden="true">{pad(i + 1)}</span>
+          <div class="rq__body">
+            <h2 class="rq__question">{q.question}</h2>
+            <p class="rq__summary prose">{q.summary}</p>
+            <ul class="rq__threads" role="list">
+              {q.threads.map((t) => (
+                <li class="rq__thread">{t}</li>
+              ))}
+            </ul>
+            {q.related && (
+              <p class="rq__related">
+                {q.related.map((r) => (
+                  <a href={r.href}>{r.label} →</a>
+                ))}
+              </p>
+            )}
+          </div>
+        </li>
+      ))
+    }
+  </ol>
 </BaseLayout>
+
+<style>
+  .rq {
+    inline-size: min(100% - var(--gutter) * 2, var(--width-content));
+    margin-inline: auto;
+    display: grid;
+    gap: var(--space-2xl);
+    padding-block: var(--space-l) var(--space-3xl);
+  }
+
+  .rq__item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-m) var(--space-l);
+    align-items: start;
+    padding-block-start: var(--space-l);
+    border-block-start: 1px solid var(--border);
+  }
+
+  .rq__index {
+    font-family: var(--font-mono);
+    font-size: var(--step-3);
+    font-weight: 600;
+    color: color-mix(in srgb, var(--spec-teal) 55%, transparent);
+    line-height: 1;
+  }
+
+  .rq__question {
+    font-size: var(--step-3);
+    max-inline-size: 22ch;
+    margin-block-end: var(--space-s);
+    color: var(--ink);
+  }
+  .rq__summary {
+    color: var(--ink-soft);
+    font-size: var(--step-1);
+  }
+
+  .rq__threads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-s);
+    margin-block-start: var(--space-m);
+  }
+  .rq__thread {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    padding: 2px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+
+  .rq__related {
+    margin-block-start: var(--space-m);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-m);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+
+  /* ── Narrow: index sits above the question ─────────────────────── */
+  @media (max-width: 40rem) {
+    .rq__item {
+      grid-template-columns: 1fr;
+      gap: var(--space-s);
+    }
+    .rq__index {
+      font-size: var(--step-2);
+    }
+  }
+</style>
