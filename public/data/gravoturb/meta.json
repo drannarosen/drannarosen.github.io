@@ -1,5 +1,9 @@
 {
-  "provenance": "progenax gravoturb IC (feasibility_figure.build)",
+  "provenance": "progenax gravoturb build_cluster_ic (EFF truncated cloud)",
+  "cloud_profile": "EFF (Elson-Fall-Freeman 1987), truncated at r_t",
+  "eff_a_pc": 0.8,
+  "eff_gamma": 3.0,
+  "eff_r_t_pc": 2.5,
   "lambda_corr": 0.6,
   "n_stars": 10000,
   "star_fields": [
@@ -20,8 +24,8 @@
   ],
   "ngrid": 128,
   "box_pc": 6.0,
-  "gas_log_min": -7.557376861572266,
-  "gas_log_max": 5.237312316894531,
+  "gas_log_min": 1.1902315616607666,
+  "gas_log_max": 5.190231800079346,
   "gas_field": "log10(Sigma_cl / [Msun pc^-2]), row-major NGRID x NGRID",
   "n_gas_points": 55000,
   "gas_point_fields": [
@@ -32,10 +36,10 @@
   ],
   "gas_point_encoding": "uint8: i,j,k are grid indices 0..NGRID-1 (pc = (idx+0.5)/NGRID*box - box/2); dens is log-scaled 0..255",
   "volume_ngrid": 128,
-  "volume_log_min": -3.2392968356943763,
-  "volume_log_max": 6.560563782308632,
-  "volume_log_mean": 1.9536998525342062,
-  "volume_log_median": 0.8417980571371637,
+  "volume_log_min": 0.5129661751852224,
+  "volume_log_max": 6.512966175185222,
+  "volume_log_mean": 2.4981521069329324,
+  "volume_log_median": 1.7736619119733903,
   "volume_encoding": "uint8 log10(rho) rescaled 0..255, C-order (i,j,k), cube of side box_pc",
   "volume_colorbar": "web renderer windows to [rho_0, rho_max] with rho_0 = volume-weighted mean (volume_log_mean); s = log10(rho/rho_0) drives color + opacity"
 }

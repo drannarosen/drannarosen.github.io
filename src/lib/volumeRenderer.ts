@@ -82,7 +82,7 @@ out vec4 outColor;
 uniform sampler3D uVol;
 uniform vec2 uRes;
 uniform float uAngle, uEmit, uAbsorb, uZoom, uFloor, uGamma;
-uniform float uExpel, uLogRange, uShape; // expulsion; log range; 0=raw box, 1=soft sphere
+uniform float uExpel, uLogRange; // expulsion phase; log10 dynamic range of the cube
 
 bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1){
   vec3 inv = 1.0/rd;
@@ -119,13 +119,9 @@ void main(){
     float d = texture(uVol, src).r - dilute;            // normalized log10(rho), diluted
     // yt-style LOG COLORBAR: window to [rho_0, rho_max]. s = (d-uFloor)/(1-uFloor)
     // = log10(rho/rho_0) rescaled 0..1; gas below rho_0 (mean) is transparent.
+    // No geometric mask: the EFF profile truncates the density at r_t, so the cloud
+    // is physically round and zero out to the box walls — the roundness is real.
     float s = clamp((d - uFloor)/(1.0 - uFloor), 0.0, 1.0);
-    // Shape: uShape=0 shows the raw cubic domain (the original box); uShape=1 fades
-    // the gas with a smooth radial taper (soft Plummer-like edge) so the cloud rounds
-    // off with no hard cut. On SOURCE coord, so it rides outward with the expanding shell.
-    float rr = length(src - 0.5) * 2.0;                 // 1.0 at a face center
-    float taper = 1.0 - smoothstep(0.60, 1.05, rr);
-    s *= mix(1.0, taper, uShape);
     float sg = pow(s, uGamma);                          // uGamma=1 => faithful log
     float a = 1.0 - exp(-sg*uAbsorb*dt);
     vec3 base = mix(deep, pale, pow(s, 0.7));           // colormap follows log density
@@ -204,7 +200,7 @@ const MAX_DPR = 1.5;
 function noopControls(): VolumeControls {
   return {
     cleanup() {}, setEmit() {}, setAbsorb() {}, setFloor() {}, setGamma() {},
-    setShape() {}, setExpel() {}, floors: { median: 0, mean: 0 },
+    setExpel() {}, floors: { median: 0, mean: 0 },
   };
 }
 
@@ -277,7 +273,6 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   const uFloorL = gl.getUniformLocation(volProg, "uFloor");
   const uGammaL = gl.getUniformLocation(volProg, "uGamma");
   const uAbsorbL = gl.getUniformLocation(volProg, "uAbsorb");
-  const uShapeL = gl.getUniformLocation(volProg, "uShape");
   gl.useProgram(volProg);
   gl.uniform1i(gl.getUniformLocation(volProg, "uVol"), 0);
   gl.uniform1f(uEmitL, 9.5);
@@ -287,7 +282,6 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   gl.uniform1f(uFloorL, scene.densityFloor);
   gl.uniform1f(uGammaL, 1.1);
   gl.uniform1f(gl.getUniformLocation(volProg, "uLogRange"), scene.logRange);
-  gl.uniform1f(uShapeL, 1.0); // default: soft sphere (0 = raw cubic box)
   const uSAngle = gl.getUniformLocation(starProg, "uAngle");
   const uSBox = gl.getUniformLocation(starProg, "uBox");
   const uSPix = gl.getUniformLocation(starProg, "uPix");
@@ -401,7 +395,6 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
     setAbsorb: (v: number) => setVol(uAbsorbL, v),
     setFloor: (v: number) => setVol(uFloorL, v),
     setGamma: (v: number) => setVol(uGammaL, v),
-    setShape: (v: number) => setVol(uShapeL, v), // 0 = raw box, 1 = soft sphere
     // v in [0,1] scrubs expulsion manually; null resumes the auto timeline.
     setExpel: (v: number | null) => { expelOverride = v; if (!running) redraw(); },
     floors: { median: scene.floorMedian, mean: scene.floorMean },
@@ -414,7 +407,6 @@ export interface VolumeControls {
   setAbsorb(v: number): void;
   setFloor(v: number): void;
   setGamma(v: number): void;
-  setShape(v: number): void;
   setExpel(v: number | null): void;
   floors: { median: number; mean: number };
 }

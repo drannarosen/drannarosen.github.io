@@ -29,14 +29,6 @@ import PageHeader from "../components/PageHeader.astro";
       </div>
 
       <div class="ctl">
-        <label>Shape <span class="ctl__v" data-shape-v>sphere</span></label>
-        <div class="ctl__row">
-          <button type="button" data-shape-sphere>sphere</button>
-          <button type="button" data-shape-box>box (raw)</button>
-        </div>
-      </div>
-
-      <div class="ctl">
         <label for="c-gamma">Gamma <span class="ctl__v" data-gamma-v>1.10</span></label>
         <input id="c-gamma" type="range" autocomplete="off" min="0.8" max="1.6" step="0.02" value="1.1" data-gamma />
       </div>
@@ -101,11 +93,6 @@ import PageHeader from "../components/PageHeader.astro";
         floor.value = String(scene.floorMean); ctl.setFloor(scene.floorMean); labelFloor(scene.floorMean);
       });
 
-      // ── shape: soft sphere (default) or the raw cubic box ─────────────────────
-      const shapeV = $<HTMLSpanElement>("[data-shape-v]");
-      $("[data-shape-sphere]").addEventListener("click", () => { ctl.setShape(1); shapeV.textContent = "sphere"; });
-      $("[data-shape-box]").addEventListener("click", () => { ctl.setShape(0); shapeV.textContent = "box (raw)"; });
-
       // ── gamma ────────────────────────────────────────────────────────────────
       const gamma = $<HTMLInputElement>("[data-gamma]");
       const gammaV = $<HTMLSpanElement>("[data-gamma-v]");
@@ -137,7 +124,6 @@ import PageHeader from "../components/PageHeader.astro";
       emit.value = "9.5"; emitV.textContent = "9.5"; ctl.setEmit(9.5);
       floor.value = String(scene.densityFloor); ctl.setFloor(scene.densityFloor); labelFloor(scene.densityFloor);
       auto.checked = true; expel.value = "0"; expel.disabled = true; expelV.textContent = "auto"; ctl.setExpel(null);
-      ctl.setShape(1); shapeV.textContent = "sphere";
     } catch (err) {
       if (status) status.textContent = `Failed: ${String(err)}`;
     }
