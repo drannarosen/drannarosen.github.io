@@ -15,6 +15,10 @@ export interface Scene {
   ngrid: number;
   stars: Float32Array; // n*6: x,y,z,mass,teff,radius (pc, Msun, K, Rsun)
   box: number; // pc
+  // Normalized position (0..1) of the reference density rho_0 in the texture's
+  // log range: floor01 = (log10(rho_0) - logMin) / (logMax - logMin). rho_0 is
+  // the volume-weighted mean, so the shader's log colorbar spans [mean, max].
+  densityFloor: number;
 }
 
 export async function loadScene(base = "/data/gravoturb"): Promise<Scene> {
@@ -23,11 +27,15 @@ export async function loadScene(base = "/data/gravoturb"): Promise<Scene> {
     fetch(`${base}/volume.u8`).then((r) => r.arrayBuffer()),
     fetch(`${base}/stars.f32`).then((r) => r.arrayBuffer()),
   ]);
+  const lo = meta.volume_log_min, hi = meta.volume_log_max;
+  const mean = meta.volume_log_mean ?? lo; // rho_0 = volume-weighted mean density
+  const densityFloor = hi > lo ? (mean - lo) / (hi - lo) : 0;
   return {
     volume: new Uint8Array(volBuf),
     ngrid: meta.volume_ngrid,
     stars: new Float32Array(starBuf),
     box: meta.box_pc,
+    densityFloor,
   };
 }
 
@@ -61,7 +69,7 @@ precision highp sampler3D;
 out vec4 outColor;
 uniform sampler3D uVol;
 uniform vec2 uRes;
-uniform float uAngle, uEmit, uAbsorb, uZoom;
+uniform float uAngle, uEmit, uAbsorb, uZoom, uFloor, uGamma;
 
 bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1){
   vec3 inv = 1.0/rd;
@@ -89,14 +97,17 @@ void main(){
   vec3 deep=vec3(0.09,0.40,0.44), pale=vec3(0.60,0.96,0.92), warm=vec3(0.92,0.66,0.55);
   for(int i=0;i<STEPS;i++){
     vec3 sp = rom + rdm*t + 0.5;
-    float d = texture(uVol, sp).r;
-    // Steep transfer on the (log) density: the real ~2.4-dex central rise then
-    // dominates, the diffuse floor darkens, and the cubic box edges vanish.
-    float dd = pow(d, 3.2);
-    float a = 1.0 - exp(-dd*uAbsorb*dt);
-    vec3 base = mix(deep, pale, pow(d, 1.5));          // diffuse teal -> pale
-    base = mix(base, warm, smoothstep(0.82, 1.0, d)*0.45); // warm star-forming heart
-    vec3 col = base * dd * uEmit;
+    float d = texture(uVol, sp).r;                      // normalized log10(rho)
+    // yt-style LOG COLORBAR: window to [rho_0, rho_max]. d is already normalized
+    // log10(rho), so s = (d-uFloor)/(1-uFloor) = log10(rho/rho_0) rescaled 0..1;
+    // gas below rho_0 (the mean density) is transparent -> the diffuse envelope
+    // clears, the cube rounds off, and the full ramp maps the overdense gas.
+    float s = clamp((d - uFloor)/(1.0 - uFloor), 0.0, 1.0);
+    float sg = pow(s, uGamma);                          // uGamma=1 => faithful log
+    float a = 1.0 - exp(-sg*uAbsorb*dt);
+    vec3 base = mix(deep, pale, pow(s, 0.7));           // colormap follows log density
+    base = mix(base, warm, smoothstep(0.72, 1.0, s)*0.5); // warm star-forming heart
+    vec3 col = base * sg * uEmit;
     acc += (1.0-alpha)*a*col;
     alpha += (1.0-alpha)*a;
     if(alpha>0.99) break;
@@ -232,9 +243,12 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   const uVAngle = gl.getUniformLocation(volProg, "uAngle");
   gl.useProgram(volProg);
   gl.uniform1i(gl.getUniformLocation(volProg, "uVol"), 0);
-  gl.uniform1f(gl.getUniformLocation(volProg, "uEmit"), 4.6);
-  gl.uniform1f(gl.getUniformLocation(volProg, "uAbsorb"), 7.5);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uEmit"), 9.5);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uAbsorb"), 9.0);
   gl.uniform1f(gl.getUniformLocation(volProg, "uZoom"), 1.55);
+  // Log colorbar: rho_0 = mean density (from meta), gamma=1 => faithful log stretch.
+  gl.uniform1f(gl.getUniformLocation(volProg, "uFloor"), scene.densityFloor);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uGamma"), 1.0);
   const uSAngle = gl.getUniformLocation(starProg, "uAngle");
   const uSBox = gl.getUniformLocation(starProg, "uBox");
   const uSPix = gl.getUniformLocation(starProg, "uPix");

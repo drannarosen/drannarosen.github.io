@@ -34,5 +34,8 @@
   "volume_ngrid": 128,
   "volume_log_min": -3.2392968356943763,
   "volume_log_max": 6.560563782308632,
-  "volume_encoding": "uint8 log10(rho) rescaled 0..255, C-order (i,j,k), cube of side box_pc"
+  "volume_log_mean": 1.9536998525342062,
+  "volume_log_median": 0.8417980571371637,
+  "volume_encoding": "uint8 log10(rho) rescaled 0..255, C-order (i,j,k), cube of side box_pc",
+  "volume_colorbar": "web renderer windows to [rho_0, rho_max] with rho_0 = volume-weighted mean (volume_log_mean); s = log10(rho/rho_0) drives color + opacity"
 }

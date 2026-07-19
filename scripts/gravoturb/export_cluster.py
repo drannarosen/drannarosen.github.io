@@ -89,6 +89,14 @@ def main() -> None:
     vlo, vhi = float(vlog.min()), float(vlog.max())
     vol_u8 = ((vlog - vlo) / (vhi - vlo) * 255.0).astype(np.uint8)  # (N,N,N)
 
+    # Reference density rho_0 for the web renderer's log colorbar (yt-style):
+    # the VOLUME-WEIGHTED MEAN density over the cube. The shader windows the
+    # colormap to [rho_0, rho_max] = log10(rho/rho_0), so gas below the mean is
+    # transparent and the full colormap is spent on the overdense, self-gravitating
+    # gas. log_mean/median are recorded in the SAME log10 units as vlo/vhi.
+    log_mean = float(np.log10(rho.mean()))
+    log_median = float(np.log10(np.median(rho[rho > 0])))
+
     # Spherical window: the turbulent field fills the CUBIC box, which reads as a
     # cube when rendered. Fade the density to zero beyond an inscribed sphere so
     # the cloud (2D projection AND 3D motes) is spherical. Smoothstep taper.
@@ -162,8 +170,14 @@ def main() -> None:
         "volume_ngrid": int(NGRID),
         "volume_log_min": vlo,
         "volume_log_max": vhi,
+        "volume_log_mean": log_mean,
+        "volume_log_median": log_median,
         "volume_encoding": (
             "uint8 log10(rho) rescaled 0..255, C-order (i,j,k), cube of side box_pc"
+        ),
+        "volume_colorbar": (
+            "web renderer windows to [rho_0, rho_max] with rho_0 = volume-weighted "
+            "mean (volume_log_mean); s = log10(rho/rho_0) drives color + opacity"
         ),
     }
     (OUT / "meta.json").write_text(json.dumps(meta, indent=2))
