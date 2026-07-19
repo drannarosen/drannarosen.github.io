@@ -84,7 +84,7 @@ set JSON-LD `author` to a `SoftwareApplication` — never to Anna.
 
 ## Deferred — recorded so the reasoning is not lost
 
-**JAXSTRO changelog (autonomous).** Deferred at Anna's request. Two reasons,
+**Jaxstro changelog (autonomous).** Deferred at Anna's request. Two reasons,
 both good: commit volume is AI-assisted and therefore a misleading public
 signal — it measures tooling throughput, not scientific progress; and a
 changelog serves people who depend on releases, so before there are users it is

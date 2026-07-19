@@ -7,7 +7,7 @@ Date: 2026-07-19 · Status: approved (brainstorm), implementation staged
 A suite of three browser explorables, built on **one shared cluster engine**, that
 make Anna's research program legible to grad students, peers, and the public — and
 that double as **lecture/talk instruments** (fullscreen, keyboard-driven). All data
-comes from Anna's real JAXSTRO models (progenax, informax) via the export-bridge
+comes from Anna's real Jaxstro models (progenax, informax) via the export-bridge
 pattern; nothing is faked.
 
 Three pieces:

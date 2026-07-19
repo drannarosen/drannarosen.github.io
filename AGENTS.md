@@ -10,7 +10,7 @@ file so Claude Code and other agent tools share one guide.
 A flagship expression of Anna's research program — not a generic faculty
 profile. It should read as authored by a computational astrophysicist with a
 distinctive scientific program: massive stars, star clusters, stellar feedback,
-and the differentiable scientific software (the JAXSTRO ecosystem) built to
+and the differentiable scientific software (the Jaxstro ecosystem) built to
 model, observe, and infer them.
 
 Primary audiences (all matter): prospective grad students, peers & funding
@@ -28,7 +28,7 @@ for CV / links / software / a `/now` page).
   plain `<script>` module (same pattern as Cosmic Playground's starfield). Add
   React only when a component genuinely needs client state (e.g. publication
   filtering). Do NOT add Tailwind, a UI component library, a CMS, or a backend.
-- **Narrative:** research *questions* + real science lead. The JAXSTRO
+- **Narrative:** research *questions* + real science lead. The Jaxstro
   ecosystem is a strong section but honestly **status-labeled** — most packages
   are partly real / in development, so never present them as shipped product.
 - **Signature visual:** hero-only. A stylized **IMF-sampled star cluster**

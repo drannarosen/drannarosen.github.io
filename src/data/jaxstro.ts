@@ -1,5 +1,5 @@
 /*
- * jaxstro.ts — typed model of the JAXSTRO ecosystem. Single source of truth:
+ * jaxstro.ts — typed model of the Jaxstro ecosystem. Single source of truth:
  * the ecosystem diagram and the package cards both render from this array.
  *
  * IMPORTANT (per Anna): no package is publicly released yet — methods papers
