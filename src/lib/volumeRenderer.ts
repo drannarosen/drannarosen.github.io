@@ -61,7 +61,7 @@ precision highp sampler3D;
 out vec4 outColor;
 uniform sampler3D uVol;
 uniform vec2 uRes;
-uniform float uAngle, uEmit, uAbsorb;
+uniform float uAngle, uEmit, uAbsorb, uZoom;
 
 bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1){
   vec3 inv = 1.0/rd;
@@ -75,7 +75,7 @@ mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.
 void main(){
   vec2 uv = (gl_FragCoord.xy - 0.5*uRes)/uRes.y;
   vec3 ro = vec3(0.,0.,1.7);
-  vec3 rd = normalize(vec3(uv*1.15, -1.6));
+  vec3 rd = normalize(vec3(uv*1.15*uZoom, -1.6));   // uZoom>1 => cube smaller, more frame
   // rotate ray into the (static) volume's model space
   mat3 Rinv = rotY(-uAngle);
   vec3 rom = Rinv*ro, rdm = Rinv*rd;
@@ -86,7 +86,7 @@ void main(){
   float seed=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);
   float t=t0+dt*seed;
   vec3 acc=vec3(0.); float alpha=0.;
-  vec3 deep=vec3(0.10,0.42,0.44), pale=vec3(0.55,0.95,0.92);
+  vec3 deep=vec3(0.09,0.40,0.44), pale=vec3(0.60,0.96,0.92), warm=vec3(0.92,0.66,0.55);
   for(int i=0;i<STEPS;i++){
     vec3 sp = rom + rdm*t + 0.5;
     float d = texture(uVol, sp).r;
@@ -94,7 +94,9 @@ void main(){
     // dominates, the diffuse floor darkens, and the cubic box edges vanish.
     float dd = pow(d, 3.2);
     float a = 1.0 - exp(-dd*uAbsorb*dt);
-    vec3 col = mix(deep, pale, pow(d, 1.5)) * dd * uEmit;  // teal -> pale core
+    vec3 base = mix(deep, pale, pow(d, 1.5));          // diffuse teal -> pale
+    base = mix(base, warm, smoothstep(0.82, 1.0, d)*0.45); // warm star-forming heart
+    vec3 col = base * dd * uEmit;
     acc += (1.0-alpha)*a*col;
     alpha += (1.0-alpha)*a;
     if(alpha>0.99) break;
@@ -108,17 +110,16 @@ precision highp float;
 in vec3 aPos;    // pc
 in vec3 aColor;  // 0..1
 in float aSize;  // sqrt(radius) scale
-uniform float uAngle, uBox, uPix;
+uniform float uAngle, uBox, uPix, uZoom;
 out vec3 vColor;
 mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
 void main(){
   vec3 P = rotY(-uAngle) * (aPos / uBox);   // normalized, rotated to world
   float denom = 1.7 - P.z;
-  float clipx = (P.x*1.6/1.15)/denom;
-  float clipy = (P.y*1.6/1.15)/denom;
-  // clipx above is in uv units; convert to NDC (uv normalized by height)
+  float clipx = (P.x*1.6/(1.15*uZoom))/denom;   // match the volume's zoom
+  float clipy = (P.y*1.6/(1.15*uZoom))/denom;
   gl_Position = vec4(clipx*2.0, clipy*2.0, 0.0, 1.0);
-  gl_PointSize = clamp(aSize * uPix / denom, 1.8, 44.0);
+  gl_PointSize = clamp(aSize * uPix / (denom*uZoom), 1.8, 44.0);
   vColor = aColor;
 }`;
 
@@ -128,9 +129,10 @@ in vec3 vColor;
 out vec4 outColor;
 void main(){
   float r = length(gl_PointCoord - 0.5);
-  float a = smoothstep(0.5, 0.0, r);      // soft round point
-  float core = smoothstep(0.28, 0.0, r);  // bright center
-  vec3 c = vColor*a + vec3(a*a*0.35) + vec3(core*0.5);
+  float a = smoothstep(0.5, 0.0, r);       // soft round point
+  float core = smoothstep(0.30, 0.0, r);   // bright center
+  vec3 c = vColor * (a + core * 0.9);      // brighten center IN the star's hue
+  c += vec3(core*core*0.5);                // small white-hot pip only at the very center
   outColor = vec4(c, a);
 }`;
 
@@ -232,11 +234,13 @@ export function initScene(canvas: HTMLCanvasElement, scene: Scene, opts: VolumeO
   gl.uniform1i(gl.getUniformLocation(volProg, "uVol"), 0);
   gl.uniform1f(gl.getUniformLocation(volProg, "uEmit"), 4.6);
   gl.uniform1f(gl.getUniformLocation(volProg, "uAbsorb"), 7.5);
+  gl.uniform1f(gl.getUniformLocation(volProg, "uZoom"), 1.55);
   const uSAngle = gl.getUniformLocation(starProg, "uAngle");
   const uSBox = gl.getUniformLocation(starProg, "uBox");
   const uSPix = gl.getUniformLocation(starProg, "uPix");
   gl.useProgram(starProg);
   gl.uniform1f(uSBox, scene.box);
+  gl.uniform1f(gl.getUniformLocation(starProg, "uZoom"), 1.55);
 
   const rotationPeriod = opts.rotationPeriodSec ?? 110;
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
