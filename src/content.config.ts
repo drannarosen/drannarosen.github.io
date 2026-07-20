@@ -94,6 +94,17 @@ const packages = defineCollection({
     tagline: z.string(),
     /** One-paragraph summary used on the index and as the page lede. */
     description: z.string(),
+    /*
+     * Optional shorter description for <meta name="description"> ONLY.
+     *
+     * `description` doubles as the visible page lede, so it is written for a
+     * reader and can run long. Search engines truncate around 155 characters,
+     * and the tail is where these descriptions carry their distinctive claim —
+     * startrax lost its "in progress" qualifier that way, which made the
+     * snippet read as a firmer claim than the page makes. Set this when the
+     * lede exceeds ~155 characters; the page keeps the full text either way.
+     */
+    seoDescription: z.string().max(155).optional(),
     status: z.enum(["active-build", "established", "planned"]),
     readiness: z.enum(["developing", "advanced", "mature", "published"]),
     /** Free-text maturity note, e.g. "Mature · methods paper in prep". */

@@ -41,7 +41,7 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
 
 <BaseLayout
   title={`${d.name} — Jaxstro — Anna Rosen, Ph.D.`}
-  description={d.description}
+  description={d.seoDescription ?? d.description}
   path={`/software/${pkg.id}`}
   ogImage={d.figures[0] ? `software-${pkg.id}.png` : "software.png"}
   ogImageAlt={d.figures[0]?.alt ?? d.description}
