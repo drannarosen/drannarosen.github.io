@@ -4,9 +4,12 @@
  * "preliminary" flag for unpublished/in-prep work. Requires explicit width/
  * height to reserve space (no layout shift); lazy-loads below the fold.
  */
+import { renderCaption } from "../lib/figureCaption";
+
 interface Props {
   src: string;
   alt: string;
+  /** Supports **bold** and \( inline LaTeX \) — see lib/figureCaption.ts. */
   caption: string;
   credit?: string;
   width: number;
@@ -14,12 +17,18 @@ interface Props {
   preliminary?: boolean;
   /** Constrain very tall images to a sensible max height. */
   contain?: boolean;
+  /**
+   * Set the figure beside its caption instead of above it: caption left,
+   * image right. For tall portraits, where a full-width image pushes the
+   * argument off the screen and buries the point it is evidence for.
+   */
+  side?: boolean;
 }
-const { src, alt, caption, credit, width, height, preliminary, contain } =
+const { src, alt, caption, credit, width, height, preliminary, contain, side } =
   Astro.props;
 ---
 
-<figure class="fig">
+<figure class:list={["fig", { "fig--side": side }]}>
   <div class:list={["fig__frame", { "fig__frame--contain": contain }]}>
     <img
       src={src}
@@ -29,10 +38,16 @@ const { src, alt, caption, credit, width, height, preliminary, contain } =
       loading="lazy"
       decoding="async"
     />
-    {preliminary && <span class="fig__flag">Preliminary · in&nbsp;prep</span>}
+    {/* Overlay only at full width. Shrunk into the side column the badge spans
+        65% of the image and buries the top-row panel headers, so there it moves
+        into the caption as a chip — the same marker the package pages use. */}
+    {preliminary && !side && <span class="fig__flag">Preliminary · in&nbsp;prep</span>}
   </div>
   <figcaption class="fig__cap">
-    {caption}
+    {/* Explicit space: Astro collapses whitespace before an inline element at a
+        line break, which runs the chip into the caption ("in prepThis is…"). */}
+    {preliminary && side && <span class="fig__chip">Preliminary · in&nbsp;prep</span>}{" "}
+    <span set:html={renderCaption(caption)} />
     {credit && <span class="fig__credit">{credit}</span>}
   </figcaption>
 </figure>
@@ -58,6 +73,32 @@ const { src, alt, caption, credit, width, height, preliminary, contain } =
   .fig {
     max-inline-size: min(100%, 48rem);
   }
+  /* Side layout: the argument reads on the left, the evidence sits beside it.
+     Grid placement rather than source reordering, so the DOM keeps figure
+     before caption. Below the breakpoint it falls back to the stacked default,
+     where a two-column split would leave both halves too narrow to read. */
+  @media (min-width: 52rem) {
+    .fig--side {
+      max-inline-size: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 21rem);
+      gap: var(--space-l);
+      align-items: start;
+    }
+    .fig--side .fig__frame {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .fig--side .fig__cap {
+      grid-column: 1;
+      grid-row: 1;
+      margin-block-start: 0;
+      /* The caption is the argument here, so it keeps a reading measure
+         instead of stretching to whatever the column leaves over. */
+      max-inline-size: var(--width-prose);
+    }
+  }
+
   .fig__frame--contain img {
     max-block-size: 32rem;
     inline-size: auto;
@@ -79,6 +120,19 @@ const { src, alt, caption, credit, width, height, preliminary, contain } =
     border-radius: 999px;
     padding: 2px 8px;
     backdrop-filter: blur(4px);
+  }
+  .fig__chip {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: color-mix(in srgb, var(--spec-rose) 82%, white);
+    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
+    border-radius: 999px;
+    padding: 1px 7px;
+    margin-inline-end: var(--space-2xs);
+    vertical-align: 1px;
+    display: inline-block;
   }
   .fig__cap {
     margin-block-start: var(--space-s);
