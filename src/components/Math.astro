@@ -3,7 +3,8 @@
  * Math — LaTeX rendered with KaTeX at BUILD time (no client JS, no CDN).
  *
  * Renders to static HTML during the Astro build, so pages ship real typeset math
- * with zero runtime cost and no third-party requests (ADR-0007, privacy-first).
+ * with zero runtime cost and no third-party requests of its own (ADR-0011:
+ * the analytics beacon is the site's only external request).
  * The KaTeX stylesheet + fonts are self-hosted via the npm package and imported
  * once in BaseLayout.
  *

@@ -1,6 +1,6 @@
 ---
 import "../styles/global.css";
-// KaTeX stylesheet + fonts, self-hosted from the npm package (no CDN — ADR-0007).
+// KaTeX stylesheet + fonts, self-hosted from the npm package (no CDN — ADR-0011).
 import "katex/dist/katex.min.css";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
@@ -109,5 +109,23 @@ const ogImageUrl = new URL(`/og/${ogImage}`, Astro.site).href;
       <slot />
     </main>
     <SiteFooter />
+
+    {/* Cloudflare Web Analytics (ADR-0011). The only third-party request the
+        site makes. Cookieless and without fingerprinting, so it does not
+        reintroduce the tracking ADR-0007 existed to prevent.
+
+        PROD ONLY: loading it from `pnpm dev` would file every local page view
+        as real traffic and put a third-party request in the dev environment.
+
+        The JS beacon rather than Cloudflare's automatic injection, because the
+        DNS records are deliberately DNS-only (grey cloud) and auto-injection
+        requires proxying. */}
+    {import.meta.env.PROD && (
+      <script
+        type="module"
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon='{"token": "f01db47450674d3cb0f1f81e19433790"}'
+      />
+    )}
   </body>
 </html>

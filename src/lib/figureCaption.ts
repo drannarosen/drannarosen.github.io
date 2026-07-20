@@ -13,7 +13,7 @@
  *   \( ... \)     inline LaTeX, rendered by KaTeX at BUILD time
  *
  * KaTeX runs during the build with the site's shared macro preamble, so pages
- * ship typeset math with no client JS and no third-party requests (ADR-0007),
+ * ship typeset math with no client JS and no third-party requests (ADR-0011),
  * exactly as the <Math> component does.
  *
  * Math is extracted BEFORE escaping, because LaTeX legitimately contains the

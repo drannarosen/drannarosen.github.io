@@ -1,7 +1,7 @@
 /*
  * search.json — the search index, built at deploy time and served as a static
  * file. No backend, no API key, no third-party search service (which would
- * also breach ADR-0007's no-third-party-embeds rule).
+ * also breach ADR-0011's no-third-party-embeds rule).
  *
  * HONEST SCOPE: this is a LEXICAL index — words, stems and a small domain
  * synonym map — not embeddings. Real semantic search needs a model at build

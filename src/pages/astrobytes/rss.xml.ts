@@ -1,7 +1,7 @@
 /*
  * RSS for astrobytes. Students and curious readers are the audience, and a
  * feed is the one subscription mechanism that needs no account, no algorithm
- * and no third party — which also keeps it inside ADR-0007 (no tracking).
+ * and no third party — which also keeps it inside ADR-0011 (no tracking).
  *
  * Only the astrobytes collection is syndicated. If a machine-generated stream
  * is ever added it gets its OWN feed rather than being mixed in here, so
