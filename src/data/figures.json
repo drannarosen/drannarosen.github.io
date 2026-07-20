@@ -102,6 +102,17 @@
       "sha256": "7fb1396eadb7371ea6993f8e7f3c342cdba35df874d9a3d49608713afa056238",
       "note": "PRELIMINARY. Population-to-pixel differentiation is implemented; validated detector/survey transformations and global recovery are proposed work.",
       "encoding": "webp-q95"
+    },
+    {
+      "path": "images/software/startrax-wind-response.webp",
+      "origin": "jaxstro-dev/startrax",
+      "script": "laboratory/starviz/starviz/wind_response.py",
+      "paperFigure": "Differentiable massive-star winds",
+      "width": 3598,
+      "height": 1326,
+      "encoding": "webp-lossless",
+      "sha256": "e811dc80d3ce93e7e7199b14e7c48e14c7c0d5febae25c7bb5b58d7e9f887af0",
+      "note": "PRELIMINARY. Hurley SSE trajectories at Z=0.001 under weak/fiducial/strong eruptive-wind controls; panel (c) is remnant mass relative to the exact W=1 result. Rendered from a hash-verified numerical bundle; rendering reads saved data and does not rerun stellar evolution."
     }
   ]
 }

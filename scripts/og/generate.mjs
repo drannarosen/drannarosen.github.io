@@ -62,6 +62,7 @@ const CARDS = [
     out: "software-informax.png",
     figure: "images/software/informax-telescope-adds-ten-pounds.webp",
   },
+  { out: "software-startrax.png", figure: "images/software/startrax-wind-response.webp" },
   // Photos: fill the card, biased to the top so faces and captions survive.
   { out: "outreach.jpg", figure: "images/photos/anna-outreach-talk.webp", photo: true },
   {
