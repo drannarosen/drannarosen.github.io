@@ -32,8 +32,8 @@ const hasAside = Astro.slots.has("aside");
 ---
 
 <header class:list={["page-header wrap", { "page-header--split": hasAside }]}>
+  {eyebrow && <p class="page-header__eyebrow">{eyebrow}</p>}
   <div class="page-header__main">
-    {eyebrow && <p class="page-header__eyebrow">{eyebrow}</p>}
     <h1 class="page-header__title">
       {hasTitleSlot ? <slot name="title" /> : title}
     </h1>
@@ -77,8 +77,27 @@ const hasAside = Astro.slots.has("aside");
     .page-header--split {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, var(--page-header-aside, 20rem));
-      gap: var(--space-xl);
+      column-gap: var(--space-xl);
+      /* No row-gap: the eyebrow sits on its own row and already carries a
+         margin. A gap here would also open a space above the title on any
+         split header without an eyebrow. */
+      row-gap: 0;
       align-items: start;
+    }
+    /* The eyebrow takes row 1 alone so the aside starts level with the TITLE
+       rather than with the eyebrow above it. Explicit placement rather than a
+       hardcoded top offset, which would drift with the eyebrow's type scale. */
+    .page-header--split > .page-header__eyebrow {
+      grid-column: 1;
+      grid-row: 1;
+    }
+    .page-header--split > .page-header__main {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .page-header--split > .page-header__aside {
+      grid-column: 2;
+      grid-row: 2;
     }
   }
   .page-header__aside {
