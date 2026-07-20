@@ -69,6 +69,16 @@ export const researchQuestions: ResearchQuestion[] = [
       "Rubin/LSST & Gaia",
     ],
     related: [{ label: "Selected publications", href: "/cv#cv-pubs" }],
+    figure: {
+      src: "/images/software/informax-telescope-adds-ten-pounds.webp",
+      alt: "Three panels showing binaries raising the line-of-sight velocity dispersion, binary-blind mass estimates near three times the truth against a calibrated control and binary-aware recovery, and radial target allocations shifting between mass-first and degeneracy-first observing designs.",
+      caption:
+        "Unresolved binaries inflate the observed velocity dispersion, and a binary-blind fit turns that orbital motion into 2.9 times the true cluster mass — while forecasting 4.5% precision. That is a bias 42 times its own error bar. Modelling the binaries recovers both the mass and the binary fraction, and the same machinery then says where to point the telescope next.",
+      credit: "A. L. Rosen · Jaxstro (informax). Preliminary.",
+      width: 2469,
+      height: 772,
+      preliminary: true,
+    },
   },
   {
     question: "How can differentiable models transform astrophysical inference?",
@@ -82,13 +92,13 @@ export const researchQuestions: ResearchQuestion[] = [
     ],
     related: [{ label: "The Jaxstro ecosystem", href: "/software" }],
     figure: {
-      src: "/images/research/gravoturb-cluster.webp",
-      alt: "Three panels: a synthetic cluster's natal gas surface density with an embedded stellar population, then the same stars placed without and with mass–gas coupling, colored by spectral type from blue O stars to red M stars.",
+      src: "/images/software/gravax-eff-imf-n512.webp",
+      alt: "Three panels. A 512-star cluster in the x-y plane with a central massive binary; cluster and binary scales versus time showing the cluster expanding while the binary semimajor axis contracts; and autodiff derivatives plotted against finite-difference derivatives on the one-to-one line with residuals near 1e-9.",
       caption:
-        "A truth-known synthetic cluster generated with progenax: the natal gas surface density with an IMF-sampled stellar population (left), placed without (center) and with (right) realistic mass–gas coupling. When coupling is on, massive O/B stars preferentially trace dense gas — a controlled knob for primordial mass segregation, and exactly the kind of birth condition a differentiable model lets us test against data.",
-      credit: "A. L. Rosen · Jaxstro (progenax). Preliminary.",
-      width: 1600,
-      height: 486,
+        "A differentiable model has to earn the word. Here a 512-star cluster with a hard massive binary is evolved for three crossing times — the binary hardens, the cluster expands — and the gradients of that whole calculation match finite differences to about one part in a billion. That is what makes the model invertible against data rather than merely runnable.",
+      credit: "A. L. Rosen · Jaxstro (gravax). Preliminary.",
+      width: 2518,
+      height: 1888,
       preliminary: true,
     },
   },
