@@ -1,0 +1,300 @@
+---
+/*
+ * /search — client-side search over papers, astrobytes, packages and pages.
+ *
+ * Works with no backend and no third party. Degrades honestly: with JS off the
+ * page says so and points at the pages that list everything anyway, rather than
+ * showing a search box that does nothing.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+---
+
+<BaseLayout
+  title="Search — Anna Rosen, Ph.D."
+  description="Search papers, astrobytes, software packages and pages."
+  path="/search"
+>
+  <PageHeader
+    eyebrow="Search"
+    title="Find something"
+    lede="Papers, write-ups, packages and pages. Runs entirely in your browser — nothing you type leaves this page."
+  />
+
+  <section class="wrap se">
+    <form class="se__form" role="search" onsubmit="return false">
+      <label class="se__label" for="q">Search</label>
+      <input
+        id="q"
+        class="se__input"
+        type="search"
+        placeholder="binaries, IMF slope, radiation feedback, gravax…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </form>
+
+    <noscript>
+      <p class="se__noscript">
+        Search needs JavaScript. Everything is browsable without it: the{" "}
+        <a href="/publications">full bibliography</a>, the{" "}
+        <a href="/software">software</a>, and <a href="/astrobytes">astrobytes</a>.
+      </p>
+    </noscript>
+
+    <p class="se__status" data-status aria-live="polite"></p>
+    <ul class="se__results" data-results role="list"></ul>
+  </section>
+</BaseLayout>
+
+<style>
+  .se {
+    max-inline-size: 56rem;
+    padding-block-end: var(--space-3xl);
+  }
+  .se__label {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .se__input {
+    inline-size: 100%;
+    padding: var(--space-s) var(--space-m);
+    font-family: inherit;
+    font-size: var(--step-0);
+    color: var(--ink);
+    background: var(--bg-deep);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-m);
+  }
+  .se__input:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  .se__status,
+  .se__noscript {
+    margin-block-start: var(--space-s);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .se__results {
+    display: grid;
+    gap: var(--space-s);
+    margin-block-start: var(--space-m);
+  }
+  .se__hit {
+    padding-block: var(--space-2xs);
+    border-block-end: 1px solid var(--border);
+  }
+  .se__hit a {
+    color: var(--ink);
+    font-size: var(--step-0);
+    text-decoration-color: var(--border);
+  }
+  .se__hit a:hover {
+    text-decoration-color: var(--spec-teal-bright);
+  }
+  .se__kind {
+    display: inline-block;
+    margin-inline-end: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0 7px;
+  }
+  .se__meta {
+    display: block;
+    margin-block-start: var(--space-3xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .se__hit mark {
+    background: color-mix(in srgb, var(--spec-teal-bright) 26%, transparent);
+    color: var(--ink);
+    border-radius: 2px;
+  }
+</style>
+
+<script>
+  type Doc = {
+    kind: "paper" | "astrobyte" | "software" | "page";
+    title: string;
+    meta: string;
+    extra: string;
+    url: string;
+    internal: boolean;
+  };
+
+  const input = document.querySelector<HTMLInputElement>("#q")!;
+  const results = document.querySelector<HTMLElement>("[data-results]")!;
+  const status = document.querySelector<HTMLElement>("[data-status]")!;
+
+  /*
+   * Domain synonyms. Lexical search fails on exactly the queries this audience
+   * types — someone searching "initial mass function" should find papers whose
+   * titles only ever say "IMF". This is where most of the perceived
+   * "semantic" behaviour actually comes from, at a fraction of the cost of
+   * embeddings.
+   */
+  const SYNONYMS: Record<string, string[]> = {
+    imf: ["initial", "mass", "function"],
+    "initial mass function": ["imf"],
+    binary: ["binaries", "multiplicity", "companion"],
+    binaries: ["binary", "multiplicity"],
+    feedback: ["winds", "radiation", "outflows", "supernovae"],
+    rhd: ["radiation", "hydrodynamics"],
+    cluster: ["clusters", "cluster"],
+    turbulence: ["turbulent", "turbulence"],
+    autodiff: ["differentiable", "gradient", "gradients"],
+    differentiable: ["autodiff", "gradient", "jax"],
+    inference: ["bayesian", "posterior", "fisher", "identifiability"],
+  };
+
+  const stem = (w: string) => w.replace(/(ies|es|s|ing|ed)$/i, "");
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).filter(Boolean);
+
+  let docs: Doc[] = [];
+  let ready = false;
+
+  async function load() {
+    try {
+      const res = await fetch("/search.json");
+      docs = (await res.json()).docs;
+      buildIdf();
+      ready = true;
+      status.textContent = `${docs.length} items indexed. Start typing.`;
+    } catch {
+      status.textContent =
+        "Could not load the search index. Everything is still browsable from the navigation.";
+    }
+  }
+
+  /*
+   * Inverse document frequency. Without it "initial mass function" ranked a
+   * circumbinary-disk paper near the top, because "mass" and "function" are
+   * everywhere in this corpus and swamped the one rare term that carried the
+   * query's meaning.
+   */
+  let idf = new Map<string, number>();
+  function buildIdf() {
+    const df = new Map<string, number>();
+    for (const d of docs) {
+      const seen = new Set([...norm(d.title), ...norm(d.meta), ...norm(d.extra)].map(stem));
+      for (const w of seen) df.set(w, (df.get(w) ?? 0) + 1);
+    }
+    idf = new Map(
+      [...df].map(([w, n]) => [w, Math.log(1 + docs.length / n)]),
+    );
+  }
+
+  function score(doc: Doc, terms: Term[], rawQuery: string): number {
+    const title = norm(doc.title).map(stem);
+    const meta = norm(doc.meta).map(stem);
+    const extra = norm(doc.extra).map(stem);
+
+    // A document containing the query AS A PHRASE is almost always what was
+    // meant, and no amount of single-word scoring reliably reproduces that.
+    const hay = `${doc.title} ${doc.meta} ${doc.extra}`.toLowerCase();
+    const phraseBonus = rawQuery.includes(" ") && hay.includes(rawQuery.toLowerCase()) ? 40 : 0;
+
+    let s = phraseBonus;
+    let matched = 0;
+    for (const { t, boost } of terms) {
+      const st = stem(t);
+      const weight = idf.get(st) ?? 2; // unknown term = rare = valuable
+      let hit = 0;
+      // Title matches dominate; a term in the title is what the reader meant.
+      if (title.some((w) => w === st)) hit = 10;
+      else if (title.some((w) => w.startsWith(st))) hit = 6;
+      if (meta.some((w) => w === st)) hit = Math.max(hit, 3);
+      if (extra.some((w) => w === st)) hit = Math.max(hit, 2);
+      else if (extra.some((w) => w.startsWith(st))) hit = Math.max(hit, 1);
+      if (hit > 0) {
+        matched++;
+        s += hit * weight * boost;
+      }
+    }
+    // Matching more of what was asked for beats matching one word loudly.
+    return s * (1 + 0.6 * (matched - 1));
+  }
+
+  type Term = { t: string; boost: number };
+
+  /*
+   * A term the reader typed and a term we inferred are not equal. When someone
+   * types "initial mass function", `imf` IS the query — not a fourth keyword of
+   * equal weight — so an expanded term outranks the common words it came from.
+   */
+  function expand(q: string): Term[] {
+    const raw = norm(q);
+    const seen = new Map<string, number>();
+    for (const w of raw) seen.set(w, 1);
+
+    const phrase = SYNONYMS[q.toLowerCase().trim()];
+    if (phrase) for (const s of phrase) seen.set(s, 3);
+    for (const w of raw) for (const s of SYNONYMS[w] ?? []) seen.set(s, Math.max(seen.get(s) ?? 0, 1.5));
+
+    return [...seen].map(([t, boost]) => ({ t, boost }));
+  }
+
+  const escape = (s: string) =>
+    s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+  function highlight(text: string, terms: string[]): string {
+    let html = escape(text);
+    for (const t of terms) {
+      if (t.length < 3) continue;
+      html = html.replace(new RegExp(`(${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"), "<mark>$1</mark>");
+    }
+    return html;
+  }
+
+  function render(q: string) {
+    if (!ready) return;
+    const query = q.trim();
+    if (query.length < 2) {
+      results.innerHTML = "";
+      status.textContent = `${docs.length} items indexed. Start typing.`;
+      return;
+    }
+    const terms = expand(query);
+    const termWords = terms.map((t) => t.t);
+    const hits = docs
+      .map((d) => ({ d, s: score(d, terms, query) }))
+      .filter((h) => h.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .slice(0, 25);
+
+    status.textContent = hits.length
+      ? `${hits.length} result${hits.length === 1 ? "" : "s"}`
+      : `Nothing matched “${query}”.`;
+
+    results.innerHTML = hits
+      .map(
+        ({ d }) => `
+        <li class="se__hit">
+          <span class="se__kind">${d.kind}</span>
+          <a href="${escape(d.url)}"${d.internal ? "" : ' rel="noopener"'}>${highlight(d.title, termWords)}</a>
+          ${d.meta ? `<span class="se__meta">${highlight(d.meta, termWords)}</span>` : ""}
+        </li>`,
+      )
+      .join("");
+  }
+
+  input.addEventListener("input", () => render(input.value));
+  load().then(() => {
+    // Support /search?q=… so a result can be linked to directly.
+    const q = new URLSearchParams(location.search).get("q");
+    if (q) {
+      input.value = q;
+      render(q);
+    }
+  });
+</script>

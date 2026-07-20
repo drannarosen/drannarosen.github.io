@@ -1,0 +1,156 @@
+---
+/*
+ * /now — what I'm working on at the moment.
+ *
+ * A `now` page is a dated snapshot, not a changelog: it is allowed to go stale,
+ * as long as the date says so. `updated` is rendered prominently for exactly
+ * that reason — a page claiming to be current with no date is worse than one
+ * openly six months old.
+ *
+ * Everything below is drawn from data already on the site (package readiness,
+ * the submitted paper, the courses), so it cannot claim something the rest of
+ * the site contradicts.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import { getPackages } from "../lib/packages";
+import { featuredPublications } from "../data/publications";
+import { courses } from "../data/teaching";
+
+const updated = new Date("2026-07-20");
+
+const packages = await getPackages();
+const active = packages.filter((p) => p.data.readiness === "developing");
+const nearlyThere = packages.filter((p) => p.data.readiness === "advanced");
+const submitted = featuredPublications.filter((p) => p.status === "submitted");
+const teachingNow = courses.slice(0, 2);
+
+const fmt = (d: Date) =>
+  d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+---
+
+<BaseLayout
+  title="Now — Anna Rosen, Ph.D."
+  description="What I'm actually working on at the moment: papers under review, packages in development, and what I'm teaching."
+  path="/now"
+>
+  <PageHeader
+    eyebrow="Now"
+    title="What I'm working on"
+    lede="A snapshot rather than a record. If the date below is old, so is this page."
+  />
+
+  <section class="wrap now">
+    <p class="now__stamp">Updated {fmt(updated)}</p>
+
+    <h2 class="now__h2">Under review</h2>
+    <ul class="now__list" role="list">
+      {
+        submitted.map((p) => (
+          <li>
+            <span class="now__title">{p.title}</span>
+            <span class="now__meta">
+              {p.venue}
+              {p.arxiv && (
+                <>
+                  {" · "}
+                  <a href={p.arxiv} rel="noopener">arXiv</a>
+                </>
+              )}
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <h2 class="now__h2">Building</h2>
+    <ul class="now__list" role="list">
+      {
+        active.map((p) => (
+          <li>
+            <a class="now__title" href={`/software/${p.id}`}>{p.data.name}</a>
+            <span class="now__meta">{p.data.tagline}</span>
+          </li>
+        ))
+      }
+      {
+        nearlyThere.map((p) => (
+          <li>
+            <a class="now__title" href={`/software/${p.id}`}>{p.data.name}</a>
+            <span class="now__meta">{p.data.tagline} — far along</span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <h2 class="now__h2">Teaching</h2>
+    <ul class="now__list" role="list">
+      {
+        teachingNow.map((c) => (
+          <li>
+            <span class="now__title">
+              {c.code} — {c.title}
+            </span>
+            <span class="now__meta">{c.when}</span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="now__note">
+      Inspired by <a href="https://nownownow.com/about" rel="noopener">nownownow.com</a>.
+      Longer-form writing is in <a href="/astrobytes">astrobytes</a>; the full
+      record is on the <a href="/cv">CV</a>.
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .now {
+    max-inline-size: var(--width-prose);
+    padding-block-end: var(--space-3xl);
+  }
+  .now__stamp {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+  }
+  .now__h2 {
+    font-size: var(--step-1);
+    margin-block: var(--space-xl) var(--space-s);
+    padding-block-end: var(--space-2xs);
+    border-block-end: 1px solid var(--border);
+  }
+  .now__list {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .now__title {
+    display: block;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  a.now__title {
+    font-family: var(--font-mono);
+    color: var(--spec-teal-bright);
+    font-weight: 400;
+  }
+  .now__meta {
+    display: block;
+    margin-block-start: var(--space-3xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .now__note {
+    margin-block-start: var(--space-2xl);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+</style>

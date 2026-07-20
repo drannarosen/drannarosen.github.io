@@ -1,0 +1,102 @@
+---
+/*
+ * StructuredData — JSON-LD describing Anna and her work.
+ *
+ * This is what makes the site legible to Google Scholar, ORCID consumers,
+ * aggregators, and increasingly to models answering "who works on IMF
+ * inference". It restates only what is already visible on the page — the
+ * schema.org guidance is explicit that hidden or contradictory structured data
+ * is a violation, and it would also be dishonest.
+ *
+ * Nothing here is inferred: every field traces to src/data.
+ */
+import { siteConfig } from "../lib/site";
+import { cvProfile } from "../data/cv";
+import { allPublications, workUrl } from "../data/allPublications";
+
+interface Props {
+  /** "person" on the homepage and /about; "article" on an astrobyte. */
+  kind?: "person" | "article";
+  article?: {
+    headline: string;
+    description: string;
+    datePublished: Date;
+    url: string;
+    image?: string;
+    /** null when a model drafted it — see the note below. */
+    humanAuthored: boolean;
+  };
+}
+
+const { kind = "person", article } = Astro.props;
+const site = Astro.site?.href.replace(/\/$/, "") ?? "";
+
+const person = {
+  "@type": "Person",
+  "@id": `${site}/#anna-rosen`,
+  name: "Anna L. Rosen",
+  givenName: "Anna",
+  familyName: "Rosen",
+  honorificSuffix: "Ph.D.",
+  jobTitle: "Assistant Professor of Astronomy",
+  url: site,
+  email: `mailto:${siteConfig.email}`,
+  identifier: cvProfile.orcid,
+  sameAs: [cvProfile.orcid],
+  affiliation: {
+    "@type": "CollegeOrUniversity",
+    name: "San Diego State University",
+    department: { "@type": "Organization", name: "Department of Astronomy" },
+  },
+  knowsAbout: cvProfile.interests,
+  alumniOf: [
+    { "@type": "CollegeOrUniversity", name: "University of California, Santa Cruz" },
+    { "@type": "CollegeOrUniversity", name: "University of California, Berkeley" },
+    { "@type": "CollegeOrUniversity", name: "Los Angeles Pierce College" },
+  ],
+};
+
+/* Publications as ScholarlyArticle, linked to the same Person node. */
+const scholarly = allPublications.slice(0, 40).map((w) => ({
+  "@type": "ScholarlyArticle",
+  headline: w.title,
+  ...(w.year ? { datePublished: w.year } : {}),
+  ...(w.venue ? { publication: w.venue } : {}),
+  ...(w.doi ? { identifier: `https://doi.org/${w.doi}` } : {}),
+  ...(workUrl(w) ? { url: workUrl(w) } : {}),
+  author: { "@id": `${site}/#anna-rosen` },
+}));
+
+const graph =
+  kind === "article" && article
+    ? [
+        person,
+        {
+          "@type": "BlogPosting",
+          headline: article.headline,
+          description: article.description,
+          datePublished: article.datePublished.toISOString(),
+          url: article.url,
+          ...(article.image ? { image: article.image } : {}),
+          /*
+           * An AI-drafted post lists Anna as EDITOR, not author. She reviewed
+           * and vouches for it, which is what an editor does; claiming sole
+           * authorship of prose a model drafted would contradict the very
+           * provenance badge rendered on the page.
+           */
+          ...(article.humanAuthored
+            ? { author: { "@id": `${site}/#anna-rosen` } }
+            : {
+                editor: { "@id": `${site}/#anna-rosen` },
+                author: { "@type": "Organization", name: "AI-drafted, human-reviewed" },
+              }),
+          publisher: { "@id": `${site}/#anna-rosen` },
+          isPartOf: { "@type": "Blog", name: "Astrobytes", url: `${site}/astrobytes` },
+        },
+      ]
+    : [person, { "@type": "WebSite", url: site, name: siteConfig.name, author: { "@id": `${site}/#anna-rosen` } }, ...scholarly];
+
+const jsonld = { "@context": "https://schema.org", "@graph": graph };
+---
+
+<script type="application/ld+json" set:html={JSON.stringify(jsonld)} is:inline />

@@ -9,6 +9,7 @@ import {
   byYear,
   workUrl,
   authorLine,
+  bibtex,
   publicationCount,
   firstAuthored,
   coAuthored,
@@ -179,6 +180,14 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
                       {line && <span class="allpubs__authors">{line}</span>}
                       {w.venue && <span class="allpubs__venue">{w.venue}</span>}
                       {w.note && <span class="allpubs__note">{w.note}</span>}
+                      <button
+                        type="button"
+                        class="allpubs__cite"
+                        data-bibtex={bibtex(w)}
+                        aria-label={`Copy BibTeX for ${w.title}`}
+                      >
+                        Cite
+                      </button>
                     </li>
                   );
                 })}
@@ -191,6 +200,36 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   </section>
 
   <script>
+    // Reveal the Cite buttons only where clipboard copy can actually work.
+    document.documentElement.classList.add("js");
+    for (const btn of document.querySelectorAll<HTMLButtonElement>(".allpubs__cite")) {
+      btn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(btn.dataset.bibtex ?? "");
+          const label = btn.textContent;
+          btn.textContent = "Copied";
+          btn.dataset.copied = "true";
+          setTimeout(() => {
+            btn.textContent = label;
+            delete btn.dataset.copied;
+          }, 1600);
+        } catch {
+          // Clipboard can be refused (permissions, insecure context). Fall back
+          // to selecting the text so the reader can copy it by hand rather than
+          // clicking a button that silently does nothing.
+          const ta = document.createElement("textarea");
+          ta.value = btn.dataset.bibtex ?? "";
+          ta.style.cssText = "position:fixed;opacity:0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+          btn.textContent = "Copied";
+          setTimeout(() => (btn.textContent = "Cite"), 1600);
+        }
+      });
+    }
+
     // Scope control: narrows which group is visible. Revealed only once JS is
     // running, so a no-JS visitor is never shown a control that does nothing.
     const bar = document.querySelector<HTMLElement>("[data-scope-bar]");
@@ -418,6 +457,35 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     font-family: var(--font-mono);
     font-size: var(--step--2);
     color: var(--ink-dim);
+  }
+  /* The most-wanted affordance on any publications page, and the site had
+     none. Revealed only when JS is running, since a button that cannot copy
+     is worse than no button. */
+  .allpubs__cite {
+    display: none;
+    margin-block-start: var(--space-3xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1px 9px;
+    cursor: pointer;
+    transition:
+      color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out);
+  }
+  :global(html.js) .allpubs__cite {
+    display: inline-block;
+  }
+  .allpubs__cite:hover {
+    color: var(--spec-teal-bright);
+    border-color: color-mix(in srgb, var(--spec-teal-bright) 45%, transparent);
+  }
+  .allpubs__cite[data-copied] {
+    color: var(--spec-teal-bright);
+    border-color: var(--spec-teal-bright);
   }
   .allpubs__note {
     display: block;

@@ -35,6 +35,14 @@ const fmt = (d: Date) =>
   ogType="article"
   ogImage={`astrobytes-${post.id}.png`}
   ogImageAlt={`Key figure from ${paper.title}`}
+  article={{
+    headline: title,
+    description: dek,
+    datePublished: date,
+    url: new URL(`/astrobytes/${post.id}`, Astro.site).href,
+    image: new URL(`/og/astrobytes-${post.id}.png`, Astro.site).href,
+    humanAuthored: provenance.authorship === "human",
+  }}
 >
   <PageHeader eyebrow="Astrobytes" title={title} lede={dek} />
 

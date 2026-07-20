@@ -4,6 +4,7 @@ import "../styles/global.css";
 import "katex/dist/katex.min.css";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
+import StructuredData from "../components/StructuredData.astro";
 
 interface Props {
   title: string;
@@ -25,6 +26,15 @@ interface Props {
   ogImageAlt?: string;
   /** "article" for posts; "website" otherwise. */
   ogType?: "website" | "article";
+  /** JSON-LD for a post; omitted elsewhere, where the Person graph is used. */
+  article?: {
+    headline: string;
+    description: string;
+    datePublished: Date;
+    url: string;
+    image?: string;
+    humanAuthored: boolean;
+  };
 }
 
 const {
@@ -35,6 +45,7 @@ const {
   ogImage = "default.png",
   ogImageAlt = "A simulated young star cluster: stars coloured by effective temperature, embedded in turbulent natal gas.",
   ogType = "website",
+  article,
 } = Astro.props;
 const canonical = new URL(path ?? Astro.url.pathname, Astro.site).href;
 // Unfurlers require an absolute URL; a relative one silently yields no card.
@@ -86,6 +97,10 @@ const ogImageUrl = new URL(`/og/${ogImage}`, Astro.site).href;
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content={ogImageAlt} />
     <meta name="color-scheme" content="dark" />
+
+    {/* Structured data is suppressed on unlisted sandboxes: nothing there
+        should be advertised to an aggregator. */}
+    {!noindex && <StructuredData kind={article ? "article" : "person"} article={article} />}
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>

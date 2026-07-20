@@ -23,6 +23,7 @@ const nav: NavItem[] = [
   { label: "Teaching", href: "/teaching" },
   { label: "Outreach", href: "/outreach" },
   { label: "Group", href: "/group" },
+  { label: "Now", href: "/now" },
   { label: "About", href: "/about" },
   { label: "CV", href: "/cv" },
 ];

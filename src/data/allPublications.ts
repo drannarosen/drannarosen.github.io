@@ -154,3 +154,36 @@ export function workUrl(w: SyncedWork): string | null {
   if (w.arxiv) return `https://arxiv.org/abs/${w.arxiv}`;
   return null;
 }
+
+
+/**
+ * BibTeX for a work, built from the synced record.
+ *
+ * Deliberately conservative: it emits only fields we actually hold. A citation
+ * with an invented volume or page number is worse than one without — it will
+ * be pasted straight into someone's .bib and never checked.
+ */
+export function bibtex(w: SyncedWork): string {
+  const first = (w.authors?.[0] ?? "Rosen, Anna L.").split(",")[0].replace(/\W/g, "");
+  const key = `${first.toLowerCase()}${w.year ?? ""}${(w.title.split(/\s+/)[0] ?? "").toLowerCase().replace(/\W/g, "")}`;
+  const authors = (w.authors ?? ["Rosen, Anna L."]).join(" and ");
+
+  const fields: [string, string | null][] = [
+    ["author", authors],
+    ["title", `{${w.title}}`],
+    ["journal", w.venue],
+    ["year", w.year],
+    ["doi", w.doi],
+    ["eprint", w.arxiv],
+    ["archivePrefix", w.arxiv ? "arXiv" : null],
+    ["adsurl", w.bibcode ? `https://ui.adsabs.harvard.edu/abs/${w.bibcode}/abstract` : null],
+    ["note", w.submittedTo ? `Submitted to ${w.submittedTo}` : null],
+  ];
+
+  const body = fields
+    .filter(([, v]) => v)
+    .map(([k, v]) => `  ${k.padEnd(13)} = {${v}}`)
+    .join(",\n");
+
+  return `@article{${key},\n${body}\n}`;
+}
