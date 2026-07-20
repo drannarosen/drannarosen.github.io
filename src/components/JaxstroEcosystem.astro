@@ -12,7 +12,16 @@
 import { getPipeline } from "../lib/packages";
 
 const { foundation, stages: pipeline } = await getPipeline();
-if (!foundation) throw new Error("packages collection has no order-0 foundation entry");
+if (!foundation) {
+  // In a build this means real data trouble. In dev it nearly always means the
+  // server was started before src/content.config.ts declared this collection,
+  // so its content store never learned about it — restart, do not debug.
+  throw new Error(
+    "packages collection has no order-0 foundation entry. " +
+      "If the dev server was running when the collection was added, restart it: " +
+      "`astro dev stop && astro dev --background`.",
+  );
+}
 import StatusBadge from "./StatusBadge.astro";
 ---
 

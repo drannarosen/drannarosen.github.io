@@ -93,3 +93,31 @@ const here = Astro.url.pathname.replace(/\/$/, "") || "/";
     border-block-end-color: var(--spec-cyan);
   }
 </style>
+
+<script>
+  // Publish the sticky header's height so any page can offset anchor jumps
+  // (`scroll-margin-block-start: var(--header-h)`). It lives here because the
+  // header is the thing that HAS a height — it was previously measured by
+  // SectionNav, so pages without that component silently used a wrong guess.
+  const header = document.querySelector<HTMLElement>(".site-header");
+  if (header) {
+    const publish = () =>
+      document.documentElement.style.setProperty(
+        "--header-h",
+        `${Math.round(header.getBoundingClientRect().height)}px`,
+      );
+    publish();
+    if ("ResizeObserver" in window) new ResizeObserver(publish).observe(header);
+
+    // The browser performs the hash jump during parse, BEFORE this script has
+    // measured anything — so a link straight to /software#pkg-gravax lands
+    // using the fallback and tucks the target under the header. Re-run the jump
+    // now that --header-h is real. In-page clicks were always fine.
+    if (location.hash) {
+      const target = document.getElementById(
+        decodeURIComponent(location.hash.slice(1)),
+      );
+      target?.scrollIntoView({ behavior: "auto", block: "start" });
+    }
+  }
+</script>

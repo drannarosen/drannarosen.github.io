@@ -128,7 +128,9 @@ const packages = await getPackages();
     gap: var(--space-m) var(--space-l);
     align-items: start;
     padding-block: var(--space-m);
-    scroll-margin-block-start: var(--space-xl);
+    /* Anchor targets (/software#pkg-gravax) must clear the sticky header.
+       --header-h is published by SiteHeader on every page. */
+    scroll-margin-block-start: calc(var(--header-h, 3.7rem) + var(--space-m));
   }
   /* 00 is the substrate, not a step, so the connecting rail below starts at
      01 and this row reads as the ground the chain stands on. */

@@ -104,21 +104,17 @@ const { items, label = "On this page" } = Astro.props;
   // Publish the sticky site header's height so this nav can sit directly below
   // it, and so section headings can reserve matching scroll-margin. The header
   // wraps on narrow screens, so this is measured rather than hard-coded.
-  // Both bars wrap/resize, so measure rather than hard-code: a guessed constant
-  // silently leaves anchored headings tucked under the sticky chrome.
-  const measure: [string, HTMLElement | null][] = [
-    ["--header-h", document.querySelector<HTMLElement>(".site-header")],
-    ["--secnav-h", document.querySelector<HTMLElement>(".secnav")],
-  ];
-  for (const [prop, el] of measure) {
-    if (!el) continue;
+  // This nav owns only its own height; --header-h is published by SiteHeader,
+  // which is the component that actually has a header to measure.
+  const nav = document.querySelector<HTMLElement>(".secnav");
+  if (nav) {
     const publish = () =>
       document.documentElement.style.setProperty(
-        prop,
-        `${Math.round(el.getBoundingClientRect().height)}px`,
+        "--secnav-h",
+        `${Math.round(nav.getBoundingClientRect().height)}px`,
       );
     publish();
-    if ("ResizeObserver" in window) new ResizeObserver(publish).observe(el);
+    if ("ResizeObserver" in window) new ResizeObserver(publish).observe(nav);
   }
 
   // Scroll-spy: mark the chip for the section currently nearest the top.
