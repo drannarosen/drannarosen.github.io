@@ -2,8 +2,10 @@
 /*
  * JaxstroEcosystem — the signature software visualization.
  *
- * A differentiable birth-to-observation pipeline sitting on the shared jaxstro
- * foundation. Built from the `packages` content collection, not hard-coded nodes.
+ * The differentiable birth-to-observation pipeline. Shows the five STAGES only:
+ * the jaxstro foundation used to repeat here as a card, but it is now row 00 of
+ * the list below, so a second copy was pure duplication. Built from the
+ * `packages` content collection, not hard-coded nodes.
  *
  * Accessibility: the pipeline is a real ordered list; every node is a link to
  * its detailed card below (so no information is hover-only). Connectors are
@@ -11,15 +13,14 @@
  */
 import { getPipeline } from "../lib/packages";
 
-const { foundation, stages: pipeline } = await getPipeline();
-if (!foundation) {
+const { stages: pipeline } = await getPipeline();
+if (pipeline.length === 0) {
   // In a build this means real data trouble. In dev it nearly always means the
   // server was started before src/content.config.ts declared this collection,
   // so its content store never learned about it — restart, do not debug.
   throw new Error(
-    "packages collection has no order-0 foundation entry. " +
-      "If the dev server was running when the collection was added, restart it: " +
-      "`astro dev stop && astro dev --background`.",
+    "packages collection is empty. If the dev server was running when the " +
+      "collection was added, restart it: `astro dev stop && astro dev --background`.",
   );
 }
 import StatusBadge from "./StatusBadge.astro";
@@ -45,18 +46,11 @@ import StatusBadge from "./StatusBadge.astro";
     ← gradients &amp; observing-design information flow back
   </p>
 
-  <a class="eco__foundation" href={`/software/${foundation.id}`}>
-    <span class="eco__stage">{foundation.data.stage}</span>
-    <span class="eco__name">{foundation.data.name}</span>
-    <span class="eco__foundation-tag">{foundation.data.tagline}</span>
-    {foundation.data.maturity && <span class="eco__maturity">{foundation.data.maturity}</span>}
-    <StatusBadge status={foundation.data.status} />
-  </a>
-
   <figcaption class="eco__caption">
-    The <code>jaxstro</code> ecosystem: a differentiable model from a cluster's
-    birth to its survey observables, returning the gradients that reveal what
-    the data can recover. Select any stage for detail.
+    The Jaxstro ecosystem: a differentiable model from a cluster's birth to its
+    survey observables, returning the gradients that reveal what the data can
+    recover. Every stage composes on the shared <code>jaxstro</code> foundation.
+    Select any stage for detail.
   </figcaption>
 </figure>
 
@@ -90,29 +84,8 @@ import StatusBadge from "./StatusBadge.astro";
   }
 
   .eco__node-link,
-  .eco__foundation {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2xs);
-    inline-size: 100%;
-    padding: var(--space-s);
-    text-decoration: none;
-    background: var(--bg-deep);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
-    transition:
-      border-color var(--dur-base) var(--ease-out),
-      background-color var(--dur-base) var(--ease-out),
-      transform var(--dur-base) var(--ease-out);
-  }
   .eco__node-link:hover,
   .eco__node-link:focus-visible,
-  .eco__foundation:hover,
-  .eco__foundation:focus-visible {
-    border-color: color-mix(in srgb, var(--spec-teal) 45%, var(--border));
-    background: color-mix(in srgb, var(--spec-teal) 8%, var(--bg-deep));
-    transform: translateY(-2px);
-  }
 
   .eco__stage {
     font-family: var(--font-mono);
@@ -139,22 +112,6 @@ import StatusBadge from "./StatusBadge.astro";
     text-align: center;
   }
 
-  .eco__foundation {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-s);
-    border-style: dashed;
-    border-color: color-mix(in srgb, var(--spec-teal) 30%, var(--border));
-    background: color-mix(in srgb, var(--spec-teal) 6%, var(--bg-deep));
-  }
-  .eco__foundation .eco__name {
-    font-size: var(--step-2);
-  }
-  .eco__foundation-tag {
-    color: var(--ink-soft);
-    margin-inline-end: auto;
-  }
 
   .eco__caption {
     margin-block-start: var(--space-m);
