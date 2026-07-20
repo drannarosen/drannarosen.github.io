@@ -134,8 +134,7 @@ const packages = await getPackages();
        --header-h is published by SiteHeader on every page. */
     scroll-margin-block-start: calc(var(--header-h, 3.7rem) + var(--space-m));
   }
-  /* 00 is the substrate, not a step, so the connecting rail below starts at
-     01 and this row reads as the ground the chain stands on. */
+  /* 00 is the substrate, not a step. */
   .pkg--base .pkg__num {
     color: var(--ink-faint);
   }
@@ -149,21 +148,6 @@ const packages = await getPackages();
   /* The connecting rule down the rail is the pipeline made visible. */
   .pkg--stage {
     border-block-start: 1px solid var(--border);
-    position: relative;
-  }
-  .pkg--stage::before {
-    content: "";
-    position: absolute;
-    inset-block: 0;
-    inset-inline-start: calc(11rem - var(--space-l) / 2);
-    inline-size: 1px;
-    background: linear-gradient(
-      to bottom,
-      transparent,
-      color-mix(in srgb, var(--spec-teal) 35%, transparent) 12%,
-      color-mix(in srgb, var(--spec-teal) 35%, transparent) 88%,
-      transparent
-    );
   }
 
   .pkg__rail {
@@ -231,20 +215,25 @@ const packages = await getPackages();
      the real target, so this one is aria-hidden and out of the tab order
      rather than a second identical link for a screen reader to announce. */
   .pkg__thumb {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-3xs);
     border-radius: var(--radius-s);
     overflow: hidden;
     background: #fff;
     box-shadow: 0 0 0 1px var(--border);
     transition: box-shadow var(--dur-base) var(--ease-out);
   }
+  /* Fit, never crop: these are plots, and cropping one can remove the axis
+     that makes it readable. Heights differ by figure, capped so no row grows
+     taller than its text. */
   .pkg__thumb img {
     display: block;
     inline-size: 100%;
     block-size: auto;
-    aspect-ratio: 16 / 10;
-    object-fit: cover;
-    object-position: left center;
+    max-block-size: 7.5rem;
+    object-fit: contain;
   }
   .pkg:hover .pkg__thumb {
     box-shadow: 0 0 0 1px var(--spec-teal-bright);
@@ -275,7 +264,7 @@ const packages = await getPackages();
   .meter__label {
     margin-inline-start: var(--space-2xs);
     font-family: var(--font-mono);
-    font-size: 0.66rem;
+    font-size: var(--step--2);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--ink-dim);
@@ -294,9 +283,6 @@ const packages = await getPackages();
     .pkg {
       grid-template-columns: 1fr;
       gap: var(--space-2xs);
-    }
-    .pkg--stage::before {
-      display: none;
     }
     .pkg__rail {
       flex-direction: row;

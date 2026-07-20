@@ -44,18 +44,31 @@
     --border-strong: rgba(255, 255, 255, 0.18);
     --focus-ring: var(--spec-teal-bright);
 
-    /* ── Fluid type scale (major-third-ish, clamp) ───────────────── */
-    /* --step--2 was referenced in 11 files but never defined, so every
-       `font-size: var(--step--2)` silently INHERITED its parent's size —
-       the pipeline numerals rendered at 19px instead of 12px. */
-    --step--2: clamp(0.69rem, 0.66rem + 0.16vw, 0.78rem);
-    --step--1: clamp(0.83rem, 0.79rem + 0.20vw, 0.94rem);
-    --step-0:  clamp(1.00rem, 0.94rem + 0.30vw, 1.19rem);
-    --step-1:  clamp(1.20rem, 1.10rem + 0.50vw, 1.56rem);
-    --step-2:  clamp(1.44rem, 1.28rem + 0.80vw, 2.05rem);
-    --step-3:  clamp(1.73rem, 1.49rem + 1.20vw, 2.69rem);
-    --step-4:  clamp(2.07rem, 1.71rem + 1.80vw, 3.53rem);
-    --step-5:  clamp(2.49rem, 1.95rem + 2.68vw, 4.63rem);
+    /* ── Fluid type scale ───────────────────────────────────────────
+     * Each step is a hand-solved clamp(): min at ~375px viewport, max at
+     * ~1440px. They are NOT derived from a base and a ratio — CSS cannot
+     * compute a fluid clamp from a ratio, because that needs dividing one
+     * length by another, which calc() does not allow. Changing one step
+     * therefore does NOT move the others.
+     *
+     * --font-scale is the single knob that does move everything: it
+     * multiplies every step at once. Set it to 1.05 to raise the whole
+     * scale 5%, or leave it at 1.
+     *
+     * Raised 2026-07-19: the small end was genuinely too small. --step--2
+     * 12.5 -> 13.6px and --step--1 15.0 -> 16.3px at full width, which also
+     * narrows the oversized jump from --step--1 to --step-0.
+     */
+    --font-scale: 1;
+
+    --step--2: calc(clamp(0.75rem, 0.72rem + 0.16vw, 0.85rem) * var(--font-scale));
+    --step--1: calc(clamp(0.90rem, 0.86rem + 0.20vw, 1.02rem) * var(--font-scale));
+    --step-0:  calc(clamp(1.00rem, 0.94rem + 0.30vw, 1.19rem) * var(--font-scale));
+    --step-1:  calc(clamp(1.20rem, 1.10rem + 0.50vw, 1.56rem) * var(--font-scale));
+    --step-2:  calc(clamp(1.44rem, 1.28rem + 0.80vw, 2.05rem) * var(--font-scale));
+    --step-3:  calc(clamp(1.73rem, 1.49rem + 1.20vw, 2.69rem) * var(--font-scale));
+    --step-4:  calc(clamp(2.07rem, 1.71rem + 1.80vw, 3.53rem) * var(--font-scale));
+    --step-5:  calc(clamp(2.49rem, 1.95rem + 2.68vw, 4.63rem) * var(--font-scale));
 
     /* ── Type families (self-hosted, from Cosmic Playground) ─────────
      * Outfit for display headings, Source Sans 3 for body. See fonts.css. */
