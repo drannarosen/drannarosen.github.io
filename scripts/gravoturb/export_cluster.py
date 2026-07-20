@@ -75,11 +75,17 @@ EFF_RT = 2.5  # truncation radius [pc]; box half-width is 3.0 pc
 
 DYN_DEX = 6.0  # display dynamic range: clamp log-density to this many dex below peak
 
+SFE_IC = 0.2  # star-formation efficiency of the exported IC (GasSpec below)
+
 BOX = ff.BOX  # 6.0 pc
 DX = BOX / NGRID
 OUT = (
     Path(__file__).resolve().parents[2] / "public" / "data" / "gravoturb"
 )  # <repo>/public/data/gravoturb
+
+# Radial grid for the tabulated gas enclosed-mass profile, out to the box corner so
+# the web integrator never extrapolates. 1024 points is ~4 KB and plenty smooth.
+GAS_MENC_R = np.linspace(0.0, BOX * 0.5 * np.sqrt(3.0), 1024)
 
 
 def main() -> None:
@@ -104,7 +110,7 @@ def main() -> None:
         G=ff.G,
         units=ff.STELLAR,
         key=jax.random.PRNGKey(1),
-        gas=ff.GasSpec(sfe=0.2),
+        gas=ff.GasSpec(sfe=SFE_IC),
     )
 
     # --- gas: project the 3D cloud density to a 2D surface density, take log10 ---
@@ -171,6 +177,53 @@ def main() -> None:
         [xyz[:, 0], xyz[:, 1], xyz[:, 2], mass, teff, radius]
     ).astype(np.float32)
 
+    # --- gas enclosed-mass profile: M_gas(<r) / M_gas, tabulated ----------------
+    # The survival explorable needs the gas potential, and the honest way to give
+    # it one is to hand it THIS model's own radial profile rather than have the
+    # browser re-derive EFF in TypeScript. Integrate rho_EFF(r) 4 pi r^2 dr on a
+    # fine grid and normalize; the table is monotone 0 -> 1 and saturates at r_t.
+    eff = EFFProfile(a=EFF_A, gamma=EFF_GAMMA, r_t=EFF_RT)
+    rho_r = np.asarray(eff.density(jnp.asarray(GAS_MENC_R)))
+    shell = rho_r * 4.0 * np.pi * GAS_MENC_R**2
+    m_of_r = np.concatenate([[0.0], np.cumsum(np.diff(GAS_MENC_R) * 0.5 * (shell[1:] + shell[:-1]))])
+    gas_menc_frac = (m_of_r / m_of_r[-1]).astype(np.float32)
+
+    # --- stellar velocities: the REAL turbulent kinematics ----------------------
+    # VelocitySpec(mode="physical") normalizes the velocity GRID so its volume-
+    # weighted rms is sigma_g = mach * c_s (FK10), and the stars sample that field
+    # (x eta_v). The stellar dispersion is therefore EMERGENT, not virial-scaled:
+    # the cluster's initial virial ratio Q is a measured property of the model.
+    # These velocities come from the same Helmholtz-coupled GRF that sculpted the
+    # density field, so kinematics and structure are physically consistent.
+    #
+    # Note they do NOT depend on the star-formation efficiency: the turbulence sets
+    # the kinematics, the SFE sets how much gas mass sits in the potential. The
+    # survival explorable varies the SFE and leaves these untouched.
+    vel = np.asarray(ic.stars.velocities)  # (N, 3), pc/Myr (STELLAR units)
+    bulk_resid = (mass[:, None] * vel).sum(axis=0) / mass.sum()
+    vel = (vel - bulk_resid).astype(np.float32)  # pin the COM frame exactly
+
+    # --- dynamical diagnostics the web integrator needs -------------------------
+    G = float(ff.G)  # pc^3 / (Msun Myr^2) in the STELLAR unit system
+    m_star_total = float(mass.sum())
+    r = np.linalg.norm(xyz, axis=1)
+    order = np.argsort(r)
+    m_cum = np.cumsum(mass[order])
+    r_half = float(r[order][np.searchsorted(m_cum, 0.5 * m_star_total)])
+    sigma_3d = float(np.sqrt((mass * (vel**2).sum(axis=1)).sum() / m_star_total))
+    # Crossing time of the STELLAR component alone (the gas potential is added by
+    # the web integrator, which varies the SFE): t_cross = 2 r_h / sigma_3d.
+    t_cross = 2.0 * r_half / sigma_3d
+    # Virial ratio Q = T/|W| at the IC's own SFE, measured (not imposed). W uses
+    # the spherical enclosed-mass approximation the web integrator also uses, so
+    # the number the page reports matches the number the page integrates.
+    m_gas_ic = m_star_total * (1.0 - SFE_IC) / SFE_IC
+    m_gas_enc = np.interp(r[order], GAS_MENC_R, gas_menc_frac) * m_gas_ic
+    m_enc = m_cum + m_gas_enc
+    w_energy = -G * float(np.sum(mass[order] * m_enc / np.maximum(r[order], 1e-6)))
+    t_energy = 0.5 * float((mass * (vel**2).sum(axis=1)).sum())
+    q_virial = t_energy / abs(w_energy)
+
     # Local gas density at each star's cell — the coupling KEY the mass-segregation
     # explorer re-pairs on (correlated_mass_assignment sorts positions by this and
     # assigns massive stars to dense cells with strength lambda_corr). Sampled from
@@ -181,6 +234,8 @@ def main() -> None:
     # --- write -----------------------------------------------------------------
     OUT.mkdir(parents=True, exist_ok=True)
     stars.tofile(OUT / "stars.f32")
+    vel.tofile(OUT / "velocities.f32")
+    gas_menc_frac.tofile(OUT / "gas_menc.f32")
     local_density.tofile(OUT / "local_density.f32")
     gas_log.tofile(OUT / "gas.f32")
     gas_points.tofile(OUT / "gas_points.u8")
@@ -195,6 +250,31 @@ def main() -> None:
         "n_stars": int(stars.shape[0]),
         "star_fields": ["x", "y", "z", "mass", "teff", "radius"],
         "star_units": ["pc", "pc", "pc", "Msun", "K", "Rsun"],
+        # --- kinematics + dynamics (the "does the cluster survive?" explorable) ---
+        "velocity_fields": ["vx", "vy", "vz"],
+        "velocity_units": "pc/Myr",
+        "velocity_origin": (
+            "progenax VelocitySpec(mode='physical'): the velocity GRF is normalized "
+            "so its volume-weighted rms is sigma_g = mach*c_s, and stars sample it "
+            "(x eta_v). The stellar dispersion is EMERGENT, not virial-scaled, and "
+            "is independent of the star-formation efficiency. COM frame pinned."
+        ),
+        "mach": 8.0,
+        "c_s_km_s": 0.2,
+        "sfe_ic": SFE_IC,
+        "G_pc3_msun_myr2": G,
+        "m_star_total_msun": m_star_total,
+        "r_half_pc": r_half,
+        "sigma_3d_pc_myr": sigma_3d,
+        "t_cross_myr": t_cross,
+        "q_virial_at_sfe_ic": q_virial,
+        "gas_menc_n": int(gas_menc_frac.size),
+        "gas_menc_r_max_pc": float(GAS_MENC_R[-1]),
+        "gas_menc_encoding": (
+            "float32 M_gas(<r)/M_gas on a uniform radial grid r = "
+            "linspace(0, gas_menc_r_max_pc, gas_menc_n); the truncated-EFF cloud "
+            "profile integrated as rho(r) 4 pi r^2 dr, so it saturates at 1 by r_t"
+        ),
         "ngrid": int(NGRID),
         "box_pc": float(BOX),
         "gas_log_min": float(gas_log.min()),
@@ -227,6 +307,10 @@ def main() -> None:
           f"{(OUT / 'gas_points.u8').stat().st_size/1024:.0f} KB")
     print(f"[ok] mass {mass.min():.3f}..{mass.max():.0f} Msun  "
           f"teff {teff.min():.0f}..{teff.max():.0f} K")
+    print(f"[ok] vel   {vel.shape} pc/Myr  sigma_3d={sigma_3d:.3f} pc/Myr "
+          f"({sigma_3d * 0.9778:.2f} km/s)  residual bulk={np.abs(bulk_resid).max():.2e}")
+    print(f"[ok] dyn   M*={m_star_total:.0f} Msun  r_h={r_half:.3f} pc  "
+          f"t_cross={t_cross:.3f} Myr  Q(sfe={SFE_IC})={q_virial:.3f}")
     print(f"[done] wrote {OUT}")
 
 
