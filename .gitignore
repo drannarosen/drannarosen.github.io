@@ -24,3 +24,7 @@ pnpm-debug.log*
 .idea/
 
 .adr/
+
+# Raw media pulled from the old WordPress site. Kept locally as an archive;
+# anything used on the site is processed and committed under public/images/.
+wp-media/
