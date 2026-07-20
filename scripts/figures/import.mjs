@@ -7,10 +7,16 @@
  *        --script scripts/figure_4_scaling.py \
  *        --figure "Figure 4" [--note "..."]
  *
- * Converts to LOSSLESS WebP. Measured on this paper's figures, lossless beats
- * quality-90 lossy on both size and fidelity — matplotlib output is line art
- * over flat white, which lossless compression handles well and DCT-based lossy
- * handles badly (the forest plot: 55KB lossless vs 121KB at q90).
+ * Encoding is CHOSEN BY MEASUREMENT, not by rule, because the right answer
+ * flips with the figure:
+ *   - line art over flat white (most matplotlib plots): lossless wins outright,
+ *     often by 2x (the forest plot: 55KB lossless vs 121KB at q90). DCT-based
+ *     lossy spends its bits failing to represent step edges.
+ *   - noise-dominated raster (simulated images, Fisher-information maps):
+ *     lossless cannot compress the noise, and q95 is ~3x smaller (919KB vs
+ *     304KB) with artifacts far below the noise already in the data.
+ * So we encode both and keep the smaller, then record which was used in
+ * figures.json — a lossy scientific figure should be a disclosed fact.
  *
  * It also does NOT resize. Downscaling a plot turns crisp 1px lines into grey
  * ramps, which destroys compressibility: resampling one figure 2955->2304
@@ -57,7 +63,13 @@ const out = resolve(ROOT, "public", target);
 mkdirSync(dirname(out), { recursive: true });
 
 const meta = await sharp(source).metadata();
-await sharp(source).webp({ lossless: true, effort: 6 }).toFile(out);
+
+// Encode both ways and keep the smaller; see the note at the top of this file.
+const lossless = await sharp(source).webp({ lossless: true, effort: 6 }).toBuffer();
+const lossy = await sharp(source).webp({ quality: 95, effort: 6 }).toBuffer();
+const useLossless = lossless.length <= lossy.length;
+const encoding = useLossless ? "webp-lossless" : "webp-q95";
+writeFileSync(out, useLossless ? lossless : lossy);
 
 const buf = readFileSync(out);
 const sha256 = createHash("sha256").update(buf).digest("hex");
@@ -70,6 +82,7 @@ const record = {
   paperFigure: flag("figure") ?? null,
   width: meta.width,
   height: meta.height,
+  encoding,
   sha256,
   ...(flag("note") ? { note: flag("note") } : {}),
 };
@@ -83,5 +96,6 @@ const before = readFileSync(source).length;
 console.log(
   `[figures] ${target}  ${meta.width}x${meta.height}  ` +
     `${(before / 1024).toFixed(0)}KB -> ${(buf.length / 1024).toFixed(0)}KB ` +
-    `(${(100 - (buf.length / before) * 100).toFixed(0)}% smaller), recorded in figures.json`,
+    `(${(100 - (buf.length / before) * 100).toFixed(0)}% smaller, ${encoding}), ` +
+    `recorded in figures.json`,
 );

@@ -83,6 +83,17 @@
       "height": 753,
       "sha256": "ab8a2b047033022e1116de72e7695f1ae567ad6d6e188065248d4d3f2a3f167f",
       "note": "PRELIMINARY. Same synthetic population pushed through the Gaia and Rubin forward models, including detection limits and saturation."
+    },
+    {
+      "path": "images/software/fluxax-pixel-information.webp",
+      "origin": "jaxstro-dev/fluxax + progenax",
+      "script": "f3-nominal-information",
+      "paperFigure": "Per-pixel Fisher information for IMF and binary slopes",
+      "width": 1466,
+      "height": 1639,
+      "sha256": "db47f52ff3d9cdc6f02acdecfab0047757ba22a785eff13052d33f6b709b7353",
+      "note": "PRELIMINARY. Population-to-pixel differentiation is implemented; validated detector/survey transformations and global recovery are proposed work, per the source caption.",
+      "encoding": "webp-q95"
     }
   ]
 }
