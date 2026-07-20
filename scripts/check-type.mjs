@@ -10,7 +10,9 @@
  * Allowed:
  *   - var(--step-*)          the scale
  *   - em units               deliberately relative to context (drop caps, code)
- *   - anything on a line marked  type-scale-exempt: <reason>
+ *   - anything marked `type-scale-exempt: <reason>` on that line or the one
+ *     above it (the line above is for values inside template literals, where a
+ *     trailing comment would land inside the string)
  *
  *   node scripts/check-type.mjs
  */
@@ -32,12 +34,14 @@ function walk(dir, acc = []) {
 
 const problems = [];
 for (const file of walk(SRC)) {
-  readFileSync(file, "utf8")
-    .split("\n")
-    .forEach((line, i) => {
+  const lines = readFileSync(file, "utf8").split("\n");
+  lines.forEach((line, i) => {
       const m = line.match(/font-size:\s*([^;]+);/);
       if (!m) return;
       const value = m[1].trim();
+      const exempt =
+        line.includes("type-scale-exempt") ||
+        (lines[i - 1] ?? "").includes("type-scale-exempt");
       if (
         value.includes("var(--step") ||
         // `em` is context-relative by design and allowed — but note that
@@ -45,7 +49,7 @@ for (const file of walk(SRC)) {
         // explicitly. Without this the exemption swallows everything the
         // check exists to catch, and the gate reports ok while doing nothing.
         (/(^|[^r])em$/.test(value)) ||
-        line.includes("type-scale-exempt")
+        exempt
       ) return;
       problems.push(`${relative(ROOT, file)}:${i + 1}  font-size: ${value}`);
     });

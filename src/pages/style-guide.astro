@@ -1,0 +1,441 @@
+---
+/*
+ * style-guide.astro — INTERNAL. noindex, not in the nav, no OG card.
+ *
+ * Renders every design token live so a size or colour can be judged by looking
+ * at it rather than by editing a page and reloading. The px readouts and
+ * contrast ratios are computed in the browser from getComputedStyle, so they
+ * are the REAL resolved values at the current viewport, not numbers retyped
+ * into a table that would drift the first time a token changed.
+ *
+ * The --font-scale control previews the whole scale without committing to it.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL } from "../data/jaxstro";
+
+const TYPE_STEPS = [
+  { token: "--step--2", use: "mono labels, badges, eyebrows, numerals" },
+  { token: "--step--1", use: "captions, author lists, notes, meta" },
+  { token: "--step-0", use: "body text, descriptions, figure captions" },
+  { token: "--step-1", use: "ledes, section headings" },
+  { token: "--step-2", use: "page section titles" },
+  { token: "--step-3", use: "large display" },
+  { token: "--step-4", use: "display" },
+  { token: "--step-5", use: "hero heading" },
+];
+
+const SPACE_STEPS = [
+  "--space-3xs", "--space-2xs", "--space-xs", "--space-s",
+  "--space-m", "--space-l", "--space-xl", "--space-2xl", "--space-3xl",
+];
+
+const COLOR_GROUPS = [
+  { label: "Surfaces", tokens: ["--bg-void", "--bg-deep", "--bg-surface", "--bg-hairline"] },
+  { label: "Ink", tokens: ["--ink", "--ink-soft", "--ink-dim", "--ink-faint"] },
+  {
+    label: "Spectral",
+    tokens: ["--spec-teal", "--spec-teal-bright", "--spec-rose", "--spec-violet", "--spec-amber", "--spec-blue"],
+  },
+  { label: "Lines", tokens: ["--border", "--border-strong", "--focus-ring"] },
+];
+
+const RADII = ["--radius-s", "--radius-m", "--radius-l"];
+---
+
+<BaseLayout
+  title="Style guide — internal"
+  description="Internal design-token reference for drannarosen.github.io."
+  path="/style-guide"
+  noindex
+>
+  <PageHeader
+    eyebrow="Internal"
+    title="Style guide"
+    lede="Every design token, rendered live. Values are read from the browser at the current viewport, so what is shown is what ships."
+  />
+
+  <section class="wrap sg" aria-labelledby="sg-scale">
+    <h2 id="sg-scale" class="sg__h2">Global scale</h2>
+    <p class="sg__note">
+      One knob multiplies the whole type scale. Preview it here; nothing is saved
+      until <code>--font-scale</code> is changed in <code>tokens.css</code>.
+    </p>
+    <div class="sg__scale" role="group" aria-label="Preview font scale">
+      {[0.95, 1, 1.05, 1.1, 1.2].map((v) => (
+        <button
+          type="button"
+          class="sg__btn"
+          data-scale={String(v)}
+          aria-pressed={v === 1 ? "true" : "false"}
+        >
+          {v.toFixed(2)}
+        </button>
+      ))}
+      <span class="sg__current" data-scale-readout>current: 1.00</span>
+    </div>
+  </section>
+
+  <section class="wrap sg" aria-labelledby="sg-type">
+    <h2 id="sg-type" class="sg__h2">Type scale</h2>
+    <ul class="sg__list" role="list">
+      {
+        TYPE_STEPS.map((s) => (
+          <li class="sg__type">
+            <div class="sg__type-meta">
+              <code class="sg__token">{s.token}</code>
+              <span class="sg__px" data-px={s.token} />
+              <span class="sg__use">{s.use}</span>
+            </div>
+            <p class="sg__sample" style={`font-size: var(${s.token})`}>
+              Massive stars shape the universe — 0123456789
+            </p>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="wrap sg" aria-labelledby="sg-space">
+    <h2 id="sg-space" class="sg__h2">Spacing</h2>
+    <ul class="sg__list" role="list">
+      {
+        SPACE_STEPS.map((t) => (
+          <li class="sg__space">
+            <code class="sg__token">{t}</code>
+            <span class="sg__px" data-px={t} />
+            <span class="sg__bar" style={`inline-size: var(${t})`} />
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="wrap sg" aria-labelledby="sg-color">
+    <h2 id="sg-color" class="sg__h2">Colour</h2>
+    <p class="sg__note">
+      Contrast is measured against <code>--bg-void</code>. WCAG AA wants 4.5:1
+      for body text and 3:1 for large text; anything below 3:1 should only ever
+      be decoration. Surfaces show no ratio (they are the background), and
+      translucent tokens show their alpha instead — a colour you can see through
+      has no fixed contrast.
+    </p>
+    {
+      COLOR_GROUPS.map((g) => (
+        <>
+          <h3 class="sg__h3">{g.label}</h3>
+          <ul class="sg__swatches" role="list">
+            {g.tokens.map((t) => (
+              <li class="sg__swatch">
+                <span class="sg__chip" style={`background: var(${t})`} />
+                <code class="sg__token">{t}</code>
+                <span class="sg__px" data-rgb={t} />
+                {g.label !== "Surfaces" && <span class="sg__contrast" data-contrast={t} />}
+              </li>
+            ))}
+          </ul>
+        </>
+      ))
+    }
+  </section>
+
+  <section class="wrap sg" aria-labelledby="sg-radius">
+    <h2 id="sg-radius" class="sg__h2">Radii &amp; lines</h2>
+    <ul class="sg__swatches" role="list">
+      {
+        RADII.map((t) => (
+          <li class="sg__swatch">
+            <span class="sg__radius" style={`border-radius: var(${t})`} />
+            <code class="sg__token">{t}</code>
+            <span class="sg__px" data-px={t} />
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="wrap sg" aria-labelledby="sg-components">
+    <h2 id="sg-components" class="sg__h2">Components</h2>
+
+    <h3 class="sg__h3">Readiness meter</h3>
+    <ul class="sg__list" role="list">
+      {
+        (["developing", "advanced", "mature", "published"] as const).map((r) => (
+          <li class="sg__row">
+            <span class="meter" aria-label={`Readiness: ${READINESS_LABEL[r]}`}>
+              {Array.from({ length: READINESS_TOTAL }, (_, k) => k + 1).map((n) => (
+                <span class:list={["meter__step", n <= READINESS_STEPS[r] && "is-on"]} />
+              ))}
+              <span class="meter__label">{READINESS_LABEL[r]}</span>
+            </span>
+            <code class="sg__token">{r}</code>
+          </li>
+        ))
+      }
+    </ul>
+
+    <h3 class="sg__h3">Chips</h3>
+    <p class="sg__row">
+      <span class="sg__chip-prelim">Preliminary</span>
+      <span class="sg__chip-sub">submitted</span>
+      <span class="sg__chip-mono">active build</span>
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .sg {
+    padding-block-end: var(--space-2xl);
+  }
+  .sg__h2 {
+    font-size: var(--step-2);
+    padding-block-end: var(--space-2xs);
+    margin-block-end: var(--space-s);
+    border-block-end: 1px solid var(--border);
+  }
+  .sg__h3 {
+    font-size: var(--step-0);
+    color: var(--ink-soft);
+    margin-block: var(--space-l) var(--space-2xs);
+  }
+  .sg__note {
+    max-inline-size: var(--width-prose);
+    color: var(--ink-dim);
+    font-size: var(--step--1);
+    margin-block-end: var(--space-m);
+  }
+  .sg__list {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .sg__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-m);
+  }
+
+  .sg__token {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--spec-teal-bright);
+  }
+  .sg__px {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+  }
+  .sg__use {
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+  }
+
+  .sg__type {
+    padding-block-end: var(--space-s);
+    border-block-end: 1px solid var(--border);
+  }
+  .sg__type-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-s);
+    align-items: baseline;
+    margin-block-end: var(--space-2xs);
+  }
+  .sg__sample {
+    color: var(--ink);
+    line-height: 1.25;
+  }
+
+  .sg__space {
+    display: flex;
+    align-items: center;
+    gap: var(--space-m);
+  }
+  .sg__bar {
+    display: block;
+    block-size: 0.75rem;
+    background: var(--spec-teal-bright);
+    border-radius: 2px;
+  }
+
+  .sg__swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: var(--space-m);
+  }
+  .sg__swatch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+  .sg__chip {
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    border-radius: var(--radius-s);
+    box-shadow: 0 0 0 1px var(--border-strong);
+  }
+  .sg__radius {
+    inline-size: 3.5rem;
+    block-size: 3.5rem;
+    background: var(--bg-surface);
+    box-shadow: 0 0 0 1px var(--border-strong);
+  }
+  .sg__contrast {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+  }
+  .sg__contrast[data-level="fail"] { color: color-mix(in srgb, var(--spec-rose) 85%, white); }
+  .sg__contrast[data-level="large"] { color: var(--spec-amber); }
+  .sg__contrast[data-level="pass"] { color: var(--spec-teal-bright); }
+  .sg__contrast[data-level="alpha"] { color: var(--ink-faint); }
+
+  .sg__scale {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs) var(--space-s);
+  }
+  .sg__btn {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: var(--space-3xs) var(--space-s);
+    cursor: pointer;
+  }
+  .sg__btn[aria-pressed="true"] {
+    color: var(--spec-teal-bright);
+    border-color: color-mix(in srgb, var(--spec-teal-bright) 45%, transparent);
+  }
+  .sg__current {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+  }
+
+  .sg__chip-prelim,
+  .sg__chip-sub,
+  .sg__chip-mono {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+  .sg__chip-prelim {
+    color: color-mix(in srgb, var(--spec-rose) 82%, white);
+    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
+  }
+  .sg__chip-sub {
+    color: var(--spec-amber);
+    border: 1px solid color-mix(in srgb, var(--spec-amber) 45%, transparent);
+  }
+  .sg__chip-mono {
+    color: var(--ink-dim);
+    border: 1px solid var(--border-strong);
+  }
+</style>
+
+<script>
+  // Everything below reads REAL resolved values from the browser. A style guide
+  // that restates numbers by hand is wrong the first time a token changes.
+  const root = document.documentElement;
+
+  const px = (el: Element, prop: string) => {
+    const probe = document.createElement("div");
+    // type-scale-exempt: measurement probe — reads whichever token it is given
+    probe.style.cssText = `position:absolute;visibility:hidden;font-size:var(${prop});inline-size:var(${prop})`;
+    document.body.appendChild(probe);
+    const fs = getComputedStyle(probe).fontSize;
+    const w = getComputedStyle(probe).inlineSize;
+    probe.remove();
+    return { fs, w };
+  };
+
+  function paintSizes() {
+    for (const el of document.querySelectorAll<HTMLElement>("[data-px]")) {
+      const token = el.dataset.px!;
+      const { fs, w } = px(el, token);
+      // Type tokens resolve as a font-size; spacing and radii as a length.
+      el.textContent = token.startsWith("--step") ? fs : w;
+    }
+  }
+
+  /* ---- contrast, computed from the resolved colours ---- */
+  const srgb = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const luminance = ([r, g, b]: number[]) =>
+    0.2126 * srgb(r / 255) + 0.7152 * srgb(g / 255) + 0.0722 * srgb(b / 255);
+
+  /**
+   * Resolve a colour to [r, g, b, a] on a 0-255 scale.
+   *
+   * Two forms come back from getComputedStyle and they are NOT interchangeable:
+   *   rgb(232, 233, 235)                      components 0-255
+   *   color(srgb 0.905882 0.906667 0.908235)  components 0-1  <- color-mix()
+   * Reading the second as if it were the first makes near-white read as nearly
+   * black, which is exactly how --ink first reported 1.11:1 against the page.
+   */
+  function parseColor(value: string): number[] | null {
+    const probe = document.createElement("div");
+    probe.style.cssText = `position:absolute;visibility:hidden;color:${value}`;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    const nums = (resolved.match(/-?\d*\.?\d+/g) ?? []).map(Number);
+    if (nums.length < 3) return null;
+    const fractional = /^color\(/.test(resolved);
+    const [r, g, b] = nums.slice(0, 3).map((n) => (fractional ? n * 255 : n));
+    const a = nums.length > 3 ? nums[3] : 1;
+    return [r, g, b, a];
+  }
+
+  function paintColors() {
+    const bg = parseColor("var(--bg-void)");
+    for (const el of document.querySelectorAll<HTMLElement>("[data-rgb]")) {
+      const c = parseColor(`var(${el.dataset.rgb})`);
+      if (!c) { el.textContent = "—"; continue; }
+      const [r, g, b, a] = c;
+      el.textContent =
+        a < 1
+          ? `rgb(${[r, g, b].map(Math.round).join(" ")}) / ${a}`
+          : `rgb(${[r, g, b].map(Math.round).join(" ")})`;
+    }
+    for (const el of document.querySelectorAll<HTMLElement>("[data-contrast]")) {
+      const fg = parseColor(`var(${el.dataset.contrast})`);
+      if (!fg || !bg) continue;
+
+      // A translucent colour has no fixed contrast — it depends on whatever is
+      // behind it. Reporting a number here would be confidently wrong.
+      if (fg[3] < 1) {
+        el.textContent = `α ${fg[3]}`;
+        el.dataset.level = "alpha";
+        continue;
+      }
+      const [hi, lo] = [luminance(fg), luminance(bg)].sort((x, y) => y - x);
+      const ratio = (hi + 0.05) / (lo + 0.05);
+      el.textContent = `${ratio.toFixed(2)}:1`;
+      el.dataset.level = ratio >= 4.5 ? "pass" : ratio >= 3 ? "large" : "fail";
+    }
+  }
+
+  /* ---- font-scale preview ---- */
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>("[data-scale]")];
+  const readout = document.querySelector<HTMLElement>("[data-scale-readout]");
+  for (const btn of buttons) {
+    btn.addEventListener("click", () => {
+      const v = btn.dataset.scale!;
+      root.style.setProperty("--font-scale", v);
+      for (const b of buttons) b.setAttribute("aria-pressed", String(b === btn));
+      if (readout) readout.textContent = `current: ${Number(v).toFixed(2)}`;
+      paintSizes();
+    });
+  }
+
+  paintSizes();
+  paintColors();
+  addEventListener("resize", paintSizes);
+</script>
