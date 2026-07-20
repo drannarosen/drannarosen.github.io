@@ -21,6 +21,7 @@ const nav: NavItem[] = [
   { label: "Publications", href: "/publications" },
   { label: "Software", href: "/software" },
   { label: "Teaching", href: "/teaching" },
+  { label: "Outreach", href: "/outreach" },
   { label: "Group", href: "/group" },
   { label: "About", href: "/about" },
   { label: "CV", href: "/cv" },

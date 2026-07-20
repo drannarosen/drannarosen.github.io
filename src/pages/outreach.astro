@@ -1,0 +1,178 @@
+---
+/*
+ * /outreach — public engagement, rendered from the same cv.ts arrays the CV
+ * page uses, so the two can never disagree. Nothing here is written twice.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import { outreach } from "../data/cv";
+
+/** Newest first; entries whose date is a range sort on their first year. */
+const startYear = (d: string) => Number((d.match(/\d{4}/) ?? ["0"])[0]);
+const items = [...outreach].sort((a, b) => startYear(b.date) - startYear(a.date));
+---
+
+<BaseLayout
+  title="Outreach — Anna Rosen, Ph.D."
+  description="Public talks, science-centre events, career panels and community-college programs: astronomy for people who do not do astronomy for a living."
+  path="/outreach"
+  ogImage="default.png"
+>
+  <PageHeader
+    eyebrow="Outreach"
+    title="Astronomy, out loud"
+    lede="Public lectures, science-centre events, career panels, and programs for community-college and transfer students — the audiences I care most about reaching, because one of them is where I started."
+  />
+
+  <section class="wrap ot-top">
+    <figure class="ot-photo">
+      <img
+        src="/images/photos/anna-outreach-talk.webp"
+        alt="Anna Rosen mid-talk in a classroom, pointing at a projected slide reading “Massive stars are the main contributors of heavy elements through nuclear fusion and their explosive deaths”, with a plot of elemental abundance against atomic mass and a periodic table."
+        width="720"
+        height="830"
+        loading="eager"
+        decoding="async"
+      />
+      <figcaption>
+        Talking about where the elements come from — the short answer being
+        massive stars, which is also what I spend my research life on.
+      </figcaption>
+    </figure>
+
+    <div class="ot-intro prose">
+      <p>
+        I transferred to a four-year university from Los Angeles Pierce College,
+        so the talks I most want to give are the ones I would have wanted to
+        hear then: not “look how vast the universe is”, but how anyone actually
+        finds any of this out.
+      </p>
+      <p>
+        If you run a school, a club, a science centre or a community-college
+        program and want a talk on massive stars, star clusters, or what it is
+        like to do computational science for a living,{" "}
+        <a href="/contact">please get in touch</a>.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap ot-list" aria-labelledby="ot-record">
+    <h2 id="ot-record" class="ot-h2">
+      Selected engagements <span class="ot-count">{items.length}</span>
+    </h2>
+    <ul class="cv-list" role="list">
+      {
+        items.map((o) => (
+          <li class="ot-entry">
+            <div>
+              <p class="ot-role">
+                {o.href ? (
+                  <a href={o.href} rel="noopener">{o.role}</a>
+                ) : (
+                  o.role
+                )}
+              </p>
+              {o.org && <p class="ot-org">{o.org}</p>}
+            </div>
+            <span class="ot-date">{o.date}</span>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="ot-note">
+      The complete record, alongside teaching and service, is on the{" "}
+      <a href="/cv">CV</a>.
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .ot-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    gap: var(--space-xl);
+    align-items: start;
+    padding-block-end: var(--space-xl);
+  }
+  .ot-photo {
+    order: 2;
+    margin: 0;
+  }
+  .ot-photo img {
+    inline-size: 100%;
+    block-size: auto;
+    border-radius: var(--radius-m);
+    box-shadow: 0 0 0 1px var(--border-strong);
+  }
+  .ot-photo figcaption {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    line-height: 1.5;
+  }
+  .ot-intro {
+    order: 1;
+    color: var(--ink-soft);
+  }
+  .ot-intro p + p {
+    margin-block-start: var(--space-s);
+  }
+
+  .ot-h2 {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-s);
+    font-size: var(--step-1);
+    padding-block-end: var(--space-2xs);
+    margin-block-end: var(--space-m);
+    border-block-end: 1px solid var(--border);
+  }
+  .ot-count {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+  }
+  .ot-list {
+    padding-block-end: var(--space-3xl);
+  }
+  .ot-entry {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-m);
+    justify-content: space-between;
+    align-items: baseline;
+    padding-block: var(--space-2xs);
+    border-block-end: 1px solid var(--border);
+  }
+  .ot-role {
+    color: var(--ink);
+  }
+  .ot-org {
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .ot-date {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+  .ot-note {
+    margin-block-start: var(--space-l);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+
+  @media (max-width: 54rem) {
+    .ot-top {
+      grid-template-columns: 1fr;
+    }
+    .ot-photo {
+      order: 1;
+      max-inline-size: 22rem;
+    }
+    .ot-intro {
+      order: 2;
+    }
+  }
+</style>

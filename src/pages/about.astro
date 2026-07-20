@@ -14,6 +14,17 @@ const links = activeLinks();
   <PageHeader eyebrow="About" title="Anna Rosen" />
 
   <section class="about wrap">
+    <figure class="about__photo">
+      <img
+        src="/images/photos/anna-discover-the-cosmos.webp"
+        alt="Anna Rosen beside a shop window display headed “Discover the Cosmos”, adjusting a telescope on a tripod in front of a backdrop of the Sun and a spiral galaxy."
+        width="620"
+        height="790"
+        loading="lazy"
+        decoding="async"
+      />
+    </figure>
+
     <div class="about__body prose">
       <p>
         I am a computational astrophysicist and Assistant Professor of Astronomy
@@ -61,8 +72,45 @@ const links = activeLinks();
 </BaseLayout>
 
 <style>
+  /* Photo beside the prose on wide screens, above it on narrow. The measure
+     stays the constraint on the text; the photo takes the leftover column. */
   .about {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 18rem;
+    gap: var(--space-xl);
+    align-items: start;
     padding-block-end: var(--space-2xl);
+  }
+  .about__photo {
+    order: 2;
+    margin: 0;
+  }
+  .about__photo img {
+    inline-size: 100%;
+    block-size: auto;
+    border-radius: var(--radius-m);
+    box-shadow: 0 0 0 1px var(--border-strong);
+  }
+  .about__body {
+    order: 1;
+  }
+  /* Explicit order: flex/grid ordering defaults to 0, so without this the
+     links row sorted AHEAD of the prose, which has order: 1. */
+  .about__links {
+    order: 3;
+    grid-column: 1 / -1;
+  }
+  @media (max-width: 54rem) {
+    .about {
+      grid-template-columns: 1fr;
+    }
+    .about__photo {
+      order: 1;
+      max-inline-size: 20rem;
+    }
+    .about__body {
+      order: 2;
+    }
   }
   .about__body {
     font-size: var(--step-1);
