@@ -95,7 +95,7 @@ const packages = defineCollection({
     /** One-paragraph summary used on the index and as the page lede. */
     description: z.string(),
     status: z.enum(["active-build", "established", "planned"]),
-    readiness: z.enum(["developing", "advanced", "mature"]),
+    readiness: z.enum(["developing", "advanced", "mature", "published"]),
     /** Free-text maturity note, e.g. "Mature · methods paper in prep". */
     maturity: z.string().optional(),
     repo: z.string().url().nullable().default(null),
@@ -112,6 +112,12 @@ const packages = defineCollection({
           width: z.number().int(),
           height: z.number().int(),
           preliminary: z.boolean().default(false),
+          /**
+           * Where the caption sits. "side" is for tall figures: putting the
+           * caption alongside halves the image's height instead of letting a
+           * portrait dominate the page.
+           */
+          captionPlacement: z.enum(["below", "side", "above"]).default("below"),
         }),
       )
       .default([]),

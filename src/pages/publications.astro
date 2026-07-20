@@ -369,7 +369,7 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   }
   .allpubs__list { display: grid; gap: var(--space-xs); padding: 0; margin: 0; }
   .allpubs__item {
-    font-size: var(--step--1);
+    font-size: var(--step-0);
     color: var(--ink-soft);
     line-height: 1.45;
   }
@@ -377,7 +377,8 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   .allpubs__item a:hover { text-decoration-color: var(--spec-cyan, #4fd6c4); }
   .allpubs__authors {
     display: block;
-    font-size: 0.72rem;
+    /* Author lists are read, not glanced at — 0.72rem was 11.5px. */
+    font-size: var(--step--1);
     color: var(--ink-faint);
     line-height: 1.4;
   }
@@ -393,7 +394,7 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     padding-inline-start: var(--space-2xs);
     border-inline-start: 2px solid
       color-mix(in srgb, var(--spec-teal-bright) 35%, transparent);
-    font-size: 0.72rem;
+    font-size: var(--step--1);
     font-style: italic;
     color: var(--ink-dim);
     line-height: 1.45;

@@ -24,17 +24,22 @@ export const STATUS_LABEL: Record<PackageStatus, string> = {
  * than bury it in prose. Every package currently shares one `status`, which
  * makes that field carry no information; readiness is what actually differs.
  */
-export type Readiness = "developing" | "advanced" | "mature";
+export type Readiness = "developing" | "advanced" | "mature" | "published";
 
 export const READINESS_LABEL: Record<Readiness, string> = {
   developing: "In development",
   advanced: "Far along",
   mature: "Mature",
+  published: "Published",
 };
 
-/** Filled steps out of 3, for the readiness meter. */
+/** Filled steps out of 4, for the readiness meter. */
 export const READINESS_STEPS: Record<Readiness, number> = {
   developing: 1,
   advanced: 2,
   mature: 3,
+  published: 4,
 };
+
+/** Total steps in the meter; the last is reached on public release. */
+export const READINESS_TOTAL = 4;

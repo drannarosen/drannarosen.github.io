@@ -9,7 +9,7 @@
 import { render } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
-import { READINESS_LABEL, READINESS_STEPS } from "../../data/jaxstro";
+import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL } from "../../data/jaxstro";
 import { getPackages, type PackageEntry } from "../../lib/packages";
 
 export async function getStaticPaths() {
@@ -56,12 +56,14 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
         title={d.maturity}
         aria-label={`Readiness: ${READINESS_LABEL[d.readiness]}`}
       >
-        {[1, 2, 3].map((n) => (
+        {Array.from({ length: READINESS_TOTAL }, (_, k) => k + 1).map((n) => (
           <span class:list={["meter__step", n <= READINESS_STEPS[d.readiness] && "is-on"]} />
         ))}
         <span class="meter__label">{READINESS_LABEL[d.readiness]}</span>
       </span>
-      {d.maturity && <span class="pk-note">{d.maturity}</span>}
+      {d.maturity && d.maturity !== READINESS_LABEL[d.readiness] && (
+        <span class="pk-note">{d.maturity}</span>
+      )}
       {d.repo && <a class="pk-link" href={d.repo} rel="noopener">Repository ↗</a>}
       {d.docs && <a class="pk-link" href={d.docs} rel="noopener">Preview docs ↗</a>}
     </div>
@@ -80,7 +82,7 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
       <section class="wrap pk-gallery" aria-labelledby="pk-figs">
         <h2 id="pk-figs" class="pk-h2">What's working</h2>
         {d.figures.map((f) => (
-          <figure class="pk-fig">
+          <figure class:list={["pk-fig", `pk-fig--${f.captionPlacement}`]}>
             <img
               src={f.src}
               alt={f.alt}
@@ -143,7 +145,7 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
     margin-block-start: var(--space-m);
   }
   .pk-note {
-    font-size: 0.72rem;
+    font-size: var(--step--1);
     color: var(--ink-faint);
   }
   .pk-link {
@@ -165,11 +167,31 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
   .pk-gallery {
     padding-block: var(--space-l);
   }
+  /*
+   * Caption placement. "below" is the default; "side" exists for tall figures,
+   * where putting the caption alongside cuts the image's rendered height
+   * roughly in half instead of letting a portrait dominate the page. That is a
+   * layout fix, not a styling preference — a 1466x1639 figure at full column
+   * width is 928px tall and swamps everything around it.
+   */
   .pk-fig {
     margin-block-end: var(--space-xl);
-    /* Same reasoning as Figure.astro: evidence supports the argument, it does
-       not outweigh it. */
+    /* Evidence supports the argument; it does not outweigh it. */
     max-inline-size: min(100%, 52rem);
+  }
+  .pk-fig--side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(13rem, 19rem);
+    gap: var(--space-l);
+    align-items: start;
+    max-inline-size: min(100%, 62rem);
+  }
+  .pk-fig--above {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  .pk-fig--above figcaption {
+    margin-block: 0 var(--space-s);
   }
   .pk-fig img {
     display: block;
@@ -183,10 +205,17 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
       0 18px 40px -24px rgb(0 0 0 / 0.9);
   }
   .pk-fig figcaption {
-    margin-block-start: var(--space-2xs);
+    margin-block-start: var(--space-s);
     font-size: var(--step-0);
     line-height: 1.6;
     color: var(--ink-soft);
+  }
+  .pk-fig--side figcaption {
+    margin-block-start: 0;
+    font-size: var(--step--1);
+    /* Sticks alongside a tall figure instead of stranding the text at the top. */
+    position: sticky;
+    inset-block-start: calc(var(--header-h, 3.7rem) + var(--space-m));
   }
   .pk-figtitle {
     color: var(--ink);
@@ -228,6 +257,18 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
   .pk-nav__all {
     color: var(--ink-dim);
   }
+  /* Two columns need real width; below that the caption returns beneath. */
+  @media (max-width: 60rem) {
+    .pk-fig--side {
+      grid-template-columns: 1fr;
+      gap: var(--space-s);
+    }
+    .pk-fig--side figcaption {
+      position: static;
+      font-size: var(--step-0);
+    }
+  }
+
   @media (max-width: 34rem) {
     .pk-nav {
       flex-direction: column;
