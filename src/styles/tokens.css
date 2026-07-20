@@ -57,9 +57,14 @@
      *
      * Raised 2026-07-19: the small end was genuinely too small. --step--2
      * 12.5 -> 13.6px and --step--1 15.0 -> 16.3px at full width, which also
-     * narrows the oversized jump from --step--1 to --step-0.
+     * narrows the oversized jump from --step--1 to --step-0. Scale then set
+     * to 1.1 after previewing it on /style-guide.
+     *
+     * --step--1 and --step--2 remain small even at 1.1. They are for labels,
+     * badges and credits — glanced at, not read. Anything a visitor actually
+     * READS belongs at --step-0 or above.
      */
-    --font-scale: 1;
+    --font-scale: 1.1;
 
     --step--2: calc(clamp(0.75rem, 0.72rem + 0.16vw, 0.85rem) * var(--font-scale));
     --step--1: calc(clamp(0.90rem, 0.86rem + 0.20vw, 1.02rem) * var(--font-scale));
