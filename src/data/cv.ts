@@ -279,6 +279,7 @@ export const outreach: DatedEntry[] = [
   { role: "Speaker, Sharp Minds Public Lecture Series", org: "Fleet Science Center, San Diego, CA", date: "2025" },
   { role: "Panelist/Speaker, NASA Community College Symposium", org: "Fleet Science Center, San Diego, CA", date: "2024" },
   { role: "SDSU Astronomy Expert, Solar Eclipse Event", org: "Fleet Science Center, San Diego, CA", date: "2024" },
+  { role: "Speaker, “Women and Non-binary in STEM” Series", org: "San Diego Miramar College (SDCCD)", date: "2023" },
   { role: "AAUW STEM Ambassador, STEMEd for Girls program", date: "2022", href: "https://www.aauw.org/resources/programs/stemed-for-girls/" },
   { role: "Speaker, “How to Make Massive Stars on a (super)Computer”", org: "Western Nevada College / NCCN", date: "2022" },
   { role: "Science Matter Expert, NASA Community College Network (NCCN)", date: "2021–Present" },

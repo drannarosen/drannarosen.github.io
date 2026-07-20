@@ -114,9 +114,17 @@ const navItems = sections.map((s) => ({ id: slugify(s.title), label: s.nav }));
     <p class="cv-actions">
       {
         cvProfile.pdf && (
-          <a class="cv-btn" href={cvProfile.pdf}>
-            Download full CV (PDF)
-          </a>
+          <>
+            {/* Two affordances, because they are different intents: `download`
+                forces a save, which browsers otherwise would not do for a PDF
+                they can render inline, and the second opens it to read. */}
+            <a class="cv-btn" href={cvProfile.pdf} download>
+              Download CV (PDF)
+            </a>
+            <a class="cv-btn" href={cvProfile.pdf} target="_blank" rel="noopener">
+              Open CV in new tab ↗
+            </a>
+          </>
         )
       }
       <a class="cv-btn" href={cvProfile.orcid} rel="me noopener">ORCID</a>

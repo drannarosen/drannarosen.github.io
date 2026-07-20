@@ -19,7 +19,7 @@
     "og": "node scripts/og/generate.mjs",
     "prebuild": "node scripts/check-type.mjs && node scripts/figures/check.mjs && node scripts/og/generate.mjs",
     "check:type": "node scripts/check-type.mjs",
-    "cv:pdf": "typst compile --root \"$(dirname \"${CV_TYP:-/Users/anna/Dropbox/novagraph-vault/meta/Curriculum-Vitae-Rosen-Current/cv_rosen.typ}\")\" \"${CV_TYP:-/Users/anna/Dropbox/novagraph-vault/meta/Curriculum-Vitae-Rosen-Current/cv_rosen.typ}\" public/documents/cv-anna-rosen.pdf",
+    "cv:pdf": "typst compile --root . cv/cv_rosen.typ public/documents/cv-anna-rosen.pdf",
     "check:links": "node scripts/check-links.mjs",
     "check:links:external": "node scripts/check-links.mjs --external",
     "postbuild": "node scripts/check-links.mjs"

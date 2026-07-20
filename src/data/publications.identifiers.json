@@ -1,0 +1,21 @@
+{
+  "_comment": "HUMAN-OWNED. Identifiers that belong to a work ORCID already knows about, but which the ORCID record itself does not carry. ORCID frequently holds the DOI and nothing else, which leaves the bibliography with no ADS link even for a published paper. The sync never reads or writes this file, so these survive every regeneration of generated/publications.json.",
+
+  "_howToUse": [
+    "Key on `doi` — the identifier ORCID reliably does have.",
+    "Only FILLS IN a field the synced record leaves null; it never overwrites a",
+    "value ORCID supplied, so if ADS later flows through ORCID this file",
+    "quietly stops mattering rather than fighting it.",
+    "Verify a bibcode before adding it. The one below was checked against",
+    "Crossref (10.3847/1538-4357/ae6cdc -> ApJ 1004, 14, 2026), which matches",
+    "the volume and page encoded in the bibcode itself."
+  ],
+
+  "identifiers": [
+    {
+      "doi": "10.3847/1538-4357/ae6cdc",
+      "bibcode": "2026ApJ..1004...14E",
+      "why": "Escamilla, Grudić & Rosen (2026). Published in ApJ; ORCID carries only the DOI, so the bibliography had no ADS link."
+    }
+  ]
+}

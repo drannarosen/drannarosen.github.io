@@ -88,6 +88,8 @@ export const learningResources: LearningResource[] = [
   {
     name: "Cosmic Playground",
     kind: "Interactive platform",
+    status: "active-build",
+    readiness: "advanced",
     blurb:
       "Predict. Play. Explain. — an interactive astronomy demos platform. Play with the universe; learn the physics.",
     url: "https://astrobytes-edu.github.io/cosmic-playground/",

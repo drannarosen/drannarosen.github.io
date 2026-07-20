@@ -12,6 +12,7 @@
 import generated from "./generated/publications.json";
 import annotations from "./publications.notes.json";
 import additions from "./publications.additions.json";
+import identifiers from "./publications.identifiers.json";
 
 export interface SyncedWork {
   title: string;
@@ -60,7 +61,23 @@ const withNote = <T extends { doi: string | null; bibcode: string | null }>(w: T
     null,
 });
 
-const synced: SyncedWork[] = (generated.works as Omit<SyncedWork, "note">[]).map(withNote);
+/*
+ * doi -> identifiers ORCID does not carry. Only fills a null field, so a value
+ * that later starts flowing through ORCID wins over this file rather than being
+ * shadowed by it. See publications.identifiers.json.
+ */
+const identifierIndex = new Map(
+  identifiers.identifiers.map((i) => [i.doi.toLowerCase(), i] as const),
+);
+
+const withIdentifiers = <T extends { doi: string | null; bibcode: string | null }>(w: T): T => {
+  const extra = identifierIndex.get((w.doi ?? "").toLowerCase());
+  return extra ? { ...w, bibcode: w.bibcode ?? extra.bibcode ?? null } : w;
+};
+
+const synced: SyncedWork[] = (generated.works as Omit<SyncedWork, "note">[])
+  .map(withIdentifiers)
+  .map(withNote);
 
 /** Mirrors the sync's rule so an addition lands in the right group. */
 function isFirstAuthor(authors: string[] | null | undefined): boolean | null {
