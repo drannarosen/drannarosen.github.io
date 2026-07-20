@@ -11,6 +11,7 @@
  */
 import generated from "./generated/publications.json";
 import annotations from "./publications.notes.json";
+import additions from "./publications.additions.json";
 
 export interface SyncedWork {
   title: string;
@@ -34,6 +35,12 @@ export interface SyncedWork {
    * sync rewrites that wholesale and would erase anything written into it.
    */
   note: string | null;
+  /**
+   * Short journal name for a paper under review, e.g. "ApJ". ORCID has no good
+   * way to express "submitted", so these come from the human-owned
+   * publications.additions.json.
+   */
+  submittedTo?: string | null;
 }
 
 /** doi/bibcode -> note, from the human-owned annotations file. */
@@ -45,17 +52,64 @@ const noteIndex = new Map<string, string>(
   ),
 );
 
-export const allPublications: SyncedWork[] = (
-  generated.works as Omit<SyncedWork, "note">[]
-).map((w) => ({
+const withNote = <T extends { doi: string | null; bibcode: string | null }>(w: T) => ({
   ...w,
   note:
     noteIndex.get((w.doi ?? "").toLowerCase()) ??
     noteIndex.get((w.bibcode ?? "").toLowerCase()) ??
     null,
-}));
+});
+
+const synced: SyncedWork[] = (generated.works as Omit<SyncedWork, "note">[]).map(withNote);
+
+/** Mirrors the sync's rule so an addition lands in the right group. */
+function isFirstAuthor(authors: string[] | null | undefined): boolean | null {
+  if (!authors || authors.length === 0) return null;
+  return /^rosen,\s*a/i.test(authors[0] ?? "");
+}
+
+/** Normalised title, for matching an addition against a synced work. */
+const titleKey = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/*
+ * Merge the human-owned additions. An addition is DROPPED once the same work
+ * appears in ORCID — matched on DOI, arXiv id or title — so the overlap between
+ * "submitted" and "published" de-duplicates itself rather than double-listing.
+ */
+const seen = new Set(
+  synced.flatMap((w) =>
+    [w.doi?.toLowerCase(), w.arxiv?.toLowerCase(), titleKey(w.title)].filter(Boolean) as string[],
+  ),
+);
+
+const extra: SyncedWork[] = additions.additions
+  .filter(
+    (a) =>
+      !seen.has((a.doi ?? "").toLowerCase()) &&
+      !seen.has((a.arxiv ?? "").toLowerCase()) &&
+      !seen.has(titleKey(a.title)),
+  )
+  .map((a) =>
+    withNote({
+      title: a.title,
+      year: a.year,
+      venue: a.venue,
+      type: a.type,
+      doi: a.doi,
+      bibcode: a.bibcode,
+      arxiv: a.arxiv,
+      authors: a.authors,
+      firstAuthor: isFirstAuthor(a.authors),
+      submittedTo: a.submittedTo,
+    }),
+  ) as SyncedWork[];
+
+export const allPublications: SyncedWork[] = [...extra, ...synced].sort(
+  (a, b) => (Number(b.year) || 0) - (Number(a.year) || 0) || a.title.localeCompare(b.title),
+);
 export const publicationsSource: string = generated.source;
-export const publicationCount: number = generated.count;
+/** Counts the merged list, so additions are included rather than only synced. */
+export const publicationCount: number = allPublications.length;
 
 /** Role split. Anything unresolved rides along with co-authored in the list but
  *  is counted separately so it can never silently inflate either number. */

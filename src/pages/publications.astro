@@ -173,6 +173,9 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
                       ) : (
                         <span>{w.title}</span>
                       )}
+                      {w.submittedTo && (
+                        <span class="allpubs__pill">Submitted to {w.submittedTo}</span>
+                      )}
                       {line && <span class="allpubs__authors">{line}</span>}
                       {w.venue && <span class="allpubs__venue">{w.venue}</span>}
                       {w.note && <span class="allpubs__note">{w.note}</span>}
@@ -375,6 +378,19 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   }
   .allpubs__item a { color: var(--ink); text-decoration-color: var(--border); }
   .allpubs__item a:hover { text-decoration-color: var(--spec-cyan, #4fd6c4); }
+  .allpubs__pill {
+    display: inline-block;
+    margin-inline-start: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: color-mix(in srgb, var(--spec-rose) 82%, white);
+    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    vertical-align: 2px;
+  }
   .allpubs__authors {
     display: block;
     /* Author lists are read, not glanced at — 0.72rem was 11.5px. */
