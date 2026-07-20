@@ -20,6 +20,7 @@ uniform sampler3D uVol;
 uniform vec2 uRes;
 uniform float uYaw, uPitch, uEmit, uAbsorb, uZoom, uFloor, uGamma;
 uniform float uExpel, uLogRange; // expulsion phase; log10 dynamic range of the cube
+uniform float uGasFrac;          // gas mass remaining, as a fraction of the initial
 uniform vec2 uPan;               // view pan, in uv (screen-height) units
 
 bool hitBox(vec3 ro, vec3 rd, out float t0, out float t1){
@@ -49,13 +50,20 @@ void main(){
   vec3 deep=vec3(0.09,0.40,0.44), pale=vec3(0.60,0.96,0.92), warm=vec3(0.92,0.66,0.55);
   float S = 1.0 + uExpel*3.5;                           // homologous expansion factor
   float dilute = 3.0*(log(S)/2.302585)/uLogRange;       // 1/S^3 mass loss, in log10 units
+  /* Mass-loss at FIXED SHAPE: rho -> uGasFrac*rho everywhere, which in the
+     normalized-log encoding is a constant offset of log10(uGasFrac)/uLogRange.
+     This is the mode the survival explorable uses, and it is not a stylistic
+     choice: its integrator assumes the cloud's radial profile f(<r) is fixed
+     while M_gas(t) decays, so the render must show exactly that and not the
+     homologous expansion above, which the dynamics does not model. */
+  float massDilute = -(log(max(uGasFrac, 1e-4))/2.302585)/uLogRange;
   for(int i=0;i<STEPS;i++){
     vec3 sp = rom + rdm*t + 0.5;                        // view-space texcoord
     // Feedback expels the gas homologously: sample the ORIGINAL cube at a
     // contracted coord so the cloud balloons outward, and dilute density by 1/S^3
     // (a -3*log10(S) shift in log space). Stars don't move -> bare cluster emerges.
     vec3 src = 0.5 + (sp - 0.5)/S;
-    float d = texture(uVol, src).r - dilute;            // normalized log10(rho), diluted
+    float d = texture(uVol, src).r - dilute - massDilute; // normalized log10(rho), diluted
     // yt-style LOG COLORBAR: window to [rho_0, rho_max]. s = (d-uFloor)/(1-uFloor)
     // = log10(rho/rho_0) rescaled 0..1; gas below rho_0 (mean) is transparent.
     // No geometric mask: the EFF profile truncates the density at r_t, so the cloud

@@ -13,3 +13,5 @@ export { attachInteraction } from "./interaction";
 export { spectralRGB } from "./spectral";
 export type { Segregator } from "./massSegregation";
 export { makeSegregator } from "./massSegregation";
+export type { Dynamics, DynamicsInit, DynamicsParams, Diagnostics, Phase } from "./dynamics";
+export { createDynamics, RELAX_TCROSS } from "./dynamics";

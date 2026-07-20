@@ -6,87 +6,240 @@ import Math from "../../components/Math.astro";
 ---
 
 <BaseLayout
-  title="Gas expulsion — Anna Rosen"
-  description="Stellar feedback drives a cluster's natal gas outward, revealing the bare cluster — scrub the expulsion or let it play."
+  title="Does the cluster survive? — Anna Rosen"
+  description="Massive stars blow away the gas they formed from. Classic theory says that destroys most clusters — set the star-formation efficiency, expel the gas, and watch 10,000 real stars decide for themselves."
   path="/explore/gas-expulsion"
 >
-  <PageHeader
-    eyebrow="Explore · interactive"
-    title="Gas expulsion"
-    lede="Massive stars don't sit quietly. Their radiation, winds, and — eventually — supernovae drive the leftover natal gas outward, unbinding the cloud and leaving the young cluster behind. Scrub through the expulsion, or press play and watch the cloud clear."
-  />
+  <PageHeader eyebrow="Explore · interactive" title="Does the cluster survive?">
+    <Fragment slot="lede">
+      A young cluster is born inside far more gas than it turns into stars. When
+      its massive stars blow that gas away, the cluster loses most of the mass
+      binding it together — and the textbook calculation says it should tear
+      itself apart. Set the efficiency, drain the gas, and watch 10,000 real
+      stars settle the question.
+    </Fragment>
+  </PageHeader>
 
-  <div class="ge wrap-wide">
-    <PresentFrame label="A star cluster expelling its natal gas" hint="drag to rotate · scroll to zoom · ←/→ scrubs · space plays · F fullscreen">
-      <canvas slot="stage" data-cluster aria-label="A star cluster whose gas is driven outward, revealing the bare cluster."></canvas>
-      <div slot="controls" class="ge__controls">
-        <label class="ge__label" for="expel">
-          Expulsion <span class="ge__val" data-expel-v>playing</span>
-          <span class="ge__endpts">embedded → gas cleared</span>
-        </label>
-        <input id="expel" type="range" min="0" max="1" step="0.01" value="0" autocomplete="off" data-expel-input />
-        <label class="ge__chk"><input type="checkbox" checked autocomplete="off" data-play /> play the loop</label>
-        <p class="ge__status" data-status aria-live="polite">Loading cluster…</p>
+  <div class="gx wrap-wide">
+    <PresentFrame
+      label="A star cluster losing its natal gas"
+      hint="drag to rotate · scroll to zoom · space expels the gas · R resets · F fullscreen"
+    >
+      <canvas slot="stage" data-cluster aria-label="A star cluster whose natal gas drains away; stars that become unbound drift outward."></canvas>
+      <div slot="controls" class="gx__controls">
+        <div class="gx__knobs">
+          <label class="gx__knob" for="sfe">
+            <span class="gx__k">
+              Star-formation efficiency <Math tex={String.raw`\varepsilon`} />
+              <b data-sfe-v>20%</b>
+            </span>
+            <input id="sfe" type="range" min="0.05" max="0.7" step="0.01" value="0.2" autocomplete="off" data-sfe />
+            <span class="gx__hint">how much of the cloud became stars</span>
+          </label>
+          <label class="gx__knob" for="tau">
+            <span class="gx__k">
+              Expulsion time <Math tex={String.raw`\tau / t_\mathrm{cross}`} />
+              <b data-tau-v>1.0</b>
+            </span>
+            <input id="tau" type="range" min="0.1" max="3" step="0.1" value="1" autocomplete="off" data-tau />
+            <span class="gx__hint">below 1 is faster than the cluster can react</span>
+          </label>
+        </div>
+        <div class="gx__actions">
+          <button type="button" class="gx__go" data-go disabled>Settling…</button>
+          <button type="button" class="gx__reset" data-reset>Reset</button>
+        </div>
+        <dl class="gx__stats">
+          <div><dt>gas left</dt><dd data-gas>100%</dd></div>
+          <div><dt>local <Math tex={String.raw`\varepsilon`} /></dt><dd data-local>—</dd></div>
+          <div><dt>still bound</dt><dd data-surv>—</dd></div>
+        </dl>
+        <p class="gx__status" data-status aria-live="polite">Loading cluster…</p>
       </div>
     </PresentFrame>
 
-    <div class="ge__note prose wrap">
+    <div class="gx__note prose wrap">
+      <h2>What the textbook predicts</h2>
       <p>
-        The gas here expands <em>homologously</em> — every parcel moves outward by
-        the same factor <Math tex="S" />, so a shell at radius <Math tex="r" /> goes
-        to <Math tex="rS" /> and, by mass conservation, the density thins as
-        <Math tex={String.raw`\rho \to \rho/S^{3}`} />. It falls below the density
-        colorbar and clears from the outside in, while the stars, now decoupled from
-        the gas, stay put. It's a schematic of expulsion, not a feedback simulation: the
-        real thing is anisotropic — champagne flows and blister breakouts along the
-        least-dense channels. That physics is what my radiation-hydrodynamics work
-        models; this piece captures the story it tells.
+        If a cluster sits in virial equilibrium and you remove a fraction of its
+        mass faster than it can adjust, the stars are left moving too fast for
+        the shallower potential that remains. The classic estimate says a cluster
+        that turned less than about a third of its cloud into stars should
+        disperse entirely — which, if true, would mean almost every cluster dies
+        in infancy, since observed efficiencies are far below that.
+      </p>
+      <p>
+        Try it. Set <Math tex={String.raw`\varepsilon = 0.05`} /> and expel the
+        gas as fast as the slider allows: the cluster is badly damaged, and keeps
+        under half its mass. But push <Math tex={String.raw`\varepsilon`} /> to
+        0.2 — still a low efficiency by the textbook standard, still supposedly
+        fatal — and around 85% of the cluster survives.
+      </p>
+
+      <h2>Why it survives</h2>
+      <p>
+        Watch the <em>local</em> efficiency readout. It is the efficiency
+        measured inside the cluster's own half-mass radius rather than across the
+        whole cloud, and it is always much higher than the number you set. At a
+        global <Math tex={String.raw`\varepsilon = 0.05`} /> it is about 0.44; at
+        a global 0.2 it is about 0.78.
+      </p>
+      <p>
+        That gap is the whole answer, and it comes from the model rather than
+        from any assumption made here. Stars form where the gas is densest, so
+        the cluster ends up sitting in the one place where nearly all the gas has
+        already turned into stars. Most of the cloud's mass — the diffuse
+        majority that drags the global efficiency down — is spread far outside
+        the cluster and contributes almost nothing to binding it. Expelling that
+        gas removes very little of what actually holds the cluster together.
+      </p>
+
+      <h2>What this is, exactly</h2>
+      <p>
+        The stars are the 10,000 exported from my <code>progenax</code>
+        gravoturbulent model, with their real masses, positions, and turbulent
+        velocities. They are integrated live in your browser, one leapfrog step
+        per frame, through a spherical potential built from the cluster's own
+        star distribution plus the model's own tabulated cloud profile. The gas
+        dims at fixed shape because that is precisely what the integrator
+        assumes — the picture and the physics are the same model.
+      </p>
+      <p>
+        Two honest caveats. The exported initial condition is far from virial
+        equilibrium and is not an equilibrium configuration of a smooth
+        potential, so before any gas moves the cluster is scaled to
+        <Math tex="Q = 1/2" /> and allowed to settle for 30 crossing times; the
+        survival figure is measured against that settled cluster, and a run with
+        no expulsion returns exactly 100%. And this is a mean-field spherical
+        treatment: it captures the collective response the question turns on, and
+        deliberately omits two-body relaxation and the anisotropy of real
+        feedback, which my radiation-hydrodynamics work models directly.
       </p>
     </div>
   </div>
 </BaseLayout>
 
 <script>
-  import { loadScene, createEngine, attachInteraction } from "../../lib/cluster";
+  import { loadScene, createEngine, attachInteraction, createDynamics, RELAX_TCROSS } from "../../lib/cluster";
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-cluster]");
-  const slider = document.querySelector<HTMLInputElement>("[data-expel-input]");
-  const expelV = document.querySelector<HTMLSpanElement>("[data-expel-v]");
-  const play = document.querySelector<HTMLInputElement>("[data-play]");
-  const status = document.querySelector<HTMLParagraphElement>("[data-status]");
+  const sfeIn = document.querySelector<HTMLInputElement>("[data-sfe]");
+  const tauIn = document.querySelector<HTMLInputElement>("[data-tau]");
+  const goBtn = document.querySelector<HTMLButtonElement>("[data-go]");
+  const resetBtn = document.querySelector<HTMLButtonElement>("[data-reset]");
+  const sfeV = document.querySelector<HTMLElement>("[data-sfe-v]");
+  const tauV = document.querySelector<HTMLElement>("[data-tau-v]");
+  const gasV = document.querySelector<HTMLElement>("[data-gas]");
+  const localV = document.querySelector<HTMLElement>("[data-local]");
+  const survV = document.querySelector<HTMLElement>("[data-surv]");
+  const status = document.querySelector<HTMLElement>("[data-status]");
   const frame = canvas?.closest<HTMLElement>("[data-present]");
-  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+
+  /** Crossing times to integrate after expulsion before calling the verdict. */
+  const RUN_TCROSS = 40;
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
 
   (async () => {
-    if (!canvas || !slider || !play) return;
+    if (!canvas || !sfeIn || !tauIn || !goBtn || !resetBtn) return;
     try {
-      const scene = await loadScene();
-      // Short loop: the default 34 s spends ~15 s embedded, which reads as "broken"
-      // on a page about expulsion. 15 s starts the outflow within a few seconds.
-      const engine = createEngine(canvas, scene, { autoExpel: true, expelPeriodSec: 15 });
+      const base = "/data/gravoturb";
+      const [scene, meta, velBuf, mencBuf] = await Promise.all([
+        loadScene(),
+        fetch(`${base}/meta.json`).then((r) => r.json()),
+        fetch(`${base}/velocities.f32`).then((r) => r.arrayBuffer()),
+        fetch(`${base}/gas_menc.f32`).then((r) => r.arrayBuffer()),
+      ]);
+
+      const engine = createEngine(canvas, scene, { autoExpel: false, emphasizeHot: true });
       attachInteraction(canvas, engine);
+      const dyn = createDynamics({
+        stars: scene.stars,
+        velocities: new Float32Array(velBuf),
+        gasMenc: new Float32Array(mencBuf),
+        gasMencRMax: meta.gas_menc_r_max_pc,
+        G: meta.G_pc3_msun_myr2,
+      });
 
-      const setManual = (v: number) => {
-        const x = clamp(v);
-        play.checked = false;
-        engine.setExpel(x);
-        slider.value = String(x);
-        if (expelV) expelV.textContent = `${Math.round(x * 100)}% expelled`;
+      const mGas0 = () => dyn.mStar * (1 - dyn.getParams().sfe) / dyn.getParams().sfe;
+      let armed = false; // has the settled cluster been handed to the user yet
+
+      const apply = () => {
+        dyn.setParams({ sfe: +sfeIn.value, tauOverTCross: +tauIn.value, qTarget: 0.5 });
+        armed = false;
+        goBtn.disabled = true;
+        goBtn.textContent = "Settling…";
+        if (sfeV) sfeV.textContent = pct(+sfeIn.value);
+        if (tauV) tauV.textContent = (+tauIn.value).toFixed(1);
+        if (survV) survV.textContent = "—";
+        if (localV) localV.textContent = "—";
+        engine.setGasFraction(1);
       };
-      const setPlay = (on: boolean) => {
-        play.checked = on;
-        if (on) { engine.setExpel(null); if (expelV) expelV.textContent = "playing"; }
-        else setManual(+slider.value);
+
+      sfeIn.addEventListener("input", apply);
+      tauIn.addEventListener("input", apply);
+      resetBtn.addEventListener("click", apply);
+      goBtn.addEventListener("click", () => dyn.beginExpulsion());
+
+      // Present-mode keys (routed by PresentFrame).
+      frame?.addEventListener("present:toggleplay", () => { if (armed) dyn.beginExpulsion(); });
+      frame?.addEventListener("present:reset", apply);
+
+      apply();
+
+      /* One dynamics step per animation frame. dt = t_cross/8 measured at ~7.6 ms
+         for 10,000 stars, which leaves room for the raymarch in a 60 Hz budget.
+         diagnostics() costs ~1.8 ms, so it runs a few times a second, not every
+         frame. The engine draws on its own loop and picks up the new positions. */
+      let lastDiag = 0;
+      const tick = (now: number) => {
+        const g0 = dyn.diagnostics();
+        const done = g0.phase === "expelling" && g0.tSinceExpulsion > RUN_TCROSS * dyn.tCross;
+        /* Hold still once settled, until the reader presses expel. The bound
+           population is already stationary, but r_h keeps oscillating, and
+           expelling at a compressed rather than an expanded phase changes the
+           outcome by up to ~8% — which would make the verdict depend on how
+           fast the reader clicked. Pausing makes every run reproducible. */
+        const holding = g0.phase === "settled";
+        if (!done && !holding) {
+          dyn.step(dyn.tCross / 8);
+          engine.setStarPositions(dyn.positions);
+        }
+        if (now - lastDiag > 120) {
+          lastDiag = now;
+          const g = dyn.diagnostics();
+          engine.setGasFraction(g.mGas / mGas0());
+          if (gasV) gasV.textContent = pct(g.mGas / mGas0());
+          if (g.phase === "settling") {
+            if (status) status.textContent = `settling into equilibrium — ${pct(g.settleProgress)}`;
+          } else if (!armed) {
+            armed = true;
+            goBtn.disabled = false;
+            goBtn.textContent = "Expel the gas";
+            /* Show the local efficiency BEFORE expelling. It is a property of the
+               settled cluster, and seeing how far above the global slider it
+               already sits is the point the run then confirms. */
+            if (localV) localV.textContent = g.localSfe.toFixed(2);
+            if (status) {
+              status.textContent =
+                `settled · local ε = ${g.localSfe.toFixed(2)} vs global ${pct(dyn.getParams().sfe)} · press to expel`;
+            }
+          }
+          if (g.phase === "expelling") {
+            goBtn.disabled = true;
+            goBtn.textContent = "Expelling…";
+            if (localV) localV.textContent = g.localSfe.toFixed(2);
+            if (survV) survV.textContent = pct(g.survivingFraction);
+            if (status) {
+              status.textContent = done
+                ? `verdict after ${RUN_TCROSS} crossing times: ${pct(g.survivingFraction)} of the cluster is still bound`
+                : `expelling · t = ${g.tSinceExpulsion.toFixed(2)} Myr`;
+            }
+            if (done) goBtn.textContent = "Done";
+          }
+        }
+        requestAnimationFrame(tick);
       };
-      slider.addEventListener("input", () => setManual(+slider.value));
-      play.addEventListener("change", () => setPlay(play.checked));
-
-      frame?.addEventListener("present:next", () => setManual(+slider.value + 0.05));
-      frame?.addEventListener("present:prev", () => setManual(+slider.value - 0.05));
-      frame?.addEventListener("present:reset", () => { slider.value = "0"; setPlay(true); });
-
-      setPlay(true); // default: play the loop
-      if (status) status.textContent = "homologous expansion · real gravoturb cloud + 10,000 stars";
+      requestAnimationFrame(tick);
     } catch (err) {
       if (status) status.textContent = `Failed to load: ${String(err)}`;
     }
@@ -94,35 +247,67 @@ import Math from "../../components/Math.astro";
 </script>
 
 <style>
-  .ge { padding-block: var(--space-l) var(--space-3xl); }
-  .ge__controls {
+  .gx { padding-block: var(--space-l) var(--space-3xl); }
+  .gx__controls {
     display: grid;
-    gap: 0.3rem;
-    max-inline-size: 26rem;
+    gap: var(--space-2xs);
+    max-inline-size: 34rem;
     margin-inline: auto;
   }
-  .ge__label {
+  .gx__knobs { display: grid; gap: var(--space-2xs); }
+  .gx__knob { display: grid; gap: 0.15rem; }
+  .gx__k {
     font-family: var(--font-mono);
     font-size: var(--step--2);
     color: var(--ink);
     display: flex;
     align-items: baseline;
     gap: 0.5em;
-    flex-wrap: wrap;
   }
-  .ge__val { color: var(--spec-cyan, #4fd6c4); font-size: var(--step--1); }
-  .ge__endpts { color: var(--ink-dim); font-size: var(--step--2); }
-  .ge__controls input[type="range"] { inline-size: 100%; block-size: 1rem; accent-color: var(--spec-cyan, #4fd6c4); }
-  .ge__chk {
+  .gx__k b { color: var(--spec-cyan, #4fd6c4); font-weight: 400; }
+  .gx__hint { color: var(--ink-dim); font-size: var(--step--2); }
+  .gx__knob input[type="range"] {
+    inline-size: 100%;
+    block-size: 1rem;
+    accent-color: var(--spec-cyan, #4fd6c4);
+  }
+  .gx__actions { display: flex; gap: var(--space-2xs); align-items: center; }
+  .gx__go,
+  .gx__reset {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    padding: 0.4em 0.9em;
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border);
+    background: color-mix(in oklab, var(--spec-cyan, #4fd6c4) 16%, transparent);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .gx__reset { background: transparent; color: var(--ink-dim); }
+  .gx__go[disabled] { opacity: 0.5; cursor: default; }
+  .gx__stats {
     display: flex;
-    gap: 0.4em;
-    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-s);
+    margin-block-start: var(--space-2xs);
+  }
+  .gx__stats dt {
     font-family: var(--font-mono);
     font-size: var(--step--2);
     color: var(--ink-dim);
-    cursor: pointer;
   }
-  .ge__chk input { accent-color: var(--spec-cyan, #4fd6c4); }
-  .ge__status { font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); opacity: 0.75; }
-  .ge__note { margin-block-start: var(--space-2xl); }
+  .gx__stats dd {
+    font-family: var(--font-mono);
+    font-size: var(--step-0);
+    color: var(--spec-cyan, #4fd6c4);
+    margin: 0;
+  }
+  .gx__status {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+    opacity: 0.8;
+  }
+  .gx__note { margin-block-start: var(--space-2xl); }
+  .gx__note h2 { font-size: var(--step-1); margin-block-start: var(--space-l); }
 </style>

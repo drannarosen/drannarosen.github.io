@@ -41,6 +41,12 @@ export interface ClusterEngine {
   setStarAlpha(a: number): void;
   /** Replace the star set (n*6: x,y,z,mass,teff,radius) — e.g. mass re-pairing. */
   setStars(stars: Float32Array): void;
+  /** Update only the star POSITIONS (n*3, pc), keeping colours and sizes. The
+   *  per-frame path for the live dynamics: no palette work, no reallocation. */
+  setStarPositions(xyz: Float32Array): void;
+  /** [0,1] gas mass remaining. Dims the cloud at FIXED radial shape — the mode
+   *  the survival explorable's integrator actually assumes (see shaders.ts). */
+  setGasFraction(x: number): void;
   setView(v: Partial<View>): void;
   getView(): View;
   resetView(): void;
@@ -102,7 +108,7 @@ function buildStarBuffer(stars: Float32Array, emphasizeHot = false): Float32Arra
 function noopEngine(scene: Scene): ClusterEngine {
   return {
     setEmit() {}, setAbsorb() {}, setFloor() {}, setGamma() {}, setExpel() {}, setStarAlpha() {},
-    setStars() {}, setView() {}, getView: () => ({ yaw: DEFAULT_YAW, pitch: 0, zoom: DEFAULT_ZOOM, panX: 0, panY: 0, spin: false }),
+    setStars() {}, setStarPositions() {}, setGasFraction() {}, setView() {}, getView: () => ({ yaw: DEFAULT_YAW, pitch: 0, zoom: DEFAULT_ZOOM, panX: 0, panY: 0, spin: false }),
     resetView() {}, redraw() {}, cleanup() {},
     meta: { floors: { median: scene.floorMedian, mean: scene.floorMean }, box: scene.box, ngrid: scene.ngrid },
   };
@@ -137,7 +143,8 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
   gl.bindVertexArray(vao);
   const vbo = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-  gl.bufferData(gl.ARRAY_BUFFER, buildStarBuffer(scene.stars, emphasizeHot), gl.DYNAMIC_DRAW);
+  let sbuf = buildStarBuffer(scene.stars, emphasizeHot);
+  gl.bufferData(gl.ARRAY_BUFFER, sbuf, gl.DYNAMIC_DRAW);
   const stride = 7 * 4;
   const aPos = gl.getAttribLocation(starProg, "aPos");
   const aColor = gl.getAttribLocation(starProg, "aColor");
@@ -159,6 +166,7 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
   const uFloorL = gl.getUniformLocation(volProg, "uFloor");
   const uGammaL = gl.getUniformLocation(volProg, "uGamma");
   const uAbsorbL = gl.getUniformLocation(volProg, "uAbsorb");
+  const uGasFracL = gl.getUniformLocation(volProg, "uGasFrac");
   const uZoomVol = gl.getUniformLocation(volProg, "uZoom");
   const uPanVol = gl.getUniformLocation(volProg, "uPan");
   gl.useProgram(volProg);
@@ -167,6 +175,7 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
   gl.uniform1f(uAbsorbL, 9.0);
   gl.uniform1f(uFloorL, scene.densityFloor);
   gl.uniform1f(uGammaL, 1.1);
+  gl.uniform1f(uGasFracL, 1.0);
   gl.uniform1f(gl.getUniformLocation(volProg, "uLogRange"), scene.logRange);
 
   const uSYaw = gl.getUniformLocation(starProg, "uYaw");
@@ -314,10 +323,24 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
     },
     setStars: (stars) => {
       n = stars.length / 6;
+      sbuf = buildStarBuffer(stars, emphasizeHot);
       gl!.bindBuffer(gl!.ARRAY_BUFFER, vbo);
-      gl!.bufferData(gl!.ARRAY_BUFFER, buildStarBuffer(stars, emphasizeHot), gl!.DYNAMIC_DRAW);
+      gl!.bufferData(gl!.ARRAY_BUFFER, sbuf, gl!.DYNAMIC_DRAW);
       if (!running) redraw();
     },
+    setStarPositions: (xyz) => {
+      const count = Math.min(n, xyz.length / 3);
+      for (let i = 0; i < count; i++) {
+        const q = i * 7, o = i * 3;
+        sbuf[q] = xyz[o];
+        sbuf[q + 1] = xyz[o + 1];
+        sbuf[q + 2] = xyz[o + 2];
+      }
+      gl!.bindBuffer(gl!.ARRAY_BUFFER, vbo);
+      gl!.bufferSubData(gl!.ARRAY_BUFFER, 0, sbuf);
+      if (!running) redraw();
+    },
+    setGasFraction: (x) => setUniform(uGasFracL, Math.min(1, Math.max(0, x))),
     setView: (v) => {
       Object.assign(view, v);
       view.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, view.zoom));

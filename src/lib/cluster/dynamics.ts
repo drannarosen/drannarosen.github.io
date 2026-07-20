@@ -238,8 +238,8 @@ export function createDynamics(init: DynamicsInit): Dynamics {
   let tCross = 1;
   let t = 0;
   let tExpel: number | null = null; // time at which expulsion began
-  let mBoundAtExpulsion: number | null = null; // bound mass of the settled cluster
-  let localSfeAtExpulsion = 0;
+  let mBoundAtSettle: number | null = null; // bound mass of the settled cluster
+  let localSfeSettled = 0;
   let phase: Phase = "settling";
 
   /* Has the cluster settled? The tolerance matters: t accumulates one sub-step
@@ -326,14 +326,30 @@ export function createDynamics(init: DynamicsInit): Dynamics {
     return w !== 0 ? kinetic / w : 0;
   }
 
+  /* Freeze the reference quantities the moment the cluster settles, NOT when the
+     user presses expel. r_h keeps oscillating after the bound population has
+     stopped changing, so sampling it at press time made the reported local SFE
+     depend on how quickly the reader clicked — it moved by ~6% between an
+     immediate press and one a few seconds later. Both reported numbers are now
+     properties of the settled cluster alone. */
+  function snapshotSettled(): void {
+    const g = diagnostics();
+    mBoundAtSettle = g.boundMassFraction * mStar;
+    const rh = g.rHalf;
+    let mStarIn = 0;
+    for (let k = 0; k < NBINS; k++) { if (edge[k] > rh) break; mStarIn += binMass[k]; }
+    const mGasIn = mGas0 * fEncBin[binOf(rh)];
+    localSfeSettled = mStarIn + mGasIn > 0 ? mStarIn / (mStarIn + mGasIn) : 0;
+  }
+
   function reset(): void {
     p.set(pos0);
     v.set(vel0);
     t = 0;
     tExpel = null;
     phase = "settling";
-    mBoundAtExpulsion = null;
-    localSfeAtExpulsion = 0;
+    mBoundAtSettle = null;
+    localSfeSettled = 0;
     mGas0 = mStar * (1 - params.sfe) / params.sfe;
     buildProfile();
     /* Crossing time of the EMBEDDED system: t_cross = 2 r_h / sigma_virial, with
@@ -387,7 +403,10 @@ export function createDynamics(init: DynamicsInit): Dynamics {
       for (let i = 0; i < n * 3; i++) v[i] += acc[i] * hh;
     }
     if (tExpel !== null) phase = "expelling";
-    else if (hasSettled()) phase = "settled";
+    else if (hasSettled() && phase === "settling") {
+      phase = "settled";
+      snapshotSettled();
+    }
     syncOut();
   }
 
@@ -430,8 +449,8 @@ export function createDynamics(init: DynamicsInit): Dynamics {
       rHalf,
       energy: kinetic + potential,
       settleProgress: Math.min(1, t / (RELAX_TCROSS * tCross)),
-      survivingFraction: mBoundAtExpulsion ? boundM / mBoundAtExpulsion : 1,
-      localSfe: localSfeAtExpulsion,
+      survivingFraction: mBoundAtSettle ? boundM / mBoundAtSettle : 1,
+      localSfe: localSfeSettled,
     };
   }
 
@@ -452,14 +471,6 @@ export function createDynamics(init: DynamicsInit): Dynamics {
       if (tExpel !== null || !hasSettled()) return;
       tExpel = t;
       phase = "expelling";
-      const g = diagnostics();
-      mBoundAtExpulsion = g.boundMassFraction * mStar;
-      // Local SFE inside the settled half-mass radius, frozen at this moment.
-      const rh = g.rHalf;
-      let mStarIn = 0;
-      for (let k = 0; k < NBINS; k++) { if (edge[k] > rh) break; mStarIn += binMass[k]; }
-      const mGasIn = mGas0 * fEncBin[binOf(rh)];
-      localSfeAtExpulsion = mStarIn + mGasIn > 0 ? mStarIn / (mStarIn + mGasIn) : 0;
     },
     positions: posOut,
     diagnostics,
