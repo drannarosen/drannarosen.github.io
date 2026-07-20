@@ -13,7 +13,19 @@ import {
   education,
   awards,
   selectedPublications,
+  grants,
+  grantTotalPI,
+  graduateAdvisees,
+  undergraduateAdvisees,
+  serviceSDSU,
+  serviceNational,
+  serviceEarlier,
+  selectedTalks,
+  talkCounts,
+  outreach,
+  professionalDevelopment,
   type DatedEntry,
+  type Advisee,
 } from "../data/cv";
 
 // Render an author string with Anna's name (wrapped in **…**) emphasized.
@@ -32,8 +44,10 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
  * CV can never disagree with those pages.
  */
 type CvSection =
-  | { kind: "dated"; title: string; nav: string; entries: DatedEntry[] }
-  | { kind: "pubs"; title: string; nav: string };
+  | { kind: "dated"; title: string; nav: string; entries: DatedEntry[]; lede?: string }
+  | { kind: "pubs"; title: string; nav: string }
+  | { kind: "grants"; title: string; nav: string }
+  | { kind: "advising"; title: string; nav: string };
 
 const teachingEntries: DatedEntry[] = courses.map((c) => ({
   role: `${c.code} — ${c.title}`,
@@ -52,9 +66,23 @@ const sections: CvSection[] = (
   [
     { kind: "dated", title: "Appointments", nav: "Appointments", entries: employment },
     { kind: "dated", title: "Education", nav: "Education", entries: education },
-    { kind: "dated", title: "Selected Awards & Honors", nav: "Awards", entries: awards },
+    { kind: "grants", title: "Grants & Funded Proposals", nav: "Grants" },
+    { kind: "dated", title: "Awards & Honors", nav: "Awards", entries: awards },
     { kind: "pubs", title: "Selected Publications", nav: "Publications" },
+    {
+      kind: "dated",
+      title: "Invited Talks",
+      nav: "Talks",
+      entries: selectedTalks,
+      lede: `${talkCounts.invited} invited and ${talkCounts.contributed} contributed talks to date. A selection:`,
+    },
     { kind: "dated", title: "Teaching", nav: "Teaching", entries: teachingEntries },
+    { kind: "advising", title: "Advising & Mentoring", nav: "Advising" },
+    { kind: "dated", title: "Service — San Diego State", nav: "Service · SDSU", entries: serviceSDSU },
+    { kind: "dated", title: "Service — National & International", nav: "Service · National", entries: serviceNational },
+    { kind: "dated", title: "Service — Earlier", nav: "Service · Earlier", entries: serviceEarlier },
+    { kind: "dated", title: "Public Outreach", nav: "Outreach", entries: outreach },
+    { kind: "dated", title: "Professional Development", nav: "Development", entries: professionalDevelopment },
     { kind: "dated", title: "Software", nav: "Software", entries: softwareEntries },
   ] satisfies CvSection[]
 ).filter((s) => s.kind !== "dated" || s.entries.length > 0);
@@ -101,6 +129,63 @@ const navItems = sections.map((s) => ({ id: slugify(s.title), label: s.nav }));
         <h2 id={slugify(section.title)} class="cv-section__title">
           {section.title}
         </h2>
+
+        {section.kind === "dated" && section.lede && (
+          <p class="cv-lede">{section.lede}</p>
+        )}
+
+        {section.kind === "grants" && (
+          <>
+            <p class="cv-lede">Total obtained as PI: <strong>{grantTotalPI}</strong></p>
+            <ul class="cv-list" role="list">
+              {grants.map((g) => (
+                <li class="cv-entry">
+                  <div class="cv-entry__body">
+                    <p class="cv-entry__role">
+                      {g.role} — {g.program}
+                    </p>
+                    <p class="cv-entry__note">{g.title}</p>
+                  </div>
+                  <span class="cv-entry__date">{g.date}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {section.kind === "advising" && (
+          <>
+            {(
+              [
+                ["Graduate students", graduateAdvisees],
+                ["Undergraduate students", undergraduateAdvisees],
+              ] as [string, Advisee[]][]
+            ).map(([label, people]) => (
+              <>
+                <h3 class="cv-sub">{label}</h3>
+                <ul class="cv-list" role="list">
+                  {people.map((a) => (
+                    <li class="cv-entry">
+                      <div class="cv-entry__body">
+                        <p class="cv-entry__role">
+                          {a.name}
+                          {a.refereed && <span class="cv-star" title="Led to a refereed publication">★</span>}
+                        </p>
+                        <p class="cv-entry__org">{a.affiliation}</p>
+                        {a.project && <p class="cv-entry__note">{a.project}</p>}
+                      </div>
+                      <span class="cv-entry__date">{a.date}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ))}
+            <p class="cv-note">
+              <span class="cv-star">★</span> Denotes students whose project or
+              contribution led to a refereed publication.
+            </p>
+          </>
+        )}
 
         {section.kind === "dated" && (
           <ul class="cv-list" role="list">
@@ -303,6 +388,20 @@ const navItems = sections.map((s) => ({ id: slugify(s.title), label: s.nav }));
   .cv-pub__ads {
     font-family: var(--font-mono);
     font-size: var(--step--1);
+  }
+  .cv-lede {
+    max-inline-size: var(--width-prose);
+    margin-block-end: var(--space-m);
+    color: var(--ink-soft);
+  }
+  .cv-sub {
+    font-size: var(--step-0);
+    color: var(--spec-teal-bright);
+    margin-block: var(--space-m) var(--space-2xs);
+  }
+  .cv-star {
+    margin-inline-start: var(--space-3xs);
+    color: var(--spec-teal-bright);
   }
   .cv-note {
     margin-block-start: var(--space-l);
