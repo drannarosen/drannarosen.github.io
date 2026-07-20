@@ -17,8 +17,15 @@
     /* ── Text hierarchy (white mixed into ink, no chroma) ────────── */
     --ink: color-mix(in srgb, #ffffff 90%, var(--bg-void));
     --ink-soft: color-mix(in srgb, #ffffff 66%, var(--bg-void));
-    --ink-dim: color-mix(in srgb, #ffffff 48%, var(--bg-void));
-    --ink-faint: color-mix(in srgb, #ffffff 33%, var(--bg-void));
+    /* The low end is set by CONTRAST, not by taste. At 48%/33% the faint level
+       failed WCAG AA everywhere it was used as text (2.99 on --bg-void, 2.73 on
+       --bg-deep, 2.50 on --bg-surface) across 25 usages — footer, figure
+       credits, provenance, <dt>, <cite>. Raising faint alone would have made it
+       LIGHTER than dim and collapsed the scale, so both moved together.
+       Now: dim 6.8/6.2/5.7 and faint 5.5/5.0/4.6 on void/deep/surface — four
+       distinct levels, all AA for normal text on every background. */
+    --ink-dim: color-mix(in srgb, #ffffff 58%, var(--bg-void));
+    --ink-faint: color-mix(in srgb, #ffffff 51%, var(--bg-void));
 
     /* ── Brand accents (Anna's "muted spectral minimalism") ──────────
      * Teal is the signature; rose + violet are secondary; amber is the
