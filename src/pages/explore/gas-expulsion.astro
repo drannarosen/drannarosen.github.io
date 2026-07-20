@@ -85,7 +85,22 @@ import Math from "../../components/Math.astro";
       frame?.addEventListener("present:prev", () => setManual(+slider.value - 0.05));
       frame?.addEventListener("present:reset", () => { slider.value = "0"; setPlay(true); });
 
-      setPlay(true); // default: play the loop
+      /* Reduced motion: the engine runs no loop, so the auto-expulsion never
+         advances and a checked "play" box would sit there doing nothing on a
+         page about expulsion. Hand the reader the slider instead — scrubbing
+         redraws a real frame, so the whole expulsion is still reachable. */
+      if (engine.reducedMotion) {
+        setManual(0);
+        play.checked = false;
+        play.disabled = true;
+        // Relabel via the trailing text node only: setting textContent on the
+        // label would delete the checkbox it contains.
+        const label = play.parentElement;
+        const text = label && [...label.childNodes].find((nd) => nd.nodeType === Node.TEXT_NODE);
+        if (text) text.textContent = " animation off (reduced motion) — drag to scrub";
+      } else {
+        setPlay(true); // default: play the loop
+      }
       if (status) status.textContent = "homologous expansion · real gravoturb cloud + 10,000 stars";
     } catch (err) {
       if (status) status.textContent = `Failed to load: ${String(err)}`;

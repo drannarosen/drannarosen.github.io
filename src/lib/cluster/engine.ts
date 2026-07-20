@@ -52,6 +52,11 @@ export interface ClusterEngine {
   resetView(): void;
   redraw(): void;
   cleanup(): void;
+  /** True when the engine is honouring prefers-reduced-motion: no render loop,
+   *  no auto-rotation, no auto-expulsion. Surfaces should read this and offer a
+   *  static, scrubbable equivalent rather than a control that silently does
+   *  nothing. */
+  reducedMotion: boolean;
   meta: { floors: { median: number; mean: number }; box: number; ngrid: number };
 }
 
@@ -110,6 +115,7 @@ function noopEngine(scene: Scene): ClusterEngine {
     setEmit() {}, setAbsorb() {}, setFloor() {}, setGamma() {}, setExpel() {}, setStarAlpha() {},
     setStars() {}, setStarPositions() {}, setGasFraction() {}, setView() {}, getView: () => ({ yaw: DEFAULT_YAW, pitch: 0, zoom: DEFAULT_ZOOM, panX: 0, panY: 0, spin: false }),
     resetView() {}, redraw() {}, cleanup() {},
+    reducedMotion: false,
     meta: { floors: { median: scene.floorMedian, mean: scene.floorMean }, box: scene.box, ngrid: scene.ngrid },
   };
 }
@@ -356,6 +362,7 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
       if (!running) redraw();
     },
     redraw,
+    reducedMotion: reduceMotion,
     cleanup(): void {
       stop();
       io.disconnect();
