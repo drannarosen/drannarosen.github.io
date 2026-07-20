@@ -85,7 +85,9 @@ const { eyebrow, heading, lede } = Astro.props;
   }
 
   .hero__heading {
-    max-inline-size: 24ch;
+    /* 24ch forced four short lines and, with text-wrap: balance, stranded an
+       em dash at the end of two of them. 32ch sets it in three. */
+    max-inline-size: 32ch;
     font-size: var(--step-4);
     margin-block-end: var(--space-m);
   }
