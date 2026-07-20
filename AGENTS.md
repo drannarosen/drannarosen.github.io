@@ -68,6 +68,37 @@ pnpm check      # astro type checking
 Manage the background dev server with `astro dev stop`, `astro dev status`,
 `astro dev logs`.
 
+### Verifying layout in the browser preview
+
+**Record the viewport in every layout measurement.** The preview pane silently
+changes its own width — it has been observed dropping from 1440 to 528 px
+between one call and the next, and `location.reload()` can reset it. A
+responsive rule then correctly stops matching, and the result looks exactly like
+a broken selector or a stale stylesheet.
+
+This was misdiagnosed twice as "the dev server is serving stale CSS", and a
+server restart appeared to fix it only because the restart was accompanied by
+setting the viewport again. Investigated properly on 2026-07-20: with the pane
+at 1440 px, an edit to a scoped `<style>` block was live in `getComputedStyle`
+with **no reload and no restart**. Astro's CSS HMR works; do not restart the
+server on layout weirdness, and do not rewrite working CSS.
+
+Before concluding anything about a layout:
+
+1. Include `innerWidth` in the same call that measures geometry — never infer it
+   from an earlier call.
+2. Set the width explicitly with `resize_window` immediately before measuring.
+   The `desktop` preset yields the pane's native size (~1041 px), which is not a
+   desktop width; pass 1440x900.
+3. If a rule seems not to apply, check `matchMedia(...).matches` at the measured
+   width before suspecting the toolchain.
+
+Two related traps when reading the served CSS directly: Vite normalises values
+(`magenta` becomes `#f0f`) and rewrites media queries (`(min-width: 60rem)`
+becomes `(width >= 60rem)`), so grepping for the literal text you wrote reports
+a false negative. It also strips CSS comments, so a `/* PROBE */` marker
+vanishes.
+
 ## Conventions
 
 - Strict TypeScript everywhere; avoid `any` and unchecked assertions.
