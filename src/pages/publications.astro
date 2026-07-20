@@ -364,6 +364,21 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     gap: var(--space-s);
     margin-block-start: var(--space-m);
   }
+  /* A year heading governs every entry in its group, but with only a
+     two-column grid the second and later entries render beside blank space and
+     read as though their year is missing. The rule ties the group together. */
+  .allpubs__list {
+    /* --border (9% white) is too faint to carry meaning here; this rule has a
+       job to do, so it uses the stronger hairline. */
+    border-inline-start: 1px solid var(--border-strong);
+    padding-inline-start: var(--space-s);
+  }
+  /* Keeps the year in view beside a long group (2024 has six entries). */
+  .allpubs__yr {
+    position: sticky;
+    inset-block-start: calc(var(--header-h, 3.7rem) + var(--space-2xs));
+    align-self: start;
+  }
   .allpubs__yr {
     font-family: var(--font-mono);
     font-size: var(--step--1);
