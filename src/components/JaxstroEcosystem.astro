@@ -23,7 +23,6 @@ if (pipeline.length === 0) {
       "collection was added, restart it: `astro dev stop && astro dev --background`.",
   );
 }
-import StatusBadge from "./StatusBadge.astro";
 ---
 
 <figure class="eco">
@@ -31,11 +30,13 @@ import StatusBadge from "./StatusBadge.astro";
     {
       pipeline.map((pkg) => (
         <li class="eco__node">
+          {/* Stage + name only. The status badge was identical on all five
+              nodes (zero information) and the maturity note repeated the
+              readiness meter in the list below, with 35 characters at 11px in
+              an 81px box. A diagram shows flow and order; detail lives below. */}
           <a class="eco__node-link" href={`/software/${pkg.id}`}>
             <span class="eco__stage">{pkg.data.stage}</span>
             <span class="eco__name">{pkg.data.name}</span>
-            <StatusBadge status={pkg.data.status} />
-            {pkg.data.maturity && <span class="eco__maturity">{pkg.data.maturity}</span>}
           </a>
         </li>
       ))
@@ -83,25 +84,42 @@ import StatusBadge from "./StatusBadge.astro";
     pointer-events: none;
   }
 
-  .eco__node-link,
+  /* NOTE: this rule was destroyed by an over-broad regex when the foundation
+     card was removed; its selectors were left dangling and silently merged
+     into .eco__stage. Restored explicitly. */
+  .eco__node-link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
+    inline-size: 100%;
+    padding: var(--space-s) var(--space-xs);
+    text-decoration: none;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    transition:
+      border-color var(--dur-base) var(--ease-out),
+      background-color var(--dur-base) var(--ease-out);
+  }
   .eco__node-link:hover,
-  .eco__node-link:focus-visible,
+  .eco__node-link:focus-visible {
+    border-color: color-mix(in srgb, var(--spec-teal) 50%, var(--border));
+    background: color-mix(in srgb, var(--spec-teal) 8%, var(--bg-deep));
+  }
 
   .eco__stage {
     font-family: var(--font-mono);
-    font-size: 0.66rem;
+    /* Was 0.66rem — unreadably small for the label that carries the pipeline's
+       meaning. The name is decoration by comparison; the stage is the point. */
+    font-size: 0.76rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--ink-dim);
   }
   .eco__name {
     font-family: var(--font-mono);
-    font-size: var(--step-1);
+    font-size: var(--step-0);
     color: var(--spec-teal-bright);
-  }
-  .eco__maturity {
-    font-size: 0.7rem;
-    color: var(--ink-dim);
   }
 
   .eco__return {

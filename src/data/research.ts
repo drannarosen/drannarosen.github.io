@@ -97,8 +97,8 @@ export const researchQuestions: ResearchQuestion[] = [
       caption:
         "A differentiable model has to earn the word. Here a 512-star cluster with a hard massive binary is evolved for three crossing times — the binary hardens, the cluster expands — and the gradients of that whole calculation match finite differences to about one part in a billion. That is what makes the model invertible against data rather than merely runnable.",
       credit: "A. L. Rosen · Jaxstro (gravax). Preliminary.",
-      width: 2518,
-      height: 1888,
+      width: 2512,
+      height: 778,
       preliminary: true,
     },
   },

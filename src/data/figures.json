@@ -49,10 +49,10 @@
       "origin": "jaxstro-dev/gravax",
       "script": "validation/preview/clusters/eff-imf-n512-proposal/2026-07-19-preview",
       "paperFigure": "gravax preview run (N=512 EFF cluster, 3 crossing times)",
-      "width": 2518,
-      "height": 1888,
-      "sha256": "b0d877141b39b5be6a8136af3d61daadf0a0909913f54eb3b832f2826ded8c10",
-      "note": "PRELIMINARY. gravax's own provenance.json records production_validated=false: this is a preview run, not a production-validated result. config sha256 dfed5f7e…, IC sha256 39d42ceb…, JAX 0.10.2, CPU, seed 2213."
+      "width": 2512,
+      "height": 778,
+      "sha256": "a1f91811c7c855b76d9ee52e79aefb78b7db41eaf8b96c6b08bd4e8c38033abe",
+      "note": "PRELIMINARY. gravax provenance.json records production_validated=false: a preview run, not production-validated. config sha256 dfed5f7e…, IC sha256 39d42ceb…, JAX 0.10.2, CPU, seed 2213."
     },
     {
       "path": "images/software/informax-telescope-adds-ten-pounds.webp",
@@ -65,16 +65,6 @@
       "note": "PRELIMINARY. Truth-known experiment, 96 recovery mocks; hash-verified evidence bundles. Claims machine-checked against the run in the infoviz card."
     },
     {
-      "path": "images/software/fluxax-lsst-synthetic.webp",
-      "origin": "jaxstro-dev/fluxax",
-      "script": "validation/plots/lsst_synthetic_image.png",
-      "paperFigure": "Synthetic LSST r-band images, sparse vs crowded",
-      "width": 1950,
-      "height": 930,
-      "sha256": "ccded4e7a4eccf926629b93af21e54c36f56b4da2c74926963c90bc3cbce5582",
-      "note": "PRELIMINARY. Shared forward model; PSF FWHM 0.7 arcsec, 0.2 arcsec/pix, 256^2 pix, d=6300 pc, Poisson-Gaussian noise, seeds 1 and 2."
-    },
-    {
       "path": "images/research/gravoturb-cluster.webp",
       "origin": "jaxstro-dev/progenax",
       "script": "scripts/gravoturb/export_cluster.py",
@@ -83,6 +73,16 @@
       "height": 486,
       "sha256": "b376e5552e54004c3bffe4a6eb357ca52a2f86cbcec3ad88f9edc9725c9c6e8f",
       "note": "PRELIMINARY. Generated with progenax; shown on /research and /software."
+    },
+    {
+      "path": "images/software/fluxax-truth-observed-cmds.webp",
+      "origin": "jaxstro-dev/fluxax",
+      "script": "f3-truth-observed-cmds",
+      "paperFigure": "Truth vs Gaia vs Rubin colour-magnitude diagrams",
+      "width": 2425,
+      "height": 753,
+      "sha256": "ab8a2b047033022e1116de72e7695f1ae567ad6d6e188065248d4d3f2a3f167f",
+      "note": "PRELIMINARY. Same synthetic population pushed through the Gaia and Rubin forward models, including detection limits and saturation."
     }
   ]
 }
