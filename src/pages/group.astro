@@ -3,34 +3,64 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
 import { siteConfig } from "../lib/site";
 import { cvProfile } from "../data/cv";
+
+/*
+ * /group — for SDSU Astronomy students deciding whether to work with me.
+ *
+ * Written as a THRESHOLD, not an advertisement. The previous version stated no
+ * eligibility and ended in a bare "Email me" button — a zero-friction
+ * invitation to everyone, which drew mail from people I cannot advise. Two
+ * things filter now, neither of them a scolding: eligibility stated plainly in
+ * the lede, and an email that asks for three specifics only a reader of this
+ * page can supply.
+ *
+ * The links out to /explore, /software and the package docs are part of that
+ * mechanism rather than decoration: they give a reader something to DO before
+ * writing, which is what separates a prepared student from a mass email.
+ */
+
+/** Prefilled so the tag is already there for anyone who follows the page. */
+const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-ASTRO: ")}`;
 ---
 
 <BaseLayout
-  title="Group — Anna Rosen, Ph.D."
-  description="Research vision and opportunities: differentiable stellar astrophysics as a launchpad for many focused, tractable student projects."
+  title="Group & Opportunities — Anna Rosen, Ph.D."
+  description="Research projects for SDSU Astronomy undergraduate and Master's students: differentiable software turns big questions into focused projects a student can own end to end."
   path="/group"
 >
-  <PageHeader
-    eyebrow="Group & Opportunities"
-    title="A program built for many hands"
-    lede="The aim is a research program where differentiable software turns big questions into focused, tractable projects — so students do real science early, on tools they can actually read."
-  />
+  <PageHeader eyebrow="Group & Opportunities" title="A question you can actually finish">
+    <Fragment slot="lede">
+      I advise <strong>SDSU Astronomy undergraduate and Master's students</strong>.
+      Differentiable, modular software turns a big question into a focused one — so
+      you can own a real project end to end rather than hold a corner of someone
+      else's.
+    </Fragment>
+  </PageHeader>
 
-  <section class="wrap gr-section" aria-labelledby="vision-heading">
-    <h2 id="vision-heading" class="gr-title">The idea</h2>
+  <section class="wrap gr-section" aria-labelledby="work-heading">
+    <h2 id="work-heading" class="gr-title">What you'd work on</h2>
     <div class="prose gr-prose">
       <p>
-        The <code>jaxstro</code> ecosystem is deliberately modular. Because each
-        package owns one scientific stage and exposes clean, differentiable
-        interfaces, a single well-scoped question — a new IMF prescription, a
-        dynamical benchmark, a survey systematic, an identifiability test —
-        becomes a self-contained project a student can own end to end.
+        The Jaxstro ecosystem is deliberately modular. Because each package owns
+        one scientific stage and exposes clean, differentiable interfaces, a
+        single well-scoped question — a new IMF prescription, a dynamical
+        benchmark, a survey systematic, an identifiability test — becomes a
+        self-contained project with a beginning and an end.
       </p>
       <p>
-        Paired with learner-centered documentation, that lowers the barrier to
-        doing real computational astrophysics. The goal is many compact,
-        publishable contributions rather than a few monolithic ones — and
-        software that outlasts any single result.
+        That is the point: many compact, finishable contributions rather than a
+        few monolithic ones, on tools you can actually read.
+      </p>
+      {/* Explicit {" "} before every inline element that follows a line break:
+          Astro collapses that whitespace, which silently produced
+          "thejaxstro andprogenaxdocumentation" here. */}
+      <p class="gr-start">
+        <strong>Where to start looking:</strong>{" "}
+        <a href="/explore">the explorables</a> to see the models running,{" "}
+        <a href="/software">the software</a> for what each package does, and the{" "}
+        <a href="https://jaxstro.github.io/jaxstro/" rel="noopener">jaxstro</a> and{" "}
+        <a href="https://jaxstro.github.io/progenax/" rel="noopener">progenax</a>{" "}
+        documentation if you want to read the interfaces themselves.
       </p>
     </div>
   </section>
@@ -42,38 +72,84 @@ import { cvProfile } from "../data/cv";
     </ul>
   </section>
 
-  <section class="wrap gr-section" aria-labelledby="join-heading">
-    <h2 id="join-heading" class="gr-title">Ways in</h2>
-    <ul class="gr-ways" role="list">
-      <li class="gr-way">
-        <h3>Prospective graduate students</h3>
-        <p>
-          I mentor Master's students at SDSU on differentiable modeling,
-          stellar populations, and synthetic observations. If the questions here
-          resonate, get in touch with your background and what you'd like to
-          work on.
-        </p>
+  <section class="wrap gr-section" aria-labelledby="skills-heading">
+    <h2 id="skills-heading" class="gr-title">Recommended skills</h2>
+    <div class="prose gr-prose">
+      <p>
+        None of this is a checklist you must clear before talking to me. It is
+        what makes the first month go well.
+      </p>
+    </div>
+    <ul class="gr-skills" role="list">
+      <li>
+        You can <strong>write and debug your own Python</strong> — not only run
+        someone else's notebook.
       </li>
-      <li class="gr-way">
-        <h3>Undergraduate &amp; transfer students</h3>
-        <p>
-          SDSU is a Hispanic-Serving Institution, and I work with undergraduates
-          — including community-college transfer students — to lower barriers
-          into computational research through well-documented, glass-box tools.
-        </p>
+      <li>
+        You are comfortable thinking in arrays: NumPy, or the willingness to learn
+        it quickly.
       </li>
-      <li class="gr-way">
-        <h3>Collaborators</h3>
-        <p>
-          The software is open and built to be extended. If you work on star
-          clusters, stellar populations, or survey inference and want to run new
-          models or design observing programs, let's talk.
-        </p>
+      <li>A terminal and <code>git</code>, or no fear of picking them up.</li>
+      <li>
+        <span class="gr-skills__soft">Helpful, not required:</span> JAX, matplotlib,
+        LaTeX, any experience on a cluster.
       </li>
     </ul>
-    <p class="gr-cta">
-      <a class="gr-btn" href={`mailto:${siteConfig.email}`}>Email me →</a>
+    <div class="prose gr-prose">
+      <p>
+        You do <strong>not</strong> need prior research experience, and you do not
+        need astrophysics beyond the introductory sequence. If you have taken or
+        are taking{" "}
+        <a href="https://astrobytes-edu.github.io/astr596-modeling-universe/" rel="noopener">ASTR 596</a>{" "}
+        or{" "}
+        <a href="https://astrobytes-edu.github.io/comp536-sp26/" rel="noopener">COMP 536</a>, you
+        are already well prepared.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap gr-section" aria-labelledby="email-heading">
+    <h2 id="email-heading" class="gr-title">Before you email me</h2>
+    <div class="prose gr-prose">
+      <p>
+        Have a look around first, then tell me three things. Two or three sentences
+        each is plenty — I'm not looking for a polished proposal, I'm looking for
+        evidence that something specific here caught your interest.
+      </p>
+    </div>
+    <ol class="gr-ask" role="list">
+      <li>
+        <strong>Which package or question</strong> you'd like to work on, and what
+        drew you to it.
+      </li>
+      <li>
+        <strong>Where you are</strong>: your year, your major, and which of my
+        courses you've taken, if any.
+      </li>
+      <li>
+        <strong>One thing you'd want to try</strong> — a plot you'd make, a test
+        you'd run, a number you'd check. It doesn't have to be right.
+      </li>
+    </ol>
+    <p class="gr-tag-note">
+      Please put <code>SDSU-ASTRO</code> in the subject line.
     </p>
+    <p class="gr-cta">
+      <a class="gr-btn" href={mailto}>Email me →</a>
+    </p>
+  </section>
+
+  <section class="wrap gr-section" aria-labelledby="collab-heading">
+    <h2 id="collab-heading" class="gr-title">Potential collaborators</h2>
+    <div class="prose gr-prose">
+      <p>
+        The software is open and built to be extended. If you work on star
+        clusters, stellar populations, or survey inference and want to run new
+        models, test a prescription against your own, or design an observing
+        program around what these models predict, I'd like to hear from you — the
+        three items above don't apply.
+      </p>
+    </div>
   </section>
 </BaseLayout>
 
@@ -91,9 +167,15 @@ import { cvProfile } from "../data/cv";
     color: var(--ink-soft);
     margin-block-end: var(--space-s);
   }
-  .gr-prose code {
+  .gr-prose code,
+  .gr-skills code,
+  .gr-tag-note code {
     font-family: var(--font-mono);
+    font-size: var(--step--1);
     color: var(--spec-teal-bright);
+  }
+  .gr-start {
+    padding-block-start: var(--space-2xs);
   }
 
   .gr-tags {
@@ -111,25 +193,56 @@ import { cvProfile } from "../data/cv";
     border-radius: 999px;
   }
 
-  .gr-ways {
+  /* Both lists keep the prose measure, so each section reads as one argument
+     rather than a form to fill in. */
+  .gr-skills,
+  .gr-ask {
+    max-inline-size: var(--width-prose);
     display: grid;
-    gap: var(--space-m);
+    gap: var(--space-2xs);
+    color: var(--ink-soft);
+    margin-block-end: var(--space-m);
   }
-  .gr-way {
-    padding: var(--space-m);
-    background: var(--bg-deep);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-m);
+  .gr-skills {
+    list-style: none;
+    padding-inline-start: 0;
   }
-  .gr-way h3 {
-    font-size: var(--step-1);
-    margin-block-end: var(--space-2xs);
+  .gr-skills li {
+    position: relative;
+    padding-inline-start: var(--space-m);
   }
-  .gr-way p {
+  .gr-skills li::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-start: 0.62em;
+    inline-size: 6px;
+    block-size: 6px;
+    border-radius: 999px;
+    background: var(--spec-teal-bright);
+  }
+  .gr-skills__soft {
     color: var(--ink-dim);
   }
+  .gr-ask {
+    padding-inline-start: var(--space-m);
+  }
+  .gr-ask li::marker {
+    color: var(--spec-cyan);
+    font-family: var(--font-mono);
+  }
+  .gr-ask strong,
+  .gr-skills strong {
+    color: var(--ink);
+  }
+
+  .gr-tag-note {
+    max-inline-size: var(--width-prose);
+    color: var(--ink-soft);
+  }
+
   .gr-cta {
-    margin-block-start: var(--space-l);
+    margin-block-start: var(--space-m);
   }
   .gr-btn {
     display: inline-block;
