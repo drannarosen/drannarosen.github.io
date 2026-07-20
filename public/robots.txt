@@ -1,0 +1,14 @@
+# anna-rosen.com
+#
+# Everything here is public and freely crawlable, including by AI crawlers:
+# the point of the site is to be found and read. Unlisted sandboxes are
+# disallowed because they are work-in-progress, not because they are private.
+
+User-agent: *
+Allow: /
+Disallow: /style-guide
+Disallow: /volume-lab
+Disallow: /cluster-lab
+Disallow: /model-path
+
+Sitemap: https://anna-rosen.com/sitemap-index.xml

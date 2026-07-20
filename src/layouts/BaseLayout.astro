@@ -67,6 +67,12 @@ const ogImageUrl = new URL(`/og/${ogImage}`, Astro.site).href;
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="Astrobytes — Anna Rosen"
+      href="/astrobytes/rss.xml"
+    />
     <meta name="author" content="Anna Rosen" />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
 
