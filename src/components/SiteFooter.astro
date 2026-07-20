@@ -38,6 +38,18 @@ const year = 2026; // build-time constant; bump on next content refresh
     }
   </div>
 
+  {/* Attributed on purpose. This site ships a public AI-provenance badge and a
+      build gate that refuses unreviewed AI content; quoting a model without
+      saying so would contradict all of it for the sake of a joke. */}
+  <div class="site-footer__quote wrap-wide">
+    <blockquote>
+      <p>The universe may be cruel, but at least it's consistent.</p>
+      <footer>
+        <cite>ChatGPT</cite>
+      </footer>
+    </blockquote>
+  </div>
+
   <div class="site-footer__legal wrap-wide">
     <p>© {year} {siteConfig.name}. Views are the author's own.</p>
     <p>
@@ -48,6 +60,36 @@ const year = 2026; // build-time constant; bump on next content refresh
 </footer>
 
 <style>
+  /* Quiet by design: it appears on every page, so it has to read as a
+     signature rather than a punchline. */
+  .site-footer__quote {
+    padding-block: var(--space-m) 0;
+  }
+  .site-footer__quote blockquote {
+    margin: 0;
+    max-inline-size: 52ch;
+  }
+  .site-footer__quote p {
+    font-family: var(--font-display);
+    font-size: var(--step-0);
+    font-style: italic;
+    color: var(--ink-soft);
+    line-height: 1.45;
+  }
+  .site-footer__quote footer {
+    margin-block-start: var(--space-3xs);
+  }
+  .site-footer__quote cite {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    font-style: normal;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+  }
+  .site-footer__quote cite::before {
+    content: "— ";
+  }
+
   .site-footer {
     margin-block-start: var(--space-3xl);
     border-block-start: 1px solid var(--border);
