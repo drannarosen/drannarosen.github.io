@@ -5,7 +5,8 @@ import SectionNav from "../components/SectionNav.astro";
 import { slugify } from "../lib/slug";
 import { publicationCount } from "../data/allPublications";
 import { courses } from "../data/teaching";
-import { allPackages, STATUS_LABEL } from "../data/jaxstro";
+import { STATUS_LABEL } from "../data/jaxstro";
+import { getPackages } from "../lib/packages";
 import {
   cvProfile,
   employment,
@@ -39,11 +40,12 @@ const teachingEntries: DatedEntry[] = courses.map((c) => ({
   date: c.when,
 }));
 
-const softwareEntries: DatedEntry[] = allPackages.map((p) => ({
-  role: p.name,
-  org: p.tagline,
-  date: STATUS_LABEL[p.status],
-  note: p.maturity,
+const softwareEntries: DatedEntry[] = (await getPackages()).map((p) => ({
+  role: p.data.name,
+  org: p.data.tagline,
+  date: STATUS_LABEL[p.data.status],
+  note: p.data.maturity,
+  href: `/software/${p.id}`,
 }));
 
 const sections: CvSection[] = (

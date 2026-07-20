@@ -1,0 +1,236 @@
+---
+/*
+ * Per-package page: what it does, what is proven, what is coming.
+ *
+ * Designed to look deliberate with an EMPTY MDX body, because most bodies are
+ * empty today and will fill in as each methods paper lands. The figure gallery
+ * and the status block carry the page on their own.
+ */
+import { render } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+import { READINESS_LABEL, READINESS_STEPS } from "../../data/jaxstro";
+import { getPackages, type PackageEntry } from "../../lib/packages";
+
+export async function getStaticPaths() {
+  const packages = await getPackages();
+  return packages.map((pkg, i) => ({
+    params: { package: pkg.id },
+    props: {
+      pkg,
+      prev: packages[i - 1] ?? null,
+      next: packages[i + 1] ?? null,
+    },
+  }));
+}
+
+interface Props {
+  pkg: PackageEntry;
+  prev: PackageEntry | null;
+  next: PackageEntry | null;
+}
+
+const { pkg, prev, next } = Astro.props;
+const d = pkg.data;
+const { Content } = await render(pkg);
+
+// An empty MDX body still renders a component, so ask the raw source instead.
+const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").trim().length > 0;
+---
+
+<BaseLayout
+  title={`${d.name} — Jaxstro — Anna Rosen, Ph.D.`}
+  description={d.description}
+  path={`/software/${pkg.id}`}
+  ogImage={d.figures[0] ? `software-${pkg.id}.png` : "software.png"}
+  ogImageAlt={d.figures[0]?.alt ?? d.description}
+>
+  <PageHeader eyebrow={`Jaxstro · ${d.stage}`} title={d.name} lede={d.tagline} />
+
+  <section class="wrap pk-top">
+    <p class="pk-desc prose">{d.description}</p>
+
+    <div class="pk-meta">
+      <span
+        class="meter"
+        title={d.maturity}
+        aria-label={`Readiness: ${READINESS_LABEL[d.readiness]}`}
+      >
+        {[1, 2, 3].map((n) => (
+          <span class:list={["meter__step", n <= READINESS_STEPS[d.readiness] && "is-on"]} />
+        ))}
+        <span class="meter__label">{READINESS_LABEL[d.readiness]}</span>
+      </span>
+      {d.maturity && <span class="pk-note">{d.maturity}</span>}
+      {d.repo && <a class="pk-link" href={d.repo} rel="noopener">Repository ↗</a>}
+      {d.docs && <a class="pk-link" href={d.docs} rel="noopener">Preview docs ↗</a>}
+    </div>
+  </section>
+
+  {
+    hasProse && (
+      <article class="wrap editorial pk-prose">
+        <Content />
+      </article>
+    )
+  }
+
+  {
+    d.figures.length > 0 && (
+      <section class="wrap pk-gallery" aria-labelledby="pk-figs">
+        <h2 id="pk-figs" class="pk-h2">What's working</h2>
+        {d.figures.map((f) => (
+          <figure class="pk-fig">
+            <img
+              src={f.src}
+              alt={f.alt}
+              width={f.width}
+              height={f.height}
+              loading="lazy"
+              decoding="async"
+            />
+            <figcaption>
+              {f.preliminary && <span class="pk-prelim">Preliminary</span>}
+              <strong class="pk-figtitle">{f.title}.</strong> {f.caption}
+            </figcaption>
+          </figure>
+        ))}
+      </section>
+    )
+  }
+
+  {
+    d.upcoming && (
+      <section class="wrap pk-next" aria-labelledby="pk-next-h">
+        <h2 id="pk-next-h" class="pk-h2">What's coming</h2>
+        <p class="pk-upcoming prose">{d.upcoming}</p>
+      </section>
+    )
+  }
+
+  <nav class="wrap pk-nav" aria-label="Pipeline">
+    {prev ? (
+      <a class="pk-nav__link" href={`/software/${prev.id}`}>
+        ← {String(prev.data.order).padStart(2, "0")} {prev.data.name}
+      </a>
+    ) : (
+      <span />
+    )}
+    <a class="pk-nav__all" href="/software">All packages</a>
+    {next ? (
+      <a class="pk-nav__link pk-nav__link--next" href={`/software/${next.id}`}>
+        {String(next.data.order).padStart(2, "0")} {next.data.name} →
+      </a>
+    ) : (
+      <span />
+    )}
+  </nav>
+</BaseLayout>
+
+<style>
+  .pk-top {
+    padding-block-end: var(--space-l);
+  }
+  .pk-desc {
+    font-size: var(--step-1);
+    color: var(--ink-soft);
+  }
+  .pk-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs) var(--space-m);
+    margin-block-start: var(--space-m);
+  }
+  .pk-note {
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+  }
+  .pk-link {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+
+  .pk-prose {
+    padding-block-end: var(--space-l);
+  }
+
+  .pk-h2 {
+    font-size: var(--step-1);
+    padding-block-end: var(--space-2xs);
+    margin-block-end: var(--space-m);
+    border-block-end: 1px solid var(--border);
+  }
+
+  .pk-gallery {
+    padding-block: var(--space-l);
+  }
+  .pk-fig {
+    margin-block-end: var(--space-xl);
+  }
+  .pk-fig img {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    background: #fff;
+    padding: var(--space-2xs);
+    border-radius: var(--radius-m);
+    box-shadow:
+      0 0 0 1px var(--border-strong),
+      0 18px 40px -24px rgb(0 0 0 / 0.9);
+  }
+  .pk-fig figcaption {
+    margin-block-start: var(--space-2xs);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--ink-dim);
+    max-inline-size: 72ch;
+  }
+  .pk-figtitle {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  /* Mirrors production_validated=false in the run's own provenance record. */
+  .pk-prelim {
+    display: inline-block;
+    margin-inline-end: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: color-mix(in srgb, var(--spec-rose) 82%, white);
+    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
+    border-radius: 999px;
+    padding: 1px 7px;
+    vertical-align: 1px;
+  }
+
+  .pk-next {
+    padding-block-end: var(--space-l);
+  }
+  .pk-upcoming {
+    color: var(--ink-soft);
+  }
+
+  .pk-nav {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-m);
+    padding-block: var(--space-l) var(--space-3xl);
+    margin-block-start: var(--space-l);
+    border-block-start: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+  .pk-nav__all {
+    color: var(--ink-dim);
+  }
+  @media (max-width: 34rem) {
+    .pk-nav {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-2xs);
+    }
+  }
+</style>

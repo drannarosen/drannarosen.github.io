@@ -3,13 +3,16 @@
  * JaxstroEcosystem — the signature software visualization.
  *
  * A differentiable birth-to-observation pipeline sitting on the shared jaxstro
- * foundation. Built from typed data (data/jaxstro.ts), not hard-coded nodes.
+ * foundation. Built from the `packages` content collection, not hard-coded nodes.
  *
  * Accessibility: the pipeline is a real ordered list; every node is a link to
  * its detailed card below (so no information is hover-only). Connectors are
  * decorative (aria-hidden). Works with no JavaScript; reduced-motion safe.
  */
-import { pipeline, foundation } from "../data/jaxstro";
+import { getPipeline } from "../lib/packages";
+
+const { foundation, stages: pipeline } = await getPipeline();
+if (!foundation) throw new Error("packages collection has no order-0 foundation entry");
 import StatusBadge from "./StatusBadge.astro";
 ---
 
@@ -18,11 +21,11 @@ import StatusBadge from "./StatusBadge.astro";
     {
       pipeline.map((pkg) => (
         <li class="eco__node">
-          <a class="eco__node-link" href={`#pkg-${pkg.name}`}>
-            <span class="eco__stage">{pkg.stage}</span>
-            <span class="eco__name">{pkg.name}</span>
-            <StatusBadge status={pkg.status} />
-            {pkg.maturity && <span class="eco__maturity">{pkg.maturity}</span>}
+          <a class="eco__node-link" href={`/software/${pkg.id}`}>
+            <span class="eco__stage">{pkg.data.stage}</span>
+            <span class="eco__name">{pkg.data.name}</span>
+            <StatusBadge status={pkg.data.status} />
+            {pkg.data.maturity && <span class="eco__maturity">{pkg.data.maturity}</span>}
           </a>
         </li>
       ))
@@ -33,12 +36,12 @@ import StatusBadge from "./StatusBadge.astro";
     ← gradients &amp; observing-design information flow back
   </p>
 
-  <a class="eco__foundation" href={`#pkg-${foundation.name}`}>
-    <span class="eco__stage">{foundation.stage}</span>
-    <span class="eco__name">{foundation.name}</span>
-    <span class="eco__foundation-tag">{foundation.tagline}</span>
-    {foundation.maturity && <span class="eco__maturity">{foundation.maturity}</span>}
-    <StatusBadge status={foundation.status} />
+  <a class="eco__foundation" href={`/software/${foundation.id}`}>
+    <span class="eco__stage">{foundation.data.stage}</span>
+    <span class="eco__name">{foundation.data.name}</span>
+    <span class="eco__foundation-tag">{foundation.data.tagline}</span>
+    {foundation.data.maturity && <span class="eco__maturity">{foundation.data.maturity}</span>}
+    <StatusBadge status={foundation.data.status} />
   </a>
 
   <figcaption class="eco__caption">

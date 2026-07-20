@@ -3,7 +3,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
 import JaxstroEcosystem from "../components/JaxstroEcosystem.astro";
 import StatusBadge from "../components/StatusBadge.astro";
-import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/jaxstro";
+import { READINESS_LABEL, READINESS_STEPS } from "../data/jaxstro";
+import { getPackages, packageHref } from "../lib/packages";
+
+const packages = await getPackages();
 ---
 
 <BaseLayout
@@ -35,75 +38,62 @@ import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/
   <section class="wrap sw-packages" aria-labelledby="pkg-heading">
     <h2 id="pkg-heading" class="sw-section-title">The packages</h2>
 
-    {/* One list, foundation first as 00. It was a separate boxed card, which
-        gave it visual weight that fought the chain below it; numbering it 00
-        keeps the distinction (it is not a stage, it is what the stages stand
-        on) without a second layout. */}
+    {/* Each row links to the package's own page. The thumbnail is the hook:
+        a figure earns a click in a way a paragraph does not. */}
     <ol class="pipeline" role="list">
       {
-        [foundation, ...pipeline].map((pkg, i) => (
-          <li
-            class:list={["pkg", i === 0 ? "pkg--base" : "pkg--stage"]}
-            id={`pkg-${pkg.name}`}
-          >
-            <div class="pkg__rail">
-              <span class="pkg__num">{String(i).padStart(2, "0")}</span>
-              <span class="pkg__stage">{pkg.stage}</span>
-            </div>
-            <div class="pkg__body">
-              <h3 class="pkg__name">
-                {pkg.docs ? <a href={pkg.docs} rel="noopener">{pkg.name}</a> : pkg.name}
-              </h3>
-              <p class="pkg__tagline">{pkg.tagline}</p>
-              <p class="pkg__desc">{pkg.description}</p>
-              <div class="pkg__foot">
-                <span
-                  class="meter"
-                  title={pkg.maturity}
-                  aria-label={`Readiness: ${READINESS_LABEL[pkg.readiness]}`}
-                >
-                  {[1, 2, 3].map((n) => (
-                    <span class:list={["meter__step", n <= READINESS_STEPS[pkg.readiness] && "is-on"]} />
-                  ))}
-                  <span class="meter__label">{READINESS_LABEL[pkg.readiness]}</span>
-                </span>
-                {pkg.maturity && <span class="pkg__note">{pkg.maturity}</span>}
-                {pkg.repo && <a class="pkg__link" href={pkg.repo} rel="noopener">Repository ↗</a>}
-                {pkg.docs && <a class="pkg__link" href={pkg.docs} rel="noopener">Preview docs ↗</a>}
+        packages.map((pkg) => {
+          const d = pkg.data;
+          const fig = d.figures[0];
+          return (
+            <li
+              class:list={["pkg", d.order === 0 ? "pkg--base" : "pkg--stage"]}
+              id={`pkg-${d.name}`}
+            >
+              <div class="pkg__rail">
+                <span class="pkg__num">{String(d.order).padStart(2, "0")}</span>
+                <span class="pkg__stage">{d.stage}</span>
+              </div>
+              <div class="pkg__body">
+                <h3 class="pkg__name">
+                  <a href={packageHref(pkg)}>{d.name}</a>
+                </h3>
+                <p class="pkg__tagline">{d.tagline}</p>
+                <p class="pkg__desc">{d.description}</p>
+                <div class="pkg__foot">
+                  <span
+                    class="meter"
+                    title={d.maturity}
+                    aria-label={`Readiness: ${READINESS_LABEL[d.readiness]}`}
+                  >
+                    {[1, 2, 3].map((n) => (
+                      <span class:list={["meter__step", n <= READINESS_STEPS[d.readiness] && "is-on"]} />
+                    ))}
+                    <span class="meter__label">{READINESS_LABEL[d.readiness]}</span>
+                  </span>
+                  {d.maturity && <span class="pkg__note">{d.maturity}</span>}
+                </div>
               </div>
 
-              {pkg.figure && (
-                <figure class="pkg__fig">
-                  <img
-                    src={pkg.figure.src}
-                    alt={pkg.figure.alt}
-                    width={pkg.figure.width}
-                    height={pkg.figure.height}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <figcaption>
-                    {pkg.figure.preliminary && (
-                      <span class="pkg__prelim">Preliminary</span>
-                    )}
-                    <strong class="pkg__figtitle">{pkg.figure.title}.</strong>{" "}
-                    {pkg.figure.caption}
-                  </figcaption>
-                </figure>
-              )}
-            </div>
-          </li>
-        ))
+              <a class="pkg__thumb" href={packageHref(pkg)} tabindex="-1" aria-hidden="true">
+                {fig ? (
+                  <img src={fig.src} alt="" width={fig.width} height={fig.height} loading="lazy" decoding="async" />
+                ) : (
+                  <span class="pkg__thumb-empty" />
+                )}
+              </a>
+            </li>
+          );
+        })
       }
     </ol>
 
     <p class="sw-note prose">
       No package is publicly released yet; methods papers come first. The
-      readiness meter above is the honest signal — every package is under
-      active development, and they differ in how far along they are.
-      <strong>Preview documentation</strong> is shared for <code>jaxstro</code>
-      and <code>progenax</code> to show the direction of the work; source and
-      full API follow each package's methods paper.
+      readiness meter is the honest signal — everything here is under active
+      development, and they differ in how far along they are. Each package has
+      its own page with the demos that show it working, and what its methods
+      paper will establish.
     </p>
   </section>
 </BaseLayout>
@@ -134,8 +124,9 @@ import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/
      pipeline stages read top-to-bottom in flow order. */
   .pkg {
     display: grid;
-    grid-template-columns: 11rem minmax(0, 1fr);
-    gap: var(--space-l);
+    grid-template-columns: 7rem minmax(0, 1fr) 13rem;
+    gap: var(--space-m) var(--space-l);
+    align-items: start;
     padding-block: var(--space-m);
     scroll-margin-block-start: var(--space-xl);
   }
@@ -230,46 +221,32 @@ import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/
     font-size: var(--step--1);
   }
 
-  /* Proof of concept: evidence the package works, not a scientific result. */
-  .pkg__fig {
-    margin-block-start: var(--space-m);
+  /* The thumbnail is the hook. Presentational only: the row's heading link is
+     the real target, so this one is aria-hidden and out of the tab order
+     rather than a second identical link for a screen reader to announce. */
+  .pkg__thumb {
+    display: block;
+    border-radius: var(--radius-s);
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--border);
+    transition: box-shadow var(--dur-base) var(--ease-out);
   }
-  .pkg__fig img {
+  .pkg__thumb img {
     display: block;
     inline-size: 100%;
     block-size: auto;
-    background: #fff;
-    padding: var(--space-2xs);
-    border-radius: var(--radius-m);
-    box-shadow:
-      0 0 0 1px var(--border-strong),
-      0 18px 40px -24px rgb(0 0 0 / 0.9);
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: left center;
   }
-  .pkg__figtitle {
-    color: var(--ink);
-    font-weight: 600;
+  .pkg:hover .pkg__thumb {
+    box-shadow: 0 0 0 1px var(--spec-teal-bright);
   }
-  .pkg__fig figcaption {
-    margin-block-start: var(--space-2xs);
-    font-size: 0.78rem;
-    line-height: 1.55;
-    color: var(--ink-dim);
-    max-inline-size: 68ch;
-  }
-  /* Not decoration: this mirrors production_validated=false in the run's own
-     provenance record, so it must be impossible to miss. */
-  .pkg__prelim {
-    display: inline-block;
-    margin-inline-end: var(--space-2xs);
-    font-family: var(--font-mono);
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: color-mix(in srgb, var(--spec-rose) 82%, white);
-    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
-    border-radius: 999px;
-    padding: 1px 7px;
-    vertical-align: 1px;
+  .pkg__thumb-empty {
+    display: block;
+    aspect-ratio: 16 / 10;
+    background: var(--bg-surface);
   }
 
   /* Readiness is what actually differs between packages; status does not. */
@@ -298,6 +275,15 @@ import { foundation, pipeline, READINESS_LABEL, READINESS_STEPS } from "../data/
     color: var(--ink-dim);
   }
 
+  @media (max-width: 60rem) {
+    .pkg {
+      grid-template-columns: 5rem minmax(0, 1fr);
+    }
+    .pkg__thumb {
+      grid-column: 1 / -1;
+      max-inline-size: 22rem;
+    }
+  }
   @media (max-width: 46rem) {
     .pkg {
       grid-template-columns: 1fr;

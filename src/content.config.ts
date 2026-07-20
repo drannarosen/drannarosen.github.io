@@ -77,4 +77,46 @@ const astrobytes = defineCollection({
   }),
 });
 
-export const collections = { astrobytes };
+/*
+ * `packages`: one entry per Jaxstro package. Frontmatter is the single source
+ * of truth for structure (order, stage, readiness, links, figures); the MDX
+ * body is prose that will grow as each package's methods paper lands. A page
+ * must look deliberate with an empty body, so nothing here is required prose.
+ */
+const packages = defineCollection({
+  loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/packages" }),
+  schema: z.object({
+    /** Import name, lowercase — jaxstro, progenax, gravax, … */
+    name: z.string(),
+    /** 0 is the foundation; 1..n are pipeline stages in flow order. */
+    order: z.number().int().min(0),
+    stage: z.string(),
+    tagline: z.string(),
+    /** One-paragraph summary used on the index and as the page lede. */
+    description: z.string(),
+    status: z.enum(["active-build", "established", "planned"]),
+    readiness: z.enum(["developing", "advanced", "mature"]),
+    /** Free-text maturity note, e.g. "Mature · methods paper in prep". */
+    maturity: z.string().optional(),
+    repo: z.string().url().nullable().default(null),
+    docs: z.string().url().nullable().default(null),
+    /** The trailer: what is coming, stated concretely rather than teased. */
+    upcoming: z.string().optional(),
+    figures: z
+      .array(
+        z.object({
+          title: z.string(),
+          src: z.string(),
+          alt: z.string(),
+          caption: z.string(),
+          width: z.number().int(),
+          height: z.number().int(),
+          preliminary: z.boolean().default(false),
+        }),
+      )
+      .default([]),
+    draft: z.boolean().default(false),
+  }),
+});
+
+export const collections = { astrobytes, packages };

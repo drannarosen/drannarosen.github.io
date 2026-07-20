@@ -1,0 +1,24 @@
+---
+name: "fluxax"
+order: 4
+stage: "Observables"
+tagline: "Physical states → survey observables."
+description: "Differentiable Gaia and Rubin/LSST photometry, astrometry, and images, propagated through selection, crowding, PSFs, backgrounds, and noise."
+status: "active-build"
+readiness: "advanced"
+maturity: "Far along"
+repo: null
+docs: null
+upcoming: "Methods paper planned. It will cover the differentiable path from physical state to Gaia and Rubin observables, including selection, crowding and noise."
+figures:
+  - title: "What Rubin Actually Sees"
+    src: "/images/software/fluxax-lsst-synthetic.webp"
+    alt: "Two synthetic LSST r-band images side by side. Left: a sparse cluster of 400 stars, each a separate point source. Right: a crowded core of 1800 stars whose central profiles merge into a single saturated blend."
+    caption: "The same forward model run on a sparse cluster (left, 400 stars) and a crowded core (right, 1800 stars): PSF FWHM 0.7 arcsec, 0.2 arcsec per pixel, Poisson–Gaussian noise, at 6.3 kpc. In the crowded case individual stars stop being individually measurable — blending is physics the model has to carry, not a nuisance to correct away afterwards."
+    width: 1950
+    height: 930
+    preliminary: true
+---
+
+{/* Prose grows here as the methods paper lands. The page is designed to
+    look deliberate with this body empty, so nothing needs writing today. */}
