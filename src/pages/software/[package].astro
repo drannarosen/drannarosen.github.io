@@ -50,7 +50,8 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
   <section class="wrap pk-top">
     <p class="pk-desc prose">{d.description}</p>
 
-    <div class="pk-meta">
+    <div class="pk-status">
+      <p class="pk-status__label">Readiness</p>
       <span
         class="meter"
         title={d.maturity}
@@ -64,8 +65,12 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
       {d.maturity && d.maturity !== READINESS_LABEL[d.readiness] && (
         <span class="pk-note">{d.maturity}</span>
       )}
-      {d.repo && <a class="pk-link" href={d.repo} rel="noopener">Repository ↗</a>}
-      {d.docs && <a class="pk-link" href={d.docs} rel="noopener">Preview docs ↗</a>}
+      {(d.repo || d.docs) && (
+        <p class="pk-status__links">
+          {d.repo && <a class="pk-link" href={d.repo} rel="noopener">Repository ↗</a>}
+          {d.docs && <a class="pk-link" href={d.docs} rel="noopener">Preview docs ↗</a>}
+        </p>
+      )}
     </div>
   </section>
 
@@ -137,12 +142,31 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
     font-size: var(--step-1);
     color: var(--ink-soft);
   }
-  .pk-meta {
+  /* Readiness is the page's headline status, so it gets a card rather than a
+     line of loose text under the description. */
+  .pk-status {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: baseline;
     gap: var(--space-2xs) var(--space-m);
-    margin-block-start: var(--space-m);
+    margin-block-start: var(--space-l);
+    padding: var(--space-s) var(--space-m);
+    max-inline-size: fit-content;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-inline-start: 2px solid var(--spec-teal-bright);
+    border-radius: var(--radius-m);
+  }
+  .pk-status__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-faint);
+  }
+  .pk-status__links {
+    display: flex;
+    gap: var(--space-m);
   }
   .pk-note {
     font-size: var(--step--1);

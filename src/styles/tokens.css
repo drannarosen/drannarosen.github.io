@@ -45,6 +45,10 @@
     --focus-ring: var(--spec-teal-bright);
 
     /* ── Fluid type scale (major-third-ish, clamp) ───────────────── */
+    /* --step--2 was referenced in 11 files but never defined, so every
+       `font-size: var(--step--2)` silently INHERITED its parent's size —
+       the pipeline numerals rendered at 19px instead of 12px. */
+    --step--2: clamp(0.69rem, 0.66rem + 0.16vw, 0.78rem);
     --step--1: clamp(0.83rem, 0.79rem + 0.20vw, 0.94rem);
     --step-0:  clamp(1.00rem, 0.94rem + 0.30vw, 1.19rem);
     --step-1:  clamp(1.20rem, 1.10rem + 0.50vw, 1.56rem);
