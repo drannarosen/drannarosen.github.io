@@ -93,7 +93,7 @@ const { label = "Interactive cluster", hint } = Astro.props;
     block-size: 2rem;
     display: grid;
     place-items: center;
-    font-size: 1rem;
+    font-size: 1rem; /* type-scale-exempt: projector legibility */
     color: var(--ink-dim);
     background: color-mix(in oklab, var(--bg-void) 55%, transparent);
     border: 1px solid var(--border);
@@ -105,7 +105,7 @@ const { label = "Interactive cluster", hint } = Astro.props;
     margin-block-start: var(--space-s);
     text-align: center;
     font-family: var(--font-mono);
-    font-size: 0.66rem;
+    font-size: var(--step--2);
     letter-spacing: 0.01em;
     color: var(--ink-faint, var(--ink-dim));
     opacity: 0.7;
@@ -141,7 +141,7 @@ const { label = "Interactive cluster", hint } = Astro.props;
   }
   .present.is-present .present__controls {
     inline-size: min(100%, 34rem);
-    font-size: 1.1rem; /* projector legibility */
+    font-size: 1.1rem; /* type-scale-exempt: projector legibility */
     place-self: center;
   }
   .present.is-present .present__hint { display: none; }

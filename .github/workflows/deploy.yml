@@ -31,6 +31,9 @@ jobs:
       - name: Verify figure provenance
         run: node scripts/figures/check.mjs
 
+      - name: Verify every font-size uses the type scale
+        run: node scripts/check-type.mjs
+
       - name: Build Astro site
         # Auto-detects pnpm from the lockfile, runs `astro build`, and
         # uploads the dist/ artifact for the deploy job.

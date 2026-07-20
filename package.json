@@ -17,7 +17,8 @@
     "sync:pubs:check": "node scripts/publications/sync_orcid.mjs --check",
     "check:figures": "node scripts/figures/check.mjs",
     "og": "node scripts/og/generate.mjs",
-    "prebuild": "node scripts/figures/check.mjs && node scripts/og/generate.mjs"
+    "prebuild": "node scripts/check-type.mjs && node scripts/figures/check.mjs && node scripts/og/generate.mjs",
+    "check:type": "node scripts/check-type.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.2.1",

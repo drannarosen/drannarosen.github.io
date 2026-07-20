@@ -87,6 +87,20 @@ Manage the background dev server with `astro dev stop`, `astro dev status`,
   "Anna Rosen builds…". Names stay in metadata (`og:site_name`, `author`,
   `reviewedBy`) so provenance remains machine-readable.
 
+## Type
+
+One knob: `--font-scale` in `src/styles/tokens.css`. `1` is normal; `1.05`
+raises every size 5%. The eight `--step-*` values are hand-solved fluid
+clamps — CSS cannot derive them from a base and a ratio, because that needs
+dividing one length by another, which `calc()` forbids.
+
+**Every `font-size` must use a `--step-*` token.** `pnpm check:type` fails the
+build otherwise. This exists because 28 components had hardcoded 0.62–0.72rem
+sizes, which is why "this text is too small" kept resurfacing however the
+tokens were tuned — a scale that can be bypassed is a suggestion. `em` units
+are allowed (context-relative by design); anything genuinely special needs a
+trailing `type-scale-exempt: <reason>` comment.
+
 ## Naming
 
 Settled 2026-07-19; do not "correct" these back.
