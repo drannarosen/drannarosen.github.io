@@ -22,6 +22,19 @@
  * ramps, which destroys compressibility: resampling one figure 2955->2304
  * inflated it from 89KB to 158KB.
  *
+ * CREDIT STRIP: a thin band is appended BELOW the plot carrying
+ * "A. L. Rosen · anna-rosen.com" and, with --preliminary, "PRELIMINARY".
+ * Deliberately not a classic overlay watermark: nothing is drawn on top of the
+ * data. The point is that a figure saved with right-click keeps its
+ * attribution, and that the preliminary caveat travels with the image instead
+ * of living only in the page's HTML chip, where a copied figure loses it.
+ *
+ * It is friction, not protection — a crop removes it.
+ *
+ * Text is rasterised by librsvg via fontconfig, which resolves fonts on macOS
+ * but may render nothing on a bare CI image. That is fine here: this script is
+ * run locally and its output is committed, so CI never regenerates figures.
+ *
  * Writes the file, then records path, origin, script, paper figure and sha256
  * in src/data/figures.json so `pnpm check:figures` can detect later drift.
  */
@@ -62,11 +75,50 @@ if (!target.endsWith(".webp")) {
 const out = resolve(ROOT, "public", target);
 mkdirSync(dirname(out), { recursive: true });
 
-const meta = await sharp(source).metadata();
+const srcMeta = await sharp(source).metadata();
+
+/** Thin credit band appended below the figure. */
+function creditStrip(width, height, preliminary) {
+  const fs = Math.round(height * 0.46);
+  const pad = Math.round(height * 0.5);
+  const right = preliminary
+    ? `<text x="${width - pad}" y="${height * 0.68}" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="${fs}" fill="#b45c6b" letter-spacing="1">PRELIMINARY</text>`
+    : "";
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+      `<rect width="${width}" height="${height}" fill="#ffffff"/>` +
+      `<line x1="0" y1="0.5" x2="${width}" y2="0.5" stroke="#d5d7db" stroke-width="1"/>` +
+      `<text x="${pad}" y="${height * 0.68}" font-family="Helvetica, Arial, sans-serif" font-size="${fs}" fill="#6b7280">A. L. Rosen · anna-rosen.com</text>` +
+      right +
+      `</svg>`,
+  );
+}
+
+const stripH = Math.max(34, Math.round(srcMeta.height * 0.055));
+const credited = await sharp({
+  create: {
+    width: srcMeta.width,
+    height: srcMeta.height + stripH,
+    channels: 4,
+    background: "#ffffff",
+  },
+})
+  .composite([
+    { input: await sharp(source).png().toBuffer(), top: 0, left: 0 },
+    {
+      input: creditStrip(srcMeta.width, stripH, args.includes("--preliminary")),
+      top: srcMeta.height,
+      left: 0,
+    },
+  ])
+  .png()
+  .toBuffer();
+
+const meta = await sharp(credited).metadata();
 
 // Encode both ways and keep the smaller; see the note at the top of this file.
-const lossless = await sharp(source).webp({ lossless: true, effort: 6 }).toBuffer();
-const lossy = await sharp(source).webp({ quality: 95, effort: 6 }).toBuffer();
+const lossless = await sharp(credited).webp({ lossless: true, effort: 6 }).toBuffer();
+const lossy = await sharp(credited).webp({ quality: 95, effort: 6 }).toBuffer();
 const useLossless = lossless.length <= lossy.length;
 const encoding = useLossless ? "webp-lossless" : "webp-q95";
 writeFileSync(out, useLossless ? lossless : lossy);

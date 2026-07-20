@@ -16,7 +16,7 @@ figures:
     alt: "Six panels in two columns. Top row: a simulated g-band image of a crowded cluster, first as an expected source-limited scene and then as a nominal 30-second Rubin-like exposure with sky and noise. Middle row: maps of how much information each pixel carries about the IMF slope. Bottom row: the same for the binary mass-ratio slope. The information maps are concentrated on a sparse subset of stars, and differ between the two parameters."
     caption: "This is what differentiable codes buy you. The same truth-known cluster is rendered as an idealised scene and as a nominal 30-second Rubin-like exposure with PSF, sky, Poisson and read noise (top). Differentiating that render with respect to the population parameters gives the Fisher information carried by every individual pixel — for the IMF slope (middle) and for the binary mass-ratio slope (bottom). Note that the two are not the same pixels: different physics is constrained by different parts of the image. You cannot make this map by running a simulation forward; it exists only because the whole pipeline carries gradients. Population-to-pixel differentiation is implemented; validated detector and survey transformations, and global recovery, are proposed work."
     width: 1466
-    height: 1639
+    height: 1729
     preliminary: true
     captionPlacement: side
   - title: "What Gaia and Rubin Actually See"
@@ -24,7 +24,7 @@ figures:
     alt: "Three colour-magnitude diagrams of the same synthetic cluster. Left: ground truth in Rubin bands, singles and unresolved binaries both visible along the main sequence. Centre: the Gaia view, where faint stars fall below the detection limit and drop out. Right: the Rubin view, reaching deeper but saturating at the bright end and scattering near the faint limit."
     caption: "One synthetic population, three views. Ground truth in Rubin bands (left); the same stars as Gaia would record them, with everything faint falling out below the detection limit (centre); and as Rubin would record them, reaching far deeper but saturating at the bright end (right). Unresolved binaries sit systematically above the single-star sequence in every panel. Selection, saturation and blending are part of the forward model, not corrections applied afterwards."
     width: 2425
-    height: 753
+    height: 794
     preliminary: true
 ---
 

@@ -50,7 +50,7 @@ export const featuredPublications: Publication[] = [
         "Ignoring binaries does not add noise — it moves the answer. Naive fits (dashed, open) are offset low in all four environments; binary-aware fits (solid, filled) recover the truth.",
       credit: "Figure 3 of Rosen (2026), submitted.",
       width: 2131,
-      height: 856,
+      height: 903,
       contain: true,
     },
   },

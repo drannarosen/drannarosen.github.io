@@ -13,8 +13,9 @@
       "script": "scripts/figure_1_binary_model.py",
       "paperFigure": "Figure 1",
       "width": 2955,
-      "height": 817,
-      "sha256": "fb24039a92f9ab4fe18de0204415105b650a78bdb2aa703f2ba3b7a440898cd6"
+      "height": 862,
+      "sha256": "347a87727a6f3eda55e1cb85168c2e344217797d9908ae26d2b53e2820bc54a5",
+      "encoding": "webp-lossless"
     },
     {
       "path": "images/astrobytes/confidently-wrong-scaling.webp",
@@ -22,9 +23,10 @@
       "script": "scripts/figure_4_scaling.py",
       "paperFigure": "Figure 4",
       "width": 2145,
-      "height": 1579,
-      "sha256": "ef058071b1881a5d22b18318051ed58f449ba6c4be866140360ce96e97889ab8",
-      "note": "Corrected build: the arXiv version renders a literal '95\\%' in the y-axis label and footer. Regenerated 2026-07-19 after a two-line fix; verified no pixel inside any data panel changed."
+      "height": 1666,
+      "sha256": "553ec00351cae16f9312116dad61dea5b782e7857dad49d9877fe0ae991a2e7f",
+      "note": "Corrected build: the arXiv version renders a literal '95\\%'. Regenerated 2026-07-19; no pixel inside any data panel changed.",
+      "encoding": "webp-lossless"
     },
     {
       "path": "images/publications/binary-imf-recovery.webp",
@@ -32,8 +34,9 @@
       "script": "scripts/figure_3_recovery.py",
       "paperFigure": "Figure 3",
       "width": 2131,
-      "height": 856,
-      "sha256": "51ab3683d90f2d71a0a370590c596de05d0e6fad076d046d5862a539fd0a921b"
+      "height": 903,
+      "sha256": "ac0e1b355347c478c03f5d0a71ba805d8449ec5357c8fd01e9f837a6fd6360db",
+      "encoding": "webp-lossless"
     },
     {
       "path": "images/astrobytes/confidently-wrong-literature.webp",
@@ -41,8 +44,9 @@
       "script": "scripts/figure_8_literature.py",
       "paperFigure": "Figure 8",
       "width": 1592,
-      "height": 2896,
-      "sha256": "5e8c9bf0776ce24f1497798c80b26ce08fecdb42fab3732d3957ae4ad6d9e9fa"
+      "height": 3055,
+      "sha256": "31d6e88ba183e321c49547e54768ec83528ffab0795e230f9e8f6b10255a1f4d",
+      "encoding": "webp-lossless"
     },
     {
       "path": "images/software/gravax-eff-imf-n512.webp",
@@ -50,9 +54,10 @@
       "script": "validation/preview/clusters/eff-imf-n512-proposal/2026-07-19-preview",
       "paperFigure": "gravax preview run (N=512 EFF cluster, 3 crossing times)",
       "width": 2512,
-      "height": 778,
-      "sha256": "a1f91811c7c855b76d9ee52e79aefb78b7db41eaf8b96c6b08bd4e8c38033abe",
-      "note": "PRELIMINARY. gravax provenance.json records production_validated=false: a preview run, not production-validated. config sha256 dfed5f7e…, IC sha256 39d42ceb…, JAX 0.10.2, CPU, seed 2213."
+      "height": 821,
+      "sha256": "8f133a5ee5efcc73153b5ed430c4b007ed331ebe0eb0f4bf84c4e4ac11ee3063",
+      "note": "PRELIMINARY. gravax provenance.json records production_validated=false. config sha256 dfed5f7e…, IC sha256 39d42ceb…, JAX 0.10.2, CPU, seed 2213.",
+      "encoding": "webp-q95"
     },
     {
       "path": "images/software/informax-telescope-adds-ten-pounds.webp",
@@ -60,9 +65,10 @@
       "script": "infoviz/cards/aim3-detect-repair-design.yml",
       "paperFigure": "Aim 3 flagship — detect, repair, design",
       "width": 2469,
-      "height": 772,
-      "sha256": "f1e5807cfe8b406af70d966d4c09c62277e5da7a6f81b2ec7b1f0f6992a2555b",
-      "note": "PRELIMINARY. Truth-known experiment, 96 recovery mocks; hash-verified evidence bundles. Claims machine-checked against the run in the infoviz card."
+      "height": 814,
+      "sha256": "3ed67e7b688712a83178bb67b9eb0bccf23ef456e7da342ce8c782cf08bc9471",
+      "note": "PRELIMINARY. Truth-known experiment, 96 recovery mocks; hash-verified evidence bundles.",
+      "encoding": "webp-lossless"
     },
     {
       "path": "images/research/gravoturb-cluster.webp",
@@ -70,9 +76,10 @@
       "script": "scripts/gravoturb/export_cluster.py",
       "paperFigure": "Truth-known synthetic cluster (progenax)",
       "width": 1600,
-      "height": 486,
-      "sha256": "b376e5552e54004c3bffe4a6eb357ca52a2f86cbcec3ad88f9edc9725c9c6e8f",
-      "note": "PRELIMINARY. Generated with progenax; shown on /research and /software."
+      "height": 520,
+      "sha256": "20e6c611e8ca5d857f4f47b833d00ece0054c3fc7cc78a31fce8e3fc81225b98",
+      "note": "PRELIMINARY. Generated with progenax; shown on /research and /software.",
+      "encoding": "webp-q95"
     },
     {
       "path": "images/software/fluxax-truth-observed-cmds.webp",
@@ -80,9 +87,10 @@
       "script": "f3-truth-observed-cmds",
       "paperFigure": "Truth vs Gaia vs Rubin colour-magnitude diagrams",
       "width": 2425,
-      "height": 753,
-      "sha256": "ab8a2b047033022e1116de72e7695f1ae567ad6d6e188065248d4d3f2a3f167f",
-      "note": "PRELIMINARY. Same synthetic population pushed through the Gaia and Rubin forward models, including detection limits and saturation."
+      "height": 794,
+      "sha256": "d8806d56741dc4f7ca97068f5ebc59b10a21033048798efce35d21bd73a09c69",
+      "note": "PRELIMINARY. Same synthetic population through the Gaia and Rubin forward models, including detection limits and saturation.",
+      "encoding": "webp-q95"
     },
     {
       "path": "images/software/fluxax-pixel-information.webp",
@@ -90,9 +98,9 @@
       "script": "f3-nominal-information",
       "paperFigure": "Per-pixel Fisher information for IMF and binary slopes",
       "width": 1466,
-      "height": 1639,
-      "sha256": "db47f52ff3d9cdc6f02acdecfab0047757ba22a785eff13052d33f6b709b7353",
-      "note": "PRELIMINARY. Population-to-pixel differentiation is implemented; validated detector/survey transformations and global recovery are proposed work, per the source caption.",
+      "height": 1729,
+      "sha256": "7fb1396eadb7371ea6993f8e7f3c342cdba35df874d9a3d49608713afa056238",
+      "note": "PRELIMINARY. Population-to-pixel differentiation is implemented; validated detector/survey transformations and global recovery are proposed work.",
       "encoding": "webp-q95"
     }
   ]
