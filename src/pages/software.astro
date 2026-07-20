@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
+import Figure from "../components/Figure.astro";
 import JaxstroEcosystem from "../components/JaxstroEcosystem.astro";
 import StatusBadge from "../components/StatusBadge.astro";
 import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL } from "../data/jaxstro";
@@ -27,6 +28,26 @@ const packages = await getPackages();
       that each own one scientific stage and remain independently useful. It powers
       current work on star-cluster identifiability, and it is built to outlast any
       single project — a foundation for questions I haven't asked yet.
+    </p>
+  </section>
+
+  {/* The lede claims the pipeline returns an exact sensitivity, not just a
+      prediction. That claim went undemonstrated until a reader clicked into
+      fluxax, so the evidence for it sits here, before the map of the parts. */}
+  <section class="wrap sw-why" aria-labelledby="why-heading">
+    <h2 id="why-heading" class="sw-section-title">What differentiability buys</h2>
+    <Figure
+      src="/images/software/fluxax-pixel-information.webp"
+      alt="Six panels in two columns. Top row: a simulated g-band image of a crowded cluster, first as an expected source-limited scene and then as a nominal 30-second Rubin-like exposure with sky and noise. Middle row: maps of how much information each pixel carries about the IMF slope. Bottom row: the same for the binary mass-ratio slope. The information maps are concentrated on a sparse subset of stars, and differ between the two parameters."
+      caption="Every stage of Jaxstro carries gradients, and this is what that buys. A truth-known cluster is rendered as a nominal 30-second Rubin-like exposure, then the render is differentiated with respect to the population parameters — giving the Fisher information carried by every individual pixel, for the IMF slope and for the binary mass-ratio slope. The two are not the same pixels: different physics is constrained by different parts of the image. Running the simulation forward cannot produce this map at any cost; it exists only because the whole chain is differentiable."
+      width={1466}
+      height={1729}
+      preliminary
+      contain
+    />
+    <p class="sw-why__more prose">
+      Rendered with <code>fluxax</code>. The full six-panel version, and what its
+      methods paper will establish, are on <a href="/software/fluxax">the fluxax page</a>.
     </p>
   </section>
 
@@ -116,6 +137,15 @@ const packages = await getPackages();
   .sw-section-title {
     font-size: var(--step-2);
     margin-block-end: var(--space-m);
+  }
+
+  .sw-why {
+    padding-block-end: var(--space-2xl);
+  }
+  .sw-why__more {
+    margin-block-start: var(--space-s);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
   }
 
   .sw-eco {
