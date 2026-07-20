@@ -3,7 +3,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
 import JaxstroEcosystem from "../components/JaxstroEcosystem.astro";
 import StatusBadge from "../components/StatusBadge.astro";
-import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL } from "../data/jaxstro";
+import { READINESS_LABEL } from "../data/jaxstro";
+import ReadinessMeter from "../components/ReadinessMeter.astro";
 import { getPackages, packageHref } from "../lib/packages";
 
 const packages = await getPackages();
@@ -79,16 +80,7 @@ const packages = await getPackages();
                 <p class="pkg__tagline">{d.tagline}</p>
                 <p class="pkg__desc">{d.description}</p>
                 <div class="pkg__foot">
-                  <span
-                    class="meter"
-                    title={d.maturity}
-                    aria-label={`Readiness: ${READINESS_LABEL[d.readiness]}`}
-                  >
-                    {Array.from({ length: READINESS_TOTAL }, (_, k) => k + 1).map((n) => (
-                      <span class:list={["meter__step", n <= READINESS_STEPS[d.readiness] && "is-on"]} />
-                    ))}
-                    <span class="meter__label">{READINESS_LABEL[d.readiness]}</span>
-                  </span>
+                  <ReadinessMeter readiness={d.readiness} title={d.maturity} />
                   {d.maturity && d.maturity !== READINESS_LABEL[d.readiness] && (
                     <span class="pkg__note">{d.maturity}</span>
                   )}
@@ -304,31 +296,6 @@ const packages = await getPackages();
   }
 
   /* Readiness is what actually differs between packages; status does not. */
-  .meter {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-  }
-  .meter__step {
-    inline-size: 14px;
-    block-size: 3px;
-    border-radius: 2px;
-    background: var(--bg-surface);
-    box-shadow: inset 0 0 0 1px var(--border);
-  }
-  .meter__step.is-on {
-    background: var(--spec-teal-bright);
-    box-shadow: none;
-  }
-  .meter__label {
-    margin-inline-start: var(--space-2xs);
-    font-family: var(--font-mono);
-    font-size: var(--step--2);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--ink-dim);
-  }
-
   @media (max-width: 60rem) {
     .pkg {
       grid-template-columns: 5rem minmax(0, 1fr);

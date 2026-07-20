@@ -4,6 +4,8 @@
  * onto this site later). Source: Anna's CV + provided URLs.
  */
 
+import type { PackageStatus, Readiness } from "./jaxstro";
+
 export interface Course {
   code: string;
   title: string;
@@ -60,9 +62,29 @@ export interface LearningResource {
   blurb: string;
   url: string;
   kind: string;
+  /*
+   * Development status, shown with the same badge + meter as /software. These
+   * are built things, not finished products, and the page should say so rather
+   * than let a link imply a release. Values are Anna's to set — see the note
+   * in jaxstro.ts on why readiness, not status, is what differs.
+   */
+  status?: PackageStatus;
+  readiness?: Readiness;
+  /** Free-text maturity note, e.g. "Pilot course running". */
+  maturity?: string;
 }
 
 export const learningResources: LearningResource[] = [
+  {
+    name: "Sophie",
+    kind: "Authoring platform",
+    blurb:
+      "A schema-driven, AI-authorable platform for interactive textbooks, course sites and slides — one lesson, many accessible outputs.",
+    url: "https://github.com/drannarosen/sophie",
+    status: "active-build",
+    readiness: "advanced",
+    maturity: "Active development · not yet released for external use",
+  },
   {
     name: "Cosmic Playground",
     kind: "Interactive platform",

@@ -2,6 +2,8 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
 import { courses, learningResources } from "../data/teaching";
+import StatusBadge from "../components/StatusBadge.astro";
+import ReadinessMeter from "../components/ReadinessMeter.astro";
 ---
 
 <BaseLayout
@@ -33,6 +35,12 @@ import { courses, learningResources } from "../data/teaching";
               </a>
             </h3>
             <p class="te-resource__blurb">{r.blurb}</p>
+            {(r.status || r.readiness) && (
+              <div class="te-resource__foot">
+                {r.status && <StatusBadge status={r.status} />}
+                {r.readiness && <ReadinessMeter readiness={r.readiness} title={r.maturity} />}
+              </div>
+            )}
           </li>
         ))
       }
@@ -160,6 +168,13 @@ import { courses, learningResources } from "../data/teaching";
   }
   .te-resource__name a:hover {
     color: var(--spec-teal-bright);
+  }
+  .te-resource__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs) var(--space-s);
+    margin-block-start: var(--space-2xs);
   }
   .te-resource__blurb {
     color: var(--ink-dim);
