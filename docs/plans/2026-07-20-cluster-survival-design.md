@@ -201,6 +201,56 @@ prototype also paused integration once settled, so runs are reproducible.
 | settled-state stationarity | bound fraction identical at 30 and 60 t_cross |
 | browser vs offline solver | 87% / 0.78, exact agreement |
 
+### The gas never visually left — log colorbars hide mass loss
+
+Reported by Anna on the built version and confirmed by computing the shader math
+against the real `meta.json`. **This is the finding most likely to be
+rediscovered painfully, because the readout and the picture disagreed.**
+
+The volume shader maps density through a 6-dex log colorbar, so removing a
+factor of 10 in gas mass moves the image by only 1/6 of its dynamic range:
+
+| gas remaining | core brightness |
+| --- | --- |
+| 100% | 1.00 |
+| 10% | 0.77 |
+| 1% | 0.55 |
+| **0.4%, which the readout rounds to "0%"** | **0.46** |
+| 0.01% (the `uGasFrac` clamp floor) | 0.13 |
+
+The page announced "gas left 0%" while the cloud core still rendered at 46% of
+full brightness.
+
+The *old* homologous page dimmed even less — its core only reaches 0.59 — but it
+also expanded the cloud by S = 4.5, spreading it over **91x the volume**, so the
+surface brightness per pixel collapsed and it visibly dispersed. **The geometric
+expansion was doing all the work of reading as "cleared", not the dilution.**
+Replacing it with fixed-shape mass decay removed the only legible mechanism.
+
+**Do not fix this with a display hack** (fading the volume alpha by gas
+fraction). The real lesson is physical: gas expulsion is an **outflow**. The gas
+is driven out; it does not evaporate in place. Removing mass uniformly at all
+radii is only valid if the removed mass teleports to infinity. Real feedback
+clears **inside-out** — gas near the massive stars goes first and a shell sweeps
+outward, so M_gas(<r) drops at small radii before large ones. That is a
+different, and more interesting, potential history, because the cluster sits
+exactly where the gas leaves first.
+
+**This converges with the gravax requirement.** What is needed is a
+time-dependent radial *profile* — an evacuating cavity — not a time-dependent
+scalar mass multiplying a fixed profile. One feature delivers both correct
+physics and a legible picture. Specify the gravax external-potential work in
+those terms.
+
+### Latent bug in the currently-published page
+
+`engine.ts:231` computes `autoExpel && !reduceMotion`, so with
+`prefers-reduced-motion: reduce` the auto-expulsion loop is disabled entirely
+and `expel` stays pinned at 0. On the published `/explore/gas-expulsion`, a
+reduced-motion reader sees a static embedded cloud forever, with a "play the
+loop" checkbox that does nothing, on a page whose entire subject is expulsion.
+The slider still works if they find it. Not yet fixed.
+
 ### Known weaknesses never fixed
 
 1. **Boundness is not iterated.** Standard practice removes unbound stars,
