@@ -13,6 +13,12 @@
  *
  * A slot wins over the matching prop when both are supplied.
  */
+/*
+ * An optional `aside` slot puts supporting media level with the title, in a
+ * right-hand column, instead of below the header. The default slot adds further
+ * prose to the left column so it shares the aside's height. Without an `aside`
+ * the header is unchanged, so every existing page is untouched.
+ */
 interface Props {
   eyebrow?: string;
   /** Optional when a `title` slot is provided instead. */
@@ -22,20 +28,25 @@ interface Props {
 const { eyebrow, title, lede } = Astro.props;
 const hasTitleSlot = Astro.slots.has("title");
 const hasLedeSlot = Astro.slots.has("lede");
+const hasAside = Astro.slots.has("aside");
 ---
 
-<header class="page-header wrap">
-  {eyebrow && <p class="page-header__eyebrow">{eyebrow}</p>}
-  <h1 class="page-header__title">
-    {hasTitleSlot ? <slot name="title" /> : title}
-  </h1>
-  {
-    (hasLedeSlot || lede) && (
-      <p class="page-header__lede prose">
-        {hasLedeSlot ? <slot name="lede" /> : lede}
-      </p>
-    )
-  }
+<header class:list={["page-header wrap", { "page-header--split": hasAside }]}>
+  <div class="page-header__main">
+    {eyebrow && <p class="page-header__eyebrow">{eyebrow}</p>}
+    <h1 class="page-header__title">
+      {hasTitleSlot ? <slot name="title" /> : title}
+    </h1>
+    {
+      (hasLedeSlot || lede) && (
+        <p class="page-header__lede prose">
+          {hasLedeSlot ? <slot name="lede" /> : lede}
+        </p>
+      )
+    }
+    <slot />
+  </div>
+  {hasAside && <div class="page-header__aside"><slot name="aside" /></div>}
 </header>
 
 <style>
@@ -57,5 +68,25 @@ const hasLedeSlot = Astro.slots.has("lede");
     font-size: var(--step-1);
     color: var(--ink-soft);
     margin-block-start: var(--space-s);
+  }
+
+  /* Split header: supporting media sits level with the title rather than under
+     the whole block. Below the breakpoint it stacks, where two columns would
+     leave the text column too narrow to read. */
+  @media (min-width: 60rem) {
+    .page-header--split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, var(--page-header-aside, 20rem));
+      gap: var(--space-xl);
+      align-items: start;
+    }
+  }
+  .page-header__aside {
+    margin-block-start: var(--space-m);
+  }
+  @media (min-width: 60rem) {
+    .page-header__aside {
+      margin-block-start: 0;
+    }
   }
 </style>

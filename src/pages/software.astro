@@ -15,14 +15,22 @@ const packages = await getPackages();
   path="/software"
   ogImage="software.png"
 >
-  <PageHeader eyebrow="Software" title="Differentiable astrophysics, built as instruments" />
-
   {/* The opening prose claims the pipeline returns an exact sensitivity, not
-      just a prediction. The evidence for that claim sits beside the claim
-      itself, wrapped by it, rather than a click away on the fluxax page. */}
-  <section class="wrap sw-intro">
-    <div class="sw-intro__flow">
-    <figure class="sw-fig">
+      just a prediction. The evidence sits level with the claim, in the header's
+      aside, rather than a click away on the fluxax page. */}
+  <PageHeader
+    eyebrow="Software"
+    title="Differentiable astrophysics, built as instruments"
+    lede="I build JAX-native scientific software where every step — from a cluster's birth to its survey observables — is a smooth, differentiable function. The pipeline returns not just a prediction, but its exact sensitivity to each physical parameter."
+  >
+    <p class="sw-intro__more">
+      <strong>Jaxstro</strong> is the spine of that program: a family of packages
+      that each own one scientific stage and remain independently useful. It powers
+      current work on star-cluster identifiability, and it is built to outlast any
+      single project — a foundation for questions I haven't asked yet.
+    </p>
+
+    <figure class="sw-fig" slot="aside">
       <img
         src="/images/software/fluxax-pixel-information.webp"
         alt="Six panels in two columns. Top row: a simulated g-band image of a crowded cluster, first as an expected source-limited scene and then as a nominal 30-second Rubin-like exposure with sky and noise. Middle row: maps of how much information each pixel carries about the IMF slope. Bottom row: the same for the binary mass-ratio slope. The information maps are concentrated on a sparse subset of stars, and differ between the two parameters."
@@ -38,21 +46,7 @@ const packages = await getPackages();
         <a href="/software/fluxax">fluxax</a>
       </figcaption>
     </figure>
-
-    <p class="sw-intro__lede">
-      I build JAX-native scientific software where every step — from a cluster's
-      birth to its survey observables — is a smooth, differentiable function. The
-      pipeline returns not just a prediction, but its exact sensitivity to each
-      physical parameter.
-    </p>
-    <p>
-      <strong>Jaxstro</strong> is the spine of that program: a family of packages
-      that each own one scientific stage and remain independently useful. It powers
-      current work on star-cluster identifiability, and it is built to outlast any
-      single project — a foundation for questions I haven't asked yet.
-    </p>
-    </div>
-  </section>
+  </PageHeader>
 
   <section class="wrap-wide sw-eco" aria-labelledby="eco-heading">
     <h2 id="eco-heading" class="sw-section-title">The Jaxstro Ecosystem</h2>
@@ -125,36 +119,19 @@ const packages = await getPackages();
 </BaseLayout>
 
 <style>
-  /* Capped narrower than .wrap's 72rem: the prose flows beside the floated
-     figure here rather than inside a .prose measure, so the SECTION sets the
-     line length. 58rem less the figure leaves a readable column. */
-  .sw-intro {
-    padding-block-end: var(--space-xl);
-  }
-  /* The measure is capped on an INNER block, not on .wrap itself: .wrap centres
-     with margin-inline:auto, so shrinking it re-centres this section and its
-     text no longer starts on the same left edge as the H1 above. */
-  .sw-intro__flow {
-    max-inline-size: 58rem;
-  }
-  .sw-intro p {
+  .sw-intro__more {
     color: var(--ink-soft);
+    margin-block-start: var(--space-m);
   }
-  .sw-intro__lede {
-    font-size: var(--step-1);
-    margin-block-end: var(--space-s);
-  }
-  .sw-intro strong {
+  .sw-intro__more strong {
     color: var(--spec-teal-bright);
     font-weight: 600;
   }
 
-  /* Float the evidence into the opening prose. Portrait, so it is kept narrow;
-     the following section clears it. */
+  /* The figure occupies the header's aside column, so it is sized by the grid
+     rather than by a float. */
   .sw-fig {
-    float: inline-end;
-    inline-size: 15rem;
-    margin: 0 0 var(--space-m) var(--space-l);
+    margin: 0;
   }
   .sw-fig img {
     inline-size: 100%;
@@ -185,16 +162,13 @@ const packages = await getPackages();
     padding: 0 6px;
     margin-inline-end: 0.25em;
   }
-  /* Phones: a 15rem float beside body text leaves an unreadable column. */
-  @media (max-width: 34rem) {
+  /* Stacked (below the header's split breakpoint): centre it rather than
+     letting a portrait run the full content width. */
+  @media (max-width: 60rem) {
     .sw-fig {
-      float: none;
       inline-size: min(100%, 20rem);
-      margin: 0 auto var(--space-m);
+      margin-inline: auto;
     }
-  }
-  .sw-eco {
-    clear: both;
   }
 
   .sw-section-title {
