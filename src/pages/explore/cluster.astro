@@ -61,6 +61,11 @@ const scenes: Scene[] = [
   path="/explore/cluster"
 >
   <div class="story" data-story>
+    {/* The scenes are h2s, so without this the page shipped no h1 at all:
+        assistive tech and search engines both lose the page's subject. It is
+        visually hidden because the title belongs to the scrollytelling itself,
+        which announces itself through the first scene. */}
+    <h1 class="visually-hidden">Birth of a cluster</h1>
     <div class="story__stage">
       <canvas data-cluster aria-label="A star cluster forming and dispersing its natal gas."></canvas>
     </div>

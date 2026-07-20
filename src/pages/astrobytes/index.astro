@@ -21,7 +21,7 @@ const fmt = (d: Date) =>
 
 <BaseLayout
   title="Astrobytes — Anna Rosen, Ph.D."
-  description="Plain-language write-ups of astronomy papers for students and anyone curious — what was measured, how, and what it does and does not show. No subfield jargon assumed."
+  description="Plain-language write-ups of astronomy papers for students and the curious: what was measured, how, and what it does and does not show. No jargon assumed."
   path="/astrobytes"
 >
   <PageHeader
@@ -30,7 +30,8 @@ const fmt = (d: Date) =>
     lede="Astronomy papers, explained. What was measured, the mechanism behind the result, and — the part papers usually bury — what it does not show. Written for students and curious readers, not for specialists."
   />
 
-  <div class="wrap flow ab-note">
+  <div class="wrap ab-note">
+    <div class="prose flow">
     <p>
       If you have ever opened an astronomy paper and bounced off the first
       paragraph, these are for you. No prior coursework assumed — I define the
@@ -46,6 +47,7 @@ const fmt = (d: Date) =>
       <a href="/astrobytes/rss.xml">Subscribe by RSS</a> — no account, no
       algorithm, nothing tracking you.
     </p>
+  </div>
   </div>
 
   <ul class="wrap ab-list" role="list">
@@ -77,7 +79,6 @@ const fmt = (d: Date) =>
     padding-block-end: var(--space-l);
     color: var(--ink-dim);
     font-size: var(--step--1);
-    max-inline-size: 62ch;
   }
   .ab-list {
     display: grid;

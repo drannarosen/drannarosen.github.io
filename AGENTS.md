@@ -156,6 +156,17 @@ reading text; use `flow` for any other stack.
 Grid/flex containers with `gap` already handle their own rhythm and need
 neither.
 
+**Never put a measure cap on a `.wrap`/`.wrap-wide` element.** Those centre with
+`margin-inline: auto`, so capping them re-centres the narrower box and its text
+stops aligning with the headings above it. This has bitten twice (`/software`
+intro, the `/astrobytes` note, which shipped indented). Put the cap on an inner
+block instead:
+
+```html
+<div class="wrap">          <!-- centres the column -->
+  <div class="prose flow">  <!-- caps the measure, stays left-aligned -->
+```
+
 ## Naming
 
 Settled 2026-07-19; do not "correct" these back.
