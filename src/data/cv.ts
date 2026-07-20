@@ -14,6 +14,8 @@ export interface DatedEntry {
   note?: string;
   /** Optional link for the note (e.g. the ADS record for a thesis). */
   href?: string;
+  /** Optional link for the role itself (e.g. a course's public site). */
+  roleHref?: string;
 }
 
 export interface Publication {

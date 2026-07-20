@@ -49,9 +49,13 @@ type CvSection =
   | { kind: "grants"; title: string; nav: string }
   | { kind: "advising"; title: string; nav: string };
 
+/* Course sites are public and are the best evidence a teaching line has, so the
+   CV links them rather than naming a course and stopping there. The Typst CV
+   already did; this keeps the two from disagreeing. */
 const teachingEntries: DatedEntry[] = courses.map((c) => ({
   role: `${c.code} — ${c.title}`,
   date: c.when,
+  roleHref: c.url ?? undefined,
 }));
 
 const softwareEntries: DatedEntry[] = (await getPackages()).map((p) => ({
@@ -200,7 +204,15 @@ const navItems = sections.map((s) => ({ id: slugify(s.title), label: s.nav }));
             {section.entries.map((e) => (
               <li class="cv-entry">
                 <div class="cv-entry__body">
-                  <p class="cv-entry__role">{e.role}</p>
+                  <p class="cv-entry__role">
+                    {e.roleHref ? (
+                      <a href={e.roleHref} rel="noopener">
+                        {e.role} ↗
+                      </a>
+                    ) : (
+                      e.role
+                    )}
+                  </p>
                   {e.org && <p class="cv-entry__org">{e.org}</p>}
                   {e.note &&
                     (e.href ? (
