@@ -57,6 +57,28 @@ const ogImageUrl = new URL(`/og/${ogImage}`, Astro.site).href;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    {/* Google Analytics (gtag.js), G-50FCCTYBRH.
+        It lives HERE, in the one layout every page uses, rather than being
+        pasted into each page as Google's instructions describe: that is what
+        makes "no more than one Google tag per page" structurally true instead
+        of a rule someone has to remember. A new page gets it by using this
+        layout; nothing to add.
+
+        PROD ONLY, same as the Cloudflare beacon: loading it from `pnpm dev`
+        would file local page views as real traffic and pollute the reports. */}
+    {import.meta.env.PROD && (
+      <>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-50FCCTYBRH" />
+        <script
+          is:inline
+          set:html={`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-50FCCTYBRH');`}
+        />
+      </>
+    )}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
     <!-- Preload critical self-hosted fonts to avoid layout shift -->

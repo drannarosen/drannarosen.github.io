@@ -118,6 +118,26 @@ vanishes.
   "Anna Rosen builds…". Names stay in metadata (`og:site_name`, `author`,
   `reviewedBy`) so provenance remains machine-readable.
 
+## Analytics
+
+Two tags ship, both in `src/layouts/BaseLayout.astro`, both **production-only**:
+
+- **Google Analytics** (gtag.js, `G-50FCCTYBRH`) — in `<head>`.
+- **Cloudflare Web Analytics** — end of `<body>`.
+
+**Do not paste either tag into a page.** Google's setup text says to add the
+snippet to every page, which is advice for hand-written HTML; here every page
+renders through `BaseLayout`, so a new page inherits both automatically. Adding
+one to a page would double-count that page's traffic and breaks Google's own
+"no more than one Google tag per page" rule.
+
+If a page ever bypasses `BaseLayout`, it gets no analytics — that is the correct
+default, not a bug to patch per page. Add the layout instead.
+
+Both are gated on `import.meta.env.PROD`, so `pnpm dev` never reports local page
+views as real traffic. That also means neither tag can be verified from the dev
+server; check the built output in `dist/` or the deployed site.
+
 ## Type
 
 One knob: `--font-scale` in `src/styles/tokens.css`. `1` is normal; `1.05`
