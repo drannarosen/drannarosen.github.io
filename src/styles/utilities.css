@@ -24,6 +24,46 @@
     margin-inline: auto;
   }
 
+  /*
+   * Vertical rhythm.
+   *
+   * reset.css zeroes every margin, so spacing has to be reintroduced
+   * deliberately. Doing that per-component is what produced paragraphs running
+   * together on /astrobytes: any <p> outside `.editorial` had none, and each
+   * page had to remember to add it. This makes flow the DEFAULT for any stack
+   * of block content instead of an opt-in each author can forget.
+   *
+   * The owl selector (`* + *`) rather than a blanket `p { margin-block-end }`:
+   * it puts space only BETWEEN siblings, so a block never carries a leading or
+   * trailing margin its container did not ask for — which is what makes
+   * component spacing predictable rather than something to fight with
+   * `:last-child` overrides.
+   *
+   * `--flow-space` is the per-context knob: set it on the container (or on a
+   * single child) to tighten or loosen a run without new classes.
+   */
+  .flow > * + *,
+  .prose > * + * {
+    margin-block-start: var(--flow-space, var(--space-s));
+  }
+
+  /* A heading opens a new idea, so it needs more space above it than a
+     paragraph does — but not when it is the first thing in the flow. */
+  .flow > * + :is(h2, h3, h4),
+  .prose > * + :is(h2, h3, h4) {
+    --flow-space: var(--space-l);
+  }
+
+  /* Lists: the reset strips markers and indent from `[role="list"]` only, so
+     semantic lists inside prose keep theirs and just need the flow spacing
+     applied to their items too. */
+  .prose :is(ul, ol) {
+    padding-inline-start: var(--space-m);
+  }
+  .prose :is(ul, ol) > li + li {
+    margin-block-start: var(--space-2xs);
+  }
+
   .prose {
     max-inline-size: var(--width-prose);
   }

@@ -132,6 +132,30 @@ tokens were tuned — a scale that can be bypassed is a suggestion. `em` units
 are allowed (context-relative by design); anything genuinely special needs a
 trailing `type-scale-exempt: <reason>` comment.
 
+## Vertical rhythm
+
+`reset.css` zeroes every margin, so spacing is never automatic. Do not
+reintroduce it per component — that is what left the paragraphs on
+`/astrobytes` touching, because every author had to remember a rule that
+nothing enforced.
+
+Put `flow` (or `prose`, which includes it) on any container holding a stack of
+block content:
+
+```html
+<div class="wrap flow">   <!-- p, ul, h2 … all space themselves -->
+```
+
+It uses the owl selector `> * + *`, so spacing lands only BETWEEN siblings —
+never a leading or trailing margin the parent did not ask for. Tune a run with
+`--flow-space` on the container or on one child rather than adding a class.
+
+`prose` also caps the measure at `--width-prose` and indents lists. Use it for
+reading text; use `flow` for any other stack.
+
+Grid/flex containers with `gap` already handle their own rhythm and need
+neither.
+
 ## Naming
 
 Settled 2026-07-19; do not "correct" these back.
