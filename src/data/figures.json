@@ -51,12 +51,12 @@
     {
       "path": "images/software/gravax-eff-imf-n512.webp",
       "origin": "jaxstro-dev/gravax",
-      "script": "validation/preview/clusters/eff-imf-n512-proposal/2026-07-19-preview",
-      "paperFigure": "gravax preview run (N=512 EFF cluster, 3 crossing times)",
-      "width": 2512,
-      "height": 821,
-      "sha256": "8f133a5ee5efcc73153b5ed430c4b007ed331ebe0eb0f4bf84c4e4ac11ee3063",
-      "note": "PRELIMINARY. gravax provenance.json records production_validated=false. config sha256 dfed5f7e…, IC sha256 39d42ceb…, JAX 0.10.2, CPU, seed 2213.",
+      "script": "gravax validation figures — N=512 EFF cluster, adaptive Symmetric Hermite 6 (commit 3a11271)",
+      "paperFigure": "N=512 EFF cluster to 3 crossing times, with endpoint sensitivities",
+      "width": 2545,
+      "height": 847,
+      "sha256": "0a0cd103bbce6934f3f2a73f21acfe96c64e1ffa37dcde672e1f2c4756fe94bf",
+      "note": "PRELIMINARY. Panels (a-b): adaptive direct hierarchy with Symmetric Hermite 6 field subflows, universal Kepler binaries, r_tol=1e-6, seed 2213. Panel (c): standalone adaptive Symmetric Hermite 6 over five controlled N=32 clusters (three calibration, two held out); AD vs full finite-difference reruns agree to 3.24e-5. Exact unsoftened Newtonian forces, CPU float64. No P2MSM or FSI data appear in this figure.",
       "encoding": "webp-q95"
     },
     {

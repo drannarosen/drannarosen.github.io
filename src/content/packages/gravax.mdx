@@ -12,12 +12,28 @@ repo: null
 docs: null
 upcoming: "In active development. The methods paper will cover the three-tier scheme and show where each tier is required rather than merely faster."
 figures:
-  - title: "The Gradients Are Real"
+  - title: "What the Endpoint Remembers"
     src: "/images/software/gravax-eff-imf-n512.webp"
-    alt: "Three panels. (a) A 512-star cluster in the x-y plane, points sized and coloured by stellar mass, with half-mass radii marked at t=0 and after three crossing times, and a central massive binary. (b) Cluster and binary scales versus time in units of the half-mass crossing time: the half-mass and 90-percent radii expand while the binary semimajor axis contracts in discrete steps. (c) Autodiff derivatives plotted against finite-difference derivatives for ten clusters, lying on the one-to-one line, with residuals of order 1e-9 in an inset."
-    caption: "A 512-star EFF cluster with a 31+28 M☉ hard binary, evolved for three half-mass crossing times. The binary hardens from 1000 to 896 AU while the cluster expands, and relative energy drift stays below 2×10⁻⁵. Panel (c) is the point: autodiff gradients match finite differences to ~10⁻⁹, so the differentiability claim is measured, not asserted."
-    width: 2512
-    height: 821
+    alt: "Three panels. (a) A 512-star cluster in the x-y plane, points sized and coloured by stellar mass, with projected half-mass radii circled at t=0 and after three crossing times, and a central massive binary. (b) Binary and cluster scales against time in units of the half-mass crossing time: the half-mass and 90-percent radii expand while the binary semimajor axis drops in three discrete steps at marked encounters. (c) A four-by-four matrix of logarithmic sensitivities of endpoint observables to birth parameters, showing strong diagonal structure: cluster radii respond to the initial half-mass radius, while binary semimajor axis and eccentricity respond to their own initial values."
+    caption: >-
+      **Birth conditions leave a readable fingerprint.** A 512-star EFF cluster
+      carrying a primordial \(30.8 + 28.3\,M_\odot\) binary, evolved to
+      \(3t_\mathrm{cr,h} = 2.447\,\mathrm{Myr}\) under exact, unsoftened
+      Newtonian forces. **(a)** Open symbols are the initial distribution and
+      filled symbols the endpoint; the projected half-mass radius grows from
+      0.71 to 0.88 pc. **(b)** Three binary-single encounters harden the binary
+      by 10.4%, from \(a_0 = 1000\) to \(896\,\mathrm{AU}\), while the cluster
+      expands and the binary ends at \(e = 0.538\). **(c)** The point: each cell
+      is the median logarithmic response
+      \(\partial\ln y(T)/\partial\ln\theta_0\) of an endpoint observable to a
+      birth parameter, across five clusters. The structure is physically
+      legible — cluster size remembers \(r_{h,0}\), while binary hardening and
+      eccentricity remember \(a_0\) and \(e_0\). Derivatives taken straight
+      through the reversible adaptive timestep agree with complete
+      finite-difference reruns to \(3.24\times10^{-5}\), so the differentiability
+      claim is measured rather than asserted.
+    width: 2545
+    height: 847
     preliminary: true
 ---
 
