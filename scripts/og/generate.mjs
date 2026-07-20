@@ -13,6 +13,17 @@
  * not fetch or render WebP previews reliably, and an OG card that silently
  * fails to display is worse than a slightly larger file.
  *
+ * Photo cards are written as JPEG, figures as PNG. Both are universally
+ * supported by unfurlers, but a photograph as lossless PNG runs to well over a
+ * megabyte and some unfurlers give up fetching one that large; a plot as JPEG
+ * would get ringing artifacts on its axes. Format follows content.
+ *
+ * FIGURES are fitted, never cropped — cropping a plot can remove the axis that
+ * makes it readable, and a plot letterboxed on the site background looks
+ * deliberate. PHOTOS are the opposite: they crop safely, and a portrait fitted
+ * inside a 1200x630 card leaves two large dead bands. So each card declares
+ * `photo: true` when it should fill the frame instead.
+ *
  *   node scripts/og/generate.mjs
  */
 
@@ -51,6 +62,16 @@ const CARDS = [
     out: "software-informax.png",
     figure: "images/software/informax-telescope-adds-ten-pounds.webp",
   },
+  // Photos: fill the card, biased to the top so faces and captions survive.
+  { out: "outreach.jpg", figure: "images/photos/anna-outreach-talk.webp", photo: true },
+  {
+    out: "about.jpg",
+    figure: "images/photos/anna-discover-the-cosmos.webp",
+    photo: true,
+    // A top-gravity crop cut Anna out of her own card, leaving only the
+    // banner. This band keeps the "Discover the Cosmos" text AND her.
+    crop: { left: 0, top: 95, width: 620, height: 330 },
+  },
 ];
 
 mkdirSync(OUT_DIR, { recursive: true });
@@ -60,6 +81,29 @@ for (const card of CARDS) {
   if (!existsSync(srcPath)) {
     console.error(`[og] SKIP ${card.out} — missing ${card.figure}`);
     process.exitCode = 1;
+    continue;
+  }
+
+  if (card.photo) {
+    // Photographs fill the whole card. `position: top` keeps heads and any
+    // text in the upper third of the frame rather than cropping through them.
+    const base = card.crop ? sharp(srcPath).extract(card.crop) : sharp(srcPath);
+    const filled = await base
+      .resize({ width: W, height: H, fit: "cover", position: "top" })
+      .png()
+      .toBuffer();
+
+    const rule = Buffer.from(
+      `<svg width="${W}" height="6" xmlns="http://www.w3.org/2000/svg">` +
+        `<rect width="${W}" height="6" fill="${TEAL}" opacity="0.9"/></svg>`,
+    );
+
+    await sharp(filled)
+      .composite([{ input: rule, top: 0, left: 0 }])
+      .jpeg({ quality: 86, progressive: true, mozjpeg: true })
+      .toFile(resolve(OUT_DIR, card.out));
+
+    console.log(`[og] ${card.out}  from ${card.figure} (photo, filled)`);
     continue;
   }
 
