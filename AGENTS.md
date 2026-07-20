@@ -78,6 +78,11 @@ Manage the background dev server with `astro dev stop`, `astro dev status`,
 - Never fabricate publications, students, grants, collaborators, or software
   claims. Use clearly-labeled provisional records where needed to exercise the
   content system.
+- **Never mention grant proposals** — in progress, submitted, or planned — in
+  any published page, script comment, or committed doc. No funder names, no
+  deadlines, no "after the X deadline". Timelines are stated without their
+  cause: "methods paper in preparation", never "after the X deadline". This
+  repository is public, so script comments and docs publish too.
 - Write in the **first person**. This is Anna's own site: "I build…", not
   "Anna Rosen builds…". Names stay in metadata (`og:site_name`, `author`,
   `reviewedBy`) so provenance remains machine-readable.

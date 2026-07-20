@@ -6,7 +6,7 @@ this script builds a single initial-condition realization and writes flat,
 float32 arrays the website can read directly. It performs no physics of its own.
 
 It reuses `feasibility_figure.build()` so the exported cluster is byte-identical
-to the "career" figure's construction (same IMF seed, cloud, envelope, and the
+to the reference figure's construction (same IMF seed, cloud, envelope, and the
 mass-segregation knob `lambda_corr`).
 
 --------------------------------------------------------------------------------
@@ -59,9 +59,9 @@ from progenax.profiles.eff import EFFProfile  # noqa: E402
 from progenax.stellar import zams_effective_temperature, zams_radius  # noqa: E402
 
 # --- knobs -------------------------------------------------------------------
-LAMBDA_CORR = 0.6  # mass<->natal-density coupling (0 = none, 0.6 = career figure)
-NGRID = 128  # gas-field grid resolution (career figure uses 96; higher = crisper)
-N_STARS = 10000  # number of stars (career figure uses 5000)
+LAMBDA_CORR = 0.6  # mass<->natal-density coupling (0 = none, 0.6 = reference figure)
+NGRID = 128  # gas-field grid resolution (reference figure uses 96; higher = crisper)
+N_STARS = 10000  # number of stars (reference figure uses 5000)
 GAS_POINTS = 55000  # 3D gas "motes" (for the rotating/expelling cloud)
 
 # Cloud radial SHAPE: EFF (Elson-Fall-Freeman 1987), rho ∝ (1+r^2/a^2)^(-gamma/2)
