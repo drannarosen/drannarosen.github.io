@@ -3,17 +3,30 @@ name: "gravax"
 order: 2
 stage: "Dynamics"
 tagline: "Differentiable collisional dynamics."
-description: "A three-tier MSM ⊕ Hermite ⊕ SDAR engine that resolves close encounters exactly while accelerating cluster-wide gravity — mapping how dynamics preserves, transforms, or erases birth structure."
-seoDescription: "A three-tier MSM, Hermite and SDAR engine: resolves close encounters exactly while accelerating cluster-wide gravity. How dynamics reshapes structure."
+description: "A JAX-native, hierarchical collisional N-body engine: high-order exact direct gravity with explicit ownership of binaries and compact subsystems, and gradients that survive the adaptive timestep — so a cluster model can be fitted to data, not only run forward."
+seoDescription: "A JAX-native hierarchical collisional N-body engine: high-order direct gravity, explicit binary ownership, differentiable adaptive timestepping."
 status: "active-build"
 readiness: "developing"
 maturity: "In active development"
 repo: null
 docs: null
-upcoming: "In active development. The methods paper will cover the three-tier scheme and show where each tier is required rather than merely faster."
+upcoming: "In active development. Near-term work turns the validated adaptive high-order scheme into the standard cluster entry point and extends it to realistic mass spectra and primordial binaries. The methods paper will cover where exact resolution is required rather than merely faster."
 figures:
   - id: "gravax-demo-01"
 ---
 
-{/* Prose grows here as the methods paper lands. The page is designed to
-    look deliberate with this body empty, so nothing needs writing today. */}
+Close encounters are where a cluster's history is decided, so gravax resolves
+them exactly rather than softening them away, and gives binaries and compact
+subsystems an owner of their own instead of letting them dissolve into the
+average. What sets it apart from the mature collisional codes is not speed: it
+is that the trajectory stays differentiable throughout, so I can ask how a
+cluster's present-day state depends on the conditions it was born with and
+answer with a derivative rather than a parameter sweep.
+
+Exact direct summation is what makes that trustworthy, and it is also what sets
+the ceiling on \(N\). A differentiable treatment of the far field is in
+development to lift it. The goal is cluster models at the million-star scale
+that stay differentiable end to end, and followed far enough to cover a
+cluster's whole life rather than its first few crossing times — from birth
+structure, through the epochs that rework it, to the point where it has been
+erased. That work is not validated yet, and nothing above depends on it.
