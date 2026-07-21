@@ -189,20 +189,36 @@ block instead:
 
 ## Figures
 
+**`src/data/figures.json` is the only place a figure is described.** Path, alt
+text, dimensions, title, credit and captions live there once; pages reference a
+figure by **id** (the filename without its extension) through
+`src/lib/figures.ts`. Never retype a figure's alt text or dimensions into a
+page — `getFigure(id)`, `figureImage(id)` and the `<Figure id="…" />` component
+resolve them.
+
+Before this, each page that showed a figure re-declared its description. Five
+of ten figures appear in more than one place, so that was the normal case, and
+it is what let a replacement gravax figure leave `/research` asserting the
+previous run's number. A single record makes that impossible rather than
+merely detectable.
+
+Only genuinely per-page choices stay at the call site: which caption variant
+(`full` for the figure's home page, `short` where it appears in passing) and
+layout (`captionPlacement`, `contain`, `side`). Astrobytes captions remain MDX
+children, because they carry markup and inline math and cannot live in JSON
+without ceasing to be MDX.
+
 `pnpm check:figures` enforces five things: the file matches its recorded
 sha256, its recorded dimensions match the file, nothing is served from a figure
 directory without provenance, no image under `public/images/` is shipped
 without something referencing it, and **the set of files referencing a figure
 matches its `usedIn` record**.
 
-That last one exists because it bit: the gravax figure appears on both
-`/software/gravax` and `/research`, a new version replaced it, and only the
-package page's caption was updated — leaving the research page asserting the
-previous run's number, off by four orders of magnitude. Seven of ten figures
-are used in more than one place, so this is the normal case, not an edge case.
-
-When a figure changes, the build fails until `usedIn` is updated. Use that
-prompt to re-read every caption listed there, which is the point.
+`usedIn` records where each figure is referenced, matching on **id or
+filename** — pages use ids, while the OG card generator still works in paths.
+When that set changes the build fails until the record is updated, which keeps
+the map of where a figure appears honest even now that its description lives in
+one place.
 
 Figure filenames are stable identifiers (`gravax-demo-01.webp`), not
 descriptions. Content can change under the same name: GitHub Pages serves

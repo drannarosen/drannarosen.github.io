@@ -103,16 +103,7 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
           </p>
           {p.figure && (
             <div class="pub__figure">
-              <Figure
-                src={p.figure.src}
-                alt={p.figure.alt}
-                caption={p.figure.caption}
-                credit={p.figure.credit}
-                width={p.figure.width}
-                height={p.figure.height}
-                preliminary={p.figure.preliminary}
-                contain={p.figure.contain}
-              />
+              <Figure id={p.figure.id} caption="short" contain={p.figure.contain} />
             </div>
           )}
         </article>

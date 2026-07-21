@@ -8,6 +8,11 @@ import ReadinessMeter from "../components/ReadinessMeter.astro";
 import { getPackages, packageHref } from "../lib/packages";
 
 const packages = await getPackages();
+
+/* Image identity from the registry; the caption below is this page's own
+   framing rather than the figure's scientific caption, so it stays here. */
+import { figureImage } from "../lib/figures";
+const heroFigure = figureImage("fluxax-pixel-information");
 ---
 
 <BaseLayout
@@ -33,10 +38,10 @@ const packages = await getPackages();
 
     <figure class="sw-fig" slot="aside">
       <img
-        src="/images/software/fluxax-pixel-information.webp"
-        alt="Six panels in two columns. Top row: a simulated g-band image of a crowded cluster, first as an expected source-limited scene and then as a nominal 30-second Rubin-like exposure with sky and noise. Middle row: maps of how much information each pixel carries about the IMF slope. Bottom row: the same for the binary mass-ratio slope. The information maps are concentrated on a sparse subset of stars, and differ between the two parameters."
-        width={1466}
-        height={1729}
+        src={heroFigure.src}
+        alt={heroFigure.alt}
+        width={heroFigure.width}
+        height={heroFigure.height}
         loading="eager"
         decoding="async"
       />
@@ -63,7 +68,9 @@ const packages = await getPackages();
       {
         packages.map((pkg) => {
           const d = pkg.data;
-          const fig = d.figures[0];
+          // Thumbnails resolve through the registry like every other figure;
+          // alt is empty because the link beside it already names the package.
+          const fig = d.figures[0] ? figureImage(d.figures[0].id) : null;
           return (
             <li
               class:list={["pkg", d.order === 0 ? "pkg--base" : "pkg--stage"]}

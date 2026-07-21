@@ -109,10 +109,17 @@ const searchable = [
   ...sourceFiles(resolve(ROOT, "scripts")),
 ].filter((f) => resolve(f) !== MANIFEST);
 
+/*
+ * A file "references" a figure if it names either the id or the filename.
+ * Pages reference figures by id now that src/data/figures.json is the single
+ * description; the OG card generator still works in paths, and an id is a
+ * substring of its own filename, so both forms are covered by checking each.
+ */
+const references = (text, f) => text.includes(f.id) || text.includes(f.path.split("/").pop());
+
 for (const f of figures) {
-  const basename = f.path.split("/").pop();
   const actual = searchable
-    .filter((file) => readFileSync(file, "utf8").includes(basename))
+    .filter((file) => references(readFileSync(file, "utf8"), f))
     .map((file) => relative(ROOT, file))
     .sort();
   const declared = [...(f.usedIn ?? [])].sort();
@@ -138,7 +145,11 @@ for (const f of figures) {
 for (const full of servedFigures(resolve(PUBLIC, "images"))) {
   const rel = relative(PUBLIC, full);
   const basename = rel.split("/").pop();
-  const referenced = searchable.some((file) => readFileSync(file, "utf8").includes(basename));
+  const id = basename.replace(/\.\w+$/, "");
+  const referenced = searchable.some((file) => {
+    const text = readFileSync(file, "utf8");
+    return text.includes(basename) || text.includes(id);
+  });
   if (!referenced) {
     problems.push(
       `orphan: ${rel} is shipped but nothing references it.\n` +

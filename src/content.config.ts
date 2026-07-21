@@ -113,16 +113,21 @@ const packages = defineCollection({
     docs: z.string().url().nullable().default(null),
     /** The trailer: what is coming, stated concretely rather than teased. */
     upcoming: z.string().optional(),
+    /*
+     * Figures are REFERENCED, not described. Everything about the image —
+     * path, alt text, dimensions, title, credit and caption — lives once in
+     * src/data/figures.json and resolves through src/lib/figures.ts.
+     *
+     * Five of ten figures appear on more than one page, and while each page
+     * carried its own copy of the caption they could disagree: a replacement
+     * gravax figure once left /research asserting the previous run's number.
+     * Only genuinely per-page choices survive here, and they are layout.
+     */
     figures: z
       .array(
         z.object({
-          title: z.string(),
-          src: z.string(),
-          alt: z.string(),
-          caption: z.string(),
-          width: z.number().int(),
-          height: z.number().int(),
-          preliminary: z.boolean().default(false),
+          /** Figure id — the filename without its extension. */
+          id: z.string(),
           /**
            * Where the caption sits. "side" is for tall figures: putting the
            * caption alongside halves the image's height instead of letting a

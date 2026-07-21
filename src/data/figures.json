@@ -8,7 +8,10 @@
   ],
   "figures": [
     {
+      "id": "confidently-wrong-binaries",
       "path": "images/astrobytes/confidently-wrong-binaries.webp",
+      "alt": "Three panels. (a) Binary fraction as a function of primary mass, rising in steps from about 0.22 for M dwarfs to 0.9 for O stars. (b) Distribution of mass ratio q for four primary masses, showing an excess of near-equal-mass 'twin' pairs at q close to 1. (c) The true initial mass function compared with the system mass function for four environments; the two curves separate at high mass.",
+      "credit": "Figure 1 of Rosen (2026), submitted.",
       "origin": "rosen-binary-imf-2026",
       "script": "scripts/figure_1_binary_model.py",
       "paperFigure": "Figure 1",
@@ -21,22 +24,31 @@
       ]
     },
     {
+      "id": "confidently-wrong-scaling",
       "path": "images/astrobytes/confidently-wrong-scaling.webp",
+      "alt": "Four log-log panels, one per environment. In each, solid lines showing 95 percent credible-interval width fall along a 1 over root N line, while dotted lines showing absolute bias stay roughly flat. A shaded region marks where the naive bias exceeds the interval width.",
+      "credit": "Figure 4 of Rosen (2026), submitted.",
       "origin": "rosen-binary-imf-2026",
       "script": "scripts/figure_4_scaling.py",
       "paperFigure": "Figure 4",
       "width": 2145,
       "height": 1666,
       "sha256": "553ec00351cae16f9312116dad61dea5b782e7857dad49d9877fe0ae991a2e7f",
-      "note": "Corrected build: the arXiv version renders a literal '95\\%'. Regenerated 2026-07-19; no pixel inside any data panel changed.",
       "encoding": "webp-lossless",
+      "note": "Corrected build: the arXiv version renders a literal '95\\%'. Regenerated 2026-07-19; no pixel inside any data panel changed.",
       "usedIn": [
         "scripts/og/generate.mjs",
         "src/content/astrobytes/confidently-wrong.mdx"
       ]
     },
     {
+      "id": "binary-imf-recovery",
       "path": "images/publications/binary-imf-recovery.webp",
+      "alt": "Two panels. Left: recovered versus true high-mass IMF slope for four environments; binary-aware estimates (filled circles) sit on the one-to-one line while naive estimates (open diamonds) fall consistently below it. Right: posterior distributions of the error in the recovered slope; every naive posterior (dashed) is shifted left of zero, while every binary-aware posterior (solid) is centred on zero.",
+      "credit": "Figure 3 of Rosen (2026), submitted.",
+      "captions": {
+        "short": "Ignoring binaries does not add noise — it moves the answer. Naive fits (dashed, open) are offset low in all four environments; binary-aware fits (solid, filled) recover the truth."
+      },
       "origin": "rosen-binary-imf-2026",
       "script": "scripts/figure_3_recovery.py",
       "paperFigure": "Figure 3",
@@ -51,7 +63,10 @@
       ]
     },
     {
+      "id": "confidently-wrong-literature",
       "path": "images/astrobytes/confidently-wrong-literature.webp",
+      "alt": "Forest plot of 48 published high-mass IMF slopes with error bars, spanning roughly 1.5 to 2.8, plotted against the Salpeter value of 2.35, with shaded bands marking the predicted bias from mass-addition and luminosity-addition.",
+      "credit": "Figure 8 of Rosen (2026), submitted.",
       "origin": "rosen-binary-imf-2026",
       "script": "scripts/figure_8_literature.py",
       "paperFigure": "Figure 8",
@@ -64,15 +79,24 @@
       ]
     },
     {
+      "id": "gravax-demo-01",
       "path": "images/software/gravax-demo-01.webp",
+      "title": "What the Endpoint Remembers",
+      "alt": "Three panels. (a) A 512-star cluster in the x-y plane, points sized and coloured by stellar mass, with projected half-mass radii circled at t=0 and after three crossing times, and a central massive binary. (b) Binary and cluster scales against time in units of the half-mass crossing time: the half-mass and 90-percent radii expand while the binary semimajor axis drops in three discrete steps at marked encounters. (c) A four-by-four matrix of logarithmic sensitivities of endpoint observables to birth parameters, showing strong diagonal structure: cluster radii respond to the initial half-mass radius, while binary semimajor axis and eccentricity respond to their own initial values.",
+      "credit": "A. L. Rosen · Jaxstro (gravax). Preliminary.",
+      "preliminary": true,
+      "captions": {
+        "full": "**Birth conditions leave a readable fingerprint.** A 512-star EFF cluster carrying a primordial \\(30.8 + 28.3\\,M_\\odot\\) binary, evolved to \\(3t_\\mathrm{cr,h} = 2.447\\,\\mathrm{Myr}\\) under exact, unsoftened Newtonian forces. **(a)** Open symbols are the initial distribution and filled symbols the endpoint; the projected half-mass radius grows from 0.71 to 0.88 pc. **(b)** Three binary-single encounters harden the binary by 10.4%, from \\(a_0 = 1000\\) to \\(896\\,\\mathrm{AU}\\), while the cluster expands and the binary ends at \\(e = 0.538\\). **(c)** The point: each cell is the median logarithmic response \\(\\partial\\ln y(T)/\\partial\\ln\\theta_0\\) of an endpoint observable to a birth parameter, across five clusters. The structure is physically legible — cluster size remembers \\(r_{h,0}\\), while binary hardening and eccentricity remember \\(a_0\\) and \\(e_0\\). Derivatives taken straight through the reversible adaptive timestep agree with complete finite-difference reruns to \\(3.24\\times10^{-5}\\), so the differentiability claim is measured rather than asserted.",
+        "short": "A differentiable model has to earn the word. Here a 512-star cluster with a hard massive binary is evolved for three crossing times — the binary hardens, the cluster expands — and the endpoint's sensitivity to every birth parameter is obtained by differentiating straight through the adaptive timestep, agreeing with complete finite-difference reruns to three parts in a hundred thousand. The result is legible: cluster size remembers where the cluster started, the binary remembers its own orbit. That is what makes the model invertible against data rather than merely runnable."
+      },
       "origin": "jaxstro-dev/gravax",
       "script": "gravax validation figures — N=512 EFF cluster, adaptive Symmetric Hermite 6 (commit 3a11271)",
       "paperFigure": "N=512 EFF cluster to 3 crossing times, with endpoint sensitivities",
       "width": 2545,
       "height": 847,
       "sha256": "0a0cd103bbce6934f3f2a73f21acfe96c64e1ffa37dcde672e1f2c4756fe94bf",
-      "note": "PRELIMINARY. Panels (a-b): adaptive direct hierarchy with Symmetric Hermite 6 field subflows, universal Kepler binaries, r_tol=1e-6, seed 2213. Panel (c): standalone adaptive Symmetric Hermite 6 over five controlled N=32 clusters (three calibration, two held out); AD vs full finite-difference reruns agree to 3.24e-5. Exact unsoftened Newtonian forces, CPU float64. No P2MSM or FSI data appear in this figure.",
       "encoding": "webp-q95",
+      "note": "PRELIMINARY. Panels (a-b): adaptive direct hierarchy with Symmetric Hermite 6 field subflows, universal Kepler binaries, r_tol=1e-6, seed 2213. Panel (c): standalone adaptive Symmetric Hermite 6 over five controlled N=32 clusters (three calibration, two held out); AD vs full finite-difference reruns agree to 3.24e-5. Exact unsoftened Newtonian forces, CPU float64. No P2MSM or FSI data appear in this figure.",
       "usedIn": [
         "scripts/og/generate.mjs",
         "src/content/packages/gravax.mdx",
@@ -81,15 +105,24 @@
       ]
     },
     {
+      "id": "informax-telescope-adds-ten-pounds",
       "path": "images/software/informax-telescope-adds-ten-pounds.webp",
+      "title": "The Telescope Adds Ten Pounds",
+      "alt": "Three panels showing binaries raising the line-of-sight velocity dispersion, binary-blind mass estimates near three times the truth against a calibrated control and binary-aware recovery, and radial target allocations shifting between mass-first and degeneracy-first observing designs.",
+      "credit": "A. L. Rosen · Jaxstro (informax). Preliminary.",
+      "preliminary": true,
+      "captions": {
+        "full": "Unresolved binaries inflate the observed velocity dispersion (a). A binary-blind fit turns that orbital motion into 2.9 times the true cluster mass — while forecasting 4.5% precision, a bias 42 times its own error bar. The control isolates the cause; binary-aware inference recovers both mass and binary fraction (b). Then the design question: a mass-first allocation buys 6.9% mass precision but leaves a 40% blind spot, while a degeneracy-first design halves that blind spot for two points of mass precision (c). Truth-known experiment, 96 mocks.",
+        "short": "Unresolved binaries inflate the observed velocity dispersion, and a binary-blind fit turns that orbital motion into 2.9 times the true cluster mass — while forecasting 4.5% precision. That is a bias 42 times its own error bar. Modelling the binaries recovers both the mass and the binary fraction, and the same machinery then says where to point the telescope next."
+      },
       "origin": "jaxstro-dev/informax",
       "script": "infoviz/cards/aim3-detect-repair-design.yml",
       "paperFigure": "Aim 3 flagship — detect, repair, design",
       "width": 2469,
       "height": 814,
       "sha256": "3ed67e7b688712a83178bb67b9eb0bccf23ef456e7da342ce8c782cf08bc9471",
-      "note": "PRELIMINARY. Truth-known experiment, 96 recovery mocks; hash-verified evidence bundles.",
       "encoding": "webp-lossless",
+      "note": "PRELIMINARY. Truth-known experiment, 96 recovery mocks; hash-verified evidence bundles.",
       "usedIn": [
         "scripts/og/generate.mjs",
         "src/content/packages/informax.mdx",
@@ -98,44 +131,65 @@
       ]
     },
     {
+      "id": "gravoturb-cluster",
       "path": "images/research/gravoturb-cluster.webp",
+      "title": "Born Where the Gas Is",
+      "alt": "Three panels: a synthetic cluster's natal gas surface density with an embedded stellar population, then the same stars placed without and with mass–gas coupling, coloured by spectral type from blue O stars to red M stars.",
+      "preliminary": true,
+      "captions": {
+        "full": "A truth-known synthetic cluster: natal gas surface density with an IMF-sampled population (left), then the same stars placed without (centre) and with (right) mass–gas coupling. With coupling on, massive O and B stars preferentially sit in dense gas — primordial mass segregation as a knob you can turn, which is what makes it testable."
+      },
       "origin": "jaxstro-dev/progenax",
       "script": "scripts/gravoturb/export_cluster.py",
       "paperFigure": "Truth-known synthetic cluster (progenax)",
       "width": 1600,
       "height": 520,
       "sha256": "20e6c611e8ca5d857f4f47b833d00ece0054c3fc7cc78a31fce8e3fc81225b98",
-      "note": "PRELIMINARY. Generated with progenax; shown on /research and /software.",
       "encoding": "webp-q95",
+      "note": "PRELIMINARY. Generated with progenax; shown on /research and /software.",
       "usedIn": [
         "scripts/og/generate.mjs",
         "src/content/packages/progenax.mdx"
       ]
     },
     {
+      "id": "fluxax-truth-observed-cmds",
       "path": "images/software/fluxax-truth-observed-cmds.webp",
+      "title": "What Gaia and Rubin Actually See",
+      "alt": "Three colour-magnitude diagrams of the same synthetic cluster. Left: ground truth in Rubin bands, singles and unresolved binaries both visible along the main sequence. Centre: the Gaia view, where faint stars fall below the detection limit and drop out. Right: the Rubin view, reaching deeper but saturating at the bright end and scattering near the faint limit.",
+      "preliminary": true,
+      "captions": {
+        "full": "One synthetic population, three views. Ground truth in Rubin bands (left); the same stars as Gaia would record them, with everything faint falling out below the detection limit (centre); and as Rubin would record them, reaching far deeper but saturating at the bright end (right). Unresolved binaries sit systematically above the single-star sequence in every panel. Selection, saturation and blending are part of the forward model, not corrections applied afterwards."
+      },
       "origin": "jaxstro-dev/fluxax",
       "script": "f3-truth-observed-cmds",
       "paperFigure": "Truth vs Gaia vs Rubin colour-magnitude diagrams",
       "width": 2425,
       "height": 794,
       "sha256": "d8806d56741dc4f7ca97068f5ebc59b10a21033048798efce35d21bd73a09c69",
-      "note": "PRELIMINARY. Same synthetic population through the Gaia and Rubin forward models, including detection limits and saturation.",
       "encoding": "webp-q95",
+      "note": "PRELIMINARY. Same synthetic population through the Gaia and Rubin forward models, including detection limits and saturation.",
       "usedIn": [
         "src/content/packages/fluxax.mdx"
       ]
     },
     {
+      "id": "fluxax-pixel-information",
       "path": "images/software/fluxax-pixel-information.webp",
+      "title": "Which Pixels Know the Answer",
+      "alt": "Six panels in two columns. Top row: a simulated g-band image of a crowded cluster, first as an expected source-limited scene and then as a nominal 30-second Rubin-like exposure with sky and noise. Middle row: maps of how much information each pixel carries about the IMF slope. Bottom row: the same for the binary mass-ratio slope. The information maps are concentrated on a sparse subset of stars, and differ between the two parameters.",
+      "preliminary": true,
+      "captions": {
+        "full": "This is what differentiable codes buy you. The same truth-known cluster is rendered as an idealised scene and as a nominal 30-second Rubin-like exposure with PSF, sky, Poisson and read noise (top). Differentiating that render with respect to the population parameters gives the Fisher information carried by every individual pixel — for the IMF slope (middle) and for the binary mass-ratio slope (bottom). Note that the two are not the same pixels: different physics is constrained by different parts of the image. You cannot make this map by running a simulation forward; it exists only because the whole pipeline carries gradients. Population-to-pixel differentiation is implemented; validated detector and survey transformations, and global recovery, are proposed work."
+      },
       "origin": "jaxstro-dev/fluxax + progenax",
       "script": "f3-nominal-information",
       "paperFigure": "Per-pixel Fisher information for IMF and binary slopes",
       "width": 1466,
       "height": 1729,
       "sha256": "7fb1396eadb7371ea6993f8e7f3c342cdba35df874d9a3d49608713afa056238",
-      "note": "PRELIMINARY. Population-to-pixel differentiation is implemented; validated detector/survey transformations and global recovery are proposed work.",
       "encoding": "webp-q95",
+      "note": "PRELIMINARY. Population-to-pixel differentiation is implemented; validated detector/survey transformations and global recovery are proposed work.",
       "usedIn": [
         "scripts/og/generate.mjs",
         "src/content/packages/fluxax.mdx",
@@ -144,14 +198,21 @@
       ]
     },
     {
+      "id": "startrax-wind-response",
       "path": "images/software/startrax-wind-response.webp",
+      "title": "Differentiable massive-star evolution connects uncertain winds to remnant outcomes",
+      "alt": "Three panels. Left: Hertzsprung-Russell tracks for 20 to 50 solar-mass stars, coloured by evolutionary phase from main sequence through Hertzsprung gap, core helium burning, early asymptotic giant branch and helium star. Centre: current stellar mass against age, showing tracks that coincide until winds switch on near 4 to 6 megayears and then drop by different amounts under weak, fiducial and strong wind controls, each ending in a marker for eventual neutron-star or black-hole formation. Right: a heat map of the change in remnant mass across initial mass and eruptive-wind control, negligible below 40 solar masses and strongly signed above it, with an inset showing pre-supernova mass falling linearly with the wind control and its exact adjoint derivative.",
+      "preliminary": true,
+      "captions": {
+        "full": "**(a)** Phase-colored H–R tracks and **(b)** mass-loss histories for \\(20\\)–\\(50\\,M_\\odot\\) stars under weak, fiducial, and strong wind controls (dotted, solid, and dashed). The tracks coincide before wind activation and diverge as mass loss reshapes their evolution; symbols indicate eventual neutron-star or black-hole formation. **(c)** Wind-induced changes in remnant mass across the \\((M_{\\rm ZAMS},W)\\) response surface. The inset demonstrates an exact local adjoint sensitivity of pre-supernova mass—enabling gradient-based inference through stellar evolution rather than repeated parameter sweeps."
+      },
       "origin": "jaxstro-dev/startrax",
       "script": "laboratory/starviz/starviz/wind_response.py",
       "paperFigure": "Differentiable massive-star winds",
       "width": 3598,
       "height": 1326,
-      "encoding": "webp-lossless",
       "sha256": "e811dc80d3ce93e7e7199b14e7c48e14c7c0d5febae25c7bb5b58d7e9f887af0",
+      "encoding": "webp-lossless",
       "note": "PRELIMINARY. Hurley SSE trajectories at Z=0.001 under weak/fiducial/strong eruptive-wind controls; panel (c) is remnant mass relative to the exact W=1 result. Rendered from a hash-verified numerical bundle; rendering reads saved data and does not rerun stellar evolution.",
       "usedIn": [
         "scripts/og/generate.mjs",

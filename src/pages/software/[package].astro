@@ -12,6 +12,7 @@ import PageHeader from "../../components/PageHeader.astro";
 import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL } from "../../data/jaxstro";
 import { getPackages, type PackageEntry } from "../../lib/packages";
 import { renderCaption } from "../../lib/figureCaption";
+import { getFigure, figureSrc, figureCaption } from "../../lib/figures";
 
 export async function getStaticPaths() {
   const packages = await getPackages();
@@ -44,7 +45,7 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
   description={d.seoDescription ?? d.description}
   path={`/software/${pkg.id}`}
   ogImage={d.figures[0] ? `software-${pkg.id}.png` : "software.png"}
-  ogImageAlt={d.figures[0]?.alt ?? d.description}
+  ogImageAlt={d.figures[0] ? getFigure(d.figures[0].id).alt : d.description}
 >
   <PageHeader eyebrow={`Jaxstro · ${d.stage}`} title={d.name} lede={d.tagline} />
 
@@ -87,23 +88,27 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
     d.figures.length > 0 && (
       <section class="wrap pk-gallery" aria-labelledby="pk-figs">
         <h2 id="pk-figs" class="pk-h2">What's working</h2>
-        {d.figures.map((f) => (
-          <figure class:list={["pk-fig", `pk-fig--${f.captionPlacement}`]}>
-            <img
-              src={f.src}
-              alt={f.alt}
-              width={f.width}
-              height={f.height}
-              loading="lazy"
-              decoding="async"
-            />
-            <figcaption>
-              {f.preliminary && <span class="pk-prelim">Preliminary</span>}
-              <strong class="pk-figtitle">{f.title}.</strong>{" "}
-              <span set:html={renderCaption(f.caption)} />
-            </figcaption>
-          </figure>
-        ))}
+        {d.figures.map((ref) => {
+          // The package page is the figure's home, so it shows the full caption.
+          const f = getFigure(ref.id);
+          return (
+            <figure class:list={["pk-fig", `pk-fig--${ref.captionPlacement}`]}>
+              <img
+                src={figureSrc(f)}
+                alt={f.alt}
+                width={f.width}
+                height={f.height}
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption>
+                {f.preliminary && <span class="pk-prelim">Preliminary</span>}
+                <strong class="pk-figtitle">{f.title}.</strong>{" "}
+                <span set:html={renderCaption(figureCaption(f, "full"))} />
+              </figcaption>
+            </figure>
+          );
+        })}
       </section>
     )
   }

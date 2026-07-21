@@ -26,6 +26,7 @@ import { featuredPublications } from "../data/publications";
 import { graduateAdvisees, finishingAdvisees } from "../data/cv";
 import { nowFigures } from "../data/nowFigures";
 import { renderCaption } from "../lib/figureCaption";
+import { getFigure, figureSrc, figureCaption } from "../lib/figures";
 import {
   courses,
   courseWhen,
@@ -66,14 +67,12 @@ const finishingWhen = [...new Set(finishing.map((a) => a.finishing))].join(" and
  */
 const strip = nowFigures.map((entry) => {
   const pkg = byId.get(entry.package);
-  const figure = pkg?.data.figures.find((f) => f.src === entry.src);
-  if (!pkg || !figure) {
-    throw new Error(
-      `[nowFigures] ${entry.src} is not a figure of package "${entry.package}". ` +
-        `Check src/data/nowFigures.ts against that package's frontmatter.`,
-    );
+  if (!pkg) {
+    throw new Error(`[nowFigures] unknown package "${entry.package}" for ${entry.id}.`);
   }
-  return { ...entry, figure, pkg };
+  // getFigure throws on an unknown id, so a typo fails the build rather than
+  // shipping a hole in the strip.
+  return { ...entry, figure: getFigure(entry.id), pkg };
 });
 
 const fmtShort = (iso: string) =>
@@ -132,7 +131,7 @@ const fmt = (d: Date) =>
               {strip.map((s, i) => (
                 <figure class="strip__item" id={`plot-${i + 1}`}>
                   <img
-                    src={s.figure.src}
+                    src={figureSrc(s.figure)}
                     alt={s.figure.alt}
                     width={s.figure.width}
                     height={s.figure.height}
@@ -142,7 +141,7 @@ const fmt = (d: Date) =>
                   <figcaption>
                     <span class="strip__date">{fmtShort(s.added)}</span>
                     <strong class="strip__title">{s.figure.title}.</strong>{" "}
-                    <span set:html={renderCaption(s.figure.caption)} />{" "}
+                    <span set:html={renderCaption(figureCaption(s.figure, "short"))} />{" "}
                     <a href={`/software/${s.pkg.id}`}>{s.pkg.data.name} →</a>
                   </figcaption>
                 </figure>

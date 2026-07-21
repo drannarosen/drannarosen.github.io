@@ -6,11 +6,9 @@
  * considered was a canvas-drawn star sampled from the IMF, which would have
  * been ornament, and would have competed with the homepage hero.
  *
- * Entries carry NO alt text, dimensions or caption. Each one names a package
- * and a figure path, and the page resolves the actual figure record from the
- * package's frontmatter — the single place that figure is described. Copying
- * the alt text here would create two descriptions of one image, and the one
- * nobody looks at would be the one that went stale.
+ * Entries carry NO alt text, dimensions or caption — only an id, the package
+ * page to link to, and the date it went up. Everything describing the image
+ * resolves from src/data/figures.json through src/lib/figures.ts.
  *
  * Newest first. Adding a figure means putting it at the top and, if the strip
  * is full, deleting the entry that falls off the end; removing an entry
@@ -18,10 +16,10 @@
  */
 
 export interface NowFigure {
-  /** Package id whose frontmatter describes this figure. */
+  /** Figure id, resolved against the registry in src/data/figures.json. */
+  id: string;
+  /** Package page this figure belongs to, for the "read more" link. */
   package: string;
-  /** Path of the figure, matching a `src` in that package's `figures`. */
-  src: string;
   /** ISO date this went up, so the strip self-dates even if the page stamp is stale. */
   added: string;
 }
@@ -35,21 +33,17 @@ export interface NowFigure {
 export const NOW_FIGURE_CAP = 5;
 
 export const nowFigures: NowFigure[] = [
-  { package: "gravax", src: "/images/software/gravax-demo-01.webp", added: "2026-07-20" },
-  { package: "startrax", src: "/images/software/startrax-wind-response.webp", added: "2026-07-20" },
-  { package: "fluxax", src: "/images/software/fluxax-pixel-information.webp", added: "2026-07-19" },
-  {
-    package: "informax",
-    src: "/images/software/informax-telescope-adds-ten-pounds.webp",
-    added: "2026-07-19",
-  },
+  { id: "gravax-demo-01", package: "gravax", added: "2026-07-20" },
+  { id: "startrax-wind-response", package: "startrax", added: "2026-07-20" },
+  { id: "fluxax-pixel-information", package: "fluxax", added: "2026-07-19" },
+  { id: "informax-telescope-adds-ten-pounds", package: "informax", added: "2026-07-19" },
 ];
 
 if (nowFigures.length > NOW_FIGURE_CAP) {
   const oldest = nowFigures[nowFigures.length - 1];
   throw new Error(
     `[nowFigures] ${nowFigures.length} figures, cap is ${NOW_FIGURE_CAP}.\n` +
-      `  Remove the oldest entry (${oldest.src}, added ${oldest.added}) or another\n` +
+      `  Remove the oldest entry (${oldest.id}, added ${oldest.added}) or another\n` +
       `  of your choosing, then delete its image file if nothing else uses it —\n` +
       `  check:figures will tell you if it is stranded.`,
   );

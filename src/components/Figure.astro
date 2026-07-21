@@ -4,17 +4,21 @@
  * "preliminary" flag for unpublished/in-prep work. Requires explicit width/
  * height to reserve space (no layout shift); lazy-loads below the fold.
  */
+import { getFigure, figureSrc, figureCaption } from "../lib/figures";
 import { renderCaption } from "../lib/figureCaption";
 
+/*
+ * A figure is REFERENCED by id. Path, alt text, dimensions, credit and caption
+ * all resolve from src/data/figures.json, which is the only place a figure is
+ * described. Props here are layout and caption choice, nothing else — when
+ * every page carried its own copy of the description they could disagree, and
+ * once they did.
+ */
 interface Props {
-  src: string;
-  alt: string;
-  /** Supports **bold** and \( inline LaTeX \) — see lib/figureCaption.ts. */
-  caption: string;
-  credit?: string;
-  width: number;
-  height: number;
-  preliminary?: boolean;
+  /** Figure id — the filename without its extension. */
+  id: string;
+  /** Which recorded caption to show. Pages showing a figure in passing want "short". */
+  caption?: "full" | "short";
   /** Constrain very tall images to a sensible max height. */
   contain?: boolean;
   /**
@@ -24,14 +28,16 @@ interface Props {
    */
   side?: boolean;
 }
-const { src, alt, caption, credit, width, height, preliminary, contain, side } =
-  Astro.props;
+const { id, caption = "full", contain, side } = Astro.props;
+const f = getFigure(id);
+const { alt, width, height, credit, preliminary } = f;
+const captionText = figureCaption(f, caption);
 ---
 
 <figure class:list={["fig", { "fig--side": side }]}>
   <div class:list={["fig__frame", { "fig__frame--contain": contain }]}>
     <img
-      src={src}
+      src={figureSrc(f)}
       alt={alt}
       width={width}
       height={height}
@@ -47,7 +53,7 @@ const { src, alt, caption, credit, width, height, preliminary, contain, side } =
     {/* Explicit space: Astro collapses whitespace before an inline element at a
         line break, which runs the chip into the caption ("in prepThis is…"). */}
     {preliminary && side && <span class="fig__chip">Preliminary · in&nbsp;prep</span>}{" "}
-    <span set:html={renderCaption(caption)} />
+    <span set:html={renderCaption(captionText)} />
     {credit && <span class="fig__credit">{credit}</span>}
   </figcaption>
 </figure>

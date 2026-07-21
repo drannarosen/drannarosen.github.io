@@ -10,14 +10,18 @@ export interface RelatedLink {
   href: string;
 }
 
+/*
+ * A REFERENCE to a figure, not a description of one. Path, alt text,
+ * dimensions, credit and caption all live once in src/data/figures.json —
+ * this page shows several figures that also appear on their package pages,
+ * and while each place carried its own copy they could disagree. One did:
+ * a replacement gravax figure left this page asserting the previous run's
+ * number, off by four orders of magnitude.
+ */
 export interface ResearchFigure {
-  src: string;
-  alt: string;
-  caption: string;
-  credit?: string;
-  width: number;
-  height: number;
-  preliminary?: boolean;
+  /** Figure id — the filename without its extension. */
+  id: string;
+  /** Fit the whole figure rather than filling its box. Layout, not content. */
   contain?: boolean;
 }
 
@@ -70,14 +74,7 @@ export const researchQuestions: ResearchQuestion[] = [
     ],
     related: [{ label: "Selected publications", href: "/cv#cv-pubs" }],
     figure: {
-      src: "/images/software/informax-telescope-adds-ten-pounds.webp",
-      alt: "Three panels showing binaries raising the line-of-sight velocity dispersion, binary-blind mass estimates near three times the truth against a calibrated control and binary-aware recovery, and radial target allocations shifting between mass-first and degeneracy-first observing designs.",
-      caption:
-        "Unresolved binaries inflate the observed velocity dispersion, and a binary-blind fit turns that orbital motion into 2.9 times the true cluster mass — while forecasting 4.5% precision. That is a bias 42 times its own error bar. Modelling the binaries recovers both the mass and the binary fraction, and the same machinery then says where to point the telescope next.",
-      credit: "A. L. Rosen · Jaxstro (informax). Preliminary.",
-      width: 2469,
-      height: 814,
-      preliminary: true,
+      id: "informax-telescope-adds-ten-pounds",
     },
   },
   {
@@ -92,14 +89,7 @@ export const researchQuestions: ResearchQuestion[] = [
     ],
     related: [{ label: "The Jaxstro ecosystem", href: "/software" }],
     figure: {
-      src: "/images/software/gravax-demo-01.webp",
-      alt: "Three panels. A 512-star cluster in the x-y plane with a central massive binary; cluster and binary scales versus time showing the cluster expanding while the binary semimajor axis contracts in discrete steps; and a matrix of logarithmic sensitivities of endpoint observables to birth parameters, with cluster radii responding to the initial half-mass radius and the binary responding to its own initial separation and eccentricity.",
-      caption:
-        "A differentiable model has to earn the word. Here a 512-star cluster with a hard massive binary is evolved for three crossing times — the binary hardens, the cluster expands — and the endpoint's sensitivity to every birth parameter is obtained by differentiating straight through the adaptive timestep, agreeing with complete finite-difference reruns to three parts in a hundred thousand. The result is legible: cluster size remembers where the cluster started, the binary remembers its own orbit. That is what makes the model invertible against data rather than merely runnable.",
-      credit: "A. L. Rosen · Jaxstro (gravax). Preliminary.",
-      width: 2545,
-      height: 847,
-      preliminary: true,
+      id: "gravax-demo-01",
     },
   },
 ];

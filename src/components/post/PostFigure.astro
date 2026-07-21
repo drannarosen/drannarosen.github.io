@@ -12,30 +12,24 @@
  *   variant="side" → floats into the margin field; prose runs alongside
  */
 import { slugify } from "../../lib/slug";
+import { getFigure, figureSrc } from "../../lib/figures";
 
 interface Props {
-  src: string;
-  /** What the figure SHOWS, for a reader who cannot see it — not its title. */
-  alt: string;
-  /** Intrinsic pixel dimensions; required so the image reserves its space. */
-  width: number;
-  height: number;
-  variant?: "wide" | "side";
-  /** Attribution, e.g. "Figure 3 of Rosen (2026), submitted." */
-  credit?: string;
-  /**
-   * Where this figure came from, for the figure-drift gate. Recorded per figure
-   * so CI can verify the site's copy still matches what the script produces.
+  /*
+   * Figure id — path, alt text, dimensions and credit resolve from
+   * src/data/figures.json, the only place a figure is described. The CAPTION
+   * stays a slot: post captions are MDX with markup and inline math, and
+   * cannot live in JSON without ceasing to be MDX.
    */
-  source?: {
-    repo?: string;
-    script?: string;
-    commit?: string;
-  };
+  id: string;
+  variant?: "wide" | "side";
   eager?: boolean;
 }
 
-const { src, alt, width, height, variant, credit, eager } = Astro.props;
+const { id: figureId, variant, eager } = Astro.props;
+const f = getFigure(figureId);
+const { alt, width, height, credit } = f;
+const src = figureSrc(f);
 const cls = ["figure", variant && `fig-${variant}`].filter(Boolean).join(" ");
 const id = `fig-${slugify(src.split("/").pop() ?? "figure")}`;
 ---

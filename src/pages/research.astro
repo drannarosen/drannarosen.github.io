@@ -41,16 +41,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
             )}
             {q.figure && (
               <div class="rq__figure">
-                <Figure
-                  src={q.figure.src}
-                  alt={q.figure.alt}
-                  caption={q.figure.caption}
-                  credit={q.figure.credit}
-                  width={q.figure.width}
-                  height={q.figure.height}
-                  preliminary={q.figure.preliminary}
-                  contain={q.figure.contain}
-                />
+<Figure id={q.figure.id} caption="short" contain={q.figure.contain} />
               </div>
             )}
           </div>
