@@ -187,6 +187,27 @@ block instead:
   <div class="prose flow">  <!-- caps the measure, stays left-aligned -->
 ```
 
+## Figures
+
+`pnpm check:figures` enforces four things: the file matches its recorded
+sha256, its recorded dimensions match the file, nothing is served from a figure
+directory without provenance, and **the set of files referencing a figure
+matches its `usedIn` record**.
+
+That last one exists because it bit: the gravax figure appears on both
+`/software/gravax` and `/research`, a new version replaced it, and only the
+package page's caption was updated — leaving the research page asserting the
+previous run's number, off by four orders of magnitude. Seven of ten figures
+are used in more than one place, so this is the normal case, not an edge case.
+
+When a figure changes, the build fails until `usedIn` is updated. Use that
+prompt to re-read every caption listed there, which is the point.
+
+Figure filenames are stable identifiers (`gravax-demo-01.webp`), not
+descriptions. Content can change under the same name: GitHub Pages serves
+images with `max-age=600`, so a replacement propagates within ten minutes and
+no cache-busting suffix is needed.
+
 ## Naming
 
 Settled 2026-07-19; do not "correct" these back.

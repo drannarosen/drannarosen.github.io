@@ -7,10 +7,20 @@
  * but an UNRECORDED divergence is how a site quietly ends up showing different
  * science from the paper it cites.
  *
- * Three failure modes, all caught:
+ * Failure modes caught:
  *   - a figure file changed and nobody updated its record
  *   - a figure is served but has no provenance record at all
  *   - a record points at a file that no longer exists
+ *   - a figure's recorded dimensions no longer match the file
+ *   - a figure is referenced from a different set of places than recorded
+ *
+ * That last one exists because it actually bit: the gravax figure was used on
+ * BOTH /software/gravax and /research, a new version replaced it, and only the
+ * package page's caption was updated. The research page went on asserting the
+ * previous run's number — off by four orders of magnitude — because nothing
+ * forced anyone to notice the second use. `usedIn` records where each figure
+ * appears; changing that set now fails the build until the record is updated,
+ * which means every caption gets looked at.
  *
  * Deliberately does NOT re-run the paper's figure scripts: those live in a
  * private repo with untracked data. It answers "has this file changed since we
@@ -23,6 +33,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, resolve, relative, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import sharp from "sharp";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../..");
@@ -60,6 +71,60 @@ for (const f of figures) {
         `    actual   ${actual}\n` +
         `    If this was a deliberate regeneration, update sha256 (and note) in\n` +
         `    src/data/figures.json in the same commit that replaced the image.`,
+    );
+  }
+}
+
+/* ── recorded dimensions must match the file ──────────────────────────────
+   A replacement figure is rarely the same size as the one it replaces, and a
+   stale width/height reserves the wrong space and shifts the layout. */
+for (const f of figures) {
+  const full = resolve(PUBLIC, f.path);
+  if (!existsSync(full)) continue;
+  const { width, height } = await sharp(full).metadata();
+  if (f.width !== width || f.height !== height) {
+    problems.push(
+      `dimensions: ${f.path}\n` +
+        `    recorded ${f.width}x${f.height}, actual ${width}x${height}\n` +
+        `    Update src/data/figures.json AND every place that declares this\n` +
+        `    figure's width/height, or the page reserves the wrong space.`,
+    );
+  }
+}
+
+/* ── every place a figure is referenced must be recorded ───────────────── */
+function sourceFiles(dir, acc = []) {
+  if (!existsSync(dir)) return acc;
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) sourceFiles(full, acc);
+    else if (/\.(astro|ts|tsx|mdx|md|mjs)$/i.test(full)) acc.push(full);
+  }
+  return acc;
+}
+
+const searchable = [
+  ...sourceFiles(resolve(ROOT, "src")),
+  ...sourceFiles(resolve(ROOT, "scripts")),
+].filter((f) => resolve(f) !== MANIFEST);
+
+for (const f of figures) {
+  const basename = f.path.split("/").pop();
+  const actual = searchable
+    .filter((file) => readFileSync(file, "utf8").includes(basename))
+    .map((file) => relative(ROOT, file))
+    .sort();
+  const declared = [...(f.usedIn ?? [])].sort();
+  const same =
+    declared.length === actual.length && declared.every((v, i) => v === actual[i]);
+  if (!same) {
+    problems.push(
+      `usedIn: ${f.path} is referenced from a different set of files than recorded.\n` +
+        `    recorded: ${declared.length ? declared.join(", ") : "(nothing recorded)"}\n` +
+        `    actual:   ${actual.length ? actual.join(", ") : "(referenced nowhere)"}\n` +
+        `    Set "usedIn": ${JSON.stringify(actual)} in src/data/figures.json —\n` +
+        `    and while doing so, check that EVERY caption above still matches\n` +
+        `    the figure. That is the whole point of this check.`,
     );
   }
 }

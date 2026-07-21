@@ -15,7 +15,10 @@
       "width": 2955,
       "height": 862,
       "sha256": "347a87727a6f3eda55e1cb85168c2e344217797d9908ae26d2b53e2820bc54a5",
-      "encoding": "webp-lossless"
+      "encoding": "webp-lossless",
+      "usedIn": [
+        "src/content/astrobytes/confidently-wrong.mdx"
+      ]
     },
     {
       "path": "images/astrobytes/confidently-wrong-scaling.webp",
@@ -26,7 +29,11 @@
       "height": 1666,
       "sha256": "553ec00351cae16f9312116dad61dea5b782e7857dad49d9877fe0ae991a2e7f",
       "note": "Corrected build: the arXiv version renders a literal '95\\%'. Regenerated 2026-07-19; no pixel inside any data panel changed.",
-      "encoding": "webp-lossless"
+      "encoding": "webp-lossless",
+      "usedIn": [
+        "scripts/og/generate.mjs",
+        "src/content/astrobytes/confidently-wrong.mdx"
+      ]
     },
     {
       "path": "images/publications/binary-imf-recovery.webp",
@@ -36,7 +43,12 @@
       "width": 2131,
       "height": 903,
       "sha256": "ac0e1b355347c478c03f5d0a71ba805d8449ec5357c8fd01e9f837a6fd6360db",
-      "encoding": "webp-lossless"
+      "encoding": "webp-lossless",
+      "usedIn": [
+        "scripts/og/generate.mjs",
+        "src/content/astrobytes/confidently-wrong.mdx",
+        "src/data/publications.ts"
+      ]
     },
     {
       "path": "images/astrobytes/confidently-wrong-literature.webp",
@@ -46,10 +58,13 @@
       "width": 1592,
       "height": 3055,
       "sha256": "31d6e88ba183e321c49547e54768ec83528ffab0795e230f9e8f6b10255a1f4d",
-      "encoding": "webp-lossless"
+      "encoding": "webp-lossless",
+      "usedIn": [
+        "src/content/astrobytes/confidently-wrong.mdx"
+      ]
     },
     {
-      "path": "images/software/what-star-clusters-remember-2026-07-20.webp",
+      "path": "images/software/gravax-demo-01.webp",
       "origin": "jaxstro-dev/gravax",
       "script": "gravax validation figures \u2014 N=512 EFF cluster, adaptive Symmetric Hermite 6 (commit 3a11271)",
       "paperFigure": "N=512 EFF cluster to 3 crossing times, with endpoint sensitivities",
@@ -57,7 +72,12 @@
       "height": 847,
       "sha256": "0a0cd103bbce6934f3f2a73f21acfe96c64e1ffa37dcde672e1f2c4756fe94bf",
       "note": "PRELIMINARY. Panels (a-b): adaptive direct hierarchy with Symmetric Hermite 6 field subflows, universal Kepler binaries, r_tol=1e-6, seed 2213. Panel (c): standalone adaptive Symmetric Hermite 6 over five controlled N=32 clusters (three calibration, two held out); AD vs full finite-difference reruns agree to 3.24e-5. Exact unsoftened Newtonian forces, CPU float64. No P2MSM or FSI data appear in this figure.",
-      "encoding": "webp-q95"
+      "encoding": "webp-q95",
+      "usedIn": [
+        "scripts/og/generate.mjs",
+        "src/content/packages/gravax.mdx",
+        "src/data/research.ts"
+      ]
     },
     {
       "path": "images/software/informax-telescope-adds-ten-pounds.webp",
@@ -68,7 +88,12 @@
       "height": 814,
       "sha256": "3ed67e7b688712a83178bb67b9eb0bccf23ef456e7da342ce8c782cf08bc9471",
       "note": "PRELIMINARY. Truth-known experiment, 96 recovery mocks; hash-verified evidence bundles.",
-      "encoding": "webp-lossless"
+      "encoding": "webp-lossless",
+      "usedIn": [
+        "scripts/og/generate.mjs",
+        "src/content/packages/informax.mdx",
+        "src/data/research.ts"
+      ]
     },
     {
       "path": "images/research/gravoturb-cluster.webp",
@@ -79,7 +104,11 @@
       "height": 520,
       "sha256": "20e6c611e8ca5d857f4f47b833d00ece0054c3fc7cc78a31fce8e3fc81225b98",
       "note": "PRELIMINARY. Generated with progenax; shown on /research and /software.",
-      "encoding": "webp-q95"
+      "encoding": "webp-q95",
+      "usedIn": [
+        "scripts/og/generate.mjs",
+        "src/content/packages/progenax.mdx"
+      ]
     },
     {
       "path": "images/software/fluxax-truth-observed-cmds.webp",
@@ -90,7 +119,10 @@
       "height": 794,
       "sha256": "d8806d56741dc4f7ca97068f5ebc59b10a21033048798efce35d21bd73a09c69",
       "note": "PRELIMINARY. Same synthetic population through the Gaia and Rubin forward models, including detection limits and saturation.",
-      "encoding": "webp-q95"
+      "encoding": "webp-q95",
+      "usedIn": [
+        "src/content/packages/fluxax.mdx"
+      ]
     },
     {
       "path": "images/software/fluxax-pixel-information.webp",
@@ -101,7 +133,12 @@
       "height": 1729,
       "sha256": "7fb1396eadb7371ea6993f8e7f3c342cdba35df874d9a3d49608713afa056238",
       "note": "PRELIMINARY. Population-to-pixel differentiation is implemented; validated detector/survey transformations and global recovery are proposed work.",
-      "encoding": "webp-q95"
+      "encoding": "webp-q95",
+      "usedIn": [
+        "scripts/og/generate.mjs",
+        "src/content/packages/fluxax.mdx",
+        "src/pages/software.astro"
+      ]
     },
     {
       "path": "images/software/startrax-wind-response.webp",
@@ -112,7 +149,11 @@
       "height": 1326,
       "encoding": "webp-lossless",
       "sha256": "e811dc80d3ce93e7e7199b14e7c48e14c7c0d5febae25c7bb5b58d7e9f887af0",
-      "note": "PRELIMINARY. Hurley SSE trajectories at Z=0.001 under weak/fiducial/strong eruptive-wind controls; panel (c) is remnant mass relative to the exact W=1 result. Rendered from a hash-verified numerical bundle; rendering reads saved data and does not rerun stellar evolution."
+      "note": "PRELIMINARY. Hurley SSE trajectories at Z=0.001 under weak/fiducial/strong eruptive-wind controls; panel (c) is remnant mass relative to the exact W=1 result. Rendered from a hash-verified numerical bundle; rendering reads saved data and does not rerun stellar evolution.",
+      "usedIn": [
+        "scripts/og/generate.mjs",
+        "src/content/packages/startrax.mdx"
+      ]
     }
   ]
 }

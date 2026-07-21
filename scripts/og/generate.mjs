@@ -56,7 +56,7 @@ const CARDS = [
   { out: "software.png", figure: "images/research/gravoturb-cluster.webp" },
   // Per-package pages; each leads with its own demo figure.
   { out: "software-progenax.png", figure: "images/research/gravoturb-cluster.webp" },
-  { out: "software-gravax.png", figure: "images/software/what-star-clusters-remember-2026-07-20.webp" },
+  { out: "software-gravax.png", figure: "images/software/gravax-demo-01.webp" },
   { out: "software-fluxax.png", figure: "images/software/fluxax-pixel-information.webp" },
   {
     out: "software-informax.png",
