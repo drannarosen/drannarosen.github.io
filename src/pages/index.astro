@@ -23,7 +23,11 @@ const nowBuilding = [
        on N, and the validated envelope is well short of what a reader hears in
        that phrase. Differentiability is the claim that is both distinctive and
        true today. */
-    note: "gravax: close stellar encounters resolved exactly, and still differentiable.",
+    /* Package names are monospace everywhere (see the naming rule), and a
+       plain string cannot carry that. `pkg` renders as <code> ahead of the
+       note rather than smuggling markup into the text. */
+    pkg: "gravax",
+    note: "close stellar encounters resolved exactly, and still differentiable.",
     href: "/software",
   },
   {
@@ -59,7 +63,15 @@ const nowBuilding = [
           <li>
             <a class="now__card" href={item.href}>
               <h3 class="now__card-title">{item.label}</h3>
-              <p class="now__card-note">{item.note}</p>
+              <p class="now__card-note">
+                {"pkg" in item && (
+                  <>
+                    <code>{item.pkg}</code>
+                    {": "}
+                  </>
+                )}
+                {item.note}
+              </p>
               <span class="now__card-arrow" aria-hidden="true">→</span>
             </a>
           </li>
