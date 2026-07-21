@@ -3,11 +3,11 @@ name: "informax"
 order: 5
 stage: "Inference & design"
 tagline: "What the data can actually recover."
-description: "Fisher information geometry and optimal experimental design, simulation-based calibration and coverage, and refusal contracts that decline false precision for unconstrained parameters."
-seoDescription: "Fisher information geometry, optimal experimental design, simulation-based calibration, and refusal contracts that decline false precision."
+description: "Exact Fisher-information geometry and local optimal experimental design, with simulation-based calibration, coverage and TARP gates — and refusal contracts that make a result decline itself when the data cannot support it."
+seoDescription: "Exact Fisher-information geometry, local optimal experimental design, calibration and coverage gates, and contracts that refuse false precision."
 status: "active-build"
 readiness: "advanced"
-maturity: "Far along · substantively validated"
+maturity: "Far along · validated on truth-known problems"
 repo: null
 docs: null
 upcoming: "Methods paper planned. It will establish the identifiability workflow: detect false confidence, repair the model, and redesign the observation."
@@ -15,5 +15,15 @@ figures:
   - id: "informax-telescope-adds-ten-pounds"
 ---
 
-{/* Prose grows here as the methods paper lands. The page is designed to
-    look deliberate with this body empty, so nothing needs writing today. */}
+Any inference method will return an answer. The harder question is whether the
+data ever constrained it, and the usual failure is a confident posterior for
+something the observation could not have measured.
+
+`informax` works out what an observation can recover before it is taken, and
+attaches a machine-checked verdict to every result, so an analysis can abstain
+rather than report false precision. In its own head-to-head test of two design
+strategies the gates abstained on both rather than declaring a winner, which is
+the behaviour they exist for.
+
+So far that is demonstrated on problems with known truth rather than on real
+catalogues.

@@ -3,11 +3,11 @@ name: "progenax"
 order: 1
 stage: "Birth populations"
 tagline: "Truth-known cluster birth conditions."
-description: "Differentiable IMFs (including environment-dependent forms), mass-dependent multiplicity, and true-equilibrium King/EFF/LIMEPY structure with anisotropy and primordial mass segregation."
-seoDescription: "Differentiable IMFs, mass-dependent multiplicity, and true-equilibrium King/EFF/LIMEPY structure with anisotropy and primordial mass segregation."
+description: "Differentiable initial conditions for star clusters: true-equilibrium King, EFF and LIMEPY structure with anisotropy and primordial mass segregation, mass-dependent multiplicity, and IMFs you can take gradients through."
+seoDescription: "Differentiable cluster initial conditions: true-equilibrium King, EFF and LIMEPY structure with anisotropy, multiplicity, and gradient-safe IMFs."
 status: "active-build"
 readiness: "mature"
-maturity: "Mature · methods paper in prep"
+maturity: "Mature core · not yet released"
 repo: null
 docs: "https://jaxstro.github.io/progenax/"
 upcoming: "Methods paper in preparation. It will establish the differentiable birth-condition model — environment-dependent IMFs, mass-dependent multiplicity, and true-equilibrium structure with primordial segregation."
@@ -15,5 +15,18 @@ figures:
   - id: "gravoturb-cluster"
 ---
 
-{/* Prose grows here as the methods paper lands. The page is designed to
-    look deliberate with this body empty, so nothing needs writing today. */}
+Most cluster initial conditions are built by sampling a density profile and then
+rescaling the velocities until the virial ratio looks right. `progenax` samples
+the distribution function itself, so the cluster is in equilibrium because the
+physics says so rather than because it was adjusted afterwards — and every step
+stays differentiable, so birth conditions can be inferred rather than guessed.
+
+The models themselves are standard, deliberately. What is unusual is that they
+are checked against analytic solutions, published tables and an established
+reference implementation — not against sky data — and that the gradients are
+audited on every public entry point rather than assumed.
+
+The figure below comes from an experimental direction rather than the released
+core: coupling where a star is placed to the gas it formed in. It is worth
+having because it turns primordial mass segregation into something testable,
+and it is not yet validated.

@@ -15,13 +15,15 @@ figures:
   - id: "gravax-demo-01"
 ---
 
-Close encounters are where a cluster's history is decided, so gravax resolves
+Close encounters are where a cluster's history is decided, so `gravax` resolves
 them exactly rather than softening them away, and gives binaries and compact
 subsystems an owner of their own instead of letting them dissolve into the
 average. What sets it apart from the mature collisional codes is not speed: it
 is that the trajectory stays differentiable throughout, so I can ask how a
 cluster's present-day state depends on the conditions it was born with and
-answer with a derivative rather than a parameter sweep.
+answer with a derivative rather than a parameter sweep. The integrators are
+checked against analytic solutions and independent reference methods rather
+than against sky data.
 
 Exact direct summation is what makes that trustworthy, and it is also what sets
 the ceiling on \(N\). A differentiable treatment of the far field is in

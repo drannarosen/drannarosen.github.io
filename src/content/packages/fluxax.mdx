@@ -3,18 +3,27 @@ name: "fluxax"
 order: 4
 stage: "Observables"
 tagline: "Physical states → survey observables."
-description: "Differentiable Gaia and Rubin/LSST photometry, astrometry, and images, propagated through selection, crowding, PSFs, backgrounds, and noise."
+description: "A differentiable Gaia and Rubin/LSST catalogue forward model — photometry, astrometry, selection, crowding, blending and extinction inside one gradient-safe likelihood — with a differentiable pixel renderer alongside it."
+seoDescription: "A differentiable Gaia and Rubin/LSST catalogue forward model: photometry, astrometry, selection, crowding, blending and extinction in one likelihood."
 status: "active-build"
 readiness: "advanced"
 maturity: "Far along"
 repo: null
 docs: null
-upcoming: "Methods paper planned. It will cover the differentiable path from physical state to Gaia and Rubin observables, including selection, crowding and noise."
+upcoming: "Methods paper planned. It will cover the differentiable path from physical state to Gaia and Rubin catalogue observables, including selection, crowding and noise."
 figures:
   - id: "fluxax-pixel-information"
     captionPlacement: "side"
   - id: "fluxax-truth-observed-cmds"
 ---
 
-{/* Prose grows here as the methods paper lands. The page is designed to
-    look deliberate with this body empty, so nothing needs writing today. */}
+A survey does not measure a population; it measures whatever its selection let
+through. `fluxax` puts those effects — magnitude limits, crowding, blending,
+footprint, extinction, the parallax zero-point — inside a single differentiable
+likelihood, where each one can be shown to bias a recovered IMF slope when it is
+ignored, and to come back out when it is modelled.
+
+The error models are checked against the published ones and against the official
+instrument curves, not against sky data. Every demonstration here uses synthetic
+populations with known answers; fitting real catalogues is
+[informax](/software/informax)'s job.

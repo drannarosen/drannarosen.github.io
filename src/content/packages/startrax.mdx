@@ -3,17 +3,25 @@ name: "startrax"
 order: 3
 stage: "Stellar evolution"
 tagline: "From birth mass to stellar state and remnants."
-description: "A differentiable map from (initial mass, age, metallicity) to full stellar state — winds, mass loss, lifetimes, remnants — with a differentiable binary-evolution layer in progress."
-seoDescription: "A differentiable map from initial mass, age and metallicity to full stellar state — winds, mass loss, lifetimes, remnants. Binary layer in progress."
+description: "A differentiable map from initial mass, age and metallicity to full single-star state — winds, mass loss, lifetimes, remnants — with gradients that survive the phase transitions, where differentiating naively does not."
+seoDescription: "A differentiable map from initial mass, age and metallicity to single-star state — winds, mass loss, lifetimes, remnants — with gradients through phases."
 status: "active-build"
 readiness: "developing"
 maturity: "In active development"
 repo: null
 docs: null
-upcoming: "In active development. The differentiable binary-evolution layer is the current front."
+upcoming: "In active development. Current work extends the demonstrated gradients from selected points across the full mass–metallicity domain."
 figures:
   - id: "startrax-wind-response"
 ---
 
-{/* Prose grows here as the methods paper lands. The page is designed to
-    look deliberate with this body empty, so nothing needs writing today. */}
+Stellar evolution is full of discontinuous moments: a star leaves the main
+sequence, exhausts its envelope, becomes a remnant. Those transitions are
+exactly where a naive derivative quietly stops being correct, so `startrax`
+treats them explicitly — and the gradient converges where the obvious approach
+does not.
+
+The forward model is checked against the published formulae it implements
+rather than against sky data, and the gradients are demonstrated at selected
+masses and metallicities rather than across the whole domain. Extending them is
+the current work.
