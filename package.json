@@ -22,7 +22,8 @@
     "cv:pdf": "typst compile --root . cv/cv_rosen.typ public/documents/cv-anna-rosen.pdf",
     "check:links": "node scripts/check-links.mjs",
     "check:links:external": "node scripts/check-links.mjs --external",
-    "postbuild": "node scripts/check-links.mjs"
+    "check:markup": "node scripts/check-markup.mjs",
+    "postbuild": "node scripts/check-links.mjs && node scripts/check-markup.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.2.1",

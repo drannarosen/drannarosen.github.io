@@ -13,6 +13,7 @@
  *   - a record points at a file that no longer exists
  *   - a figure's recorded dimensions no longer match the file
  *   - a figure is referenced from a different set of places than recorded
+ *   - an image file is shipped that nothing references (a rename's dead half)
  *
  * That last one exists because it actually bit: the gravax figure was used on
  * BOTH /software/gravax and /research, a new version replaced it, and only the
@@ -125,6 +126,24 @@ for (const f of figures) {
         `    Set "usedIn": ${JSON.stringify(actual)} in src/data/figures.json —\n` +
         `    and while doing so, check that EVERY caption above still matches\n` +
         `    the figure. That is the whole point of this check.`,
+    );
+  }
+}
+
+/* ── no image file should be stranded ─────────────────────────────────────
+   Figure filenames are stable identifiers, so a rename is a delete plus an
+   add. The deleted half is invisible: the site keeps working, the old file
+   keeps shipping, and a year later nobody can tell which of two similar
+   images is the live one. Fail while the rename is still in working memory. */
+for (const full of servedFigures(resolve(PUBLIC, "images"))) {
+  const rel = relative(PUBLIC, full);
+  const basename = rel.split("/").pop();
+  const referenced = searchable.some((file) => readFileSync(file, "utf8").includes(basename));
+  if (!referenced) {
+    problems.push(
+      `orphan: ${rel} is shipped but nothing references it.\n` +
+        `    Delete it, or reference it. A renamed figure leaves its old file\n` +
+        `    behind and nothing else notices.`,
     );
   }
 }

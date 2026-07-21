@@ -189,9 +189,10 @@ block instead:
 
 ## Figures
 
-`pnpm check:figures` enforces four things: the file matches its recorded
+`pnpm check:figures` enforces five things: the file matches its recorded
 sha256, its recorded dimensions match the file, nothing is served from a figure
-directory without provenance, and **the set of files referencing a figure
+directory without provenance, no image under `public/images/` is shipped
+without something referencing it, and **the set of files referencing a figure
 matches its `usedIn` record**.
 
 That last one exists because it bit: the gravax figure appears on both
@@ -206,7 +207,19 @@ prompt to re-read every caption listed there, which is the point.
 Figure filenames are stable identifiers (`gravax-demo-01.webp`), not
 descriptions. Content can change under the same name: GitHub Pages serves
 images with `max-age=600`, so a replacement propagates within ten minutes and
-no cache-busting suffix is needed.
+no cache-busting suffix is needed. The orphan check exists because a rename is
+a delete plus an add, and the delete half is invisible — the site keeps
+working while the old file keeps shipping.
+
+Captions are authored as journal captions (`**(a)**`, `\( ... \)`) and rendered
+by `src/lib/figureCaption.ts`. `pnpm check:markup` (postbuild) scans the built
+pages for those markers surviving as literal text, which is what happens when a
+template prints `{f.caption}` instead of piping it through `renderCaption`.
+It reads `dist/`, not the source, because that mistake produces valid HTML,
+valid YAML and a passing type check — the built page is the only place it
+shows. KaTeX stores the original LaTeX in `<annotation>` for screen readers, so
+the scan strips those first; otherwise every correctly-rendered equation would
+report as a failure.
 
 ## Naming
 
