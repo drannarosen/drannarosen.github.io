@@ -41,14 +41,20 @@ export async function GET(_context: APIContext) {
       url: `/software/${p.id}`,
       internal: true,
     })),
-    ...[
-      { title: "Research", meta: "Questions I work on", extra: "massive stars feedback clusters IMF inference", url: "/research" },
-      { title: "Publications", meta: "Full bibliography", extra: "papers first-author co-authored", url: "/publications" },
-      { title: "Teaching", meta: "Courses", extra: "ASTR 596 COMP 536 ASTR 201 Cosmic Playground", url: "/teaching" },
-      { title: "Outreach", meta: "Public engagement", extra: "talks panels science centre community college", url: "/outreach" },
-      { title: "CV", meta: "Curriculum vitae", extra: "awards grants service advising", url: "/cv" },
-      { title: "Explore", meta: "Interactive demos", extra: "cluster mass segregation gas expulsion", url: "/explore" },
-    ].map((p) => ({ ...p, kind: "page" as const, internal: true })),
+    /*
+     * PAGES ARE NOT LISTED HERE. They used to be a hand-written array of six
+     * entries with hand-typed keywords, and eighteen of thirty-one pages were
+     * missing — search quietly stopped covering the site and nothing failed.
+     *
+     * scripts/search/build-index.mjs now crawls the built HTML in postbuild and
+     * adds every page with its real text. Keeping a list here as well would
+     * recreate the same rot, invisibly, because the postbuild step overwrites
+     * it anyway.
+     *
+     * Consequence: the DEV server serves collections only. The complete index
+     * exists in `dist/` after `pnpm build` — check search with `pnpm preview`,
+     * not `pnpm dev`.
+     */
   ];
 
   return new Response(JSON.stringify({ docs }), {

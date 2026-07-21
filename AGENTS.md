@@ -290,6 +290,28 @@ shows. KaTeX stores the original LaTeX in `<annotation>` for screen readers, so
 the scan strips those first; otherwise every correctly-rendered equation would
 report as a failure.
 
+## Search
+
+`dist/search.json` is the whole index, and it is built in two halves.
+Collections (papers, astrobytes, packages) come from `src/pages/search.json.ts`,
+which keeps their structured metadata. Pages come from
+`scripts/search/build-index.mjs`, which crawls the built HTML in postbuild and
+adds every page with the real text a reader sees.
+
+**Do not maintain a list of pages anywhere.** Pages used to be a hand-written
+array in the endpoint, and eighteen of thirty-one were missing — search stopped
+covering the site and nothing failed. A page is now indexed because it was
+built, not because someone remembered. To hold one back, add it to `EXCLUDED`
+in the crawler with a reason; the build fails if an excluded page later stops
+existing.
+
+Where a page shares a URL with a package, the page's prose is merged into the
+package's entry, so `/software/gravax` is searchable by its body text and not
+just its tagline.
+
+One consequence: `pnpm dev` serves the collections only, because the crawler
+runs on `dist/`. Check search with `pnpm preview`, never `pnpm dev`.
+
 ## Package release track
 
 `readiness` says how far the software has come. It says nothing about whether

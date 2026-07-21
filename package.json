@@ -23,8 +23,9 @@
     "check:links": "node scripts/check-links.mjs",
     "check:links:external": "node scripts/check-links.mjs --external",
     "check:markup": "node scripts/check-markup.mjs",
+    "search:index": "node scripts/search/build-index.mjs",
     "check:sun": "node --experimental-strip-types scripts/check-sun.mjs",
-    "postbuild": "node scripts/check-links.mjs && node scripts/check-markup.mjs"
+    "postbuild": "node scripts/search/build-index.mjs && node scripts/check-links.mjs && node scripts/check-markup.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.2.1",
