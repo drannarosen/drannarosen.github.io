@@ -19,7 +19,11 @@ const nowBuilding = [
   },
   {
     label: "Collisional dynamics in JAX",
-    note: "gravax: resolving close stellar encounters exactly, at cluster scale.",
+    /* Not "at cluster scale": exact direct summation is what sets the ceiling
+       on N, and the validated envelope is well short of what a reader hears in
+       that phrase. Differentiability is the claim that is both distinctive and
+       true today. */
+    note: "gravax: close stellar encounters resolved exactly, and still differentiable.",
     href: "/software",
   },
   {
