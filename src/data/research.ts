@@ -92,7 +92,7 @@ export const researchQuestions: ResearchQuestion[] = [
     ],
     related: [{ label: "The Jaxstro ecosystem", href: "/software" }],
     figure: {
-      src: "/images/software/gravax-eff-imf-n512-sensitivities-2026-07-20.webp",
+      src: "/images/software/what-star-clusters-remember-2026-07-20.webp",
       alt: "Three panels. A 512-star cluster in the x-y plane with a central massive binary; cluster and binary scales versus time showing the cluster expanding while the binary semimajor axis contracts in discrete steps; and a matrix of logarithmic sensitivities of endpoint observables to birth parameters, with cluster radii responding to the initial half-mass radius and the binary responding to its own initial separation and eccentricity.",
       caption:
         "A differentiable model has to earn the word. Here a 512-star cluster with a hard massive binary is evolved for three crossing times — the binary hardens, the cluster expands — and the endpoint's sensitivity to every birth parameter is obtained by differentiating straight through the adaptive timestep, agreeing with complete finite-difference reruns to three parts in a hundred thousand. The result is legible: cluster size remembers where the cluster started, the binary remembers its own orbit. That is what makes the model invertible against data rather than merely runnable.",

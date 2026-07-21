@@ -49,7 +49,7 @@
       "encoding": "webp-lossless"
     },
     {
-      "path": "images/software/gravax-eff-imf-n512-sensitivities-2026-07-20.webp",
+      "path": "images/software/what-star-clusters-remember-2026-07-20.webp",
       "origin": "jaxstro-dev/gravax",
       "script": "gravax validation figures \u2014 N=512 EFF cluster, adaptive Symmetric Hermite 6 (commit 3a11271)",
       "paperFigure": "N=512 EFF cluster to 3 crossing times, with endpoint sensitivities",
