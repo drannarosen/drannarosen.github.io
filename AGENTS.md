@@ -228,6 +228,12 @@ writing a second sizing rule.
 To sit a figure inline with prose, add `figure-inline` (or `<Figure inline="end" />`).
 It floats and text runs alongside, returning to the flow below 46rem.
 
+`pnpm check:markup` (postbuild) fails if any image under a figure directory
+renders without `figure-box` and a `--figure-ar`. A figure that opts out is not
+broken, which is exactly why it needs a gate — four different sizing opinions
+accumulated that way. Photographs are excluded by directory: single-use, no
+provenance claim, bounded by their own columns.
+
 `pnpm check:figures` enforces five things: the file matches its recorded
 sha256, its recorded dimensions match the file, nothing is served from a figure
 directory without provenance, no image under `public/images/` is shipped

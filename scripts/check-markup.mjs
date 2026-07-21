@@ -12,6 +12,10 @@
  * to every other gate: it is valid HTML, valid YAML, and a passing type check.
  * The only place it shows up is the built page, so that is where this looks.
  *
+ * Also verifies every figure uses the shared presentation (.figure-box plus a
+ * --figure-ar), which is the same kind of check for the same reason: it is
+ * only visible in the built page.
+ *
  * Runs on dist/ in postbuild, alongside check-links.mjs.
  *
  *   node scripts/check-markup.mjs
@@ -75,10 +79,43 @@ for (const file of walk(DIST)) {
   }
 }
 
+/*
+ * Every scientific figure must use the shared presentation.
+ *
+ * `.figure-box` plus a `--figure-ar` is what bounds a figure's height without
+ * breaking space reservation (see src/styles/figures.css). A figure rendered
+ * without it is not broken — it just quietly opts out of the one rule, which
+ * is how four different sizing opinions accumulated in the first place.
+ *
+ * Only figure directories are policed. Photographs are single-use, carry no
+ * provenance claim and are bounded by their own columns; the provenance check
+ * draws the same line.
+ */
+const FIGURE_DIRS = /^\/images\/(research|software|publications|astrobytes)\//;
+
+for (const file of walk(DIST)) {
+  const page = "/" + relative(DIST, file).replace(/index\.html$/, "");
+  for (const m of readFileSync(file, "utf8").matchAll(/<img\b[^>]*>/g)) {
+    const tag = m[0];
+    const src = tag.match(/src="([^"]+)"/)?.[1] ?? "";
+    if (!FIGURE_DIRS.test(src)) continue;
+    const missing = [];
+    if (!/class="[^"]*\bfigure-box\b/.test(tag)) missing.push("the figure-box class");
+    if (!tag.includes("--figure-ar")) missing.push("a --figure-ar (from figureBox())");
+    if (missing.length > 0) {
+      problems.push(
+        `${page} renders ${src.split("/").pop()} without ${missing.join(" and ")}.\n` +
+          `    Every figure uses the shared presentation: resolve it through\n` +
+          `    src/lib/figures.ts and pass class="figure-box" style={figureBox(f)}.`,
+      );
+    }
+  }
+}
+
 if (problems.length > 0) {
-  console.error(`\n[markup] ${problems.length} unrendered marker(s):\n`);
+  console.error(`\n[markup] ${problems.length} problem(s):\n`);
   for (const p of problems) console.error(`  - ${p}\n`);
   process.exit(1);
 }
 
-console.log("[markup] ok — no unrendered caption markup in the built pages");
+console.log("[markup] ok — captions rendered, and every figure uses the shared presentation");

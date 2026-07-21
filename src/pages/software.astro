@@ -11,8 +11,9 @@ const packages = await getPackages();
 
 /* Image identity from the registry; the caption below is this page's own
    framing rather than the figure's scientific caption, so it stays here. */
-import { figureImage } from "../lib/figures";
+import { figureImage, figureBox, getFigure } from "../lib/figures";
 const heroFigure = figureImage("fluxax-pixel-information");
+const heroBox = figureBox(getFigure("fluxax-pixel-information"));
 ---
 
 <BaseLayout
@@ -38,6 +39,8 @@ const heroFigure = figureImage("fluxax-pixel-information");
 
     <figure class="sw-fig" slot="aside">
       <img
+        class="figure-box"
+        style={heroBox}
         src={heroFigure.src}
         alt={heroFigure.alt}
         width={heroFigure.width}
@@ -71,6 +74,7 @@ const heroFigure = figureImage("fluxax-pixel-information");
           // Thumbnails resolve through the registry like every other figure;
           // alt is empty because the link beside it already names the package.
           const fig = d.figures[0] ? figureImage(d.figures[0].id) : null;
+          const figBox = d.figures[0] ? figureBox(getFigure(d.figures[0].id)) : undefined;
           return (
             <li
               class:list={["pkg", d.order === 0 ? "pkg--base" : "pkg--stage"]}
@@ -96,7 +100,16 @@ const heroFigure = figureImage("fluxax-pixel-information");
 
               <a class="pkg__thumb" href={packageHref(pkg)} tabindex="-1" aria-hidden="true">
                 {fig ? (
-                  <img src={fig.src} alt="" width={fig.width} height={fig.height} loading="lazy" decoding="async" />
+                  <img
+                    class="figure-box"
+                    style={figBox}
+                    src={fig.src}
+                    alt=""
+                    width={fig.width}
+                    height={fig.height}
+                    loading="lazy"
+                    decoding="async"
+                  />
                 ) : (
                   <span class="pkg__thumb-empty" />
                 )}
@@ -132,10 +145,8 @@ const heroFigure = figureImage("fluxax-pixel-information");
   .sw-fig {
     margin: 0;
   }
+  /* Sizing is .figure-box; only the framing is local. */
   .sw-fig img {
-    inline-size: 100%;
-    block-size: auto;
-    display: block;
     border: 1px solid var(--border);
     border-radius: var(--radius-m);
     background: var(--bg-deep);
@@ -284,14 +295,11 @@ const heroFigure = figureImage("fluxax-pixel-information");
     transition: box-shadow var(--dur-base) var(--ease-out);
   }
   /* Fit, never crop: these are plots, and cropping one can remove the axis
-     that makes it readable. Heights differ by figure, capped so no row grows
-     taller than its text. */
-  .pkg__thumb img {
-    display: block;
-    inline-size: 100%;
-    block-size: auto;
-    max-block-size: 7.5rem;
-    object-fit: contain;
+     that makes it readable. The shared .figure-box does the fitting — this
+     only lowers the cap for a thumbnail, rather than introducing a second
+     sizing mechanism alongside it. */
+  .pkg__thumb {
+    --figure-max-block: 7.5rem;
   }
   .pkg:hover .pkg__thumb {
     box-shadow: 0 0 0 1px var(--spec-teal-bright);
