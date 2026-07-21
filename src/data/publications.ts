@@ -24,6 +24,13 @@ export interface Publication {
   venue: string;
   year: string;
   status?: "submitted" | null;
+  /*
+   * Where a submission has got to, in one clause, shown only on /now.
+   * `status` is the record and stays coarse; this is the news, and news is
+   * what a /now page is for. Kept as data rather than prose in the template so
+   * a second submitted paper does not inherit the first one's progress.
+   */
+  reviewNote?: string | null;
   arxiv?: string | null;
   ads?: string | null;
   /** Plain-language summary (what we did / found / why it matters). */
@@ -39,6 +46,8 @@ export const featuredPublications: Publication[] = [
     venue: "The Astrophysical Journal",
     year: "2026",
     status: "submitted",
+    // Reads as a mid-sentence clause after an em dash, so it starts lowercase.
+    reviewNote: "the referee report was positive",
     arxiv: "https://arxiv.org/abs/2603.15779",
     ads: "https://ui.adsabs.harvard.edu/abs/2026arXiv260315779R/abstract",
     summary:

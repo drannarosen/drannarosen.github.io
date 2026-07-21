@@ -95,11 +95,12 @@ const fmt = (d: Date) =>
           underReview.map((p) => (
             <p>
               <span class="now__title">{p.title}</span> is under review at {p.venue}
+              {p.reviewNote && <> — {p.reviewNote}</>}
               {p.arxiv && (
                 <>
-                  {" — "}
+                  {". "}
                   <a href={p.arxiv} rel="noopener">
-                    read it on arXiv
+                    Read it on arXiv
                   </a>
                 </>
               )}
