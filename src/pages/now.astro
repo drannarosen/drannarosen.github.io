@@ -23,6 +23,7 @@ import PageHeader from "../components/PageHeader.astro";
 import ReadinessMeter from "../components/ReadinessMeter.astro";
 import { getPackages } from "../lib/packages";
 import { featuredPublications } from "../data/publications";
+import { graduateAdvisees, finishingAdvisees } from "../data/cv";
 import {
   courses,
   courseWhen,
@@ -49,6 +50,11 @@ const upNext = nextCourse(courses, now);
 // Summer is not a teaching term, so it needs its own sentence rather than
 // "no courses this term" — there is no term for it to be true of.
 const isSummer = seasonOf(now) === "summer";
+
+// Straight from the CV record, so closing a student out there removes them
+// here in the same edit rather than leaving /now announcing an old defence.
+const finishing = finishingAdvisees(graduateAdvisees);
+const finishingWhen = [...new Set(finishing.map((a) => a.finishing))].join(" and ");
 
 const hobby = ["Sophie", "Cosmic Playground"]
   .map((name) => learningResources.find((r) => r.name === name))
@@ -109,6 +115,29 @@ const fmt = (d: Date) =>
           ))
         }
       </div>
+
+      {
+        finishing.length > 0 && (
+          <>
+            <h2 class="now__h2">Nearly out the door</h2>
+            <div class="prose flow">
+              <p>
+                {finishing.length === 2 ? "Two" : finishing.length} masters students
+                are finishing in {finishingWhen}.
+              </p>
+            </div>
+            <ul class="now__list" role="list">
+              {finishing.map((a) => (
+                <li>
+                  <span class="now__name">{a.name}</span>
+                  {a.program && <span class="now__meta">{a.program}</span>}
+                  {a.project && <span class="now__meta">{a.project}</span>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      }
 
       <h2 class="now__h2">Where the interesting problems are</h2>
       <div class="prose flow">

@@ -34,7 +34,25 @@ export interface Advisee {
   project?: string;
   /** Project or contribution led to a refereed publication (★ in the CV). */
   refereed?: boolean;
+  /** Degree programme, e.g. "M.S. Astronomy". Shown on /now, not on the CV. */
+  program?: string;
+  /** When they are due to finish, e.g. "Summer 2026". Drives the /now list. */
+  finishing?: string;
 }
+
+/**
+ * Advisees due to finish, for /now.
+ *
+ * Marked explicitly rather than inferred from an open-ended date, because
+ * "currently advised" and "about to graduate" are different facts and only
+ * one of them belongs under a heading that says so.
+ *
+ * Derived from the CV record either way, so the two pages cannot disagree:
+ * closing out a student on the CV removes them from /now in the same edit.
+ * Naming them in prose on /now instead is how a page ends up still announcing
+ * a defence that happened two years ago.
+ */
+export const finishingAdvisees = (people: Advisee[]) => people.filter((a) => a.finishing);
 
 export interface Grant {
   role: string;
@@ -193,8 +211,8 @@ export const grants: Grant[] = [
 ];
 
 export const graduateAdvisees: Advisee[] = [
-  { name: "Surinder Singh Chhabra", affiliation: "Masters Student, SDSU", date: "2025–Present", project: "ORBIT-RAG: Orchestrated Retrieval with Balanced Iteration & Termination for Astrophysics Research" },
-  { name: "Aisling Ascuna", affiliation: "Masters Student, SDSU", date: "2024–Present", project: "Lead Developer, Sim2SKIRT: an RMHD simulation-to-synthetic-observation pipeline with SKIRT" },
+  { name: "Surinder Singh Chhabra", affiliation: "Masters Student, SDSU", finishing: "Summer 2026", date: "2025–Present", project: "ORBIT-RAG: Orchestrated Retrieval with Balanced Iteration & Termination for Astrophysics Research" },
+  { name: "Aisling Ascuna", affiliation: "Masters Student, SDSU", finishing: "Summer 2026", date: "2024–Present", project: "Lead Developer, Sim2SKIRT: an RMHD simulation-to-synthetic-observation pipeline with SKIRT" },
   { name: "Zoe Bozich", affiliation: "Masters Student, SDSU", date: "2023–2024", project: "Modeling the Evolution of Accreting Protostars with MESA" },
   { name: "Paarmita Pandey", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Fermi Observations of the Diffuse γ-ray Emission of Young Massive Star Clusters", refereed: true },
   { name: "Jennifer Rodriguez", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Tracing the Impact of Stellar Wind Feedback in N79 & 30 Doradus in the LMC with Chandra", refereed: true },
