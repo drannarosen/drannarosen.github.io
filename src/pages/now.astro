@@ -137,6 +137,7 @@ const fmt = (d: Date) =>
                 {p.data.name}
               </a>
               <span class="now__meta">{p.data.tagline}</span>
+              <ReadinessMeter readiness={p.data.readiness} title={p.data.maturity} />
             </li>
           ))
         }
