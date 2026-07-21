@@ -48,11 +48,17 @@ earlier idea of a canvas-drawn IMF star, which would have been decorative and
 would have competed with the homepage hero. A plot is real science, needs no
 second animated canvas, and reuses the provenance system already built.
 
-**Data.** `nowFigures` in `src/data/`: slug, path, caption, date. Images in
-`public/images/now/`, recorded in `src/data/figures.json` like every other
-figure, so sha256, dimensions, `usedIn`, and orphan detection apply unchanged.
-Each figure carries its own date, so the strip self-dates even when the page
-stamp is stale.
+**Data.** `nowFigures` in `src/data/`: package id, figure path, date added.
+Deliberately NO caption, alt text or dimensions — the page resolves the figure
+record from that package's frontmatter, the single place the figure is
+described. Copying alt text into the strip would create two descriptions of one
+image, and the one nobody looks at is the one that goes stale. An entry that
+fails to resolve throws, because a figure silently missing from a gallery is
+indistinguishable from one never added.
+
+Referenced figures keep their `figures.json` records, so sha256, dimensions,
+`usedIn`, and orphan detection apply unchanged. Each entry carries its own
+date, so the strip self-dates even when the page stamp is stale.
 
 **Cap: five.** The build FAILS at six, naming the oldest, rather than silently
 dropping it. A silent drop would ship an invisible figure and leave the author

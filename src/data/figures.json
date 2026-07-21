@@ -1,8 +1,8 @@
 {
-  "_comment": "HUMAN-OWNED. Where each published figure came from, plus a sha256 of the exact file served. `pnpm check:figures` recomputes the hashes and fails if a figure changed without this record being updated \u2014 the site's copy of a paper figure cannot drift silently.",
+  "_comment": "HUMAN-OWNED. Where each published figure came from, plus a sha256 of the exact file served. `pnpm check:figures` recomputes the hashes and fails if a figure changed without this record being updated — the site's copy of a paper figure cannot drift silently.",
   "_limits": [
     "This verifies the file has not changed since it was recorded. It does NOT",
-    "re-run the paper's figure scripts \u2014 those live in a private repo with",
+    "re-run the paper's figure scripts — those live in a private repo with",
     "untracked data. When a figure is regenerated, update `sha256` and `note`",
     "in the same commit that replaces the image."
   ],
@@ -66,7 +66,7 @@
     {
       "path": "images/software/gravax-demo-01.webp",
       "origin": "jaxstro-dev/gravax",
-      "script": "gravax validation figures \u2014 N=512 EFF cluster, adaptive Symmetric Hermite 6 (commit 3a11271)",
+      "script": "gravax validation figures — N=512 EFF cluster, adaptive Symmetric Hermite 6 (commit 3a11271)",
       "paperFigure": "N=512 EFF cluster to 3 crossing times, with endpoint sensitivities",
       "width": 2545,
       "height": 847,
@@ -76,6 +76,7 @@
       "usedIn": [
         "scripts/og/generate.mjs",
         "src/content/packages/gravax.mdx",
+        "src/data/nowFigures.ts",
         "src/data/research.ts"
       ]
     },
@@ -83,7 +84,7 @@
       "path": "images/software/informax-telescope-adds-ten-pounds.webp",
       "origin": "jaxstro-dev/informax",
       "script": "infoviz/cards/aim3-detect-repair-design.yml",
-      "paperFigure": "Aim 3 flagship \u2014 detect, repair, design",
+      "paperFigure": "Aim 3 flagship — detect, repair, design",
       "width": 2469,
       "height": 814,
       "sha256": "3ed67e7b688712a83178bb67b9eb0bccf23ef456e7da342ce8c782cf08bc9471",
@@ -92,6 +93,7 @@
       "usedIn": [
         "scripts/og/generate.mjs",
         "src/content/packages/informax.mdx",
+        "src/data/nowFigures.ts",
         "src/data/research.ts"
       ]
     },
@@ -137,6 +139,7 @@
       "usedIn": [
         "scripts/og/generate.mjs",
         "src/content/packages/fluxax.mdx",
+        "src/data/nowFigures.ts",
         "src/pages/software.astro"
       ]
     },
@@ -152,7 +155,8 @@
       "note": "PRELIMINARY. Hurley SSE trajectories at Z=0.001 under weak/fiducial/strong eruptive-wind controls; panel (c) is remnant mass relative to the exact W=1 result. Rendered from a hash-verified numerical bundle; rendering reads saved data and does not rerun stellar evolution.",
       "usedIn": [
         "scripts/og/generate.mjs",
-        "src/content/packages/startrax.mdx"
+        "src/content/packages/startrax.mdx",
+        "src/data/nowFigures.ts"
       ]
     }
   ]
