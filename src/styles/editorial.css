@@ -174,7 +174,7 @@
      layout is normal flow rather than a grid: grid items cannot float. */
   .editorial > figure.fig-side {
     float: inline-end;
-    inline-size: min(20rem, 42%);
+    inline-size: var(--figure-inline-width);
     max-inline-size: none;
     margin-inline: var(--space-l) 0;
     margin-block: var(--space-2xs) var(--space-m);

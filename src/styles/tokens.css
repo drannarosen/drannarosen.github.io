@@ -131,6 +131,10 @@
     --figure-max-block: 28rem;
     /* Floated into a text column a figure has to stay out of the way. */
     --figure-inline-width: min(20rem, 42%);
+    /* Width of a PageHeader's aside column. A page with wider supporting
+       media raises it; it lived only as an inline fallback before, which
+       made it an override nobody could find. */
+    --page-header-aside: 20rem;
 
     /* ── Motion ──────────────────────────────────────────────────── */
     --dur-fast: 140ms;

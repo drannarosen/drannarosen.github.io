@@ -454,7 +454,7 @@ const fmt = (d: Date) =>
     /* Items must not stretch to the container once the script sets its height. */
     align-items: flex-start;
     gap: var(--space-m);
-    transition: block-size var(--motion-med, 220ms) ease;
+    transition: block-size var(--dur-base) var(--ease-out);
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;

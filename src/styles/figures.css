@@ -31,8 +31,10 @@
     display: block;
     inline-size: 100%;
     block-size: auto;
-    /* No --figure-ar → no cap. Opt-in by construction. */
-    max-inline-size: calc(var(--figure-max-block) * var(--figure-ar, 999));
+    /* No --figure-ar → the calc is invalid at computed-value time, so
+       max-inline-size falls back to its initial value, `none`. Opt-in by
+       construction, with no sentinel number standing in for "unlimited". */
+    max-inline-size: calc(var(--figure-max-block) * var(--figure-ar));
     /* Landscape figures stay flush left; a capped portrait centres in the
        space it no longer fills, which reads as deliberate rather than as a
        column that failed to fill. */

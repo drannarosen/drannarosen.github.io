@@ -76,7 +76,7 @@ const hasAside = Astro.slots.has("aside");
   @media (min-width: 60rem) {
     .page-header--split {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, var(--page-header-aside, 20rem));
+      grid-template-columns: minmax(0, 1fr) minmax(0, var(--page-header-aside));
       column-gap: var(--space-xl);
       /* No row-gap: the eyebrow sits on its own row and already carries a
          margin. A gap here would also open a space above the title on any
