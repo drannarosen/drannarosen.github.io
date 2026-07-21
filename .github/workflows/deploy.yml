@@ -23,24 +23,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
+        # fetch-depth 0 so any step that reads git history (e.g. a page's
+        # last-changed date) sees more than the single latest commit.
         uses: actions/checkout@v4
-
-      # Runs BEFORE the build, so a figure that drifted from its recorded
-      # provenance blocks the deploy rather than shipping unnoticed. Needs no
-      # dependencies — plain Node reading files in this repo.
-      - name: Verify figure provenance
-        run: node scripts/figures/check.mjs
-
-      - name: Verify every font-size uses the type scale
-        run: node scripts/check-type.mjs
-
-      - name: Build Astro site
-        # Auto-detects pnpm from the lockfile, runs `astro build`, and
-        # uploads the dist/ artifact for the deploy job.
-        uses: withastro/action@v3
         with:
-          # Node 24 (current). Astro 7 requires >= 22.12; the action defaults to 20.
+          fetch-depth: 0
+
+      - name: Install pnpm
+        # Version comes from the packageManager field in package.json.
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          # Astro 7 needs >= 22.12; check-sun.mjs uses --experimental-strip-types.
           node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ONE definition of "build". `pnpm build` runs the same prebuild gates
+      # (sun geometry, type scale, figure provenance, OG cards) and postbuild
+      # gates (search index, internal links, unrendered markup) that run
+      # locally — rather than an ad-hoc subset re-listed here that drifts.
+      #
+      # The old workflow used the withastro action, which runs `astro build`
+      # directly and so skipped every npm hook: the search index, the sun
+      # check, the link and markup checks never ran on a real deploy. It also
+      # ran the figure check first with no node_modules, which broke the moment
+      # that check started importing sharp to read image dimensions.
+      - name: Build and verify
+        run: pnpm build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
 
   deploy:
     needs: build
