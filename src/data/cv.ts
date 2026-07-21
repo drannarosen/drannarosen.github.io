@@ -212,7 +212,7 @@ export const grants: Grant[] = [
 
 export const graduateAdvisees: Advisee[] = [
   { name: "Surinder Singh Chhabra", affiliation: "Masters Student, SDSU", finishing: "Summer 2026", date: "2025–Present", project: "ORBIT-RAG: Orchestrated Retrieval with Balanced Iteration & Termination for Astrophysics Research" },
-  { name: "Aisling Ascuna", affiliation: "Masters Student, SDSU", finishing: "Summer 2026", date: "2024–Present", project: "Lead Developer, Sim2SKIRT: an RMHD simulation-to-synthetic-observation pipeline with SKIRT" },
+  { name: "Aisling Ascuna", affiliation: "Masters Student, SDSU", finishing: "Summer 2026", date: "2024–Present", project: "Lead Developer, Sim2SKIRT: an RMHD simulation-to-synthetic-observation pipeline with SKIRT, applied to STARFORGE star cluster formation simulations" },
   { name: "Zoe Bozich", affiliation: "Masters Student, SDSU", date: "2023–2024", project: "Modeling the Evolution of Accreting Protostars with MESA" },
   { name: "Paarmita Pandey", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Fermi Observations of the Diffuse γ-ray Emission of Young Massive Star Clusters", refereed: true },
   { name: "Jennifer Rodriguez", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Tracing the Impact of Stellar Wind Feedback in N79 & 30 Doradus in the LMC with Chandra", refereed: true },

@@ -343,7 +343,7 @@
 
 #cv-entry([Aisling Ascuna (Masters Student, SDSU)], "2024--Present")
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
-  [Lead Developer, #smallcaps[Sim2SKIRT]: a RMHD simulation-to-synthetic observation pipeline with #smallcaps[skirt]]))
+  [Lead Developer, #smallcaps[Sim2SKIRT]: a RMHD simulation-to-synthetic observation pipeline with #smallcaps[skirt], applied to #smallcaps[starforge] star cluster formation simulations]))
 #v(3pt)
 
 #cv-entry([Zoe Bozich (Masters Student, SDSU)], "2023--2024")
