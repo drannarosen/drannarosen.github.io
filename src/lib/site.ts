@@ -19,6 +19,9 @@ const nav: NavItem[] = [
   { label: "Research", href: "/research" },
   { label: "Explore", href: "/explore" },
   { label: "Publications", href: "/publications" },
+  // Next to Publications deliberately: formal writing, then informal. It had
+  // no header entry at all, reachable only from the footer's RSS link.
+  { label: "Astrobytes", href: "/astrobytes" },
   { label: "Software", href: "/software" },
   { label: "Teaching", href: "/teaching" },
   { label: "Outreach", href: "/outreach" },
