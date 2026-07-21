@@ -74,6 +74,13 @@ const fmt = (d: Date) =>
     <div class="now">
       <p class="now__stamp">Updated {fmt(updated)}</p>
 
+      {/*
+        The sky over San Diego, computed from the reader's clock. The fallback
+        text is true on its own, so a JS-off reader gets a sentence rather than
+        an empty line; the script replaces it with the live version.
+      */}
+      <p class="now__sky" id="sky">The work happens in San Diego, at 32.8° N.</p>
+
       <h2 class="now__h2">On my desk</h2>
       <div class="prose flow">
         <p>
@@ -189,6 +196,40 @@ const fmt = (d: Date) =>
   </section>
 </BaseLayout>
 
+<script>
+  import { sunPosition, hoursUntilDusk } from "../lib/sunSanDiego";
+
+  const el = document.getElementById("sky");
+  if (el) {
+    const now = new Date();
+    const { altitudeDeg } = sunPosition(now);
+    const alt = Math.round(altitudeDeg);
+
+    const until = (target: number) => {
+      const h = hoursUntilDusk(now, target);
+      if (h == null) return null;
+      const mins = Math.round(h * 60);
+      return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
+    };
+
+    let text: string;
+    if (alt > 0) {
+      const dusk = until(-18);
+      text =
+        `Over San Diego right now the Sun sits ${alt}° above the horizon` +
+        (dusk ? `; astronomical twilight ends in ${dusk}.` : ".");
+    } else if (altitudeDeg <= -18) {
+      text = `Over San Diego right now the Sun is ${Math.abs(alt)}° below the horizon — astronomical dark.`;
+    } else {
+      const dusk = until(-18);
+      text =
+        `Over San Diego right now the Sun is ${Math.abs(alt)}° below the horizon` +
+        (dusk ? `; astronomical dark in ${dusk}.` : ".");
+    }
+    el.textContent = text;
+  }
+</script>
+
 <style>
   /*
    * The measure cap lives HERE, on an inner block — never on the .wrap, which
@@ -246,6 +287,11 @@ const fmt = (d: Date) =>
   }
   .now__list--quiet .now__meta {
     color: var(--ink-faint);
+  }
+  .now__sky {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
   }
   .now__aside,
   .now__note {
