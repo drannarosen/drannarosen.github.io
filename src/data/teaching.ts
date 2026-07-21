@@ -81,6 +81,20 @@ export interface Course {
 /** Display string for a course's terms. Derived — never authored. */
 export const courseWhen = (c: Course) => termLabel(c.terms);
 
+/**
+ * Which season today falls in, or null in the gap between terms.
+ *
+ * Summer is not a teaching term, so "no courses this term" is the wrong
+ * sentence for it — there is no term to have no courses in. Callers use this
+ * to say what is actually true of the month they are in.
+ */
+export function seasonOf(now: Date): Season | null {
+  const year = new Date(now.getTime()).getUTCFullYear();
+  return (
+    SEASON_ORDER.find((season) => termIsCurrent({ season, year }, now)) ?? null
+  );
+}
+
 /** Courses running right now, most recent term first. */
 export const coursesNow = (list: Course[], now: Date): Course[] =>
   list.filter((c) => c.terms.some((t) => termIsCurrent(t, now)));

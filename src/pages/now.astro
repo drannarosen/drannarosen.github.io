@@ -28,6 +28,7 @@ import {
   courseWhen,
   coursesNow,
   nextCourse,
+  seasonOf,
   termLabel,
   learningResources,
 } from "../data/teaching";
@@ -45,6 +46,9 @@ const underReview = featuredPublications.filter((p) => p.status === "submitted")
 
 const teachingNow = coursesNow(courses, now);
 const upNext = nextCourse(courses, now);
+// Summer is not a teaching term, so it needs its own sentence rather than
+// "no courses this term" — there is no term for it to be true of.
+const isSummer = seasonOf(now) === "summer";
 
 const hobby = ["Sophie", "Cosmic Playground"]
   .map((name) => learningResources.find((r) => r.name === name))
@@ -157,6 +161,8 @@ const fmt = (d: Date) =>
                 </li>
               ))}
             </ul>
+          ) : isSummer ? (
+            <p>It's summer — no classes, and the research runs at full tilt.</p>
           ) : (
             <p>No courses this term.</p>
           )
@@ -173,7 +179,7 @@ const fmt = (d: Date) =>
         </p>
       </div>
 
-      <h2 class="now__h2">Nights and weekends</h2>
+      <h2 class="now__h2">Side projects</h2>
       <ul class="now__list" role="list">
         {
           hobby.map((r) => (

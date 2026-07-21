@@ -31,8 +31,8 @@ supporting detail.
 | On my desk | The progenax methods paper. Timeline as "later this summer" — never a hard date. |
 | Where the interesting problems are | gravax and startrax, with the existing readiness bars, unchanged. |
 | Simmering | fluxax and informax. One line, small, dim. Real, not the focus. |
-| Teaching | Derived from term and year. In summer it says so. |
-| Nights and weekends | Sophie and Cosmic Playground. Unbillable, and framed that way. |
+| Teaching | Derived from term and year. Summer is not a term and gets its own sentence. |
+| Side projects | Sophie and Cosmic Playground. No readiness bars, no roadmap. |
 
 "Under review" is deliberately gone. One submitted paper does not need a
 heading, and a section that stands empty half the year reads as neglect; it
