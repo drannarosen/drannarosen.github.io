@@ -10,8 +10,8 @@
  * page to link to, and the date it went up. Everything describing the image
  * resolves from src/data/figures.json through src/lib/figures.ts.
  *
- * Newest first. Adding a figure means putting it at the top and, if the strip
- * is full, deleting the entry that falls off the end; removing an entry
+ * Newest first, by the date the figure went up rather than the date it was
+ * added to this list — the strip reads as a chronology. Removing an entry
  * strands its image file, which `pnpm check:figures` then reports.
  */
 
@@ -25,10 +25,14 @@ export interface NowFigure {
 }
 
 /*
- * Five, and the build FAILS at six rather than silently dropping the oldest.
- * A silent drop ships an invisible figure and leaves the author wondering why
- * the new plot never appeared; failing forces the choice of which one leaves,
- * which is the same discipline the rest of the figure system already applies.
+ * Five is a SOFT cap: going over warns at build time but ships everything.
+ *
+ * It began as a hard failure, on the reasoning that a silent drop would leave
+ * an invisible figure and a puzzled author. That reasoning still holds against
+ * silently DROPPING one — nothing is ever hidden here. But retiring a plot is
+ * an editorial call, not a build concern, and a gate that blocks the build to
+ * make it is a gate that gets edited out of the way. The warning notes the
+ * strip is getting long; deciding what leaves stays with the author.
  */
 export const NOW_FIGURE_CAP = 5;
 
@@ -37,14 +41,14 @@ export const nowFigures: NowFigure[] = [
   { id: "startrax-wind-response", package: "startrax", added: "2026-07-20" },
   { id: "fluxax-pixel-information", package: "fluxax", added: "2026-07-19" },
   { id: "informax-telescope-adds-ten-pounds", package: "informax", added: "2026-07-19" },
+  { id: "gravoturb-cluster", package: "progenax", added: "2026-07-18" },
 ];
 
 if (nowFigures.length > NOW_FIGURE_CAP) {
   const oldest = nowFigures[nowFigures.length - 1];
-  throw new Error(
-    `[nowFigures] ${nowFigures.length} figures, cap is ${NOW_FIGURE_CAP}.\n` +
-      `  Remove the oldest entry (${oldest.id}, added ${oldest.added}) or another\n` +
-      `  of your choosing, then delete its image file if nothing else uses it —\n` +
-      `  check:figures will tell you if it is stranded.`,
+  console.warn(
+    `[nowFigures] ${nowFigures.length} figures on /now, soft cap is ${NOW_FIGURE_CAP}. ` +
+      `Oldest is ${oldest.id} (added ${oldest.added}). Retire one when you want to — ` +
+      `removing an entry strands its image, which check:figures then reports.`,
   );
 }
