@@ -53,12 +53,20 @@ const source = z.object({
 const astrobytes = defineCollection({
   loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/astrobytes" }),
   schema: z.object({
+    /*
+     * "science" is a paper explainer — the default, and what Astrobytes is
+     * for. "meta" is a post about the work of building things (the site, the
+     * software), which has no paper to cite. kind decides whether `paper` is
+     * required, below.
+     */
+    kind: z.enum(["science", "meta"]).default("science"),
     title: z.string(),
     /** One-sentence hook shown on the hub and as the page lede. */
     dek: z.string(),
     date: z.coerce.date(),
-    /** The paper being summarized. */
-    paper: z.object({
+    /** The paper being summarized. Required for science posts; absent for meta. */
+    paper: z
+      .object({
       title: z.string(),
       authors: z.string(),
       venue: z.string(),
@@ -76,7 +84,8 @@ const astrobytes = defineCollection({
        * build instead of quietly shipping an unlinked title.
        */
       ads: z.string().url(),
-    }),
+      })
+      .optional(),
     provenance,
     /** Every quantitative claim in the post should trace to one of these. */
     sources: z.array(source).default([]),
@@ -84,6 +93,10 @@ const astrobytes = defineCollection({
     level: z.enum(["undergraduate", "graduate"]).default("undergraduate"),
     tags: z.array(z.string()).default([]),
     draft: z.boolean().default(false),
+  })
+  .refine((d) => d.kind === "meta" || d.paper !== undefined, {
+    message: "A science post must cite a paper (set `paper`), or set kind: meta.",
+    path: ["paper"],
   }),
 });
 

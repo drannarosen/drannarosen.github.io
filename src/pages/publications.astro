@@ -28,8 +28,8 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
  */
 const byteFor = new Map(
   (await getCollection("astrobytes", ({ data }) => !data.draft))
-    .filter((p) => p.data.paper.arxiv)
-    .map((p) => [p.data.paper.arxiv!, p.id]),
+    .filter((p) => p.data.paper?.arxiv)
+    .map((p) => [p.data.paper!.arxiv!, p.id]),
 );
 
 /*

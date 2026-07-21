@@ -63,13 +63,15 @@ const fmt = (d: Date) =>
             <a href={`/astrobytes/${p.id}`}>{p.data.title}</a>
           </h2>
           <p class="ab-card__dek prose">{p.data.dek}</p>
-          <p class="ab-card__paper">
-            on{" "}
-            <cite>
-              <a href={p.data.paper.ads} rel="noopener">{p.data.paper.title}</a>
-            </cite>{" "}
-            — {p.data.paper.authors} ({p.data.paper.year})
-          </p>
+          {p.data.paper && (
+            <p class="ab-card__paper">
+              on{" "}
+              <cite>
+                <a href={p.data.paper.ads} rel="noopener">{p.data.paper.title}</a>
+              </cite>{" "}
+              — {p.data.paper.authors} ({p.data.paper.year})
+            </p>
+          )}
         </li>
       ))
     }

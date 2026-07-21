@@ -290,6 +290,20 @@ shows. KaTeX stores the original LaTeX in `<annotation>` for screen readers, so
 the scan strips those first; otherwise every correctly-rendered equation would
 report as a failure.
 
+## Astrobytes: science vs meta
+
+Posts carry a `kind`. `science` (default) is a paper explainer and MUST cite a
+`paper` — the schema rejects one without it. `meta` is a post about the work of
+building things (the site, the software) and has no paper; the paper card, the
+hub citation line and the publications cross-reference all omit cleanly when it
+is absent.
+
+An AI-drafted post may not enter the collection until it has actually been
+reviewed: the provenance gate requires a named reviewer, a date and the model,
+and setting those before the review has happened is the exact fabrication the
+site-claims rule forbids. Draft such posts in `docs/drafts/` — a working file
+makes no published claim — and move them in only once the review is real.
+
 ## Search
 
 `dist/search.json` is the whole index, and it is built in two halves.

@@ -28,7 +28,7 @@ export async function GET(_context: APIContext) {
     ...posts.map((p) => ({
       kind: "astrobyte" as const,
       title: p.data.title,
-      meta: p.data.paper.title,
+      meta: p.data.paper?.title ?? p.data.dek,
       extra: `${p.data.dek} ${p.data.tags.join(" ")}`,
       url: `/astrobytes/${p.id}`,
       internal: true,

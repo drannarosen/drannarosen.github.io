@@ -34,7 +34,7 @@ const fmt = (d: Date) =>
   path={`/astrobytes/${post.id}`}
   ogType="article"
   ogImage={`astrobytes-${post.id}.png`}
-  ogImageAlt={`Key figure from ${paper.title}`}
+  ogImageAlt={paper ? `Key figure from ${paper.title}` : dek}
   article={{
     headline: title,
     description: dek,
@@ -51,6 +51,7 @@ const fmt = (d: Date) =>
       <time datetime={date.toISOString()}>{fmt(date)}</time>
       <span class="post-meta__level">{level}</span>
     </p>
+    {paper && (
     <div class="post-paper">
       <p class="post-paper__label">The paper</p>
       <p class="post-paper__title">
@@ -70,6 +71,7 @@ const fmt = (d: Date) =>
         <a href={paper.ads} rel="noopener">NASA ADS ↗</a>
       </p>
     </div>
+    )}
   </div>
 
   <article class="wrap editorial post">
