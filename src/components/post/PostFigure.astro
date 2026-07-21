@@ -12,7 +12,7 @@
  *   variant="side" → floats into the margin field; prose runs alongside
  */
 import { slugify } from "../../lib/slug";
-import { getFigure, figureSrc } from "../../lib/figures";
+import { getFigure, figureSrc, figureBox } from "../../lib/figures";
 
 interface Props {
   /*
@@ -36,6 +36,8 @@ const id = `fig-${slugify(src.split("/").pop() ?? "figure")}`;
 
 <figure class={cls} id={id}>
   <img
+    class="figure-box"
+    style={figureBox(f)}
     src={src}
     alt={alt}
     width={width}

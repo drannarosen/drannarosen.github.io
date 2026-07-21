@@ -4,7 +4,7 @@
  * "preliminary" flag for unpublished/in-prep work. Requires explicit width/
  * height to reserve space (no layout shift); lazy-loads below the fold.
  */
-import { getFigure, figureSrc, figureCaption } from "../lib/figures";
+import { getFigure, figureSrc, figureCaption, figureBox } from "../lib/figures";
 import { renderCaption } from "../lib/figureCaption";
 
 /*
@@ -27,16 +27,31 @@ interface Props {
    * argument off the screen and buries the point it is evidence for.
    */
   side?: boolean;
+  /**
+   * Float the figure into the text so prose runs alongside it. "end" is the
+   * usual choice; "start" when something else already occupies the right.
+   * Only meaningful inside a prose column — see figures.css.
+   */
+  inline?: "end" | "start";
 }
-const { id, caption = "full", contain, side } = Astro.props;
+const { id, caption = "full", contain, side, inline } = Astro.props;
 const f = getFigure(id);
 const { alt, width, height, credit, preliminary } = f;
 const captionText = figureCaption(f, caption);
 ---
 
-<figure class:list={["fig", { "fig--side": side }]}>
+<figure
+  class:list={[
+    "fig",
+    { "fig--side": side },
+    inline && "figure-inline",
+    inline === "start" && "figure-inline--start",
+  ]}
+>
   <div class:list={["fig__frame", { "fig__frame--contain": contain }]}>
     <img
+      class="figure-box"
+      style={figureBox(f)}
       src={figureSrc(f)}
       alt={alt}
       width={width}

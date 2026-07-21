@@ -12,7 +12,7 @@ import PageHeader from "../../components/PageHeader.astro";
 import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL } from "../../data/jaxstro";
 import { getPackages, type PackageEntry } from "../../lib/packages";
 import { renderCaption } from "../../lib/figureCaption";
-import { getFigure, figureSrc, figureCaption } from "../../lib/figures";
+import { getFigure, figureSrc, figureCaption, figureBox } from "../../lib/figures";
 
 export async function getStaticPaths() {
   const packages = await getPackages();
@@ -94,6 +94,8 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
           return (
             <figure class:list={["pk-fig", `pk-fig--${ref.captionPlacement}`]}>
               <img
+                class="figure-box"
+                style={figureBox(f)}
                 src={figureSrc(f)}
                 alt={f.alt}
                 width={f.width}
@@ -227,10 +229,8 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
   .pk-fig--above figcaption {
     margin-block: 0 var(--space-s);
   }
+  /* Sizing is shared: .figure-box in figures.css. Framing is local. */
   .pk-fig img {
-    display: block;
-    inline-size: 100%;
-    block-size: auto;
     background: #fff;
     padding: var(--space-2xs);
     border-radius: var(--radius-m);

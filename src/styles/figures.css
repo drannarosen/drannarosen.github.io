@@ -1,0 +1,84 @@
+/*
+ * figures.css — one sizing rule for every figure on the site.
+ *
+ * There are four figure treatments (the <Figure> component, package-page
+ * galleries, Astrobytes <PostFigure>, and the /now strip) and they had drifted
+ * into four opinions about how large an image may get. The aspect ratios here
+ * run from 0.33 to 1.18, so "full width" means a 235px-tall band for one
+ * figure and an 835px wall for another; on /now that single portrait figure
+ * set the height of every slide beside it.
+ *
+ * THE RULE: a figure may be at most --figure-max-block tall, and that is
+ * enforced by capping its WIDTH at `--figure-max-block * aspect-ratio`. See
+ * figureBox() in src/lib/figures.ts for why it is not max-block-size — the
+ * short version is that capping height needs `inline-size: auto`, which
+ * reserves no space for a lazy image, and unloaded figures were measured
+ * collapsing to 9x9 with their width and height attributes present.
+ *
+ * Templates opt in by putting `figure-box` on the image and setting
+ * `--figure-ar` from the record. Anything without --figure-ar is unaffected,
+ * so this can never silently shrink an image nobody migrated.
+ *
+ * --figure-max-block is a knob, not a constant. A figure that is the argument
+ * rather than an aside needs more room before the cap costs legibility: a
+ * four-panel log-log figure capped to the default came out 577px wide, which
+ * bounds its height and destroys its axes. Contexts raise the token; the
+ * mechanism stays the same everywhere.
+ */
+
+@layer components {
+  .figure-box {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    /* No --figure-ar → no cap. Opt-in by construction. */
+    max-inline-size: calc(var(--figure-max-block) * var(--figure-ar, 999));
+    /* Landscape figures stay flush left; a capped portrait centres in the
+       space it no longer fills, which reads as deliberate rather than as a
+       column that failed to fill. */
+    margin-inline: auto;
+  }
+
+  /*
+   * Inline with the text: the figure floats and prose runs alongside it.
+   *
+   * Normal flow rather than grid, because grid items cannot float — the same
+   * reason the Astrobytes side variant is built this way. Applied to the
+   * <figure>, not the image.
+   */
+  .figure-inline {
+    float: inline-end;
+    inline-size: var(--figure-inline-width);
+    max-inline-size: none;
+    margin-inline: var(--space-l) 0;
+    margin-block: var(--space-2xs) var(--space-m);
+  }
+  .figure-inline--start {
+    float: inline-start;
+    margin-inline: 0 var(--space-l);
+  }
+  /* Inside its own narrow column the figure fills that column; the column IS
+     the cap, so the aspect-ratio cap would only fight it. */
+  .figure-inline .figure-box {
+    max-inline-size: 100%;
+  }
+
+  /* Headings must not collide with a floated figure. */
+  .prose h2,
+  .prose h3 {
+    clear: both;
+  }
+
+  /*
+   * A floated figure in a narrow viewport is a column of two or three words.
+   * Below this width it returns to the flow at full measure.
+   */
+  @media (max-width: 46rem) {
+    .figure-inline,
+    .figure-inline--start {
+      float: none;
+      inline-size: 100%;
+      margin-inline: 0;
+    }
+  }
+}

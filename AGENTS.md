@@ -208,6 +208,26 @@ layout (`captionPlacement`, `contain`, `side`). Astrobytes captions remain MDX
 children, because they carry markup and inline math and cannot live in JSON
 without ceasing to be MDX.
 
+**Every figure is height-bounded by one shared rule.** `--figure-max-block`
+(tokens.css) is the cap; `.figure-box` (figures.css) enforces it by capping the
+image's WIDTH at `--figure-max-block x aspect-ratio`, with the ratio passed in
+per figure by `figureBox()`.
+
+Never cap a figure with `max-block-size` and `inline-size: auto`. That is the
+obvious way and it silently breaks space reservation: an unloaded lazy image
+has no intrinsic width for the aspect ratio to multiply, and figures were
+measured collapsing to 9x9 with their `width` and `height` attributes present.
+Bounding width keeps `inline-size: 100%`, so the box comes from the container
+and the height follows.
+
+`--figure-max-block` is a knob a context may raise — a wide figure in a post is
+the argument, not an aside, and at the default a four-panel figure came out
+577px wide with unreadable axes. Set the token on the container rather than
+writing a second sizing rule.
+
+To sit a figure inline with prose, add `figure-inline` (or `<Figure inline="end" />`).
+It floats and text runs alongside, returning to the flow below 46rem.
+
 `pnpm check:figures` enforces five things: the file matches its recorded
 sha256, its recorded dimensions match the file, nothing is served from a figure
 directory without provenance, no image under `public/images/` is shipped

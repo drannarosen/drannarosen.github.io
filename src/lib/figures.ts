@@ -87,6 +87,27 @@ export function figureCaption(f: FigureRecord, variant: "full" | "short" = "full
   return chosen;
 }
 
+/**
+ * The inline style that bounds a figure's height without breaking space
+ * reservation.
+ *
+ * Every figure on the site is capped to `--figure-max-block`. The obvious way
+ * to do that — `max-block-size` on the image with `inline-size: auto` — was
+ * measured failing on /now: lazy images that had not yet loaded collapsed to
+ * 9x9 despite carrying width and height attributes, because auto width gives
+ * the aspect ratio nothing to multiply, so nothing reserved their space. The
+ * same hazard is recorded against the floated variant in editorial.css.
+ *
+ * So the cap is expressed as a WIDTH: a figure of ratio w/h may be at most
+ * `--figure-max-block * (w/h)` wide, at which point it is exactly
+ * `--figure-max-block` tall. `inline-size: 100%` is preserved, the box is
+ * reserved from the container, and the height follows from the ratio.
+ */
+export function figureBox(f: FigureRecord): string {
+  const ratio = (f.width / f.height).toFixed(4);
+  return `--figure-ar: ${ratio}`;
+}
+
 /** Everything a template needs to render an <img>, resolved from one record. */
 export function figureImage(id: string) {
   const f = getFigure(id);

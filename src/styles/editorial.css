@@ -164,6 +164,10 @@
   .editorial > figure.fig-wide {
     max-inline-size: 100%;
     inline-size: 100%;
+    /* A wide figure in a post IS the argument, so it gets more height before
+       the shared cap applies — at the default a four-panel figure lost the
+       width its axes need. */
+    --figure-max-block: 40rem;
   }
 
   /* Float into the right-hand field so prose runs alongside — the reason this
@@ -175,10 +179,12 @@
     margin-inline: var(--space-l) 0;
     margin-block: var(--space-2xs) var(--space-m);
   }
-  /* Deliberately NOT height-capped. Sizing a lazy-loaded image by its height
-     needs `inline-size: auto`, which has no intrinsic width before load — the
-     figure collapses and the width/height attributes stop reserving space.
-     The figure's own width cap above already bounds it. */
+  /* Height is bounded by .figure-box (figures.css), which caps WIDTH from the
+     figure's aspect ratio — so the cap costs nothing in reserved space. The
+     earlier note here said height-capping was impossible; it was impossible
+     the direct way, via max-block-size and `inline-size: auto`, which leaves a
+     lazy image with no intrinsic width. Measured on /now: such figures
+     collapsed to 9x9 with their width and height attributes present. */
   .editorial > figure.fig-side img {
     inline-size: 100%;
     block-size: auto;
@@ -239,15 +245,10 @@
       padding-block: var(--space-2xs);
       border-inline-start: 2px solid var(--border-strong);
     }
-    /* Stacked full-width, a 1:1.8 portrait would be overwhelming, so on narrow
-       screens the tall figure is the one place a height cap is worth the
-       reserved-space tradeoff. */
-    .editorial > figure.fig-side img {
-      max-block-size: 80vh;
-      inline-size: auto;
-      max-inline-size: 100%;
-      margin-inline: auto;
-    }
+    /* The portrait figure that made this rule necessary is now bounded by
+       .figure-box for every viewport, so the local height cap — and the
+       `inline-size: auto` that came with it, which stopped lazy images
+       reserving their space — is gone. */
   }
 
   @media (prefers-reduced-motion: no-preference) {

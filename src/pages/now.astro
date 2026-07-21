@@ -26,7 +26,7 @@ import { featuredPublications } from "../data/publications";
 import { graduateAdvisees, finishingAdvisees } from "../data/cv";
 import { nowFigures } from "../data/nowFigures";
 import { renderCaption } from "../lib/figureCaption";
-import { getFigure, figureSrc, figureCaption } from "../lib/figures";
+import { getFigure, figureSrc, figureCaption, figureBox } from "../lib/figures";
 import {
   courses,
   courseWhen,
@@ -131,6 +131,8 @@ const fmt = (d: Date) =>
               {strip.map((s, i) => (
                 <figure class="strip__item" id={`plot-${i + 1}`}>
                   <img
+                    class="figure-box"
+                    style={figureBox(s.figure)}
                     src={figureSrc(s.figure)}
                     alt={s.figure.alt}
                     width={s.figure.width}
@@ -469,21 +471,9 @@ const fmt = (d: Date) =>
     scroll-snap-align: start;
     min-inline-size: 0;
   }
-  /*
-   * Cap the HEIGHT, not the width. The figures range from 0.33 to 1.18 in
-   * aspect ratio, and at full measure the portrait one renders 835px tall
-   * against 235px for the landscape ones. Since a flex row is as tall as its
-   * tallest item, that single figure set the height of every slide. Capping
-   * height and letting width follow keeps every slide within a stop of the
-   * others; the script below then trims the strip to the slide on show.
-   */
+  /* Sizing comes from .figure-box in figures.css, which is shared with every
+     other figure on the site. Only the framing is local. */
   .strip__item img {
-    display: block;
-    margin-inline: auto;
-    inline-size: auto;
-    max-inline-size: 100%;
-    max-block-size: min(26rem, 55vh);
-    block-size: auto;
     background: #fff;
     padding: var(--space-3xs);
     border-radius: var(--radius-m);

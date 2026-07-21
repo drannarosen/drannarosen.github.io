@@ -114,6 +114,24 @@
     --width-wide: 84rem;      /* full-bleed sections */
     --gutter: clamp(1.25rem, 0.9rem + 1.6vw, 2.5rem);
 
+    /*
+     * How tall a figure may get. Aspect ratios here run from 0.33 to 1.18, so
+     * at full measure a portrait figure renders three times the height of a
+     * landscape one and dominates whatever it is evidence for.
+     *
+     * This is applied as a WIDTH cap computed from each figure's own aspect
+     * ratio (see figureBox in src/lib/figures.ts), never as max-block-size on
+     * the image. Capping height requires `inline-size: auto`, which has no
+     * intrinsic width before a lazy image loads: measured on /now, unloaded
+     * slides collapsed to 9x9 even though the width and height attributes
+     * were present, because auto width leaves the aspect ratio nothing to
+     * multiply. Bounding the width instead keeps `inline-size: 100%`, so the
+     * box is reserved from the container and the height follows.
+     */
+    --figure-max-block: 28rem;
+    /* Floated into a text column a figure has to stay out of the way. */
+    --figure-inline-width: min(20rem, 42%);
+
     /* ── Motion ──────────────────────────────────────────────────── */
     --dur-fast: 140ms;
     --dur-base: 240ms;
