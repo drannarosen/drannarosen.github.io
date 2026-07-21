@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
-import { courses, learningResources } from "../data/teaching";
+import { courses, courseWhen, learningResources } from "../data/teaching";
 import StatusBadge from "../components/StatusBadge.astro";
 import ReadinessMeter from "../components/ReadinessMeter.astro";
 ---
@@ -55,7 +55,7 @@ import ReadinessMeter from "../components/ReadinessMeter.astro";
           <li class="te-course">
             <div class="te-course__head">
               <span class="te-course__code">{c.code}</span>
-              <span class="te-course__when">{c.when}</span>
+              <span class="te-course__when">{courseWhen(c)}</span>
             </div>
             <h3 class="te-course__title">
               {c.url ? (
