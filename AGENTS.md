@@ -257,6 +257,18 @@ shows. KaTeX stores the original LaTeX in `<annotation>` for screen readers, so
 the scan strips those first; otherwise every correctly-rendered equation would
 report as a failure.
 
+## Astrobytes
+
+Every post's `paper.ads` is **required** by the schema, and the paper title —
+on the post and on the hub card — links to it. A reader is then always one
+click from the record rather than from a summary of it, and ADS is the record:
+it carries the abstract, the citation graph and the published version, which an
+arXiv link alone does not.
+
+Required rather than optional because a link that is usually there is a link a
+reader stops looking for. A post without one fails the build with
+`paper.ads: Required`, instead of quietly shipping an unlinked title.
+
 ## Naming
 
 Settled 2026-07-19; do not "correct" these back.

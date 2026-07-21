@@ -53,7 +53,11 @@ const fmt = (d: Date) =>
     </p>
     <div class="post-paper">
       <p class="post-paper__label">The paper</p>
-      <p class="post-paper__title">{paper.title}</p>
+      <p class="post-paper__title">
+        {/* The title IS the link to the record; the row below stays for arXiv
+            and for anyone who wants the destination named. */}
+        <a href={paper.ads} rel="noopener">{paper.title}</a>
+      </p>
       <p class="post-paper__cite">
         {paper.authors} · {paper.venue} ({paper.year}){
           paper.status && paper.status !== "published" && (
@@ -63,7 +67,7 @@ const fmt = (d: Date) =>
       </p>
       <p class="post-paper__links">
         {paper.arxiv && <a href={paper.arxiv} rel="noopener">arXiv ↗</a>}
-        {paper.ads && <a href={paper.ads} rel="noopener">NASA ADS ↗</a>}
+        <a href={paper.ads} rel="noopener">NASA ADS ↗</a>
       </p>
     </div>
   </div>

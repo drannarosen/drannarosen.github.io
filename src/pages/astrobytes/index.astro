@@ -64,8 +64,11 @@ const fmt = (d: Date) =>
           </h2>
           <p class="ab-card__dek prose">{p.data.dek}</p>
           <p class="ab-card__paper">
-            on <cite>{p.data.paper.title}</cite> — {p.data.paper.authors} (
-            {p.data.paper.year})
+            on{" "}
+            <cite>
+              <a href={p.data.paper.ads} rel="noopener">{p.data.paper.title}</a>
+            </cite>{" "}
+            — {p.data.paper.authors} ({p.data.paper.year})
           </p>
         </li>
       ))

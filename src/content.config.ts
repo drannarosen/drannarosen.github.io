@@ -65,7 +65,17 @@ const astrobytes = defineCollection({
       year: z.string(),
       status: z.enum(["submitted", "accepted", "published"]).optional(),
       arxiv: z.string().url().optional(),
-      ads: z.string().url().optional(),
+      /*
+       * REQUIRED. The post's title links to this, so a reader is always one
+       * click from the record itself rather than from a summary of it — and
+       * ADS is the record: it carries the abstract, the citation graph and
+       * the published version, which an arXiv link alone does not.
+       *
+       * Required rather than optional because a link that is usually there is
+       * a link a reader stops looking for. A new post without one fails the
+       * build instead of quietly shipping an unlinked title.
+       */
+      ads: z.string().url(),
     }),
     provenance,
     /** Every quantitative claim in the post should trace to one of these. */
