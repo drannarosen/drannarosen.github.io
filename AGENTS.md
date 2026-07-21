@@ -106,6 +106,33 @@ vanishes.
   authored data at build time.
 - Custom CSS with cascade layers + design tokens (colors, spacing, type scale,
   motion). No utility-class framework.
+- **Never invent a fact to fill a field.** This is the rule that has been
+  broken most often, and it is the one that damages Anna. Every claim on this
+  site is published under her name, so an invented detail is not a draft — it
+  is her, in public, asserting something untrue.
+
+  It has happened three times in ways worth recording, all the same shape: a
+  plausible-sounding detail written to complete a sentence.
+
+  - `jaxstro` was given "methods paper in prep" when a package page needed a
+    maturity line. Anna had said nothing about a paper. It shipped for two
+    days, and it was wrong — `jaxstro` gets a software paper only.
+  - `startrax` was described as having "a differentiable binary-evolution layer
+    in progress". No binary code exists in that package at all.
+  - `/now` said the progenax paper "is where most of my mornings go". Anna had
+    said which paper and roughly when, nothing about mornings.
+
+  None of these were malicious and every one of them read naturally. That is
+  exactly why they are dangerous.
+
+  **The rule:** if Anna did not state it, the repo does not contain it, and a
+  cited source does not say it, it does not go on the site. When a field wants
+  content that does not exist, leave it out or ask — an omission is invisible,
+  an invention is a claim.
+
+  Especially: publication venues, paper status, timelines, degree programmes,
+  what a package can do, Anna's habits, schedule, feelings or intentions.
+
 - Never fabricate publications, students, grants, collaborators, or software
   claims. Use clearly-labeled provisional records where needed to exercise the
   content system.
