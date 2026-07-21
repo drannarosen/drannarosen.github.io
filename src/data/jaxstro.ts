@@ -43,3 +43,26 @@ export const READINESS_STEPS: Record<Readiness, number> = {
 
 /** Total steps in the meter; the last is reached on public release. */
 export const READINESS_TOTAL = 4;
+
+/*
+ * Release track labels — kept beside the readiness labels because they answer
+ * the question readiness does not: when can anyone actually use this.
+ *
+ * Venue-neutral on purpose. "Methods paper" and "software paper" name kinds of
+ * publication, not journals; nothing here should imply a venue that has not
+ * been chosen.
+ */
+export type PaperState = "planned" | "in-preparation" | "submitted";
+
+export const PAPER_STATE_LABEL: Record<PaperState, string> = {
+  planned: "planned",
+  "in-preparation": "in preparation",
+  submitted: "under review",
+};
+
+export type CodeRelease = "with-paper" | "public";
+
+export const CODE_RELEASE_LABEL: Record<CodeRelease, string> = {
+  "with-paper": "Source opens with the paper",
+  public: "Source public",
+};

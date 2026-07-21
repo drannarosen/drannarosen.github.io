@@ -124,6 +124,30 @@ const packages = defineCollection({
     /** The trailer: what is coming, stated concretely rather than teased. */
     upcoming: z.string().optional(),
     /*
+     * Release track — a SEPARATE axis from `readiness`.
+     *
+     * `readiness` says how far the software has come. It says nothing about
+     * whether anyone can get it, and the two had silently merged: packages sat
+     * at "mature" with `repo: null`, which reads to a visitor as vapour rather
+     * than as a deliberate hold. The code opens when the paper it documents is
+     * out, and the page should say so rather than leave a reader guessing.
+     *
+     * Venues are deliberately absent. A methods paper and a software paper are
+     * different kinds of thing and that distinction is worth stating; which
+     * journal each lands in is not settled and must not be implied.
+     */
+    papers: z
+      .object({
+        /** The science/methods paper. Absent where none is planned. */
+        methods: z.enum(["planned", "in-preparation", "submitted"]).optional(),
+        /** The short software paper. */
+        software: z.enum(["planned", "in-preparation", "submitted"]).optional(),
+      })
+      .optional(),
+    /** When the source opens. Defaults to "with-paper" — see above. */
+    codeRelease: z.enum(["with-paper", "public"]).default("with-paper"),
+
+    /*
      * Figures are REFERENCED, not described. Everything about the image —
      * path, alt text, dimensions, title, credit and caption — lives once in
      * src/data/figures.json and resolves through src/lib/figures.ts.

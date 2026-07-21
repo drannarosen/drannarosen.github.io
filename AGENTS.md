@@ -263,6 +263,30 @@ shows. KaTeX stores the original LaTeX in `<annotation>` for screen readers, so
 the scan strips those first; otherwise every correctly-rendered equation would
 report as a failure.
 
+## Package release track
+
+`readiness` says how far the software has come. It says nothing about whether
+anyone can get it, and the two had silently merged: packages sat at "mature"
+with `repo: null`, which reads as vapour rather than as a deliberate hold.
+
+`papers` and `codeRelease` are a separate axis, rendered by `ReleaseTrack`
+under the readiness meter:
+
+```yaml
+papers:
+  methods: "in-preparation"   # planned | in-preparation | submitted
+  software: "planned"
+codeRelease: "with-paper"     # with-paper | public  (default with-paper)
+```
+
+**Never name a venue.** "Methods paper" and "software paper" are kinds of
+publication, not journals. Which journal each lands in is not settled, and copy
+must not imply one. `jaxstro` has a software paper only; the other packages
+have both.
+
+Keep release state out of `maturity` — it lives here now, and stating it twice
+is how the two drift apart.
+
 ## Astrobytes
 
 Every post's `paper.ads` is **required** by the schema, and the paper title —

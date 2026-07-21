@@ -10,6 +10,7 @@ import { render } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL } from "../../data/jaxstro";
+import ReleaseTrack from "../../components/ReleaseTrack.astro";
 import { getPackages, type PackageEntry } from "../../lib/packages";
 import { renderCaption } from "../../lib/figureCaption";
 import { getFigure, figureSrc, figureCaption, figureBox } from "../../lib/figures";
@@ -67,6 +68,7 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
       {d.maturity && d.maturity !== READINESS_LABEL[d.readiness] && (
         <span class="pk-note">{d.maturity}</span>
       )}
+      <ReleaseTrack papers={d.papers} codeRelease={d.codeRelease} />
       {(d.repo || d.docs) && (
         <p class="pk-status__links">
           {d.repo && <a class="pk-link" href={d.repo} rel="noopener">Repository ↗</a>}
