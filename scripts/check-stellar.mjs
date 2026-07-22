@@ -17,6 +17,7 @@ import {
   effectiveTemperature,
   zamsTeff,
   spectralType,
+  msLifetime,
 } from "../src/lib/stellar.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -41,6 +42,7 @@ for (const r of fixture.rows) {
   check(`${tag} L`, zamsLuminosity(r.m), r.L, 1e-3);
   check(`${tag} R`, zamsRadius(r.m), r.R, 1e-3);
   check(`${tag} Teff`, zamsTeff(r.m), r.Teff, 1e-3);
+  check(`${tag} tMS`, msLifetime(r.m), r.tMS_Myr, 1e-3);
 }
 
 console.log("\nphysical landmarks:");

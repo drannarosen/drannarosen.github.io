@@ -134,3 +134,43 @@ export function spectralType(teff: number): string {
   }
   return `${best[1]}V`;
 }
+
+/*
+ * Main-sequence lifetime — Hurley, Pols & Tout (2000), MNRAS 315, 543, eqs
+ * (4)-(7): t_MS = max(t_hook, x * t_BGB), in Myr. Ported from startrax
+ * `.../foundations/times.py`. The a-coefficients and zeta are the Hurley
+ * Appendix-A set evaluated at Z = 0.02 (from startrax `coefficients(0.02)`);
+ * the site fixes solar metallicity, so they are stored as constants rather than
+ * re-deriving the full zeta-polynomial generator (that is the variable-Z work).
+ * At Z=0.02, zeta = 0 and the metallicity factor x = 0.95.
+ */
+const HURLEY_ZETA = 0.0;
+// Index 0 is unused so HURLEY_A[i] matches Hurley's 1-based a_i.
+const HURLEY_A: number[] = [
+  0, 1593.89, 2706.708, 146.6143, 0.0414196, 0.3426349, 19.49814, 4.90383,
+  0.05212154, 1.312179, 0.8073972,
+];
+
+/** Base-of-giant-branch time [Myr]. Hurley eq (4). */
+function tBGB(m: number): number {
+  const a = HURLEY_A;
+  const num = a[1] + a[2] * m ** 4 + a[3] * m ** 5.5 + m ** 7;
+  const den = a[4] * m ** 2 + a[5] * m ** 7;
+  return num / den;
+}
+
+/** Hook-time fraction mu. Hurley eq (7). */
+function hurleyMu(m: number): number {
+  const a = HURLEY_A;
+  const inner = Math.max(a[6] / m ** a[7], a[8] + a[9] / m ** a[10]);
+  return Math.max(0.5, 1.0 - 0.01 * inner);
+}
+
+/** Metallicity factor x for t_MS. Hurley eq (5). */
+const hurleyX = Math.max(0.95, Math.min(0.95 - 0.03 * (HURLEY_ZETA + 0.30103), 0.99));
+
+/** Main-sequence lifetime [Myr] for mass [Msun] at solar metallicity. Hurley eq (5). */
+export function msLifetime(mass: number): number {
+  const bgb = tBGB(mass);
+  return Math.max(hurleyMu(mass) * bgb, hurleyX * bgb);
+}
