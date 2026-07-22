@@ -20,7 +20,7 @@ chapter you may branch into a deep-dive spin-off and return. Two nested protagon
 follow from ignition to remnant.
 
 **Birth → Census (IMF & HR) → A star's life & death (evolution, winds, remnant) →
-The origin of the elements → What fools us (binarity) → Feedback & gas expulsion →
+The origin of the elements → What fools us (binarity) → Feedback & energetics →
 Dynamics → Dissolution → The Observer's Dilemma.**
 
 ## The heartbeat
