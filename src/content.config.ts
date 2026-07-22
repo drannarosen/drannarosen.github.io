@@ -188,4 +188,30 @@ const packages = defineCollection({
   }),
 });
 
-export const collections = { astrobytes, packages };
+/*
+ * explore-plan — INTERNAL planning specs for the "Lives & Deaths of Star
+ * Clusters" explorable series. Rendered only by the dev-only /explore-plan
+ * section (never built in production), so this is a working design surface, not
+ * published content. One entry per overview / chapter / interactive / spin-off.
+ */
+const explorePlan = defineCollection({
+  loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/explore-plan" }),
+  schema: z.object({
+    title: z.string(),
+    kind: z.enum(["overview", "chapter", "interactive", "spinoff"]),
+    order: z.number().default(0),
+    status: z.enum(["idea", "draft", "spec", "building", "shipped"]).default("draft"),
+    /** One line shown under the title in the index. */
+    tagline: z.string().optional(),
+    /** Anna's research/software this step draws on (progenax, HARM², …). */
+    research: z.array(z.string()).default([]),
+    /** For a chapter: the interactive tool page(s) it links off to. */
+    tools: z.array(z.string()).default([]),
+    /** Deep-dive spin-offs branching from this step. */
+    spinoffs: z.array(z.string()).default([]),
+    /** Which curated tours include this step. */
+    tours: z.array(z.enum(["outreach", "undergrad", "research"])).default([]),
+  }),
+});
+
+export const collections = { astrobytes, packages, explorePlan };

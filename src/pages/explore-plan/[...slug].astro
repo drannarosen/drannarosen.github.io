@@ -1,0 +1,146 @@
+---
+/*
+ * /explore-plan — INTERNAL, DEV-ONLY planning surface for the explorable series.
+ *
+ * getStaticPaths returns [] in a production build, so NOTHING here is ever emitted
+ * to dist/: no public URL, nothing for the search crawler or sitemap to find, no
+ * nav entry. It exists only under `pnpm dev` for Anna to review and iterate on.
+ */
+import { getCollection, render, type CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+export async function getStaticPaths() {
+  if (!import.meta.env.DEV) return []; // never build into the public site
+  const entries = await getCollection("explorePlan");
+  return [
+    { params: { slug: undefined }, props: { index: true, entries } },
+    ...entries.map((entry) => ({ params: { slug: entry.id }, props: { index: false, entry, entries } })),
+  ];
+}
+
+type Entry = CollectionEntry<"explorePlan">;
+interface Props {
+  index: boolean;
+  entry?: Entry;
+  entries: Entry[];
+}
+const { index, entry, entries } = Astro.props as Props;
+
+const KIND_LABEL: Record<Entry["data"]["kind"], string> = {
+  overview: "Overview",
+  chapter: "Chapters",
+  interactive: "Interactive tools",
+  spinoff: "Spin-offs",
+};
+const KIND_ORDER: Entry["data"]["kind"][] = ["overview", "chapter", "interactive", "spinoff"];
+
+const groups = KIND_ORDER.map((kind) => ({
+  kind,
+  label: KIND_LABEL[kind],
+  items: entries.filter((e) => e.data.kind === kind).sort((a, b) => a.data.order - b.data.order),
+})).filter((g) => g.items.length > 0);
+
+const Content = entry ? (await render(entry)).Content : null;
+---
+
+<BaseLayout
+  title={`${index ? "Explore-series plan" : entry!.data.title} — internal`}
+  description="Internal planning surface (dev-only)."
+  path="/explore-plan"
+>
+  <div class="wrap plan">
+    <p class="plan__flag">⚑ Internal planning · dev-only · never published</p>
+
+    {index && (
+      <div class="prose flow">
+        <h1>Explorable series — planning</h1>
+        <p>The living blueprint for “The Lives &amp; Deaths of Star Clusters.” Iterate here; nothing on this section ships.</p>
+        {groups.map((g) => (
+          <section class="plan__group">
+            <h2>{g.label}</h2>
+            <ul class="plan__list" role="list">
+              {g.items.map((e) => (
+                <li class="plan__item">
+                  <a href={`/explore-plan/${e.id}`}>{e.data.title}</a>
+                  <span class={`plan__status plan__status--${e.data.status}`}>{e.data.status}</span>
+                  {e.data.tagline && <span class="plan__tag">{e.data.tagline}</span>}
+                  {e.data.research.length > 0 && (
+                    <span class="plan__research">{e.data.research.join(" · ")}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    )}
+
+    {!index && entry && (
+      <article class="plan__doc">
+        <p class="plan__crumb"><a href="/explore-plan">← all planning</a></p>
+        <header class="plan__head">
+          <p class="plan__kind">{KIND_LABEL[entry.data.kind]} · <span class={`plan__status plan__status--${entry.data.status}`}>{entry.data.status}</span></p>
+          {entry.data.research.length > 0 && (
+            <p class="plan__meta"><b>research:</b> {entry.data.research.join(" · ")}</p>
+          )}
+          {entry.data.tools.length > 0 && (
+            <p class="plan__meta"><b>links to tool:</b> {entry.data.tools.join(" · ")}</p>
+          )}
+          {entry.data.spinoffs.length > 0 && (
+            <p class="plan__meta"><b>spin-offs:</b> {entry.data.spinoffs.join(" · ")}</p>
+          )}
+          {entry.data.tours.length > 0 && (
+            <p class="plan__meta"><b>tours:</b> {entry.data.tours.join(" · ")}</p>
+          )}
+        </header>
+        <div class="prose flow">
+          <Content />
+        </div>
+      </article>
+    )}
+  </div>
+</BaseLayout>
+
+<style>
+  .plan { padding-block: var(--space-l) var(--space-3xl); }
+  .plan__flag {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--spec-amber, #fbbf24);
+    border: 1px dashed color-mix(in srgb, var(--spec-amber, #fbbf24) 55%, transparent);
+    border-radius: 999px;
+    padding: var(--space-3xs) var(--space-s);
+    inline-size: max-content;
+    margin-block-end: var(--space-l);
+  }
+  .plan__group { margin-block-start: var(--space-xl); }
+  .plan__list { display: grid; gap: var(--space-s); }
+  .plan__item {
+    display: grid;
+    grid-template-columns: minmax(12rem, max-content) max-content;
+    gap: var(--space-2xs) var(--space-s);
+    align-items: baseline;
+    padding-block-end: var(--space-s);
+    border-block-end: 1px solid var(--border);
+  }
+  .plan__item a { font-size: var(--step-0); }
+  .plan__tag, .plan__research { grid-column: 1 / -1; font-size: var(--step--1); color: var(--ink-dim); }
+  .plan__research { font-family: var(--font-mono); font-size: var(--step--2); color: var(--spec-teal-bright); }
+  .plan__status {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--ink-dim);
+  }
+  .plan__status--spec, .plan__status--building { color: var(--spec-teal-bright); border-color: color-mix(in srgb, var(--spec-teal-bright) 40%, transparent); }
+  .plan__status--shipped { color: var(--spec-rose-bright); border-color: color-mix(in srgb, var(--spec-rose-bright) 40%, transparent); }
+  .plan__crumb { font-family: var(--font-mono); font-size: var(--step--1); margin-block-end: var(--space-m); }
+  .plan__head { padding-block-end: var(--space-m); margin-block-end: var(--space-l); border-block-end: 1px solid var(--border); }
+  .plan__kind { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-dim); margin-block-end: var(--space-2xs); }
+  .plan__meta { font-size: var(--step--1); color: var(--ink-soft); margin-block-start: var(--space-3xs); }
+  .plan__meta b { color: var(--ink-dim); font-weight: 600; }
+</style>
