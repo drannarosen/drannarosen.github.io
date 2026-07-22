@@ -4,7 +4,7 @@ kind: spinoff
 order: 45
 status: idea
 tagline: "A census of feedback, each animal tied to the stars that make it."
-research: ["HARM²", "Sim2SKIRT / STARFORGE"]
+research: ["ORION2", "HARM²", "Sim2SKIRT / STARFORGE"]
 tours: ["outreach", "research"]
 ---
 
@@ -27,9 +27,12 @@ this."*
 ## JWST-like media
 
 Each exhibit pairs with a **synthetic JWST-style image** — dust-glow pillars, wind bubbles,
-ionization fronts — rendered from Anna's sims via the **Sim2SKIRT / fluxax** pipeline, so
-the visuals are *real forward models*, not stock art. This foreshadows the Observer route
-(Chapter 12), where the same machinery introduces **spectra** and the inference reckoning.
+ionization fronts — rendered from Anna's **ORION2 massive-star-formation simulations**
+through the **Sim2SKIRT / fluxax** pipeline, so the visuals are *real forward models*, not
+stock art. A **star / luminosity slider** drives them: turn up the massive star's
+luminosity and watch the radiation-carved cavity and the reprocessed dust glow respond.
+This foreshadows the Observer route (Chapter 12), where the same machinery introduces
+**spectra** and the inference reckoning.
 
 ## Why it earns a place
 

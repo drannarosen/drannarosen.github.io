@@ -4,7 +4,7 @@ kind: chapter
 order: 9
 status: spec
 tagline: "The massive stars fight the cloud that made them — and where the energy goes decides everything."
-research: ["HARM²", "Taming the Tarantula (30 Dor)", "Sim2SKIRT / STARFORGE"]
+research: ["ORION2", "HARM²", "Taming the Tarantula (30 Dor)", "Sim2SKIRT / STARFORGE"]
 tools: ["feedback-budget"]
 spinoffs: ["feedback-zoo"]
 tours: ["undergrad", "research"]
@@ -61,10 +61,11 @@ efficiency and watch the gas either blow out or stay bound.
 ## JWST-like media
 
 The feedback-carved gas is shown as **synthetic JWST-style imagery** — dust-glow pillars,
-wind bubbles, ionization fronts — rendered from Anna's simulations through the
-**Sim2SKIRT / fluxax** pipeline, so every visual is a *real forward model* rather than
-stock art. This is the first appearance of the machinery that returns in Chapter 12, where
-it also produces **spectra** for the inference reckoning.
+wind bubbles, ionization fronts — rendered from Anna's **ORION2 massive-star-formation
+simulations** through the **Sim2SKIRT / fluxax** pipeline, so every visual is a *real
+forward model* rather than stock art. A **star / luminosity slider** drives the response.
+This is the first appearance of the machinery that returns in Chapter 12, where it also
+produces **spectra** for the inference reckoning.
 
 ## Physics & data
 
