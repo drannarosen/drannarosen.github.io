@@ -58,14 +58,14 @@ efficiency and watch the gas either blow out or stay bound.
 - **30 Dor / R136** — the observed "lost energy" result driving the ledger.
 - **Sim2SKIRT / STARFORGE** — the synthetic view of feedback-carved gas.
 
-## JWST-like media
+## Visual style — JWST as inspiration (not imitation)
 
-The feedback-carved gas is shown as **synthetic JWST-style imagery** — dust-glow pillars,
-wind bubbles, ionization fronts — rendered from Anna's **ORION2 massive-star-formation
-simulations** through the **Sim2SKIRT / fluxax** pipeline, so every visual is a *real
-forward model* rather than stock art. A **star / luminosity slider** drives the response.
-This is the first appearance of the machinery that returns in Chapter 12, where it also
-produces **spectra** for the inference reckoning.
+The feedback-carved gas is shown as visualizations whose **structure is inspired by real
+JWST imagery** — its gorgeous outflows, pillars, and wind bubbles — rendered from Anna's
+**ORION2 massive-star-formation simulations**, driven by a **star / luminosity slider**.
+The framing is deliberate: JWST is the *aesthetic and structural muse*, **not** something
+we mimic or pass off as real data. The rigorous synthetic-observation-and-**spectra**
+machinery (Sim2SKIRT / fluxax) is introduced later, in the Observer route (Chapter 12).
 
 ## Physics & data
 

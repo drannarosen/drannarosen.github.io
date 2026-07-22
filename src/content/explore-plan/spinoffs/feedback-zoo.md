@@ -24,15 +24,15 @@ this."*
 - **Photoionization** — the hottest O stars (Teff ≳ 30 kK): HII-region thermal pressure.
 - **Supernovae** — stars ≳ 8 M⊙ at death: ~10⁵¹ erg, all at once.
 
-## JWST-like media
+## Visual style — JWST as inspiration (not imitation)
 
-Each exhibit pairs with a **synthetic JWST-style image** — dust-glow pillars, wind bubbles,
-ionization fronts — rendered from Anna's **ORION2 massive-star-formation simulations**
-through the **Sim2SKIRT / fluxax** pipeline, so the visuals are *real forward models*, not
-stock art. A **star / luminosity slider** drives them: turn up the massive star's
-luminosity and watch the radiation-carved cavity and the reprocessed dust glow respond.
-This foreshadows the Observer route (Chapter 12), where the same machinery introduces
-**spectra** and the inference reckoning.
+Each exhibit pairs with a visualization whose **structure is inspired by real JWST
+imagery** — the stunning outflows, pillars, and wind bubbles JWST has shown us — rendered
+from Anna's **ORION2 massive-star-formation simulations**. To be clear about the claim:
+this is JWST as **aesthetic and structural inspiration, not a mimic of JWST data.** A
+**star / luminosity slider** drives it: turn up the massive star's luminosity and watch the
+radiation-carved cavity and dust glow respond. (The rigorous *synthetic-observation and
+spectra* machinery — Sim2SKIRT / fluxax — is reserved for the Observer route, Chapter 12.)
 
 ## Why it earns a place
 
