@@ -1,12 +1,23 @@
-# Distributable "website workflows" plugin — design (staged, NOT built)
+# Distributable "website workflows" plugin — design
 
-**Status: design only.** This documents what a reusable Claude Code plugin
-built from this site's discipline would contain, so it can be executed later —
-**not now**. Building a distributable plugin for a single website is the
-over-engineering the project's own locked principle warns against ("the failure
-mode to design against is over-engineering, not under-engineering"). The local
-project skills (`site-claims`, `site-integrity`, `site-verify`) prove the design
-in use first; this plugin is worth building only when a second consumer exists.
+**Status (updated 2026-07-21): BUILT — v0.1.0 lives outside this repo at
+`~/projects/claude-plugins/astro-site-guardrails/`.** A publishable Claude Code
+plugin, kept in Anna's plugin collection rather than in the website repo, because
+a plugin is distributed as its own git repository and must be generalized to be
+useful to anyone else. This site's own `site-claims`, `site-integrity` and
+`site-verify` skills stay here, site-specific; the plugin ships the de-specialised
+*patterns*. This site is the plugin's first consumer / proving ground.
+
+This document is retained as the original design and rationale. What follows
+described the plugin before it existed; it now maps onto the built `skills/`,
+`commands/`, `hooks/` in that repo. The parameterized gate-script templates
+remain the plugin's own v0.2.0 work.
+
+Original framing — why it was staged, not rushed: building a distributable plugin
+for a single website would be the over-engineering the project's own locked
+principle warns against ("the failure mode to design against is over-engineering,
+not under-engineering"). The local skills proved the design in use first, and the
+plugin was built only once it could be dogfooded here.
 
 ## The trigger to build it
 
