@@ -31,14 +31,27 @@ const KIND_LABEL: Record<Entry["data"]["kind"], string> = {
   chapter: "Chapters",
   interactive: "Interactive tools",
   spinoff: "Spin-offs",
+  tooling: "Tooling & meta",
 };
-const KIND_ORDER: Entry["data"]["kind"][] = ["overview", "chapter", "interactive", "spinoff"];
+const KIND_ORDER: Entry["data"]["kind"][] = [
+  "overview",
+  "chapter",
+  "interactive",
+  "spinoff",
+  "tooling",
+];
 
 const groups = KIND_ORDER.map((kind) => ({
   kind,
   label: KIND_LABEL[kind],
   items: entries.filter((e) => e.data.kind === kind).sort((a, b) => a.data.order - b.data.order),
 })).filter((g) => g.items.length > 0);
+
+// One global reading order across every group, for prev/next + the jump list.
+const ordered = groups.flatMap((g) => g.items);
+const pos = entry ? ordered.findIndex((e) => e.id === entry.id) : -1;
+const prev = pos > 0 ? ordered[pos - 1] : null;
+const next = pos >= 0 && pos < ordered.length - 1 ? ordered[pos + 1] : null;
 
 const Content = entry ? (await render(entry)).Content : null;
 ---
@@ -96,6 +109,41 @@ const Content = entry ? (await render(entry)).Content : null;
         <div class="prose flow">
           <Content />
         </div>
+
+        <nav class="plan__nav" aria-label="Planning pages">
+          {prev ? (
+            <a class="plan__navbtn plan__navbtn--prev" href={`/explore-plan/${prev.id}`}>
+              <span class="plan__navdir">← prev</span>
+              <span class="plan__navtitle">{prev.data.title}</span>
+            </a>
+          ) : <span />}
+          {next ? (
+            <a class="plan__navbtn plan__navbtn--next" href={`/explore-plan/${next.id}`}>
+              <span class="plan__navdir">next →</span>
+              <span class="plan__navtitle">{next.data.title}</span>
+            </a>
+          ) : <span />}
+        </nav>
+
+        <details class="plan__jump">
+          <summary>All planning pages</summary>
+          <ul role="list">
+            {groups.map((g) => (
+              <li class="plan__jumpgroup">
+                <span class="plan__jumplabel">{g.label}</span>
+                <ul role="list">
+                  {g.items.map((e) => (
+                    <li>
+                      {e.id === entry.id
+                        ? <span aria-current="page">{e.data.title}</span>
+                        : <a href={`/explore-plan/${e.id}`}>{e.data.title}</a>}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </details>
       </article>
     )}
   </div>
@@ -143,4 +191,48 @@ const Content = entry ? (await render(entry)).Content : null;
   .plan__kind { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-dim); margin-block-end: var(--space-2xs); }
   .plan__meta { font-size: var(--step--1); color: var(--ink-soft); margin-block-start: var(--space-3xs); }
   .plan__meta b { color: var(--ink-dim); font-weight: 600; }
+
+  .plan__nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-m);
+    margin-block-start: var(--space-2xl);
+    padding-block-start: var(--space-l);
+    border-block-start: 1px solid var(--border);
+  }
+  .plan__navbtn {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
+    padding: var(--space-s) var(--space-m);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 8px);
+    text-decoration: none;
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .plan__navbtn:hover { border-color: var(--spec-teal-bright); }
+  .plan__navbtn--next { text-align: end; }
+  .plan__navdir { font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
+  .plan__navtitle { font-size: var(--step-0); color: var(--ink); }
+  @media (max-width: 34rem) { .plan__nav { grid-template-columns: 1fr; } }
+
+  .plan__jump { margin-block-start: var(--space-l); }
+  .plan__jump summary {
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--spec-teal-bright);
+    inline-size: max-content;
+  }
+  .plan__jump ul { list-style: none; padding: 0; }
+  .plan__jumpgroup { margin-block-start: var(--space-s); }
+  .plan__jumplabel {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-dim);
+  }
+  .plan__jumpgroup > ul { margin-block-start: var(--space-2xs); display: grid; gap: var(--space-3xs); }
+  .plan__jump [aria-current="page"] { color: var(--ink-dim); }
 </style>

@@ -198,7 +198,7 @@ const explorePlan = defineCollection({
   loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/explore-plan" }),
   schema: z.object({
     title: z.string(),
-    kind: z.enum(["overview", "chapter", "interactive", "spinoff"]),
+    kind: z.enum(["overview", "chapter", "interactive", "spinoff", "tooling"]),
     order: z.number().default(0),
     status: z.enum(["idea", "draft", "spec", "building", "shipped"]).default("draft"),
     /** One line shown under the title in the index. */
