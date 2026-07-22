@@ -7,9 +7,12 @@
  * (a few rare bright-blue massive stars among many faint red ones) is a direct
  * consequence of the IMF slope — which is the point.
  *
- * These relations are SIMPLIFIED FOR VISUALIZATION. They are not intended for
- * quantitative science. Each carries a provenance note to its source.
+ * Stellar properties (L, Teff) come from the shared physics core in stellar.ts
+ * (Tout et al. 1996, ported from and validated against startrax), so the hero,
+ * the story, and the /explore inspector all draw from one grounded source.
  */
+
+import { zamsLuminosity, zamsTeff } from "./stellar";
 
 /* ── Deterministic RNG (mulberry32) ──────────────────────────────────
  * Seedable so the static/offscreen layer and animated layer agree, and so
@@ -95,20 +98,20 @@ export function sampleKroupaMass(u: number, segs: Segment[]): number {
   return segs[segs.length - 1].hi;
 }
 
-/* ── Main-sequence relations (simplified, for visualization) ─────────── */
+/* ── Main-sequence relations ──────────────────────────────────────────
+ * Physics-grounded ZAMS properties come from the shared stellar core
+ * (src/lib/stellar.ts): Tout et al. (1996), ported from startrax and validated
+ * against it (scripts/check-stellar.mjs). Mass is clamped to Tout's valid domain
+ * [0.1, 100] M☉ since callers may pass values outside a given cluster's range. */
 
-/** Mass → effective temperature (K). Rough MS scaling Teff ∝ M^0.53 anchored
- * at the Sun (5772 K), clamped to a plausible MS range. Derived from
- * L ∝ M^3.5, R ∝ M^0.7 ⇒ Teff ∝ (L/R²)^{1/4}. Approximate. */
+/** Mass → ZAMS effective temperature (K). */
 export function massToTeff(m: number): number {
-  const teff = 5772 * Math.pow(m, 0.53);
-  return Math.min(45000, Math.max(2400, teff));
+  return zamsTeff(Math.min(100, Math.max(0.1, m)));
 }
 
-/** Mass → luminosity (L☉). Main-sequence mass–luminosity relation L ∝ M^3.5
- * (e.g. Salaris & Cassisi 2005, textbook MS relation). Approximate. */
+/** Mass → ZAMS luminosity (L☉). */
 export function massToLuminosity(m: number): number {
-  return Math.pow(m, 3.5);
+  return zamsLuminosity(Math.min(100, Math.max(0.1, m)));
 }
 
 /** Effective temperature → linear RGB in [0,1]. Blackbody-color approximation
