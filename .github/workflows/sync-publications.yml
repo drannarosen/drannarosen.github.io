@@ -28,10 +28,15 @@ jobs:
       - name: Regenerate bibliography from ORCID
         run: node scripts/publications/sync_orcid.mjs
 
+      - name: Refresh CV publication counts from the record
+        run: node scripts/cv/check.mjs
+
       - name: Open a PR if the bibliography changed
         uses: peter-evans/create-pull-request@v7
         with:
-          add-paths: src/data/generated/publications.json
+          add-paths: |
+            src/data/generated/publications.json
+            cv/generated/counts.json
           branch: chore/sync-publications
           delete-branch: true
           commit-message: "Sync publications from ORCID"

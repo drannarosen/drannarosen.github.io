@@ -5,7 +5,7 @@
  * invented — every entry traces to the CV.
  */
 
-import { publicationCount } from "./allPublications";
+import { refereedCount } from "./allPublications";
 
 export interface DatedEntry {
   role: string;
@@ -72,8 +72,9 @@ export const cvProfile = {
    */
   pdf: "/documents/cv-anna-rosen.pdf" as string | null,
   stats: [
-    // Derived from the ORCID sync so it can't drift out of date.
-    { value: String(publicationCount), label: "Publications" },
+    // Derived from the ORCID sync so it can't drift out of date. Refereed count
+    // (journal articles), matching the printed CV's headline.
+    { value: String(refereedCount), label: "Publications" },
     { value: "55", label: "Invited talks" },
     { value: "18", label: "Students advised" },
     { value: "5", label: "Courses developed" },

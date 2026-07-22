@@ -42,6 +42,10 @@ export interface SyncedWork {
    * publications.additions.json.
    */
   submittedTo?: string | null;
+  /** Journal volume, from Crossref — ORCID does not carry it. */
+  volume?: string | null;
+  /** Page or article number, from Crossref. */
+  page?: string | null;
   /**
    * The paper's OWN published abstract, fetched verbatim by the sync from a
    * tokenless source (arXiv > Crossref > Semantic Scholar). `null`/absent where
@@ -141,6 +145,14 @@ export const allPublications: SyncedWork[] = [...extra, ...synced].sort(
 export const publicationsSource: string = generated.source;
 /** Counts the merged list, so additions are included rather than only synced. */
 export const publicationCount: number = allPublications.length;
+/**
+ * Refereed count = journal articles only (JOSS included), excluding preprints
+ * and submitted work. This is the CV's headline figure, and scripts/cv/check.mjs
+ * derives the same number for the printed CV — so the site and the PDF agree.
+ */
+export const refereedCount: number = allPublications.filter(
+  (w) => w.type === "journal-article",
+).length;
 
 /*
  * Abstract lookup, so the featured cards (the HUMAN layer) DERIVE their abstract

@@ -12,6 +12,7 @@
  *   node scripts/publications/sync_orcid.mjs                      # write the JSON
  *   node scripts/publications/sync_orcid.mjs --check             # exit 1 if out of date (CI)
  *   node scripts/publications/sync_orcid.mjs --refresh-authors   # re-fetch every author list
+ *   node scripts/publications/sync_orcid.mjs --refresh-biblio    # re-fetch every volume/page
  *   node scripts/publications/sync_orcid.mjs --refresh-abstracts # re-fetch every abstract
  *
  * AUTHORSHIP: ORCID's works summary carries no author list, so first-author
@@ -342,10 +343,59 @@ async function withAuthors(records, refresh) {
   return out;
 }
 
+/* ------------------------------------------------------------------ *
+ * Bibliographic detail (volume / page)
+ *
+ * ORCID carries none of it, but a CV needs "ApJ, 998, 318". Crossref has it, so
+ * the record can be the one source the printed CV is generated from instead of a
+ * separately hand-typed list that drifts. Cached by DOI like authors; a routine
+ * sync re-fetches nothing.
+ * ------------------------------------------------------------------ */
+
+/** Volume + page (or article number) for a DOI, or nulls. */
+async function fetchBiblio(doi) {
+  const c = await getJson(`https://api.crossref.org/works/${encodeURIComponent(doi)}`);
+  const m = c?.message;
+  if (!m) return { volume: null, page: null };
+  return {
+    volume: m.volume ?? null,
+    page: m.page ?? m["article-number"] ?? null,
+  };
+}
+
+async function withBiblio(records, refresh) {
+  const cache = new Map();
+  if (!refresh && existsSync(OUT)) {
+    for (const w of JSON.parse(readFileSync(OUT, "utf8")).works ?? []) {
+      if (w.doi && (w.volume || w.page)) {
+        cache.set(w.doi.toLowerCase(), { volume: w.volume ?? null, page: w.page ?? null });
+      }
+    }
+  }
+  let fetched = 0;
+  const out = [];
+  for (const w of records) {
+    let bib = w.doi ? cache.get(w.doi.toLowerCase()) : null;
+    if (!bib && w.doi && !/^10\.48550\//i.test(w.doi)) {
+      try {
+        bib = await fetchBiblio(w.doi);
+      } catch {
+        bib = null;
+      }
+      fetched++;
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    out.push({ ...w, volume: bib?.volume ?? null, page: bib?.page ?? null });
+  }
+  if (fetched > 0) console.log(`[biblio] fetched volume/page for ${fetched} paper(s)`);
+  return out;
+}
+
 const { kept, dropped } = applyExclusions(dedupe(await fetchWorks()));
 const withAuth = await withAuthors(kept, process.argv.includes("--refresh-authors"));
+const withBib = await withBiblio(withAuth, process.argv.includes("--refresh-biblio"));
 const works = await withAbstracts(
-  withAuth,
+  withBib,
   process.argv.includes("--refresh-abstracts"),
 );
 const unresolved = works.filter((w) => w.firstAuthor === null);

@@ -1,0 +1,11 @@
+{
+  "_comment": "HUMAN-OWNED. Refereed works in the ORCID record that are DELIBERATELY not listed on the printed CV (cv/cv_rosen.typ). scripts/cv/check.mjs reads this so an intentional omission does not fail the reconciliation gate. Match by DOI; add a reason.",
+
+  "omit": [
+    {
+      "doi": "10.1017/S1743921314004657",
+      "title": "Very Massive Stars in the local Universe",
+      "reason": "IAU proceedings (Highlights of Astronomy) — ORCID types it journal-article, but it is conference proceedings, which the CV omits (cf. the conference-paper policy in src/data/publications.exclude.json)."
+    }
+  ]
+}
