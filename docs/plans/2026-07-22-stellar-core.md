@@ -11,7 +11,7 @@
 **Port sources (startrax, `~/projects/jaxstro-dev/startrax`):**
 - Tout L/R/Teff: `src/startrax/hurley/sse/foundations/zams.py` (digest `tout1996-zams`, 75/75 verified)
 - Hurley t_MS: `src/startrax/hurley/sse/foundations/boundaries.py` + `coefficients.py`
-- Fryer remnant: `src/startrax/remnant_prescriptions.py`, `pair_instability.py`, `wd_ifmr.py`
+- Remnant fate: **Heger et al. (2003), ApJ 591, 288** ZAMS-mass thresholds, analytic (Fryer needs a pre-SN CO-core mass that only full evolution provides — out of scope for a lightweight web port; decided 2026-07-22).
 - Spectral type: NOT in startrax — add a small Pecaut & Mamajek (2013), ApJS 208, 9 table fresh.
 
 **Units:** M [M☉], L [L☉], R [R☉], Teff [K], t_MS [Myr]. Z fixed at Z☉ for the site (Tout `_Z_REF = 0.02`); functions accept Z but callers pass 0.02. Tout valid 0.1 ≤ M ≤ 100 M☉; clip Z ∈ [1e-4, 0.03].
@@ -24,7 +24,7 @@
 - Create: `scripts/fixtures/stellar-startrax.json`
 - Create (throwaway, do not commit): a Python snippet run in startrax's venv.
 
-**Step 1:** In `~/projects/jaxstro-dev/startrax`, using its `.venv` python, evaluate `zams_luminosity`, `zams_radius`, `zams_effective_temperature` (from `startrax.hurley.sse.foundations.zams`) at Z=0.02 for the mass grid `[0.1,0.3,1.0,2.0,5.0,10.0,20.0,40.0,60.0,100.0]`, plus the Hurley `t_MS` and the Fryer remnant fate/mass at the same masses. Print as JSON rows `{m, L, R, Teff, tMS_Myr, remnant_kind, remnant_mass}`.
+**Step 1:** In `~/projects/jaxstro-dev/startrax`, using its `.venv` python, evaluate `zams_luminosity`, `zams_radius`, `zams_effective_temperature` (from `startrax.hurley.sse.foundations.zams`) and `t_ms` (from `startrax.hurley.sse.foundations.times`, which needs `HurleySSECoefficients` at Z=0.02) at Z=0.02 for the mass grid `[0.1,0.3,1.0,2.0,5.0,10.0,20.0,40.0,60.0,100.0]`. Print as JSON rows `{m, L, R, Teff, tMS_Myr}`. (Remnant fate is analytic Heger 2003, not from startrax — not in the fixture.)
 
 **Step 2:** Save that JSON to `scripts/fixtures/stellar-startrax.json` with a header comment noting it was generated from startrax commit `<hash>` at Z=0.02, and the exact functions called.
 
@@ -85,15 +85,15 @@ git commit -m "feat(stellar): Tout 1996 ZAMS L, R, Teff (validated vs startrax)"
 
 ---
 
-### Task 5: Fryer 2012 remnant fate
+### Task 5: Remnant fate (Heger 2003 thresholds)
 
 **Files:** Modify `src/lib/stellar.ts`, `scripts/check-stellar.mjs`
 
-**Step 1 (failing):** Add harness assertions vs fixture `remnant_kind`: M=1 → "white dwarf", M=20 → "neutron star" or "black hole" per the fixture, top of grid → per fixture (PISN/black hole). Run → FAIL.
+**Step 1 (failing):** Add harness assertions on `remnantFate(m)`: M=1 → "white dwarf", M=15 → "neutron star", M=40 → "black hole". Run → FAIL.
 
-**Step 2 (implement):** Port the Fryer (2012) rapid/delayed remnant prescription + the PISN and WD-IFMR branches from `remnant_prescriptions.py`/`pair_instability.py`/`wd_ifmr.py`, returning `{kind, mass}` where kind ∈ {white dwarf, neutron star, black hole, pair-instability}. Cite Fryer+2012 (ApJ 749, 91) and the startrax modules. Return a coarse fate the card can show.
+**Step 2 (implement):** Add `remnantFate(m)` as analytic ZAMS-mass thresholds at solar Z — ≲8 M☉ white dwarf, ~8–25 neutron star (core-collapse SN), ≳25 black hole — returning a single coarse `kind` string. Cite **Heger et al. (2003), ApJ 591, 288** and label approximate (metallicity/model-dependent). No mass estimate (that needs evolution).
 
-**Step 3:** Run → PASS. **Step 4:** Commit `feat(stellar): Fryer 2012 remnant fate (validated vs startrax)`.
+**Step 3:** Run → PASS. **Step 4:** Commit `feat(stellar): remnant fate thresholds (Heger 2003)`.
 
 ---
 
