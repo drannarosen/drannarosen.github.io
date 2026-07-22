@@ -6,7 +6,7 @@ status: spec
 tagline: "The massive stars fight the cloud that made them — and where the energy goes decides everything."
 research: ["HARM²", "Taming the Tarantula (30 Dor)", "Sim2SKIRT / STARFORGE"]
 tools: ["feedback-budget"]
-spinoffs: ["feedback-taxonomy"]
+spinoffs: ["feedback-zoo"]
 tours: ["undergrad", "research"]
 ---
 
@@ -17,11 +17,17 @@ because it turns a list of processes into the one question that decides a cluste
 ## Story beat
 
 The massive stars from the census switch on and turn on the cloud that made them.
-Feedback isn't one thing — it's a **cast with a budget**: protostellar outflows,
-line-driven **winds** (mechanical luminosity ~½Ṁv²), **radiation pressure** (direct L/c
-plus dust-reprocessed), **photoionization** (an HII region's thermal pressure), and
-finally **supernovae** (~10⁵¹ erg each). Each injects energy and momentum on its own
-timescale.
+Feedback isn't one thing — it's a **cast with a budget**, and each member is driven by a
+particular *kind* of star (that mapping is its own exhibit — see the **Feedback Zoo**):
+
+- **Protostellar outflows** — collimated jets from young, accreting stars; the first holes.
+- **Radiation pressure** — from the most luminous stars: **direct (L/c) and
+  dust-reprocessed**, the channel Anna's radiation-hydrodynamics work centers on.
+- **Line-driven winds** — hot OB/WR stars; mechanical power ~½Ṁv².
+- **Photoionization** — the hottest O stars; HII-region thermal pressure.
+- **Supernovae** — ~10⁵¹ erg each, at the end of a massive star's life.
+
+Each injects energy and momentum on its own timescale.
 
 ## The energetics twist (the point, and Anna's paper)
 
@@ -51,6 +57,14 @@ efficiency and watch the gas either blow out or stay bound.
 - **HARM²** — the radiation-hydrodynamics method that models exactly this coupling.
 - **30 Dor / R136** — the observed "lost energy" result driving the ledger.
 - **Sim2SKIRT / STARFORGE** — the synthetic view of feedback-carved gas.
+
+## JWST-like media
+
+The feedback-carved gas is shown as **synthetic JWST-style imagery** — dust-glow pillars,
+wind bubbles, ionization fronts — rendered from Anna's simulations through the
+**Sim2SKIRT / fluxax** pipeline, so every visual is a *real forward model* rather than
+stock art. This is the first appearance of the machinery that returns in Chapter 12, where
+it also produces **spectra** for the inference reckoning.
 
 ## Physics & data
 

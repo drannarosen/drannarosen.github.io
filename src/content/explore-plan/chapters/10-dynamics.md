@@ -1,9 +1,9 @@
 ---
-title: "Chapter 10 — Dynamics: Stars Are Not Isolated"
+title: "Chapter 10 — No Star Is an Island"
 kind: chapter
 order: 10
 status: spec
-tagline: "Gravity couples every star; the massive ones sink."
+tagline: "Dynamics: gravity couples every star; the massive ones sink."
 research: ["gravax"]
 tools: ["nbody-dynamics"]
 tours: ["undergrad", "research"]

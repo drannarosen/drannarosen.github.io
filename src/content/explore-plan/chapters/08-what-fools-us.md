@@ -1,9 +1,9 @@
 ---
-title: "Chapter 8 — What Fools Us: Binarity & Rotation"
+title: "Chapter 8 — The Telescope Adds Ten Pounds"
 kind: chapter
 order: 8
 status: spec
-tagline: "What you observe is not what's there — and it breaks the IMF you inferred."
+tagline: "Binaries & rotation: what you observe isn't what's there — and it breaks the IMF you inferred."
 research: ["Confidently Wrong"]
 tools: ["binary-lab"]
 spinoffs: ["gw-mergers"]
