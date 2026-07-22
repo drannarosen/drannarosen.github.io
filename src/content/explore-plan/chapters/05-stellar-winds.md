@@ -1,5 +1,5 @@
 ---
-title: "Chapter 5 — Stellar Winds & Mass Loss"
+title: "Chapter 5 — How a Star Loses Itself"
 kind: chapter
 order: 5
 status: spec

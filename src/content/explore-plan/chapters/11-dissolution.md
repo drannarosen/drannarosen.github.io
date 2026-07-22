@@ -1,5 +1,5 @@
 ---
-title: "Chapter 11 — Dissolution: The Cluster Comes Apart"
+title: "Chapter 11 — How a Cluster Disappears"
 kind: chapter
 order: 11
 status: spec

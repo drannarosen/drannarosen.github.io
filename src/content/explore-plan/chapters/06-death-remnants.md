@@ -1,5 +1,5 @@
 ---
-title: "Chapter 6 — Death & Remnants"
+title: "Chapter 6 — What the Star Leaves Behind"
 kind: chapter
 order: 6
 status: spec

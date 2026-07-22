@@ -13,6 +13,9 @@ Shared by Chapters 4–6. Choose a mass, scrub time, and watch the star move acr
 at once.
 
 **Toggles:** mass · time · metallicity hi/lo.
-**Data:** **precomputed startrax tracks** (Hurley 2000) across a mass grid, interpolated in
-the browser — the validated ZAMS-fixture pattern, extended to full tracks. Surrogate fits
-later. **Honesty:** interpolated data, labeled; not a live evolution run.
+**Data — the model ladder** ([Architecture](/explore-plan/01-architecture)): ships **now**
+on rung 0 (Tout ZAMS + Hurley `t_MS` clock — the star lives then dies, without yet tracing a
+giant branch); upgrades to **precomputed startrax tracks** interpolated over a 1-D mass grid
+(the validated ZAMS-fixture pattern, extended); and is the **one engine that later shares the
+differentiable surrogate** with Inference Reckoning — build it once, it powers both.
+**Honesty:** each rung labeled; interpolated data, not a live evolution run.

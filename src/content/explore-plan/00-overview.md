@@ -29,7 +29,17 @@ Almost every step is the same interaction: **toggle one physical process, hold t
 rest fixed, and watch what changes** — winds on/off, binaries on/off, gravity
 isolated/N-body, feedback on/off, metallicity hi/lo. That toggle *is* the scientific
 method, and it is the reusable primitive the shared kit provides once, so every page
-inherits it. The spine of the *story* is **observe → model → infer**.
+inherits it. Its deepest use is the **theory ↔ observation** toggle — the latent truth
+versus what a telescope delivers — which is the pedagogical thesis of the whole series:
+astronomy needs both, and most people never see the seam. The spine of the *story* is
+**observe → model → infer**.
+
+## The architecture, in one line
+
+Every chapter is one physics object seen along two axes — **Depth** (Story / Inspect /
+Derive) and **Face** (Theory / Observation) — reading a single `star(M, Z, t)` contract
+over one canonical cluster. The load-bearing design (the contract, the model ladder, the
+one-cluster state, the `observe()` seam) lives in **[Architecture](/explore-plan/01-architecture)**.
 
 ## Story pages vs interactive pages
 
@@ -55,12 +65,18 @@ stitch the snapshots into a life**. That is how we know any of this — and it i
 
 ## Modelling & honesty
 
-Physics is **precomputed from Anna's own codes** and read in the browser (the pattern
-already proven for the ZAMS core): **startrax** for stellar evolution tracks and
-remnants, **gravax** for N-body dynamics, **fluxax** for synthetic observations,
-**progenax** for the natal gas field. Every page carries a provenance line and an
-"illustrative, not an evolution run" label; nothing is invented. Lightweight
-differentiable **surrogates** to those codes are a later flourish, not required to ship.
+Physics climbs a ladder without the UI noticing: **now** the validated ZAMS core (Tout
+1996) plus Hurley's `t_MS` as a lifetime clock; **later** precomputed **startrax** tracks
+and remnants, **gravax** N-body, **fluxax** synthetic observations, **progenax** natal gas,
+all produced offline and read in the browser; **last** a differentiable surrogate where —
+and only where — a continuous slider demands it. The site *consumes* the codes' output and
+never re-derives their physics, so every page can say "this *is* startrax." Every page
+carries a provenance line and an "illustrative, not an evolution run" label; nothing is
+invented. Full detail in **[Architecture](/explore-plan/01-architecture)**.
+
+**Theory first.** The current build is the pure-theory chain; `observe()` (the fluxax
+observation face) is deferred, with only its free foundation pre-wired — see the
+architecture's `observe()` seam.
 
 ## Build approach
 

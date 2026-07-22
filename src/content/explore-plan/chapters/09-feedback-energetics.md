@@ -1,5 +1,5 @@
 ---
-title: "Chapter 9 — Feedback & Energetics"
+title: "Chapter 9 — The Stars Fight Back"
 kind: chapter
 order: 9
 status: spec
