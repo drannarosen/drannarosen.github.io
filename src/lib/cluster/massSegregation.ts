@@ -8,16 +8,8 @@
  * each slider value costs O(n log n) — real-time at n = 10^4.
  */
 
-/** Deterministic PRNG so the permutation depends only on lambda (mulberry32). */
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+/* Deterministic PRNG so the permutation depends only on lambda; shared core. */
+import { mulberry32 } from "@novascope/core/random";
 
 /** Fenwick tree over ranks 0..n-1 for "find & remove the j-th still-available rank". */
 class AvailableRanks {

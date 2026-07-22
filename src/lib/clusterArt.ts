@@ -12,6 +12,8 @@
  * blue point, not a white blob. Gas is a restrained teal, brightness ∝ density.
  */
 
+import { mulberry32 } from "@novascope/core/random";
+
 export interface ClusterMeta {
   ngrid: number;
   box_pc: number;
@@ -68,16 +70,6 @@ function spectralRGB(teff: number): [number, number, number] {
   const a = SPEC_RGB[i];
   const b = SPEC_RGB[i + 1];
   return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
-}
-
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 interface Prepared {
