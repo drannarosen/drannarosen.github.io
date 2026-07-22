@@ -1,0 +1,11 @@
+{
+  "_comment": "HUMAN-OWNED abstracts, provided by Anna verbatim from the paper — authoritative, so allPublications.ts uses them in place of whatever the sync scraped (tokenless sources often return a flattened, lossy version). Use for a paper no source carries, or one whose scraped abstract is mangled. Match by DOI. Write inline math in $…$ so it renders as real LaTeX. Remove an entry once the sync returns a clean abstract for that paper.",
+
+  "abstracts": [
+    {
+      "doi": "10.1016/j.jcp.2016.10.048",
+      "title": "Hybrid Adaptive Ray-Moment Method (HARM2)",
+      "abstract": "We present a highly-parallel multi-frequency hybrid radiation hydrodynamics algorithm that combines a spatially-adaptive long characteristics method for the radiation field from point sources with a moment method that handles the diffuse radiation field produced by a volume-filling fluid. Our Hybrid Adaptive Ray-Moment Method (HARM2) operates on patch-based adaptive grids, is compatible with asynchronous time stepping, and works with any moment method. In comparison to previous long characteristics methods, we have greatly improved the parallel performance of the adaptive long-characteristics method by developing a new completely asynchronous and non-blocking communication algorithm. As a result of this improvement, our implementation achieves near-perfect scaling up to $O(10^3)$ processors on distributed memory machines. We present a series of tests to demonstrate the accuracy and performance of the method."
+    }
+  ]
+}

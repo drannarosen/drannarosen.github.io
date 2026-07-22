@@ -22,6 +22,10 @@
     {
       "bibcode": "2017PhDT.......182R",
       "reason": "Ph.D. thesis - presented under Education on /cv instead of the paper list."
+    },
+    {
+      "doi": "10.1017/S1743921314004657",
+      "reason": "IAU proceedings (Highlights of Astronomy), which ORCID mistypes as a journal-article. A conference-summary Anna neither wrote nor reviewed — every attendee was listed as an author — so it does not belong in the bibliography. Proceedings are excluded per policy above."
     }
   ]
 }

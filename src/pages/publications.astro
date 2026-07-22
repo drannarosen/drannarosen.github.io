@@ -32,7 +32,7 @@ function authorParts(s: string): { text: string; bold: boolean }[] {
 const arxivIdOf = (url?: string | null): string | null =>
   url?.match(/arxiv\.org\/abs\/([^/?#]+)/i)?.[1]?.replace(/v\d+$/, "") ?? null;
 const bibcodeOf = (url?: string | null): string | null =>
-  url?.match(/\/abs\/([^/]+)\/abstract/i)?.[1] ?? null;
+  url?.match(/\/abs\/([^/?#]+)/i)?.[1] ?? null;
 const featuredAbstract = (
   p: { arxiv?: string | null; ads?: string | null; title?: string | null },
 ): string | null =>

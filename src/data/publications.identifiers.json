@@ -16,6 +16,11 @@
       "doi": "10.3847/1538-4357/ae6cdc",
       "bibcode": "2026ApJ..1004...14E",
       "why": "Escamilla, Grudić & Rosen (2026). Published in ApJ; ORCID carries only the DOI, so the bibliography had no ADS link."
+    },
+    {
+      "doi": "10.1016/j.jcp.2016.10.048",
+      "bibcode": "2017JCoPh.330..924R",
+      "why": "Rosen et al. (2017), HARM². ORCID carries only the DOI; the bibcode (checked: JCoPh 330, 924, 2017 — matches the DOI's volume/page) also lets the featured card resolve this paper's abstract by identifier rather than its differing title."
     }
   ]
 }

@@ -13,6 +13,7 @@ import generated from "./generated/publications.json";
 import annotations from "./publications.notes.json";
 import additions from "./publications.additions.json";
 import identifiers from "./publications.identifiers.json";
+import humanAbstracts from "./publications.abstracts.json";
 
 export interface SyncedWork {
   title: string;
@@ -53,8 +54,9 @@ export interface SyncedWork {
    * faked. A citable source, so it may be shown verbatim.
    */
   abstract?: string | null;
-  /** Where the abstract came from — provenance kept with the record. */
-  abstractSource?: "arxiv" | "crossref" | "semanticscholar" | null;
+  /** Where the abstract came from — provenance kept with the record.
+   *  "author" = supplied by Anna via publications.abstracts.json. */
+  abstractSource?: "arxiv" | "crossref" | "semanticscholar" | "author" | null;
 }
 
 /** doi/bibcode -> note, from the human-owned annotations file. */
@@ -88,8 +90,24 @@ const withIdentifiers = <T extends { doi: string | null; bibcode: string | null 
   return extra ? { ...w, bibcode: w.bibcode ?? extra.bibcode ?? null } : w;
 };
 
+/*
+ * doi -> human-owned abstract. An author-supplied abstract is authoritative, so
+ * it OVERRIDES whatever the sync scraped (the tokenless sources often return a
+ * flattened, lossy version — see the HARM² note). Remove the override once the
+ * sync starts returning a clean one. See publications.abstracts.json.
+ */
+const abstractOverride = new Map(
+  humanAbstracts.abstracts.map((a) => [a.doi.toLowerCase(), a.abstract] as const),
+);
+
+const withHumanAbstract = <T extends { doi: string | null; abstract?: string | null }>(w: T): T => {
+  const supplied = abstractOverride.get((w.doi ?? "").toLowerCase());
+  return supplied ? { ...w, abstract: supplied, abstractSource: "author" } : w;
+};
+
 const synced: SyncedWork[] = (generated.works as Omit<SyncedWork, "note">[])
   .map(withIdentifiers)
+  .map(withHumanAbstract)
   .map(withNote);
 
 /** Mirrors the sync's rule so an addition lands in the right group. */
