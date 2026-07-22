@@ -1,6 +1,6 @@
 ---
 title: "Interactive — Synthetic Observatory"
-kind: interactive
+kind: engine
 order: 29
 status: spec
 tagline: "Turn the true cluster into what a telescope actually sees."

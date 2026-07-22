@@ -5,8 +5,8 @@ order: 9
 status: spec
 tagline: "The massive stars fight the cloud that made them — and where the energy goes decides everything."
 research: ["ORION2", "HARM²", "Taming the Tarantula (30 Dor)", "Sim2SKIRT / STARFORGE"]
-tools: ["feedback-budget"]
-spinoffs: ["feedback-zoo"]
+engines: ["feedback-budget"]
+deepDives: ["feedback-zoo"]
 tours: ["undergrad", "research"]
 ---
 

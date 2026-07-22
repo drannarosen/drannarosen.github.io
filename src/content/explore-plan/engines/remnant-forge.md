@@ -1,6 +1,6 @@
 ---
 title: "Interactive — Remnant Forge"
-kind: interactive
+kind: engine
 order: 24
 status: spec
 tagline: "Which birth mass leaves which corpse?"

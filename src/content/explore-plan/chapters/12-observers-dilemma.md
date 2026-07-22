@@ -5,7 +5,7 @@ order: 12
 status: spec
 tagline: "How do we even know any of this?"
 research: ["fluxax", "informax", "Confidently Wrong", "Sim2SKIRT / STARFORGE"]
-tools: ["synthetic-observatory", "inference-reckoning"]
+engines: ["synthetic-observatory", "inference-reckoning"]
 tours: ["outreach", "undergrad", "research"]
 ---
 

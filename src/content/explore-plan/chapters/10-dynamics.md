@@ -5,7 +5,7 @@ order: 10
 status: spec
 tagline: "Dynamics: gravity couples every star; the massive ones sink."
 research: ["gravax"]
-tools: ["nbody-dynamics"]
+engines: ["nbody-dynamics"]
 tours: ["undergrad", "research"]
 ---
 

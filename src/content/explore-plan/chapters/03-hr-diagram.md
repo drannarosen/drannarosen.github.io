@@ -5,7 +5,7 @@ order: 3
 status: spec
 tagline: "Two projections of one population; the rare hot stars rule."
 research: ["startrax", "progenax"]
-tools: ["hr-inspector"]
+engines: ["hr-inspector"]
 tours: ["undergrad", "research"]
 ---
 

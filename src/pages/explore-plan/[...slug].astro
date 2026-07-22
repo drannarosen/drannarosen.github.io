@@ -29,15 +29,15 @@ const { index, entry, entries } = Astro.props as Props;
 const KIND_LABEL: Record<Entry["data"]["kind"], string> = {
   overview: "Overview",
   chapter: "Chapters",
-  interactive: "Interactive tools",
-  spinoff: "Spin-offs",
+  engine: "Engines",
+  deepdive: "Deep Dives",
   tooling: "Tooling & meta",
 };
 const KIND_ORDER: Entry["data"]["kind"][] = [
   "overview",
   "chapter",
-  "interactive",
-  "spinoff",
+  "engine",
+  "deepdive",
   "tooling",
 ];
 
@@ -96,18 +96,18 @@ const Content = entry ? (await render(entry)).Content : null;
           {entry.data.research.length > 0 && (
             <p class="plan__meta"><b>research:</b> {entry.data.research.join(" · ")}</p>
           )}
-          {entry.data.tools.length > 0 && (
-            <p class="plan__meta"><b>links to tool:</b> {entry.data.tools.join(" · ")}</p>
+          {entry.data.engines.length > 0 && (
+            <p class="plan__meta"><b>runs on engine:</b> {entry.data.engines.join(" · ")}</p>
           )}
-          {entry.data.spinoffs.length > 0 && (
-            <p class="plan__meta"><b>spin-offs:</b> {entry.data.spinoffs.join(" · ")}</p>
+          {entry.data.deepDives.length > 0 && (
+            <p class="plan__meta"><b>deep dives:</b> {entry.data.deepDives.join(" · ")}</p>
           )}
           {entry.data.tours.length > 0 && (
             <p class="plan__meta"><b>tours:</b> {entry.data.tours.join(" · ")}</p>
           )}
         </header>
         <div class="prose flow">
-          <Content />
+          {Content && <Content />}
         </div>
 
         <nav class="plan__nav" aria-label="Planning pages">

@@ -1,6 +1,6 @@
 ---
 title: "Interactive — Origin of the Elements"
-kind: interactive
+kind: engine
 order: 25
 status: spec
 tagline: "A periodic table colored by who made each element."

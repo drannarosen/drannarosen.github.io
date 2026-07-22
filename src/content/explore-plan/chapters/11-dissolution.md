@@ -5,7 +5,7 @@ order: 11
 status: spec
 tagline: "Gas gone, big stars dead — the cluster leaks into the galaxy."
 research: ["gravax"]
-tools: ["nbody-dynamics"]
+engines: ["nbody-dynamics"]
 tours: ["undergrad", "research"]
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: "Interactive — Binary Lab"
-kind: interactive
+kind: engine
 order: 26
 status: spec
 tagline: "Binaries on/off — watch the inferred IMF drift from the truth."

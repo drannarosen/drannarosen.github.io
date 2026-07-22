@@ -1,6 +1,6 @@
 ---
 title: "Interactive — The Inference Reckoning"
-kind: interactive
+kind: engine
 order: 30
 status: spec
 tagline: "Recover the truth you set — naively wrong, or carefully right."

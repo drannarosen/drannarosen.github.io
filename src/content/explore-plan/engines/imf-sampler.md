@@ -1,6 +1,6 @@
 ---
 title: "Interactive — IMF Sampler"
-kind: interactive
+kind: engine
 order: 21
 status: spec
 tagline: "Sample the IMF; bin the stars; watch a histogram chase a power law."

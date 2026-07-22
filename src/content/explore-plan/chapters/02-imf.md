@@ -5,7 +5,7 @@ order: 2
 status: spec
 tagline: "Astronomers never see the IMF — they count stars in mass bins."
 research: ["progenax", "Confidently Wrong"]
-tools: ["imf-sampler"]
+engines: ["imf-sampler"]
 tours: ["undergrad", "research"]
 ---
 

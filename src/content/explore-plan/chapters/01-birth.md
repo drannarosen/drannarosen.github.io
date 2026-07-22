@@ -5,8 +5,8 @@ order: 1
 status: spec
 tagline: "A turbulent cloud collapses, ignites its stars, and blows itself clear."
 research: ["progenax", "HARM²", "Confidently Wrong"]
-tools: ["imf-sampler"]
-spinoffs: []
+engines: ["imf-sampler"]
+deepDives: []
 tours: ["outreach", "undergrad", "research"]
 ---
 

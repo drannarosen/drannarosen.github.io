@@ -198,17 +198,17 @@ const explorePlan = defineCollection({
   loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/explore-plan" }),
   schema: z.object({
     title: z.string(),
-    kind: z.enum(["overview", "chapter", "interactive", "spinoff", "tooling"]),
+    kind: z.enum(["overview", "chapter", "engine", "deepdive", "tooling"]),
     order: z.number().default(0),
     status: z.enum(["idea", "draft", "spec", "building", "shipped"]).default("draft"),
     /** One line shown under the title in the index. */
     tagline: z.string().optional(),
     /** Anna's research/software this step draws on (progenax, HARM², …). */
     research: z.array(z.string()).default([]),
-    /** For a chapter: the interactive tool page(s) it links off to. */
-    tools: z.array(z.string()).default([]),
-    /** Deep-dive spin-offs branching from this step. */
-    spinoffs: z.array(z.string()).default([]),
+    /** For a chapter: the reusable engine(s) it is built on / links to. */
+    engines: z.array(z.string()).default([]),
+    /** Optional deep-dive explorations branching from this step. */
+    deepDives: z.array(z.string()).default([]),
     /** Which curated tours include this step. */
     tours: z.array(z.enum(["outreach", "undergrad", "research"])).default([]),
   }),

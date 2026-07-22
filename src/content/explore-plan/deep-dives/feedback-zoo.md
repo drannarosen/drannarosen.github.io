@@ -1,6 +1,6 @@
 ---
 title: "Spin-off — The Feedback Zoo"
-kind: spinoff
+kind: deepdive
 order: 45
 status: idea
 tagline: "A census of feedback, each animal tied to the stars that make it."

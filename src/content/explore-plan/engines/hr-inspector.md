@@ -1,6 +1,6 @@
 ---
 title: "Interactive — The HR Inspector"
-kind: interactive
+kind: engine
 order: 20
 status: building
 tagline: "Sample a cluster; read any star; watch the main sequence build."

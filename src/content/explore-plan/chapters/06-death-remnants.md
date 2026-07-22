@@ -5,8 +5,8 @@ order: 6
 status: spec
 tagline: "Follow your star to its end: white dwarf, neutron star, or black hole?"
 research: ["startrax", "Confidently Wrong"]
-tools: ["remnant-forge"]
-spinoffs: ["pair-instability"]
+engines: ["remnant-forge"]
+deepDives: ["pair-instability"]
 tours: ["outreach", "research"]
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: "Spin-off — Post-Main-Sequence Tracks"
-kind: spinoff
+kind: deepdive
 order: 42
 status: idea
 tagline: "The full climb off the main sequence: subgiant, giant, AGB."

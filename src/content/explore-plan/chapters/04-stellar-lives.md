@@ -5,8 +5,8 @@ order: 4
 status: spec
 tagline: "Pick a star, trace its track across the HRD; mass sets destiny."
 research: ["startrax"]
-tools: ["stellar-tracks"]
-spinoffs: ["post-ms-tracks"]
+engines: ["stellar-tracks"]
+deepDives: ["post-ms-tracks"]
 tours: ["undergrad", "research"]
 ---
 

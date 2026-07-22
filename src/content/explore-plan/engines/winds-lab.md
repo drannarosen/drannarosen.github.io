@@ -1,6 +1,6 @@
 ---
 title: "Interactive — Winds Lab"
-kind: interactive
+kind: engine
 order: 23
 status: spec
 tagline: "Winds on vs off — watch a massive star shed itself."

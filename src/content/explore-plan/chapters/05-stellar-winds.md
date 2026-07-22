@@ -5,8 +5,8 @@ order: 5
 status: spec
 tagline: "Massive stars shed themselves — the mass that never becomes a remnant."
 research: ["HARM²", "startrax"]
-tools: ["winds-lab"]
-spinoffs: ["winds-by-phase"]
+engines: ["winds-lab"]
+deepDives: ["winds-by-phase"]
 tours: ["research"]
 ---
 

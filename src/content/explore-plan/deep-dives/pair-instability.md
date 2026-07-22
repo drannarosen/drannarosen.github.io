@@ -1,6 +1,6 @@
 ---
 title: "Spin-off — Pair-Instability"
-kind: spinoff
+kind: deepdive
 order: 43
 status: idea
 tagline: "The very top of the mass function, where nothing is left behind."

@@ -5,7 +5,7 @@ order: 7
 status: spec
 tagline: "The calcium in your bones was forged in a star like the one you watched die."
 research: ["Confidently Wrong"]
-tools: ["elements-origin"]
+engines: ["elements-origin"]
 tours: ["outreach", "undergrad"]
 ---
 

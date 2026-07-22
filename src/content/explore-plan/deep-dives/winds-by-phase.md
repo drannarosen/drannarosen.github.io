@@ -1,6 +1,6 @@
 ---
 title: "Spin-off — Winds by Evolutionary Phase"
-kind: spinoff
+kind: deepdive
 order: 41
 status: idea
 tagline: "Zoom into how a star's wind changes as it evolves — and why."

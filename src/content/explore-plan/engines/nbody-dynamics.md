@@ -1,6 +1,6 @@
 ---
 title: "Interactive — N-body Dynamics"
-kind: interactive
+kind: engine
 order: 28
 status: spec
 tagline: "Gravity isolated vs N-body — watch a cluster live, segregate, and dissolve."

@@ -1,6 +1,6 @@
 ---
 title: "Interactive — Stellar Tracks"
-kind: interactive
+kind: engine
 order: 22
 status: spec
 tagline: "Pick a mass; scrub time; watch a star trace the HR diagram."

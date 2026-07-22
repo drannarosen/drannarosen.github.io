@@ -1,6 +1,6 @@
 ---
 title: "Spin-off — Binary Evolution → Gravitational-Wave Mergers"
-kind: spinoff
+kind: deepdive
 order: 44
 status: idea
 tagline: "Binaries as villain and hero: the black-hole pairs LIGO hears."

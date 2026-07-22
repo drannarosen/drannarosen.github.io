@@ -5,8 +5,8 @@ order: 8
 status: spec
 tagline: "Binaries & rotation: what you observe isn't what's there — and it breaks the IMF you inferred."
 research: ["Confidently Wrong"]
-tools: ["binary-lab"]
-spinoffs: ["gw-mergers"]
+engines: ["binary-lab"]
+deepDives: ["gw-mergers"]
 tours: ["research"]
 ---
 
