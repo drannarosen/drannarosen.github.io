@@ -51,6 +51,16 @@ Two layers, deliberately separate:
   off** to them. Tools are reusable across chapters and spin-offs, and linkable on
   their own (a teacher can assign one directly).
 
+## A constellation, not a syllabus
+
+The scope is large on purpose. Nobody has to read 1–12 in order: the grand tour is one
+obvious door, but the chapters are interconnected nodes with several **paths** through
+them (life cycle · the cluster as a system · the observer · one massive star · Confidently
+Wrong), a **field notebook** that remembers your cluster, and staged **arcs** that ship one
+complete piece at a time. The full navigation grammar is in
+**[Navigation](/explore-plan/03-navigation)**; the persistent cluster it all hangs on is in
+**[Cluster state](/explore-plan/02-cluster-state)**.
+
 ## The ending — "The Observer's Dilemma"
 
 The series lets the reader do what no astronomer can: watch one cluster live its whole
@@ -80,10 +90,12 @@ architecture's `observe()` seam.
 
 ## Build approach
 
-The shared kit is built once; the series grows one shippable page at a time, starting
-from the **Census** node (the IMF + HR inspector already built and validated this
-session). Curated **tours** — outreach / undergrad / research — cut different depths
-through the same map.
+The shared kit is built once; the series grows in **arcs**, one complete piece at a time,
+starting with **Arc I — Birth & census** (the IMF + HR inspector already built and validated
+this session). The release rule is that every shipped arc feels complete enough to invite the
+next return — see **[Navigation](/explore-plan/03-navigation)** for the arc plan. Curated
+**tours** — outreach / undergrad / research — cut different depths; **paths** cut different
+routes; the two are orthogonal.
 
 *This whole section is a dev-only planning surface. It is never built into the public
 site.*
