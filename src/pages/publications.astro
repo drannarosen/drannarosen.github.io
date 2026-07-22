@@ -99,7 +99,9 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
               part.bold ? <strong>{part.text}</strong> : part.text,
             )}
           </p>
-          <p class="pub__summary prose">{p.summary}</p>
+          <p class="pub__summary prose">
+            <span class="pub__tldr">TL;DR</span>{p.summary}
+          </p>
           {featuredAbstract(p) && (
             <details class="abstract">
               <summary class="abstract__toggle">Abstract</summary>
@@ -326,6 +328,17 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     color: var(--ink-soft);
     font-size: var(--step-1);
   }
+  /* Persistent plain-language lead-in — the "for anyone" version. */
+  .pub__tldr {
+    margin-inline-end: 0.6em;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--spec-teal-bright);
+    vertical-align: 0.12em;
+  }
   .pub__links {
     display: flex;
     flex-wrap: wrap;
@@ -346,6 +359,7 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   .abstract {
     margin-block-start: var(--space-s);
   }
+  /* Rose + underline so it plainly reads as a clickable control. */
   .abstract__toggle {
     display: inline-flex;
     align-items: center;
@@ -353,10 +367,15 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     inline-size: max-content;
     cursor: pointer;
     font-family: var(--font-mono);
-    font-size: var(--step--1);
-    color: var(--ink-dim);
+    font-size: var(--step-0);
+    color: var(--spec-rose-bright);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--spec-rose-bright) 45%, transparent);
+    text-underline-offset: 0.2em;
     list-style: none;
-    transition: color var(--dur-fast) var(--ease-out);
+    transition:
+      color var(--dur-fast) var(--ease-out),
+      text-decoration-color var(--dur-fast) var(--ease-out);
   }
   .abstract__toggle::-webkit-details-marker {
     display: none;
@@ -364,7 +383,8 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   .abstract__toggle::before {
     content: "▸";
     display: inline-block;
-    color: var(--ink-faint);
+    text-decoration: none;
+    color: var(--spec-rose-bright);
     transition: transform var(--dur-fast) var(--ease-out);
   }
   .abstract[open] .abstract__toggle::before {
@@ -372,25 +392,26 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   }
   .abstract__toggle:hover {
     color: var(--ink);
+    text-decoration-color: var(--spec-rose-bright);
   }
   .abstract__body {
     margin-block-start: var(--space-s);
     padding-inline-start: var(--space-m);
     border-inline-start: 2px solid var(--border-strong);
     color: var(--ink-soft);
-    font-size: var(--step-0);
+    font-size: var(--step-1);
   }
   /* Denser inside the bibliography list. */
   .abstract--compact {
     margin-block-start: var(--space-2xs);
   }
   .abstract--compact .abstract__toggle {
-    font-size: var(--step--2);
+    font-size: var(--step--1);
   }
   .abstract--compact .abstract__body {
     margin-block-start: var(--space-2xs);
     padding-inline-start: var(--space-s);
-    font-size: var(--step--1);
+    font-size: var(--step-0);
   }
 
   .pubs__note {

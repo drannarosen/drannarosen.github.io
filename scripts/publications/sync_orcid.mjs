@@ -175,8 +175,23 @@ async function fetchCrossrefAbstract(doi) {
  * arXiv id when it knows one, which recovers preprint abstracts whose id ORCID
  * did not record.
  */
+/** GET JSON with backoff on 429 — Semantic Scholar rate-limits unauthenticated
+ *  callers hard, and a bare failure would silently drop an abstract only it has. */
+async function getJsonRetry(url, tries = 3) {
+  for (let i = 0; i < tries; i++) {
+    const res = await fetch(url, { headers: { Accept: "application/json", "User-Agent": UA } });
+    if (res.ok) return res.json();
+    if (res.status === 429 && i < tries - 1) {
+      await new Promise((r) => setTimeout(r, 1800 * (i + 1)));
+      continue;
+    }
+    return null;
+  }
+  return null;
+}
+
 async function fetchSemanticScholarAbstract(doi) {
-  const s = await getJson(
+  const s = await getJsonRetry(
     `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=abstract,externalIds`,
   );
   const direct = cleanAbstract(s?.abstract);
@@ -186,32 +201,39 @@ async function fetchSemanticScholarAbstract(doi) {
 }
 
 /**
- * Resolve one paper's abstract from tokenless sources, in order of quality:
- * arXiv (verbatim author text) → Crossref → Semantic Scholar. Semantic Scholar
- * can also hand back an arXiv id ORCID lacked, so a second arXiv attempt runs
- * when it does.
+ * Resolve one paper's abstract, strongly preferring arXiv.
+ *
+ * arXiv abstracts keep the author's real LaTeX ($M_\odot$, 10^{35}); Crossref's
+ * are JATS flattened to lossy text (superscripts and subscripts gone, Unicode
+ * glyphs, stray spaces). So arXiv wins whenever it can be reached — including by
+ * recovering an arXiv id from Semantic Scholar when ORCID never recorded one —
+ * and Crossref / Semantic Scholar text is only a last resort.
  */
 async function fetchAbstract(w) {
+  // arXiv first (cleanest LaTeX), then Crossref, then Semantic Scholar only as a
+  // last resort. The Unicode in the Crossref/S2 text is normalised to real math
+  // at render time (see src/lib/abstract.ts), so maximising COVERAGE matters more
+  // than the source — a lossy abstract beats none. Semantic Scholar is queried
+  // sparingly because unauthenticated calls rate-limit (429) under load.
   if (w.arxiv) {
     try {
       const a = await fetchArxivAbstract(w.arxiv);
       if (a) return { abstract: a, abstractSource: "arxiv" };
     } catch { /* fall through */ }
   }
-  if (w.doi && !/^10\.48550\//i.test(w.doi)) {
-    try {
-      const a = await fetchCrossrefAbstract(w.doi);
-      if (a) return { abstract: a, abstractSource: "crossref" };
-    } catch { /* fall through */ }
-    try {
-      const s = await fetchSemanticScholarAbstract(w.doi);
-      if (s.abstract) return { abstract: s.abstract, abstractSource: "semanticscholar" };
-      if (s.arxiv) {
-        const a = await fetchArxivAbstract(s.arxiv);
-        if (a) return { abstract: a, abstractSource: "arxiv" };
-      }
-    } catch { /* give up quietly — a missing abstract just omits the toggle */ }
-  }
+  if (!w.doi || /^10\.48550\//i.test(w.doi)) return { abstract: null, abstractSource: null };
+  try {
+    const a = await fetchCrossrefAbstract(w.doi);
+    if (a) return { abstract: a, abstractSource: "crossref" };
+  } catch { /* fall through */ }
+  try {
+    const s = await fetchSemanticScholarAbstract(w.doi);
+    if (s.abstract) return { abstract: s.abstract, abstractSource: "semanticscholar" };
+    if (s.arxiv) {
+      const a = await fetchArxivAbstract(s.arxiv);
+      if (a) return { abstract: a, abstractSource: "arxiv" };
+    }
+  } catch { /* give up quietly — a missing abstract just omits the toggle */ }
   return { abstract: null, abstractSource: null };
 }
 

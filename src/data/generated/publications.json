@@ -499,8 +499,8 @@
         "Skinner, Aaron"
       ],
       "firstAuthor": false,
-      "abstract": null,
-      "abstractSource": null
+      "abstract": "The formation of stars and stellar clusters remains a grand challenge problem in astrophysics that has important implications for the evolution of the interstellar medium as well as shaping the evolution of galaxies. The computational challenges are formidable and involve a coupling of highly non-linear physical processes such as hydrodynamics, self-gravity, magnetic fields, radiation transfer, supersonic turbulence, ionization, protostellar outflows, stellar winds and chemistry that have both disparate timescales as well as operate over many decades of physical length scale. These processes can regulate the feedback from nascent protostars onto the surrounding turbulent gas clouds that are the embryos of new star formation, and as a result, the feedback itself can influence the gaseous reservoir feeding newly formed protostars which in turn influence the star formation process.",
+      "abstractSource": "semanticscholar"
     },
     {
       "title": "Circumbinary Disks: Accretion and Torque as a Function of Mass Ratio and Disk Viscosity",
@@ -657,8 +657,8 @@
         "Klein, R.I."
       ],
       "firstAuthor": true,
-      "abstract": null,
-      "abstractSource": null
+      "abstract": "We present a highly-parallel multi-frequency hybrid radiation hydrodynamics algorithm that combines a spatially-adaptive long characteristics method for the radiation field from point sources with a moment method that handles the diffuse radiation field produced by a volume-filling fluid. Our Hybrid Adaptive Ray-Moment Method (HARM2) operates on patch-based adaptive grids, is compatible with asynchronous time stepping, and works with any moment method. In comparison to previous long characteristics methods, we have greatly improved the parallel performance of the adaptive long-characteristics method by developing a new completely asynchronous and non-blocking communication algorithm. As a result of this improvement, our implementation achieves near-perfect scaling up to O ( 10 3 ) processors on distributed memory machines. We present a series of tests to demonstrate the accuracy and performance of the method.",
+      "abstractSource": "semanticscholar"
     },
     {
       "title": "An unstable truth: how massive stars get their mass",
@@ -753,8 +753,8 @@
         "Ramirez-Ruiz, Enrico"
       ],
       "firstAuthor": true,
-      "abstract": null,
-      "abstractSource": null
+      "abstract": "The physical mechanisms that set the initial rotation rates in massive stars are a crucial unknown in current star formation theory. Observations of young, massive stars provide evidence that they form in a similar fashion to their low-mass counterparts. The magnetic coupling between a star and its accretion disk may be sufficient to spin down low-mass pre-main-sequence (PMS) stars to well below breakup at the end stage of their formation when the accretion rate is low. However, we show that these magnetic torques are insufficient to spin down massive PMS stars due to their short formation times and high accretion rates. We develop a model for the angular momentum evolution of stars over a wide range in mass, considering both magnetic and gravitational torques. We find that magnetic torques are unable to spin down either low-mass or high-mass stars during the main accretion phase, and that massive stars cannot be spun down significantly by magnetic torques during the end stage of their formation either. Spin-down occurs only if massive stars' disk lifetimes are substantially longer or their magnetic fields are much stronger than current observations suggest.",
+      "abstractSource": "semanticscholar"
     }
   ]
 }

@@ -34,6 +34,7 @@
     --spec-teal: #2f8c8d;        /* muted teal (CP --cp-accent) */
     --spec-teal-bright: #4fd6c4; /* bright teal (Sophie --sophie-home-teal) */
     --spec-rose: #b07a93;        /* dusty rose (CP --cp-pink) */
+    --spec-rose-bright: #e58fb4;  /* bright rose — readable pink accent on dark */
     --spec-violet: #6d7794;      /* slate violet (CP --cp-violet) */
     /* Amber is reserved for celestial/stellar contexts (e.g. warm stars) —
        NOT for interface chrome. Interface accents are teal/rose/violet. */
