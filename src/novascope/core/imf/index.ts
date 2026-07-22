@@ -12,8 +12,8 @@
  * the story, and the /explore inspector all draw from one grounded source.
  */
 
-import { zamsLuminosity, zamsTeff } from "../stellar";
-import { mulberry32 } from "../random";
+import { zamsLuminosity, zamsTeff } from "../stellar/index.ts";
+import { mulberry32 } from "../random/index.ts";
 
 /* ── Kroupa (2001) IMF ───────────────────────────────────────────────
  * Broken power law  dN/dm ∝ m^-α  (Kroupa 2001, MNRAS 322, 231):
@@ -21,7 +21,7 @@ import { mulberry32 } from "../random";
  *   α = 2.3 for 0.5  ≤ m/M☉        (Salpeter-like high-mass slope)
  * We sample over [mMin, mMax] via inverse-CDF of the piecewise law with
  * amplitudes chosen for continuity at the 0.5 M☉ break. */
-interface Segment {
+export interface Segment {
   lo: number;
   hi: number;
   alpha: number;
@@ -40,18 +40,27 @@ function segmentIntegral(alpha: number, amp: number, a: number, b: number): numb
   return (amp * (Math.pow(b, p) - Math.pow(a, p))) / p;
 }
 
-function buildKroupaSegments(mMin: number, mMax: number): Segment[] {
+/**
+ * Build the piecewise Kroupa CDF over [mMin, mMax]. `alphaHigh` is the high-mass
+ * slope (default 2.3, Salpeter-like) — the knob the IMF chapter varies to make a
+ * cluster top- or bottom-heavy. The low-mass slope stays Kroupa's 1.3.
+ */
+export function buildKroupaSegments(
+  mMin: number,
+  mMax: number,
+  alphaHigh: number = KROUPA_ALPHA_HIGH,
+): Segment[] {
   const segs: Segment[] = [];
   // Amplitudes: fix low segment at 1, match high segment at the break.
   const ampLow = 1;
-  const ampHigh = ampLow * Math.pow(KROUPA_BREAK, KROUPA_ALPHA_HIGH - KROUPA_ALPHA_LOW);
+  const ampHigh = ampLow * Math.pow(KROUPA_BREAK, alphaHigh - KROUPA_ALPHA_LOW);
 
   const raw: Array<Omit<Segment, "weight" | "cum">> = [];
   if (mMin < KROUPA_BREAK) {
     raw.push({ lo: mMin, hi: Math.min(KROUPA_BREAK, mMax), alpha: KROUPA_ALPHA_LOW, amp: ampLow });
   }
   if (mMax > KROUPA_BREAK) {
-    raw.push({ lo: Math.max(KROUPA_BREAK, mMin), hi: mMax, alpha: KROUPA_ALPHA_HIGH, amp: ampHigh });
+    raw.push({ lo: Math.max(KROUPA_BREAK, mMin), hi: mMax, alpha: alphaHigh, amp: ampHigh });
   }
 
   let cum = 0;

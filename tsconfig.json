@@ -4,7 +4,9 @@
     "baseUrl": ".",
     "paths": {
       "@novascope/*": ["src/novascope/*"]
-    }
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   },
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist"]
