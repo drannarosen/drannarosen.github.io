@@ -14,6 +14,7 @@ import {
   firstAuthored,
   coAuthored,
   unresolvedAuthorship,
+  softwarePapers,
   abstractFor,
   type SyncedWork,
 } from "../data/allPublications";
@@ -65,7 +66,9 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     label: "Co-authored",
     works: [...coAuthored, ...unresolvedAuthorship],
   },
-];
+  // Software (JOSS) papers carved out of the author groups — see isSoftwarePaper.
+  { id: "software", label: "Software", works: softwarePapers },
+].filter((g) => g.works.length > 0);
 ---
 
 <BaseLayout

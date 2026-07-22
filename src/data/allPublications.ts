@@ -183,14 +183,28 @@ export function abstractFor(ref: AbstractRef): string | null {
 
 /** Role split. Anything unresolved rides along with co-authored in the list but
  *  is counted separately so it can never silently inflate either number. */
+/*
+ * A software paper (JOSS today) documents a code, not a science result, so it
+ * belongs in its own group rather than mixed with research papers. Detected by
+ * venue — DERIVED, not a hand list — so `progenax`'s future JOSS paper joins
+ * automatically. Still a refereed publication, so it stays in the record and in
+ * the count; it is only presented separately.
+ */
+export const isSoftwarePaper = (w: SyncedWork): boolean =>
+  /journal of open source software/i.test(w.venue ?? "");
+
+export const softwarePapers: SyncedWork[] = allPublications.filter(isSoftwarePaper);
+
+/* The author-based groups exclude software papers, so a JOSS code paper appears
+ * once, under Software, instead of doubling into Co-authored. */
 export const firstAuthored: SyncedWork[] = allPublications.filter(
-  (w) => w.firstAuthor === true,
+  (w) => w.firstAuthor === true && !isSoftwarePaper(w),
 );
 export const coAuthored: SyncedWork[] = allPublications.filter(
-  (w) => w.firstAuthor === false,
+  (w) => w.firstAuthor === false && !isSoftwarePaper(w),
 );
 export const unresolvedAuthorship: SyncedWork[] = allPublications.filter(
-  (w) => w.firstAuthor === null,
+  (w) => w.firstAuthor === null && !isSoftwarePaper(w),
 );
 
 /** Format an author list for display, truncating long collaborations. */
