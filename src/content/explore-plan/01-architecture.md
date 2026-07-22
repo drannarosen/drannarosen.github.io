@@ -170,7 +170,10 @@ npm publish now — those are premature while it is one site. Because every cons
 Astro, the natural eventual extraction is a single **Astro integration** wrapping Layers 2–3
 over a plain-TS Layer 0 — following the Cosmic Playground `starfield.ts` renderer lineage
 (offscreen compositing, DPR cap, reduced-motion, `cleanup()`). The layering delivers that
-versatility whether or not the extraction ever happens.
+versatility whether or not the extraction ever happens. The mechanics of that extraction —
+the three couplings to avoid now (prefixed tokens, factory store, no SSR `window`), the package
+anatomy, and the checklist proving the move is a folder move — are in the
+**[Extraction blueprint](/explore-plan/04-integration-blueprint)**.
 
 **Arc I sequencing (recommended, pending "go"):** introduce `src/lib/core/` *with* the gate
 as the first code; move the already-pure, already-validated `stellar.ts` and `imf.ts` into
