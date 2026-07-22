@@ -94,13 +94,16 @@ Theory is the whole build for now; `observe()` is deferred. But its *foundation*
 of theory work for free, so we pre-wire it without writing it:
 
 - **Free foundation** (theory needs all of it anyway): minimal physical latent state; the
-  `star()` contract; the **Teff→colour** function (Pecaut–Mamajek — already used to colour
-  the dots, and *literally rung 0* of `observe()`); the **face-agnostic compare primitive**
-  (built for isolated↔N-body and winds on/off; theory↔observation is later just one more
-  configuration).
-- **The one deliberate move:** name the boundary — colour/photometric quantities are "the
-  observation face, rung 0," living behind one module edge so `observe()` later *extends one
-  place* instead of being retrofitted across chapters.
+  `star()` contract; the **intrinsic Teff→colour / spectral-type** function (Pecaut–Mamajek —
+  already used to colour the dots); the **face-agnostic compare primitive** (built for
+  isolated↔N-body and winds on/off; theory↔observation is later just one more configuration).
+- **Module ownership (the boundary named precisely):** *intrinsic* colour and spectral type
+  are a **stellar property** — they live in `core/stellar` and are what a star *is*. `observe()`
+  is the separate transform that *consumes* that intrinsic colour and applies the telescope:
+  it **starts at rung 1** (extinction), then distance, noise, blending, incompleteness. So the
+  seam is exactly the intrinsic-colour output of `core/stellar`; `observe()` attaches there and
+  *extends one place* instead of being retrofitted across chapters. (There is no "rung 0 inside
+  observe()" — rung 0 is the intrinsic truth, owned by the core.)
 - **Not built now:** no instrument ladder (distance → extinction → noise → blending →
   incompleteness), no `infer()`, no speculative `observe()` signature with unused
   parameters. A seam costs nothing and prevents lock-in; a stub is maintenance for an
@@ -188,3 +191,95 @@ anatomy, and the checklist proving the move is a folder move — are in the
 `stellar.ts` and `imf.ts` into `src/novascope/core/stellar/` and `.../core/imf/` (updating the
 `check-stellar` fixture path) to establish the boundary with real content rather than a split
 brain.
+
+## 9. Interfaces & invariants
+
+The contracts a clean build needs pinned *before* Arc I code, so the first island can't decide
+them ad-hoc and drift. Types are illustrative TS; units are load-bearing.
+
+### 9.1 The `star()` contract
+
+```ts
+type Phase = "MS" | "postMS" | "remnant";   // postMS (giant branch) fills in at rung "later"
+type RemnantKind = "WD" | "NS" | "BH";
+
+interface StarState {
+  L: number;            // L_sun
+  R: number;            // R_sun
+  Teff: number;         // K
+  phase: Phase;
+  color: [number, number, number];  // INTRINSIC sRGB from Teff — a stellar property (§5)
+  spectralType: string;             // e.g. "O7V" (Pecaut–Mamajek)
+  Mdot: number;         // M_sun / yr — 0 until the winds engine exists
+  remnant: RemnantKind | null;      // non-null iff phase === "remnant"
+  inRange: boolean;     // false ⇒ inputs were clamped to model validity; treat as illustrative
+}
+
+star(mass: number /*M_sun*/, Z: number, t: number /*Myr*/): StarState
+```
+
+- **Validity, not exceptions.** Tout/Hurley are valid ~0.1–100 M☉ over a bounded Z range.
+  Outside, **clamp to the valid box and set `inRange: false`** — never throw, never silently
+  extrapolate unlabeled. The UI shows clamped stars as illustrative.
+- **Rung-0 time semantics.** At rung 0 a star sits at ZAMS values until `t ≥ t_MS`, then becomes
+  a `remnant` (Heger thresholds). There is **no giant branch at rung 0** — that arrives with
+  startrax tracks. `phase: "postMS"` is reserved, unused until then.
+
+### 9.2 Units & constants
+
+- **Stellar:** M☉, L☉, R☉, K, M☉/yr; time in **Myr**.
+- **Spatial / kinematic:** positions in **pc**, velocities in **km/s**, `G = 4.3009e-3
+  pc³ Myr⁻² M☉⁻¹` (the cited dynamical constant). The integrator converts km/s → pc/Myr
+  internally (1 km/s = 1.02271 pc/Myr). **Softening must be identical in the force and the
+  energy** functions or energy will not conserve.
+- One home: `core/constants`, each value cited. No magic numbers at call sites.
+
+### 9.3 Determinism — RNG sub-streams
+
+`sampleCluster` draws mass, position, and velocity. They must draw from **independent
+sub-streams** derived from the master seed (`stream(seed, "mass")`, `…"position"`,
+`…"velocity")`), each with a fixed draw order. Then adding a *new* sampled quantity later is a
+new labelled stream that **never perturbs existing draws** — so "same seed ⇒ same cluster"
+survives feature growth, and shared URLs stay valid. A regression fixture pins
+`(identity) → population-hash`.
+
+### 9.4 The viz render-model boundary
+
+Renderers are **dumb**: they consume a flat render-model, never physics.
+
+```ts
+interface RenderStar { x: number; y: number; z: number; color: [number,number,number]; sizePx: number; alpha: number; }
+interface RenderModel { stars: RenderStar[]; bounds: …; scales: … }
+
+toRenderModel(cluster, view): RenderModel   // the ONE physics→pixel mapping (a selector)
+```
+
+`core`/physics never imports `viz`; `viz` never imports `core` — they meet only at
+`toRenderModel` in Layer 1. This keeps canvas code physics-free and portable.
+
+### 9.5 The compare / heartbeat primitive
+
+```ts
+interface CompareSpec { a: View; b: View; mode: "toggle" | "sideBySide"; }
+```
+
+Same cluster identity, two `View`s (two parameter sets, or two `t`s), rendered as an A/B toggle
+or side-by-side. A **pure presenter over two render-models** — the heartbeat toggle is just
+`Compare` with `a = base`, `b = variant`. Theory↔observation is one configuration of it.
+
+### 9.6 Persistence versioning
+
+The serialized identity carries a `schemaVersion`. The loader **migrates** a known-older
+version to current, and falls back to best-effort defaults (plus a soft notice) for an
+unknown/future one — **never a crash**. This guards shared URLs and saved clusters against the
+identity schema growing over time.
+
+### 9.7 Accessibility & the no-JS posture
+
+Restating the site's locked rules for the interactives specifically:
+
+- **Story mode is server-rendered** — fully readable with JS disabled.
+- **Lab / Observatory** degrade via `<noscript>` to a **static prerendered figure + "enable JS
+  to interact."** The narrative never depends on the engine running.
+- **`prefers-reduced-motion`:** no autoplay; render the **settled/final frame**; motion is
+  opt-in. Every animated engine ships a **visible pause control** and holds text contrast.

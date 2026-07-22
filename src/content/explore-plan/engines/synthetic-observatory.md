@@ -17,8 +17,10 @@ This is the full expression of the **observation face** (`observe()`) that the
 [Architecture](/explore-plan/01-architecture) threads through the whole series — the
 *instrument dialed to realistic*. **Deferred for now:** theory is the current build, and
 only `observe()`'s free foundation is pre-wired (minimal physical latent state, the
-face-agnostic compare primitive, Teff→colour as rung 0 behind a named boundary). This engine
-is where rungs 1–5 (distance → extinction → noise → blending → incompleteness) get built.
+face-agnostic compare primitive, and the intrinsic Teff→colour owned by `core/stellar`).
+`observe()` **starts at rung 1** — it consumes that intrinsic colour and applies the telescope;
+this engine is where rungs 1–5 (extinction → distance → noise → blending → incompleteness) get
+built.
 
 **Toggles:** extinction A_V · distance · exposure/noise · completeness.
 **Data/engine:** a **fluxax**-style forward model (Sim2SKIRT lineage), built on real,
