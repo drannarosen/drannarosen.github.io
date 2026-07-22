@@ -145,6 +145,15 @@ vanishes.
   "Anna Rosen builds…". Names stay in metadata (`og:site_name`, `author`,
   `reviewedBy`) so provenance remains machine-readable.
 
+Three project skills carry the working discipline, each triggered at a
+different moment — read the skill, do not re-derive it here:
+
+- **site-claims** — honesty of every published claim (never invent a fact).
+- **site-integrity** — building safely: derive facts, gate drift, one source
+  of truth per fact.
+- **site-verify** — shipping safely: verify in the browser at 1440px, and
+  confirm the deploy went green, not just that the push succeeded.
+
 ## Analytics
 
 Two tags ship, both in `src/layouts/BaseLayout.astro`, both **production-only**:
