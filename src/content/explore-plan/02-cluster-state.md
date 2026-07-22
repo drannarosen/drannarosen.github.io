@@ -83,6 +83,23 @@ Entry choices this enables (see **[Navigation](/explore-plan/03-navigation)**): 
 fresh** (new seed), **Continue my cluster** (localStorage), **Try a strange universe** (a
 named preset).
 
+## Decision — client-only, no backend
+
+Considered and declined: a server store (e.g. Cloudflare KV/D1) for cluster state. It buys
+nothing here. Identity is a **seed**, and the population plus every derived property is
+*reconstructed in the browser* from it — so a server row would only cache a value the URL
+already carries, behind a network round-trip, a failure mode, and (the moment it is per-user)
+an auth flow and a privacy surface. Client-only keeps stored user data at exactly zero, which
+matches the site's privacy stance and the locked *"no backend"* decision.
+
+The seam is left open without being built: keep save/load behind a **small adapter interface**,
+so a sync layer could slot in later *over the same seed* if a concrete need appears. The three
+things that would justify one are **cross-device sync** (needs accounts), a **public gallery**
+of saved clusters (needs moderation), and a **live shared classroom cluster** (Durable Objects
++ WebSockets — the only genuinely new capability, not persistence in disguise). None is needed
+for Arc I; all are additive later. That class of backend belongs to **Sophie**, not to a
+seed-driven visualization on this site.
+
 ## Presets — "strange universes"
 
 A preset is just a named `ClusterIdentity`. Curated set: **low-mass** (sampling noise
