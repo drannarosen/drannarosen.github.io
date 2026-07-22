@@ -1,5 +1,5 @@
 ---
-title: "Spin-off — The Feedback Zoo"
+title: "Deep Dive — The Feedback Zoo"
 kind: deepdive
 order: 45
 status: idea

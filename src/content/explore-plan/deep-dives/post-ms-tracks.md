@@ -1,5 +1,5 @@
 ---
-title: "Spin-off — Post-Main-Sequence Tracks"
+title: "Deep Dive — Post-Main-Sequence Tracks"
 kind: deepdive
 order: 42
 status: idea

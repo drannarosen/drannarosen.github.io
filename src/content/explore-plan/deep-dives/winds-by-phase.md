@@ -1,5 +1,5 @@
 ---
-title: "Spin-off — Winds by Evolutionary Phase"
+title: "Deep Dive — Winds by Evolutionary Phase"
 kind: deepdive
 order: 41
 status: idea

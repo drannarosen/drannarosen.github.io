@@ -30,7 +30,7 @@ across the thresholds.
 
 - Remnant fate is from **`stellar.ts` (Heger 2003 thresholds)**, with the fuller
   **Fryer 2012 / startrax** prescription as the modernization path.
-- Spin-off: **pair-instability** at the very top — where nothing is left at all.
+- Deep dive: **pair-instability** at the very top — where nothing is left at all.
 
 ## Physics & data
 

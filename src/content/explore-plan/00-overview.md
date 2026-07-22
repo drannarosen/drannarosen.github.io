@@ -15,7 +15,7 @@ for years.
 ## The spine (a story, not a slideshow)
 
 A single narrative, followed start to finish, but **choose-your-depth**: at any
-chapter you may branch into a deep-dive spin-off and return. Two nested protagonists —
+chapter you may branch into a deep dive and return. Two nested protagonists —
 **one cluster** you create and follow to dissolution, and, inside it, **one star** you
 follow from ignition to remnant.
 
@@ -48,7 +48,7 @@ Two layers, deliberately separate:
 - **Story pages** — the chapters: readable narrative + a light inline taste.
 - **Interactive pages** — standalone tools (IMF sampler, HR inspector, stellar tracks,
   winds lab, N-body, elements, synthetic observatory, the reckoning). Chapters **link
-  off** to them. Tools are reusable across chapters and spin-offs, and linkable on
+  off** to them. Tools are reusable across chapters and deep dives, and linkable on
   their own (a teacher can assign one directly).
 
 ## A constellation, not a syllabus

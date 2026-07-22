@@ -14,4 +14,4 @@ and enriched mass each death returns to the cluster.
 
 **Toggles:** birth mass · metallicity (shifts boundaries).
 **Data:** Heger (2003) thresholds now (`stellar.ts`); Fryer (2012) / startrax remnant
-masses as the modernization. **Spin-off:** pair-instability.
+masses as the modernization. **Deep dive:** pair-instability.

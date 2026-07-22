@@ -32,7 +32,7 @@ the feedback chapter.
 - Winds are the front edge of **stellar feedback** — the physics **HARM²** and Anna's
   massive-star work model.
 - Wind mass loss reshapes the evolutionary track and the remnant — data from **startrax**.
-- Spin-off: **winds as a function of evolutionary phase** (the deep dive Anna flagged).
+- Deep dive: **winds as a function of evolutionary phase** (the deep dive Anna flagged).
 
 ## Physics & data
 

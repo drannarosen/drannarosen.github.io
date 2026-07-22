@@ -1,5 +1,5 @@
 ---
-title: "Spin-off — Pair-Instability"
+title: "Deep Dive — Pair-Instability"
 kind: deepdive
 order: 43
 status: idea

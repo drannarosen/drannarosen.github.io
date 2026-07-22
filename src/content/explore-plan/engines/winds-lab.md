@@ -14,4 +14,4 @@ future remnant shrink, and mechanical luminosity (~½Ṁv²) build toward the fe
 
 **Toggles:** winds on/off · mass-loss rate · metallicity (Z-dependent winds).
 **Data:** line-driven wind scalings (Vink+ 2001) on startrax tracks. **Research:** Anna's
-massive-star wind/feedback work; feeds Chapter 9. **Spin-off:** winds by evolutionary phase.
+massive-star wind/feedback work; feeds Chapter 9. **Deep dive:** winds by evolutionary phase.

@@ -15,4 +15,4 @@ as N grows.
 
 **Toggles:** binaries on/off · binary fraction · rotation on/off · N.
 **Data:** photometric blending + naive-vs-binary-aware IMF fit. **Research:** Confidently
-Wrong (binaries bias IMF inference at large N). **Spin-off:** binary evolution → GW mergers.
+Wrong (binaries bias IMF inference at large N). **Deep dive:** binary evolution → GW mergers.

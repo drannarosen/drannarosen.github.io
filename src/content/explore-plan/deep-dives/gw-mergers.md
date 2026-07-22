@@ -1,5 +1,5 @@
 ---
-title: "Spin-off — Binary Evolution → Gravitational-Wave Mergers"
+title: "Deep Dive — Binary Evolution → Gravitational-Wave Mergers"
 kind: deepdive
 order: 44
 status: idea
