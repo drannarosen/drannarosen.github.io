@@ -37,6 +37,13 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
       current work on star-cluster identifiability, and it is built to outlast any
       single project — a foundation for questions I haven't asked yet.
     </p>
+    <p class="sw-intro__avail">
+      {/* Answers "can I use this?" once, up front, rather than making a reader
+          open every package to learn it. The per-package release track carries
+          the detail; this is the one-line version. */}
+      The source for each package opens as its paper lands. Until then the pages
+      below show what is working and how far along it is.
+    </p>
 
     <figure class="sw-fig" slot="aside">
       <img
@@ -140,6 +147,11 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
   .sw-intro__more strong {
     color: var(--spec-teal-bright);
     font-weight: 600;
+  }
+  .sw-intro__avail {
+    margin-block-start: var(--space-s);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
   }
 
   /* The figure occupies the header's aside column, so it is sized by the grid

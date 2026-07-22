@@ -25,6 +25,7 @@ import { getPackages } from "../lib/packages";
 import { featuredPublications } from "../data/publications";
 import { graduateAdvisees, finishingAdvisees } from "../data/cv";
 import { nowFigures } from "../data/nowFigures";
+import { nowUpdated } from "../data/now";
 import { renderCaption } from "../lib/figureCaption";
 import { getFigure, figureSrc, figureCaption, figureBox } from "../lib/figures";
 import {
@@ -37,7 +38,7 @@ import {
   learningResources,
 } from "../data/teaching";
 
-const updated = new Date("2026-07-21");
+const updated = nowUpdated;
 const now = updated;
 
 const packages = await getPackages();
@@ -294,8 +295,10 @@ const fmt = (d: Date) =>
 
       <p class="now__note">
         Inspired by <a href="https://nownownow.com/about" rel="noopener">nownownow.com</a>.
-        Longer-form writing is in <a href="/astrobytes">astrobytes</a>; the full record is
-        on the <a href="/cv">CV</a>.
+        {" "}
+        <a href="/now/rss.xml">Follow this page by RSS</a> to hear when it
+        changes. Longer-form writing is in <a href="/astrobytes">astrobytes</a>;
+        the full record is on the <a href="/cv">CV</a>.
       </p>
     </div>
   </section>

@@ -100,12 +100,25 @@ gtag('config', 'G-50FCCTYBRH');`}
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    {/* The astrobytes feed is advertised site-wide; the /now feed only on /now,
+        so a reader's "subscribe" button offers the feed for the page they are
+        on rather than always the posts. */}
     <link
       rel="alternate"
       type="application/rss+xml"
       title="Astrobytes — Anna Rosen"
       href="/astrobytes/rss.xml"
     />
+    {
+      path === "/now" && (
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="Now — Anna Rosen"
+          href="/now/rss.xml"
+        />
+      )
+    }
     <meta name="author" content="Anna Rosen" />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
 
