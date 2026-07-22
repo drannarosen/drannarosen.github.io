@@ -13,6 +13,7 @@ import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL } from "../../data/ja
 import { getPackages, type PackageEntry } from "../../lib/packages";
 import { renderCaption } from "../../lib/figureCaption";
 import { getFigure, figureSrc, figureCaption, figureBox } from "../../lib/figures";
+import ReleaseMeter from "../../components/ReleaseMeter.astro";
 
 export async function getStaticPaths() {
   const packages = await getPackages();
@@ -74,6 +75,15 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
         </p>
       )}
     </div>
+
+    {
+      d.papers && (
+        <div class="pk-release">
+          <p class="pk-release__label">Publications</p>
+          <ReleaseMeter papers={d.papers} />
+        </div>
+      )
+    }
   </section>
 
   {
@@ -184,6 +194,24 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
   .pk-link {
     font-family: var(--font-mono);
     font-size: var(--step--1);
+  }
+
+  /* The paper bars sit just under the readiness card — same axis family, one
+     step out, so the two are read as related but distinct. */
+  .pk-release {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2xs) var(--space-m);
+    margin-block-start: var(--space-s);
+    padding-inline-start: var(--space-m);
+  }
+  .pk-release__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-faint);
   }
 
   .pk-prose {

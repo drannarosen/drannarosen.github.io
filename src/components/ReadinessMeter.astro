@@ -1,12 +1,12 @@
 ---
 /*
  * ReadinessMeter — how far along a piece of software is, shown rather than
- * buried in prose.
+ * buried in prose. A thin wrapper over the shared Meter primitive so the
+ * readiness bar and the paper-progress bar are visually identical.
  *
- * Extracted from /software so /teaching reports development status the same
- * way. Nothing here is released publicly yet, so a single "status" would carry
- * no information across items; readiness is what actually differs between them.
+ * Also used on /teaching, so status reads the same everywhere.
  */
+import Meter from "./Meter.astro";
 import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL, type Readiness } from "../data/jaxstro";
 
 interface Props {
@@ -17,38 +17,10 @@ interface Props {
 const { readiness, title } = Astro.props;
 ---
 
-<span class="meter" title={title} aria-label={`Readiness: ${READINESS_LABEL[readiness]}`}>
-  {
-    Array.from({ length: READINESS_TOTAL }, (_, k) => k + 1).map((n) => (
-      <span class:list={["meter__step", n <= READINESS_STEPS[readiness] && "is-on"]} />
-    ))
-  }
-  <span class="meter__label">{READINESS_LABEL[readiness]}</span>
-</span>
-
-<style>
-  .meter {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-  }
-  .meter__step {
-    inline-size: 14px;
-    block-size: 3px;
-    border-radius: 2px;
-    background: var(--bg-surface);
-    box-shadow: inset 0 0 0 1px var(--border);
-  }
-  .meter__step.is-on {
-    background: var(--spec-teal-bright);
-    box-shadow: none;
-  }
-  .meter__label {
-    margin-inline-start: var(--space-2xs);
-    font-family: var(--font-mono);
-    font-size: var(--step--2);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--ink-dim);
-  }
-</style>
+<Meter
+  on={READINESS_STEPS[readiness]}
+  total={READINESS_TOTAL}
+  label={READINESS_LABEL[readiness]}
+  ariaLabel={`Readiness: ${READINESS_LABEL[readiness]}`}
+  title={title}
+/>

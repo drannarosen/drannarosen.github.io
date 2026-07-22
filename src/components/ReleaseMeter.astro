@@ -1,0 +1,53 @@
+---
+/*
+ * ReleaseMeter — how close a package's papers are to being out, as bars that
+ * match the readiness meter rather than a line of prose.
+ *
+ * This is the SECOND axis. Readiness is how far the software has come; this is
+ * how far its publications have. The two are independent — a mature package can
+ * have an unwritten paper — so a paper's state comes only from the frontmatter
+ * Anna sets, never derived from readiness. A bar advances when she says the
+ * paper moved, and not before.
+ *
+ * Renders nothing until there is a paper state to show, so a package appears on
+ * this axis exactly when its `papers` field is filled in — which is the moment
+ * Anna decides it should.
+ */
+import Meter from "./Meter.astro";
+import { PAPER_STATE_LABEL, PAPER_STATE_STEPS, PAPER_STATE_TOTAL, type PaperState } from "../data/jaxstro";
+
+interface Props {
+  papers?: { methods?: PaperState; software?: PaperState };
+}
+const { papers } = Astro.props;
+
+const rows: { lead: string; state: PaperState }[] = [];
+if (papers?.methods) rows.push({ lead: "Methods paper", state: papers.methods });
+if (papers?.software) rows.push({ lead: "Software paper", state: papers.software });
+---
+
+{
+  rows.length > 0 && (
+    <span class="release" role="group" aria-label="Publication progress">
+      {rows.map((r) => (
+        <Meter
+          lead={r.lead}
+          on={PAPER_STATE_STEPS[r.state]}
+          total={PAPER_STATE_TOTAL}
+          label={PAPER_STATE_LABEL[r.state]}
+          ariaLabel={`${r.lead}: ${PAPER_STATE_LABEL[r.state]}`}
+        />
+      ))}
+    </span>
+  )
+}
+
+<style>
+  /* Stack the paper bars, and let the parent align them with the readiness
+     bar above via its own gap. */
+  .release {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
+  }
+</style>

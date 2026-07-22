@@ -52,13 +52,28 @@ export const READINESS_TOTAL = 4;
  * publication, not journals; nothing here should imply a venue that has not
  * been chosen.
  */
-export type PaperState = "planned" | "in-preparation" | "submitted";
+export type PaperState = "planned" | "in-preparation" | "submitted" | "published";
 
 export const PAPER_STATE_LABEL: Record<PaperState, string> = {
   planned: "planned",
   "in-preparation": "in preparation",
   submitted: "under review",
+  published: "published",
 };
+
+/*
+ * How full the paper meter reads, mirroring the four-step readiness meter so
+ * the two bars share a visual language. A paper advances only when Anna says
+ * so; nothing here derives a paper's state from how far the software has come.
+ */
+export const PAPER_STATE_STEPS: Record<PaperState, number> = {
+  planned: 1,
+  "in-preparation": 2,
+  submitted: 3,
+  published: 4,
+};
+
+export const PAPER_STATE_TOTAL = 4;
 
 export type CodeRelease = "with-paper" | "public";
 

@@ -1,0 +1,73 @@
+---
+/*
+ * Meter — the segmented bar shared by every status indicator on the site.
+ *
+ * Extracted so the readiness bar and the paper-progress bar are the SAME
+ * object, not two look-alikes that drift apart. `on` of `total` segments fill;
+ * a label sits alongside. Nothing here knows what it is measuring.
+ */
+interface Props {
+  /** Segments filled. */
+  on: number;
+  /** Segments total. */
+  total: number;
+  /** The word after the bar, e.g. "In development" or "In preparation". */
+  label: string;
+  /** Full accessible description, e.g. "Readiness: In development". */
+  ariaLabel: string;
+  /** Optional leading label, e.g. "Methods paper", for a bar in a stack. */
+  lead?: string;
+  /** Tooltip text. */
+  title?: string;
+}
+const { on, total, label, ariaLabel, lead, title } = Astro.props;
+---
+
+<span class="meter" title={title} aria-label={ariaLabel}>
+  {lead && <span class="meter__lead">{lead}</span>}
+  <span class="meter__bars">
+    {
+      Array.from({ length: total }, (_, k) => k + 1).map((n) => (
+        <span class:list={["meter__step", n <= on && "is-on"]} />
+      ))
+    }
+  </span>
+  <span class="meter__label">{label}</span>
+</span>
+
+<style>
+  .meter {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .meter__lead {
+    margin-inline-end: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+  }
+  .meter__bars {
+    display: inline-flex;
+    gap: 3px;
+  }
+  .meter__step {
+    inline-size: 14px;
+    block-size: 3px;
+    border-radius: 2px;
+    background: var(--bg-surface);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .meter__step.is-on {
+    background: var(--spec-teal-bright);
+    box-shadow: none;
+  }
+  .meter__label {
+    margin-inline-start: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-dim);
+  }
+</style>

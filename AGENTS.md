@@ -332,8 +332,9 @@ runs on `dist/`. Check search with `pnpm preview`, never `pnpm dev`.
 anyone can get it, and the two had silently merged: packages sat at "mature"
 with `repo: null`, which reads as vapour rather than as a deliberate hold.
 
-`papers` and `codeRelease` are a separate axis, rendered by `ReleaseTrack`
-under the readiness meter:
+`papers` and `codeRelease` are a separate axis. `papers` renders as a second
+bar meter (`ReleaseMeter`, sharing the `Meter` primitive with `ReadinessMeter`)
+under the readiness bars — one row per paper, styled identically:
 
 ```yaml
 papers:
@@ -349,6 +350,14 @@ have both.
 
 Keep release state out of `maturity` — it lives here now, and stating it twice
 is how the two drift apart.
+
+**A paper bar advances ONLY when Anna says the paper moved.** Nothing derives a
+paper's state from readiness — the two axes are independent (a mature package
+can have an unwritten paper), and coupling them would fabricate a publication
+claim, which the site-claims rule forbids. The `ReleaseMeter` appears for a
+package exactly when its `papers` field is filled, so a package joins the
+publication axis at the moment Anna decides it should, not automatically. Paper
+states: `planned` → `in-preparation` → `submitted` → `published`.
 
 ## Astrobytes
 

@@ -5,7 +5,7 @@ import JaxstroEcosystem from "../components/JaxstroEcosystem.astro";
 import StatusBadge from "../components/StatusBadge.astro";
 import { READINESS_LABEL } from "../data/jaxstro";
 import ReadinessMeter from "../components/ReadinessMeter.astro";
-import ReleaseTrack from "../components/ReleaseTrack.astro";
+import ReleaseMeter from "../components/ReleaseMeter.astro";
 import { getPackages, packageHref } from "../lib/packages";
 
 const packages = await getPackages();
@@ -100,7 +100,7 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
                 <p class="pkg__desc">{d.description}</p>
                 <div class="pkg__foot">
                   <ReadinessMeter readiness={d.readiness} title={d.maturity} />
-                  <ReleaseTrack papers={d.papers} compact />
+                  <ReleaseMeter papers={d.papers} />
                   {d.maturity && d.maturity !== READINESS_LABEL[d.readiness] && (
                     <span class="pkg__note">{d.maturity}</span>
                   )}

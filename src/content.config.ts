@@ -152,9 +152,9 @@ const packages = defineCollection({
     papers: z
       .object({
         /** The science/methods paper. Absent where none is planned. */
-        methods: z.enum(["planned", "in-preparation", "submitted"]).optional(),
+        methods: z.enum(["planned", "in-preparation", "submitted", "published"]).optional(),
         /** The short software paper. */
-        software: z.enum(["planned", "in-preparation", "submitted"]).optional(),
+        software: z.enum(["planned", "in-preparation", "submitted", "published"]).optional(),
       })
       .optional(),
     /** When the source opens. Defaults to "with-paper" — see above. */
