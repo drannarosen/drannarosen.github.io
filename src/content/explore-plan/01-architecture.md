@@ -144,7 +144,15 @@ same code run in the browser, in Node (tests + precompute), and in a course note
 unchanged. Portability and testability are the same property: `check-stellar` already
 exercises the pure core in Node against the startrax fixture.
 
-**Core layout — split by physical domain:**
+**The package is `novascope`** (nova = "new" + scope — a new kind of telescope, one that
+reveals the theory a real telescope cannot). It lives in its **own root** `src/novascope/`,
+a sibling of `src/lib/` — which keeps *generic site utilities* (figures, captions, cv). So the
+extraction boundary is one directory, never tangled with site lib, and "more site lib" vs "more
+explorables" always have separate homes. Imports use a `@novascope/*` path alias → `src/
+novascope/*`, so in-repo imports already read as package imports; extraction later just
+repoints the alias from local to `node_modules` — **zero import specifiers rewritten**.
+
+**Core layout — split by physical domain** (`src/novascope/core/`):
 
 ```
 core/ constants/  random/  stellar/  imf/  dynamics/  cluster/  observe/(later)
@@ -162,10 +170,10 @@ not those packages. Neutral domain names (`stellar`, `dynamics`, `cluster`) keep
 true — calling `dynamics` "gravax" would imply the browser runs gravax, which site-claims
 forbids.
 
-**Enforce now, extract later (packaging decision):** core lives in `src/lib/core/` with an
-**import-boundary gate** (in the spirit of `check-sun`/`check-stellar`) that fails the build
-if anything in `core/` imports Astro/DOM/site, or if a layer imports upward. No monorepo, no
-npm publish now — those are premature while it is one site. Because every consumer repo
+**Enforce now, extract later (packaging decision):** the package lives in `src/novascope/`
+with an **import-boundary gate** (in the spirit of `check-sun`/`check-stellar`) that fails the
+build if anything in `core/` imports Astro/DOM/site, or if a layer imports upward. No monorepo,
+no npm publish now — those are premature while it is one site. Because every consumer repo
 (Cosmic Playground, the Sophie/ASTR 201 site, future courses) **and this site** are all
 Astro, the natural eventual extraction is a single **Astro integration** wrapping Layers 2–3
 over a plain-TS Layer 0 — following the Cosmic Playground `starfield.ts` renderer lineage
@@ -175,7 +183,8 @@ the three couplings to avoid now (prefixed tokens, factory store, no SSR `window
 anatomy, and the checklist proving the move is a folder move — are in the
 **[Extraction blueprint](/explore-plan/04-integration-blueprint)**.
 
-**Arc I sequencing (recommended, pending "go"):** introduce `src/lib/core/` *with* the gate
-as the first code; move the already-pure, already-validated `stellar.ts` and `imf.ts` into
-`core/stellar/` and `core/imf/` to establish the boundary with real content rather than a
-split brain.
+**Arc I sequencing (recommended, pending "go"):** introduce `src/novascope/` and the
+`@novascope/*` alias *with* the gate as the first code; move the already-pure, already-validated
+`stellar.ts` and `imf.ts` into `src/novascope/core/stellar/` and `.../core/imf/` (updating the
+`check-stellar` fixture path) to establish the boundary with real content rather than a split
+brain.

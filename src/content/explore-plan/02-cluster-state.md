@@ -110,13 +110,17 @@ contrast without new machinery.
 
 ## The module shape (for when we build)
 
-- `lib/cluster/params.ts` — `ClusterIdentity` type, presets, (de)serialize to/from URL.
-- `lib/cluster/sample.ts` — `sampleCluster(identity)` (seeded), feeding on `lib/imf.ts`.
-- `lib/cluster/store.ts` — the reactive session store (identity + view + log) + persistence.
-  Framework-agnostic; a tiny pub/sub or nanostores (Astro-native, no React) is enough — no
-  SPA state library.
-- `lib/stellar.ts` — the `star()` contract (already built, validated against the startrax
-  fixture).
+Under the `novascope` package-root ([Architecture §8](/explore-plan/01-architecture)):
+
+- `@novascope/core/cluster` — `params.ts` (`ClusterIdentity`, presets, URL (de)serialize),
+  `profiles.ts` (EFF/Plummer), `sample.ts` (`sampleCluster(identity)`, seeded), feeding on
+  `@novascope/core/imf` and `@novascope/core/random`.
+- `@novascope/state` — the reactive session store (identity + view + log) + injectable
+  persistence adapter (Layer 1). Framework-agnostic; a tiny pub/sub or nanostores
+  (Astro-native, no React) is enough — no SPA state library. A **factory**
+  (`createClusterStore`), never a global — see the [Extraction blueprint](/explore-plan/04-integration-blueprint).
+- `@novascope/core/stellar` — the `star()` contract (today's `stellar.ts`, moved in;
+  already validated against the startrax fixture).
 
 ## Guardrails (inherited, restated because this object is where they bite)
 
