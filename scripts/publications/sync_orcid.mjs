@@ -9,9 +9,10 @@
  *
  * Uses the ORCID *public* API — no key, no token, no secret required.
  *
- *   node scripts/publications/sync_orcid.mjs                    # write the JSON
- *   node scripts/publications/sync_orcid.mjs --check           # exit 1 if out of date (CI)
- *   node scripts/publications/sync_orcid.mjs --refresh-authors # re-fetch every author list
+ *   node scripts/publications/sync_orcid.mjs                      # write the JSON
+ *   node scripts/publications/sync_orcid.mjs --check             # exit 1 if out of date (CI)
+ *   node scripts/publications/sync_orcid.mjs --refresh-authors   # re-fetch every author list
+ *   node scripts/publications/sync_orcid.mjs --refresh-abstracts # re-fetch every abstract
  *
  * AUTHORSHIP: ORCID's works summary carries no author list, so first-author
  * status is resolved from the DOI via Crossref (and DataCite for arXiv DOIs).
@@ -120,6 +121,130 @@ function applyExclusions(records) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Abstracts
+ *
+ * The paper's OWN published abstract is a citable source, so it can be stored
+ * verbatim. Fetched from tokenless public APIs only — arXiv first (covers every
+ * preprint), Crossref as a fallback — so the sync keeps its "no key, no secret"
+ * property and never needs an ADS token. Cached exactly like author lists: a
+ * routine sync re-fetches nothing, only a newly-appeared paper hits the network.
+ * ------------------------------------------------------------------ */
+
+const HTML_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+
+/** Decode the handful of entities arXiv/Crossref emit; leave everything else. */
+function decodeEntities(s) {
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&([a-z]+);/gi, (m, n) => HTML_ENTITIES[n.toLowerCase()] ?? m);
+}
+
+/** Normalise fetched abstract text: strip tags, collapse whitespace, trim. */
+function cleanAbstract(raw) {
+  if (!raw) return null;
+  const text = decodeEntities(raw.replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+  // Crossref sometimes prefixes a literal "Abstract" heading; drop it.
+  const stripped = text.replace(/^abstract[:.\s]+/i, "").trim();
+  return stripped.length > 0 ? stripped : null;
+}
+
+/** arXiv Atom feed → the entry <summary>, which is the abstract. */
+async function fetchArxivAbstract(arxiv) {
+  const res = await fetch(
+    `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxiv)}&max_results=1`,
+    { headers: { "User-Agent": UA } },
+  );
+  if (!res.ok) return null;
+  const xml = await res.text();
+  const m = xml.match(/<entry>[\s\S]*?<summary>([\s\S]*?)<\/summary>/);
+  return cleanAbstract(m?.[1]);
+}
+
+/** Crossref abstract (JATS-tagged) for a DOI, or null if not deposited. */
+async function fetchCrossrefAbstract(doi) {
+  const c = await getJson(`https://api.crossref.org/works/${encodeURIComponent(doi)}`);
+  return cleanAbstract(c?.message?.abstract);
+}
+
+/**
+ * Semantic Scholar abstract for a DOI — a tokenless fallback that often has the
+ * older journal papers Crossref never received an abstract for. Also carries an
+ * arXiv id when it knows one, which recovers preprint abstracts whose id ORCID
+ * did not record.
+ */
+async function fetchSemanticScholarAbstract(doi) {
+  const s = await getJson(
+    `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=abstract,externalIds`,
+  );
+  const direct = cleanAbstract(s?.abstract);
+  if (direct) return { abstract: direct, arxiv: s?.externalIds?.ArXiv ?? null };
+  // No abstract, but a recovered arXiv id lets the caller try arXiv itself.
+  return { abstract: null, arxiv: s?.externalIds?.ArXiv ?? null };
+}
+
+/**
+ * Resolve one paper's abstract from tokenless sources, in order of quality:
+ * arXiv (verbatim author text) → Crossref → Semantic Scholar. Semantic Scholar
+ * can also hand back an arXiv id ORCID lacked, so a second arXiv attempt runs
+ * when it does.
+ */
+async function fetchAbstract(w) {
+  if (w.arxiv) {
+    try {
+      const a = await fetchArxivAbstract(w.arxiv);
+      if (a) return { abstract: a, abstractSource: "arxiv" };
+    } catch { /* fall through */ }
+  }
+  if (w.doi && !/^10\.48550\//i.test(w.doi)) {
+    try {
+      const a = await fetchCrossrefAbstract(w.doi);
+      if (a) return { abstract: a, abstractSource: "crossref" };
+    } catch { /* fall through */ }
+    try {
+      const s = await fetchSemanticScholarAbstract(w.doi);
+      if (s.abstract) return { abstract: s.abstract, abstractSource: "semanticscholar" };
+      if (s.arxiv) {
+        const a = await fetchArxivAbstract(s.arxiv);
+        if (a) return { abstract: a, abstractSource: "arxiv" };
+      }
+    } catch { /* give up quietly — a missing abstract just omits the toggle */ }
+  }
+  return { abstract: null, abstractSource: null };
+}
+
+/** Stable cache key so a paper keeps its abstract across syncs. */
+const abstractKey = (w) =>
+  (w.doi && `doi:${w.doi.toLowerCase()}`) ||
+  (w.arxiv && `arxiv:${w.arxiv.toLowerCase()}`) ||
+  `title:${key(w.title)}`;
+
+/** Attach abstracts, reusing cached text so routine syncs make no requests. */
+async function withAbstracts(records, refresh) {
+  const cache = new Map();
+  if (!refresh && existsSync(OUT)) {
+    for (const w of JSON.parse(readFileSync(OUT, "utf8")).works ?? []) {
+      if (w.abstract) cache.set(abstractKey(w), { abstract: w.abstract, abstractSource: w.abstractSource ?? null });
+    }
+  }
+  let fetched = 0;
+  const out = [];
+  for (const w of records) {
+    let hit = cache.get(abstractKey(w));
+    if (!hit) {
+      hit = await fetchAbstract(w);
+      fetched++;
+      await new Promise((r) => setTimeout(r, 120)); // polite to two free APIs
+    }
+    out.push({ ...w, abstract: hit.abstract, abstractSource: hit.abstractSource });
+  }
+  if (fetched > 0) console.log(`[abstracts] resolved ${fetched} paper(s) over the network`);
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
  * Authorship
  * ------------------------------------------------------------------ */
 
@@ -196,7 +321,11 @@ async function withAuthors(records, refresh) {
 }
 
 const { kept, dropped } = applyExclusions(dedupe(await fetchWorks()));
-const works = await withAuthors(kept, process.argv.includes("--refresh-authors"));
+const withAuth = await withAuthors(kept, process.argv.includes("--refresh-authors"));
+const works = await withAbstracts(
+  withAuth,
+  process.argv.includes("--refresh-abstracts"),
+);
 const unresolved = works.filter((w) => w.firstAuthor === null);
 const payload = {
   _comment:

@@ -20,7 +20,9 @@
         "Grudić, Michael Y.",
         "Rosen, Anna L."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "The star formation efficiency per free-fall time ( ϵ ff ) quantifies how efficiently giant molecular clouds (GMCs) convert gas into stars and is often observed to be orders of magnitude lower than expected for free-fall collapse. Observers typically estimate ϵ ff by mapping far-infrared (FIR) dust emission to infer gas surface densities (Σ gas ) and counting embedded protostars, assuming simplified lifetimes and masses. Using the fiducial starforge radiation–magnetohydrodynamics simulation of an M cl = 2 × 10 4 M ⊙ GMC that self-consistently models star cluster formation and stellar feedback, we generate synthetic FIR observations and apply the same methodologies used in GMC surveys to investigate this discrepancy. We present the first ϵ ff − Σ gas analysis in a fully feedback-regulated GMC simulation that resolves the formation of stellar systems. Our synthetic measurements reproduce the low observationally inferred efficiencies, showing that feedback-regulated star formation naturally produces ϵ ff ∼ 1%–3% without requiring extreme initial conditions. We also find that ϵ ff varies strongly over a GMC’s lifetime, suggesting that much of the observed scatter reflects evolutionary sampling rather than intrinsic cloud-to-cloud differences. Finally, by comparing observational and simulation definitions, we show that methodological assumptions introduce systematic biases, with a transition near log Σ gas ≈ 2.3 M ⊙ pc − 2 that depends on resolution. Above this threshold, the smoothing of dense structure increases both the inferred free-fall time and enclosed gas, with the latter dominating and suppressing ϵ ff . Below the threshold, the discrepancies are primarily driven by star formation rate assumptions.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Investigating the γ-Ray Emission from Explosive Dispersal Outflows with Fermi-LAT",
@@ -41,7 +43,9 @@
         "Auchettl, Katie",
         "Hirata, Christopher M."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "We present the first systematic study of explosive dispersal outflows (EDOs) as potential sources of high-energy emission in the Milky Way. EDOs are energetic outflows produced during dynamical interactions in young, massive star-forming regions, and their physical conditions make them promising environments for cosmic-ray acceleration. Using 16 yr of 0.2–500 GeV Fermi-Large Area Telescope observations, we study the γ -ray properties of seven EDOs. Three EDOs, DR21, G34.26+0.15, and G5.89−0.39, show spatially coincident GeV emission, while the remaining systems yield nondetections. Among the sample, DR21 stands out as the brightest candidate, with a detection significance ≥40 σ . Its spectrum is well described by a power law with an exponential cutoff, and the integrated luminosity in the 0.1–500 GeV band is L γ ≃ 2 × 10 35 erg s −1 . When compared with the outflow’s estimated kinetic energy, the inferred cosmic-ray acceleration efficiency is ≤15%, consistent with values for shocks in dense molecular environments. The energetics and morphology support an association between the DR21 molecular outflow and the observed γ -rays. Our results demonstrate that EDOs span a wide range of γ -ray luminosities and efficiencies, suggesting they may contribute to the Galactic cosmic-ray budget. This motivates searches for additional EDOs and improved multiwavelength characterization of their environments.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Taming the Tarantula: How Stellar Wind Feedback Shapes Gas and Dust in 30 Doradus",
@@ -61,7 +65,9 @@
         "Holland-Ashford, Tyler",
         "Webb, Trinity L."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Observations of massive star-forming regions show that classical stellar wind models over-predict the luminosity of the X-ray emitting gas, indicating a significant fraction of wind energy is lost. In this paper, we present a multi-wavelength analysis of the giant HII region 30 Doradus and its central star cluster R136 using 2 Ms of Chandra X-ray Observatory data, combined with James Webb Space Telescope and Hubble Space Telescope imaging and Spitzer spectral-energy distributions, to investigate how the hot gas energy is lost through turbulent mixing, radiative cooling, and physical leakage. We compare the spatial and spectral properties of the hot gas with those of the warm ionized gas and dust. We find no significant correlation between the dust and hot gas temperatures, suggesting they are not directly coupled and that the dust resides in the swept-up shells where it is heated radiatively. H$α$ and X-ray surface brightness profiles show that the X-rays peak interior to the H$α$ shells, demonstrating partial confinement of the hot gas. The fragmented shell structure and bright X-ray interior that declines near the H$α$ shell reflect efficient cooling from turbulent mixing at the hot-cold interface. We compare against recent simulations of stellar-feedback driven bubbles which have broad agreement with the morphology of the X-ray and H$α$ emission, but the simulations produce a dip in the interior X-ray surface brightness and a lack of hard X-rays compared to the observations. These differences may suggest thermal conduction is important as mass-loading of the hot bubble could reproduce the X-ray observables.",
+      "abstractSource": "arxiv"
     },
     {
       "title": "Explosive Dispersal Outflows as a New Class of Fermi Gamma-Ray Sources: The Case of DR21",
@@ -82,7 +88,9 @@
         "Auchettl, Katie",
         "Hirata, Christopher M."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "We present the first systematic study of explosive dispersal outflows (EDOs) as potential sources of high-energy emission in the Milky Way. EDOs are energetic outflows produced during dynamical interactions in young, massive star-forming regions, and their physical conditions make them promising environments for cosmic-ray acceleration. Using 16 years of $0.2$--$500$ GeV Fermi-LAT observations, we study the gamma-ray properties of seven EDOs. Three EDOs, DR21, G34.26$+$0.15, and G5.89$-$0.39 show spatially coincident GeV emission, while the remaining systems yield non-detections. Among the sample, DR21 stands out as the brightest candidate, with a detection significance $\\geq 40σ$. Its spectrum is well described by a power law with an exponential cutoff, and the integrated luminosity in the $0.1$--$500$ GeV band is $L_γ\\simeq 2\\times10^{35}\\ \\mathrm{erg\\ s^{-1}}$. When compared with the outflow's estimated kinetic energy, the inferred cosmic-ray acceleration efficiency is $\\leq 15\\%$, consistent with values for shocks in dense molecular environments. The energetics and morphology support an association between the DR21 molecular outflow and the observed gamma rays. Our results demonstrate that EDOs span a wide range of gamma-ray luminosities and efficiencies, suggesting they may contribute to the Galactic cosmic ray budget. This motivates searches for additional EDOs and improved multiwavelength characterization of their environments.",
+      "abstractSource": "arxiv"
     },
     {
       "title": "Constraining the Diffusion Coefficient and Cosmic-Ray Acceleration Efficiency Using Gamma-Ray Emission from the Star-forming Region RCW 38",
@@ -100,7 +108,9 @@
         "Linden, Tim",
         "Blackstone, Ian"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Stellar winds from massive stars may be significant sources of cosmic rays (CRs). To investigate this connection, we report a detailed study of gamma-ray emission near the young Milky Way star cluster (≈0.5 Myr old) in the star-forming region RCW 38 and compare this emission to its stellar wind properties and diffuse X-ray emission. Using 15 yr of Fermi-LAT data in the 0.2–300 GeV band, we find a significant ( σ > 22) detection coincident with the star cluster, producing a total gamma-ray luminosity (extrapolated over 0.1–500 GeV) of L γ =(2.66 ± 0.92) × 10 34 erg s −1 adopting a power-law spectral model (Γ = 2.34 ± 0.04). Using an empirical relationship and STARBURST99 , we estimate the total wind power to be 8 × 10 36 erg s −1 , corresponding to a CR acceleration efficiency of η CR ≃ 0.4 for an assumed diffusion coefficient consistent with D = 10 28 cm 2 s −1 . Alternatively, a lower acceleration efficiency of 0.1 can produce this L γ if the diffusion coefficient is smaller, D ≃ 2.5 × 10 27 cm 2 s −1 . Additionally, we analyze Chandra X-ray data from the region and compare the hot-gas pressure to the CR pressure. We find the former is 4 orders of magnitude greater, suggesting that the CR pressure is not dynamically important relative to stellar winds. As RCW 38 is too young for supernovae to have occurred, the high CR acceleration efficiency in RCW 38 demonstrates that stellar winds may be an important source of Galactic CRs.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Detection of Diffuse Hot Gas around the Young, Potential Superstar Cluster H72.97–69.39",
@@ -121,7 +131,9 @@
         "Pandey, Paarmita",
         "Olivier, Grace M."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "We present the first Chandra X-ray observations of H72.97–69.39, a highly embedded, potential superstar cluster in its infancy located in the star-forming complex N79 of the Large Magellanic Cloud. We detect particularly hard, diffuse X-ray emission that is coincident with the young stellar objects identified with JWST, and the hot gas fills cavities in the dense gas mapped by the Atacama Large Millimeter/submillimeter Array. The X-ray spectra are best fit with either a thermal plasma or power-law model, and assuming the former, we show that the X-ray luminosity of L X = (1.0 ± 0.3) × 10 34 erg s −1 is a factor of ∼20 below the expectation for a fully confined wind bubble. Our results suggest that stellar wind feedback produces diffuse hot gas in the earliest stages of massive star cluster formation and that wind energy can be lost quickly via either turbulent mixing followed by radiative cooling or by physical leakage.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Editorial: Star formation: numerical simulations and what they teach us",
@@ -137,7 +149,9 @@
         "Tomida, Kengo",
         "Rosen, Anna"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": null,
+      "abstractSource": null
     },
     {
       "title": "FORGE'd in FIRE III: The IMF in Quasar Accretion Disks from STARFORGE",
@@ -155,7 +169,9 @@
         "Guszejnov, David",
         "Rosen, Anna L."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Recently, we demonstrated self-consistent formation of strongly-magnetized quasar accretion disks (QADs) from cosmological radiation-magnetohydrodynamic-thermochemical galaxy-star formation simulations, including the full STARFORGE physics shown previously to produce a reasonable IMF under typical ISM conditions. Here we study star formation and the stellar IMF in QADs, on scales from 100 au to 10 pc from the SMBH. We show it is critical to include physics often previously neglected, including magnetic fields, radiation, and (proto)stellar feedback. Closer to the SMBH, star formation is suppressed, but the (rare) stars that do form exhibit top-heavy IMFs. Stars can form only in special locations (e.g. magnetic field switches) in the outer QAD. Protostars accrete their natal cores rapidly but then dynamically decouple from the gas and ‘wander,’ ceasing accretion on timescales ~100 yr. Their jets control initial core accretion, but the ejecta are ‘swept up’ into the larger-scale QAD flow without much dynamical effect. The strong tidal environment strongly suppresses common-core multiplicity. The IMF shape depends sensitively on un-resolved dynamics of protostellar disks (PSDs), as the global dynamical times can become incredibly short (< yr) and tidal fields are incredibly strong, so whether PSDs can efficiently transport angular momentum or fragment catastrophically at <10 au scales requires novel PSD simulations to properly address. Most analytic IMF models and analogies with planet formation in PSDs fail qualitatively to explain the simulation IMFs, though we discuss a couple of viable models.",
+      "abstractSource": "crossref"
     },
     {
       "title": "The High-resolution Accretion Disks of Embedded protoStars (HADES) simulations",
@@ -171,7 +187,9 @@
         "Rosen, Anna L.",
         "Kuiper, Rolf"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "How embedded, actively accreting low-mass protostars accrete mass is still greatly debated. Observations are now piecing together the puzzle of embedded protostellar accretion, in particular with new facilities in the near-infrared. However, high-resolution theoretical models are still lacking, with a stark paucity of detailed simulations of these early phases. Here, we present high-resolution nonideal magnetohydrodynamic simulations of a solar mass protostar accreting at rates exceeding 10 −6 M ⊙ yr −1 . We show the results of the accretion flow for four different protostellar magnetic fields, 10 G, 500 G, 1 kG, and 2 kG, combined with a disk magnetic field. For weaker (10 G and 500 G) protostar magnetic fields, accretion occurs via a turbulent boundary layer mode, with disk material impacting the protostar surface at a wide range of latitudes. In the 500 G model, the presence of a magnetically dominated outflow focuses the accretion toward the equator, slightly enhancing and ordering the accretion. For kilogauss magnetic fields, the disk becomes truncated due to the protostellar dipole and exhibits magnetospheric accretion, with the 2 kG model having accretion bursts induced by the interchange instability. We present bolometric light curves for the models and find that they reproduce observations of Class I protostars from YSOVAR, with high bursts followed by an exponential decay possibly being a signature of instability-driven accretion. Finally, we present the filling fractions of accretion and find that 90% of the mass is accreted in a surface area fraction of 10–20%. These simulations will be extended in future work for a broader parameter space, with their high resolution and high temporal spacing able to explore a wide range of interesting protostellar physics.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Stellar populations in STARFORGE: the origin and evolution of star clusters and associations",
@@ -188,7 +206,9 @@
         "Guszejnov, Dávid",
         "Rosen, Anna L"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Most stars form in highly clustered environments within molecular clouds, but eventually disperse into the distributed stellar field population. Exactly how the stellar distribution evolves from the embedded stage into gas-free associations and (bound) clusters is poorly understood. We investigate the long-term evolution of stars formed in the starforge simulation suite – a set of radiation-magnetohydrodynamic simulations of star-forming turbulent clouds that include all key stellar feedback processes inherent to star formation. We use nbody6++gpu to follow the evolution of the young stellar systems after gas removal. We use HDBSCAN to define stellar groups and analyse the stellar kinematics to identify the true bound star clusters. The conditions modeled by the simulations, i.e. global cloud surface densities below 0.15 g cm−2, star formation efficiencies below 15 per cent, and gas expulsion time-scales shorter than a free fall time, primarily produce expanding stellar associations and small clusters. The largest star clusters, which have ∼1000 bound members, form in the densest and lowest velocity dispersion clouds, representing ∼32 and 39 per cent of the stars in the simulations, respectively. The cloud’s early dynamical state plays a significant role in setting the classical star formation efficiency versus bound fraction relation. All stellar groups follow a narrow mass-velocity dispersion power-law relation at 10 Myr with a power-law index of 0.21. This correlation result in a distinct mass–size relationship for bound clusters. We also provide valuable constraints on the gas dispersal time-scale during the star formation process and analyse the implications for the formation of bound systems.",
+      "abstractSource": "crossref"
     },
     {
       "title": "The TEMPO Survey. I. Predicting Yields of Transiting Exosatellites, Moons, and Planets from a 30 days Survey of Orion with the Roman Space Telescope",
@@ -215,7 +235,9 @@
         "Townsend, Richard",
         "Vos, Johanna M."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "We present design considerations for the Transiting Exosatellites, Moons, and Planets in Orion (TEMPO) Survey with the Nancy Grace Roman Space Telescope. This proposed 30 days survey is designed to detect a population of transiting extrasolar satellites, moons, and planets in the Orion Nebula Cluster (ONC). The young (1–3 Myr), densely populated ONC harbors about a thousand bright brown dwarfs (BDs) and free-floating planetary-mass objects (FFPs). TEMPO offers sufficient photometric precision to monitor FFPs with M >1 M J for transiting satellites. The survey is also capable of detecting FFPs down to sub-Saturn masses via direct imaging, although follow-up confirmation will be challenging. TEMPO yield estimates include 14 (3–22) exomoons/satellites transiting FFPs and 54 (8–100) satellites transiting BDs. Of this population, approximately 50% of companions would be “super-Titans” (Titan to Earth mass). Yield estimates also include approximately 150 exoplanets transiting young Orion stars, of which >50% will orbit mid-to-late M dwarfs. TEMPO would provide the first census demographics of small exosatellites orbiting FFPs and BDs, while simultaneously offering insights into exoplanet evolution at the earliest stages. This detected exosatellite population is likely to be markedly different from the current census of exoplanets with similar masses (e.g., Earth-mass exosatellites that still possess H/He envelopes). Although our yield estimates are highly uncertain, as there are no known exoplanets or exomoons analogous to these satellites, the TEMPO survey would test the prevailing theories of exosatellite formation and evolution, which limit the certainty surrounding detection yields.",
+      "abstractSource": "crossref"
     },
     {
       "title": "What Sets the Star Formation Rate of Molecular Clouds? The Density Distribution as a Fingerprint of Compression and Expansion Rates",
@@ -233,7 +255,9 @@
         "Rosen, Anna L.",
         "Tan, Jonathan C."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "We use a suite of 3D simulations of star-forming molecular clouds, with and without stellar feedback, magnetic fields, and driven turbulence, to study the compression and expansion rates of the gas as functions of density. We show that, around the mean density, supersonic turbulence promotes rough equilibrium between the amounts of compressing and expanding gas, consistent with continuous gas cycling between high- and low-density states. We find that the inclusion of protostellar jets produces rapidly expanding and compressing low-density gas. We find that the gas mass flux peaks at the transition between the lognormal and power-law forms of the density probability distribution function (PDF). This is consistent with the transition density tracking the post-shock density, which promotes an enhancement of mass at this density (i.e., shock compression and filament formation). At high densities, the gas dynamics are dominated by self-gravity: the compression rate in all of our runs matches the rate of the run with only gravity, suggesting that processes other than self-gravity have little effect at these densities. The net gas mass flux becomes constant at a density below the sink formation threshold, where it equals the star formation rate. The density at which the net gas mass flux equals the star formation rate is one order of magnitude lower than our sink threshold density, corresponds to the formation of the second power-law tail in the density PDF, and sets the overall star formation rates of these simulations.",
+      "abstractSource": "crossref"
     },
     {
       "title": "A Massive Star Is Born: How Feedback from Stellar Winds, Radiation Pressure, and Collimated Outflows Limits Accretion onto Massive Stars",
@@ -246,7 +270,9 @@
       "authors": [
         "Rosen, Anna L."
       ],
-      "firstAuthor": true
+      "firstAuthor": true,
+      "abstract": "Massive protostars attain high luminosities as they are actively accreting and the radiation pressure exerted on the gas in the star’s atmosphere may launch isotropic high-velocity winds. These winds will collide with the surrounding gas producing shock-heated ( T ∼ 10 7 K) tenuous gas that adiabatically expands and pushes on the dense gas that may otherwise be accreted. We present a suite of 3D radiation-magnetohydrodynamic simulations of the collapse of massive prestellar cores and include radiative feedback from the stellar and dust-reprocessed radiation fields, collimated outflows, and, for the first time, isotropic stellar winds to model how these processes affect the formation of massive stars. We find that winds are initially launched when the massive protostar is still accreting and its wind properties evolve as the protostar contracts to the main sequence. Wind feedback drives asymmetric adiabatic wind bubbles that have a bipolar morphology because the dense circumstellar material pinches the expansion of the hot shock-heated gas. We term this the “wind tunnel effect.” If the core is magnetized, wind feedback is less efficient at driving adiabatic wind bubbles initially because magnetic tension delays their growth. We find that wind feedback eventually quenches accretion onto ∼30 M ⊙ protostars that form from the collapse of the isolated cores simulated here. Hence, our results suggest that ≳30 M ⊙ stars likely require larger-scale dynamical inflows from their host cloud to overcome wind feedback. Additionally, we discuss the implications of observing adiabatic wind bubbles with Chandra while the massive protostars are still highly embedded.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Cluster assembly and the origin of mass segregation in the STARFORGE simulations",
@@ -265,7 +291,9 @@
         "Rosen, Anna L",
         "Hopkins, Philip F"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Stars form in dense, clustered environments, where feedback from newly formed stars eventually ejects the gas, terminating star formation and leaving behind one or more star clusters. Using the STARFORGE simulations, it is possible to simulate this process in its entirety within a molecular cloud, while explicitly evolving the gas radiation and magnetic fields and following the formation of individual, low-mass stars. We find that individual star-formation sites merge to form ever larger structures, while still accreting gas. Thus clusters are assembled through a series of mergers. During the cluster assembly process, a small fraction of stars are ejected from their clusters; we find no significant difference between the mass distribution of the ejected stellar population and that of stars inside clusters. The star-formation sites that are the building blocks of clusters start out mass segregated with one or a few massive stars at their centre. As they merge the newly formed clusters maintain this feature, causing them to have mass-segregated substructures without themselves being centrally condensed. The merged clusters relax to a centrally condensed mass-segregated configuration through dynamical interactions between their members, but this process does not finish before feedback expels the remaining gas from the cluster. In the simulated runs, the gas-free clusters then become unbound and breakup. We find that turbulent driving and a periodic cloud geometry can significantly reduce clustering and prevent gas expulsion. Meanwhile, the initial surface density and level of turbulence have little qualitative effect on cluster evolution, despite the significantly different star formation histories.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Dust in the wind with resonant drag instabilities – I. The dynamics of dust-driven outflows in GMCs and H ii regions",
@@ -284,7 +312,9 @@
         "Seligman, Darryl",
         "Steinwandel, Ulrich P"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Radiation-dust driven outflows, where radiation pressure on dust grains accelerates gas, occur in many astrophysical environments. Almost all previous numerical studies of these systems have assumed that the dust was perfectly coupled to the gas. However, it has recently been shown that the dust in these systems is unstable to a large class of ‘resonant drag instabilities’ (RDIs) which de-couple the dust and gas dynamics and could qualitatively change the non-linear outcome of these outflows. We present the first simulations of radiation-dust driven outflows in stratified, inhomogeneous media, including explicit grain dynamics and a realistic spectrum of grain sizes and charge, magnetic fields and Lorentz forces on grains (which dramatically enhance the RDIs), Coulomb and Epstein drag forces, and explicit radiation transport allowing for different grain absorption and scattering properties. In this paper, we consider conditions resembling giant molecular clouds (GMCs), H ii regions, and distributed starbursts, where optical depths are modest (≲1), single-scattering effects dominate radiation-dust coupling, Lorentz forces dominate over drag on grains, and the fastest-growing RDIs are similar, such as magnetosonic and fast-gyro RDIs. These RDIs generically produce strong size-dependent dust clustering, growing non-linear on time-scales that are much shorter than the characteristic times of the outflow. The instabilities produce filamentary and plume-like or ‘horsehead’ nebular morphologies that are remarkably similar to observed dust structures in GMCs and H ii regions. Additionally, in some cases they strongly alter the magnetic field structure and topology relative to filaments. Despite driving strong micro-scale dust clumping which leaves some gas ‘behind,’ an order-unity fraction of the gas is always efficiently entrained by dust.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Effects of the environment and feedback physics on the initial mass function of stars in the STARFORGE simulations",
@@ -302,7 +332,9 @@
         "Hopkins, Philip F",
         "Rosen, Anna L"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "One of the key mysteries of star formation is the origin of the stellar initial mass function (IMF). The IMF is observed to be nearly universal in the Milky Way and its satellites, and significant variations are only inferred in extreme environments, such as the cores of massive elliptical galaxies and the Central Molecular Zone. In this work, we present simulations from the STARFORGE project that are the first cloud-scale radiation-magnetohydrodynamic simulations that follow individual stars and include all relevant physical processes. The simulations include detailed gas thermodynamics, as well as stellar feedback in the form of protostellar jets, stellar radiation, winds, and supernovae. In this work, we focus on how stellar radiation, winds, and supernovae impact star-forming clouds. Radiative feedback plays a major role in quenching star formation and disrupting the cloud; however, the IMF peak is predominantly set by protostellar jet physics. We find that the effect of stellar winds is minor, and supernovae ‘occur too late’ to affect the IMF or quench star formation. We also investigate the effects of initial conditions on the IMF. We find that the IMF is insensitive to the initial turbulence, cloud mass, and cloud surface density, even though these parameters significantly shape the star formation history of the cloud, including the final star formation efficiency. Meanwhile, the characteristic stellar mass depends weakly on metallicity and the interstellar radiation field, which essentially set the average gas temperature. Finally, while turbulent driving and the level of magnetization strongly influence the star formation history, they only influence the high-mass slope of the IMF.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Effects of the environment on the multiplicity properties of stars in the STARFORGE simulations",
@@ -321,7 +353,9 @@
         "Hopkins, Philip F",
         "Rosen, Anna L"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Most observed stars are part of a multiple star system, but the formation of such systems and the role of environment and various physical processes is still poorly understood. We present a suite of radiation-magnetohydrodynamic simulations of star-forming molecular clouds from the STARFORGE project that include stellar feedback with varied initial surface density, magnetic fields, level of turbulence, metallicity, interstellar radiation field, simulation geometry and turbulent driving. In our fiducial cloud, the raw simulation data reproduces the observed multiplicity fractions for Solar-type and higher mass stars, similar to previous works. However, after correcting for observational incompleteness the simulation underpredicts these values. The discrepancy is likely due to the lack of disc fragmentation, as the simulation only resolves multiples that form either through capture or core fragmentation. The raw mass distribution of companions is consistent with randomly drawing from the initial mass function for the companions of $\\gt 1\\, \\mathrm{M}_{\\rm \\odot }$ stars. However, accounting for observational incompleteness produces a flatter distribution similar to observations. We show that stellar multiplicity changes as the cloud evolves and anticorrelates with stellar density. This relationship also explains most multiplicity variations between runs, i.e. variations in the initial conditions that increase stellar density (increased surface density, reduced turbulence) also act to decrease multiplicity. While other parameters, such as metallicity, interstellar radiation, and geometry significantly affect the star formation history or the IMF, varying them produces no clear trend in stellar multiplicity properties.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Less wrong: a more realistic initial condition for simulations of turbulent molecular clouds",
@@ -339,7 +373,9 @@
         "Faucher-Giguère, Claude-André",
         "Rosen, Anna L"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Simulations of isolated giant molecular clouds (GMCs) are an important tool for studying the dynamics of star formation, but their turbulent initial conditions (ICs) are uncertain. Most simulations have either initialized a velocity field with a prescribed power spectrum on a smooth density field (failing to model the full structure of turbulence) or ‘stirred’ turbulence with periodic boundary conditions (which may not model real GMC boundary conditions). We develop and test a new GMC simulation setup (called turbsphere) that combines advantages of both approaches: we continuously stir an isolated cloud to model the energy cascade from larger scales, and use a static potential to confine the gas. The resulting cloud and surrounding envelope achieve a quasi-equilibrium state with the desired hallmarks of supersonic ISM turbulence (e.g. density PDF and a ∼k−2 velocity power spectrum), whose bulk properties can be tuned as desired. We use the final stirred state as initial conditions for star formation simulations with self-gravity, both with and without continued driving and protostellar jet feedback, respectively. We then disentangle the respective effects of the turbulent cascade, simulation geometry, external driving, and gravity/MHD boundary conditions on the resulting star formation. Without external driving, the new setup obtains results similar to previous simple spherical cloud setups, but external driving can suppress star formation considerably in the new setup. Periodic box simulations with the same dimensions and turbulence parameters form stars significantly slower, highlighting the importance of boundary conditions and the presence or absence of a global collapse mode in the results of star formation calculations.",
+      "abstractSource": "crossref"
     },
     {
       "title": "The dynamics and outcome of star formation with jets, radiation, winds, and supernovae in concert",
@@ -358,7 +394,9 @@
         "Faucher-Giguère, Claude-André",
         "Hopkins, Philip F"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "We analyse the first giant molecular cloud (GMC) simulation to follow the formation of individual stars and their feedback from jets, radiation, winds, and supernovae, using the STARFORGE framework in the GIZMO code. We evolve the GMC for $\\sim 9 \\rm Myr$, from initial turbulent collapse to dispersal by feedback. Protostellar jets dominate feedback momentum initially, but radiation and winds cause cloud disruption at $\\sim 8{{\\ \\rm per\\ cent}}$ star formation efficiency (SFE), and the first supernova at $8.3\\, \\rm Myr$ comes too late to influence star formation significantly. The per-free-fall SFE is dynamic, accelerating from 0 per cent to $\\sim 18{{\\ \\rm per\\ cent}}$ before dropping quickly to &lt;1 per cent, but the estimate from YSO counts compresses it to a narrower range. The primary cluster forms hierarchically and condenses to a brief ($\\sim 1\\, \\mathrm{Myr}$) compact ($\\sim 1\\, \\rm pc$) phase, but does not virialize before the cloud disperses, and the stars end as an unbound expanding association. The initial mass function resembles the Chabrier (2005) form with a high-mass slope α = −2 and a maximum mass of 55 M⊙. Stellar accretion takes $\\sim 400\\, \\rm kyr$ on average, but $\\gtrsim 1\\,\\rm Myr$ for &gt;10 M⊙ stars, so massive stars finish growing latest. The fraction of stars in multiples increase as a function of primary mass, as observed. Overall, the simulation much more closely resembles reality, compared to previous versions that neglected different feedback physics entirely. But more detailed comparison with synthetic observations will be needed to constrain the theoretical uncertainties.",
+      "abstractSource": "crossref"
     },
     {
       "title": "The Effects of Magnetic Fields and Outflow Feedback on the Shape and Evolution of the Density Probability Distribution Function in Turbulent Star-forming Clouds",
@@ -375,7 +413,9 @@
         "Federrath, Christoph",
         "Rosen, Anna L."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Using a suite of 3D hydrodynamical simulations of star-forming molecular clouds, we investigate how the density probability distribution function (PDF) changes when including gravity, turbulence, magnetic fields, and protostellar outflows and heating. We find that the density PDF is not lognormal when outflows and self-gravity are considered. Self-gravity produces a power-law tail at high densities, and the inclusion of stellar feedback from protostellar outflows and heating produces significant time-varying deviations from a lognormal distribution at low densities. The simulation with outflows has an excess of diffuse gas compared to the simulations without outflows, exhibits an increased average sonic Mach number, and maintains a slower star formation rate (SFR) over the entire duration of the run. We study the mass transfer between the diffuse gas in the lognormal peak of the PDF, the collapsing gas in the power-law tail, and the stars. We find that the mass fraction in the power-law tail is constant, such that the stars form out of the power-law gas at the same rate at which the gas from the lognormal part replenishes the power law. We find that turbulence does not provide significant support in the dense gas associated with the power-law tail. When including outflows and magnetic fields in addition to driven turbulence, the rate of mass transfer from the lognormal to the power law, and then to the stars, becomes significantly slower, resulting in slower SFRs and longer depletion times.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Continuity of accretion from clumps to Class 0 high-mass protostars in SDC335",
@@ -396,7 +436,9 @@
         "Güsten, R.",
         "Cunningham, N."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "The IRDC SDC335.579-0.292 (SDC335) is a massive star-forming cloud found to be globally collapsing towards one of the most massive star forming cores in the Galaxy. SDC335 hosts three high-mass protostellar objects at early stages of their evolution and archival ALMA Cycle 0 data indicate the presence of at least one molecular outflow in the region. Observations of molecular outflows from massive protostellar objects allow us to estimate the accretion rates of the protostars as well as to assess the disruptive impact that stars have on their natal clouds. The aim of this work is to identify and analyse the properties of the protostellar-driven molecular outflows within SDC335 and use these outflows to help refine the properties of the protostars. We imaged the molecular outflows in SDC335 using new data from the ATCA of SiO and Class I CH$_3$OH maser emission (~3 arcsec) alongside observations of four CO transitions made with APEX and archival ALMA CO, $^{13}$CO (~1 arcsec), and HNC data. We introduced a generalised argument to constrain outflow inclination angles based on observed outflow properties. We used the properties of each outflow to infer the accretion rates on the protostellar sources driving them and to deduce the evolutionary characteristics of the sources. We identify three molecular outflows in SDC335, one associated with each of the known compact HII regions. The outflow properties show that the SDC335 protostars are in the early stages (Class 0) of their evolution, with the potential to form stars in excess of 50 M$_{\\odot}$. The measured total accretion rate onto the protostars is $1.4(\\pm 0.1) \\times 10^{-3}$M$_{\\odot}$ yr$^{-1}$, comparable to the total mass infall rate toward the cloud centre on parsec scales of 2.5$(\\pm 1.0) \\times 10^{-3}$M$_{\\odot}$ yr$^{-1}$, suggesting a near-continuous flow of material from cloud to core scales. [abridged].",
+      "abstractSource": "arxiv"
     },
     {
       "title": "Evolution of Stellar Feedback in H ii Regions",
@@ -415,7 +457,9 @@
         "Krumholz, Mark R.",
         "Bolatto, Alberto D."
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Stellar feedback is needed to produce realistic giant molecular clouds and galaxies in simulations, but due to limited numerical resolution, feedback must be implemented using sub-grid models. Observational work is an important means to test and anchor these models, but limited studies have assessed the relative dynamical role of multiple feedback modes, particularly at the earliest stages of expansion when H ii regions are still deeply embedded. In this paper, we use multiwavelength (radio, infrared, and X-ray) data to measure the pressures associated with direct radiation ( P dir ), dust-processed radiation ( P IR ), photoionization heating ( P H II ), and shock-heating from stellar winds ( P X ) in a sample of 106 young, resolved H ii regions with radii ≲0.5 pc to determine how stellar feedback drives their expansion. We find that the P IR dominates in 84% of the regions and that the median P dir and P H II are smaller than the median P IR by factors of ≈6 and ≈9, respectively. Based on the radial dependences of the pressure terms, we show that H ii regions transition from P IR -dominated to P H II -dominated at radii of ∼3 pc. We find a median trapping factor of f trap ∼ 8 without any radial dependence for the sample, suggesting this value can be adopted in sub-grid feedback models. Moreover, we show that the total pressure is greater than the gravitational pressure in the majority of our sample, indicating that the feedback is sufficient to expel gas from the regions.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Observations of the Ag(3 × 1) phase on Ge(111)",
@@ -430,7 +474,9 @@
         "Rosen, Anna L.",
         "Chiang, Shirley"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Low-energy electron diffraction and low-energy electron microscopy were used to study the (3 × 1) phase of Ag on Ge(111) for temperatures less than 540 °C. This phase was observed when depositing 0.05–0.1 ML Ag at 370 °C. The (3×3)R30o phase formed when depositing 0.3 ML Ag at 170 °C, and then annealing to 200−360 °C resulted in a nonreversible phase transition to [(4 × 4) + (3 × 1)] phases at 360 °C. The 3 phase appears to be metastable for temperatures &lt;250 °C since subsequent cooling did not cause it to reappear. These experimental observations suggest modifications to a published phase diagram for Ag/Ge(111).",
+      "abstractSource": "crossref"
     },
     {
       "title": "ORION2: A magnetohydrodynamics code for star formation",
@@ -452,7 +498,9 @@
         "Rosen, Anna",
         "Skinner, Aaron"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": null,
+      "abstractSource": null
     },
     {
       "title": "Circumbinary Disks: Accretion and Torque as a Function of Mass Ratio and Disk Viscosity",
@@ -471,7 +519,9 @@
         "Rosen, Anna L.",
         "Zrake, Jonathan"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Using numerical hydrodynamics calculations and a novel method for densely sampling parameter space, we measure the accretion and torque on a binary system from a circumbinary disk. In agreement with previous studies, we find that the net torque on the binary is positive for mass ratios close to unity, and that accretion always drives the binary towards equal mass. Accretion variability depends sensitively on the numerical sink prescription, but the torque and relative accretion onto each component do not depend on the sink timescale. Positive torque and highly variable accretion occurs only for mass ratios greater than around $0.05$. This means that for mass ratios below $0.05$, the binary would migrate inward until the secondary accreted sufficient mass, after which it would execute a U-turn and migrate outward. We explore a range of viscosities, from $α= 0.03$ to $α= 0.15$, and find that this outward torque is proportional to the viscous torque, simply proportional to viscosity in this range. Dependence of accretion and torque on mass ratio is explored in detail, densely sampling mass ratios between $0.01$ and unity. For mass ratio $q > 0.6$, accretion variability is found to exhibit a distinct sawtooth pattern, typically with a five-orbit cycle that provides a \"smoking gun\" prediction for variable quasars observed over long periods, as a potential means to confirm the presence of a binary.",
+      "abstractSource": "arxiv"
     },
     {
       "title": "Formation and Evolution of Disks Around Young Stellar Objects",
@@ -495,7 +545,9 @@
         "Padovani, Marco",
         "Lee, Yueh-Ning"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Recent observations have suggested that circumstellar disks may commonly form around young stellar objects. Although the formation of circumstellar disks can be a natural result of the conservation of angular momentum in the parent cloud, theoretical studies instead show disk formation to be difficult from dense molecular cores magnetized to a realistic level, owing to efficient magnetic braking that transports a large fraction of the angular momentum away from the circumstellar region. We review recent progress in the formation and early evolution of disks around young stellar objects of both low-mass and high-mass, with an emphasis on mechanisms that may bridge the gap between observation and theory, including non-ideal MHD effects and asymmetric perturbations in the collapsing core (e.g., magnetic field misalignment and turbulence). We also address the associated processes of outflow launching and the formation of multiple systems, and discuss possible implications in properties of protoplanetary disks.",
+      "abstractSource": "arxiv"
     },
     {
       "title": "The Role of Outflows, Radiation Pressure, and Magnetic Fields in Massive Star Formation",
@@ -509,7 +561,9 @@
         "Rosen, Anna L.",
         "Krumholz, Mark R."
       ],
-      "firstAuthor": true
+      "firstAuthor": true,
+      "abstract": "Stellar feedback in the form of radiation pressure and magnetically driven collimated outflows may limit the maximum mass that a star can achieve and affect the star formation efficiency of massive prestellar cores. Here we present a series of 3D adaptive mesh refinement radiation–magnetohydrodynamic simulations of the collapse of initially turbulent, massive prestellar cores. Our simulations include radiative feedback from both the direct stellar and dust-reprocessed radiation fields, and collimated outflow feedback from the accreting stars. We find that protostellar outflows punch holes in the dusty circumstellar gas along the star’s polar directions, thereby increasing the size of optically thin regions through which radiation can escape. Precession of the outflows as the star’s spin axis changes due to the turbulent accretion flow further broadens the outflow, and causes more material to be entrained. Additionally, the presence of magnetic fields in the entrained material leads to broader entrained outflows that escape the core. We compare the injected and entrained outflow properties and find that the entrained outflow mass is a factor of ∼3 larger than the injected mass and the momentum and energy contained in the entrained material are ∼25% and ∼5% of the injected momentum and energy, respectively. As a result, we find that, when one includes both outflows and radiation pressure, the former are a much more effective and important feedback mechanism, even for massive stars with significant radiative outputs.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Winds in Star Clusters Drive Kolmogorov Turbulence",
@@ -526,7 +580,9 @@
         "Naiman, Jill P.",
         "Ramirez-Ruiz, Enrico"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Intermediate and massive stars drive fast and powerful isotropic winds that interact with the winds of nearby stars in star clusters and the surrounding interstellar medium (ISM). Wind–ISM collisions generate astrospheres around these stars that contain hot T ∼ 10 7 K gas that adiabatically expands. As individual bubbles expand and collide they become unstable, potentially driving turbulence in star clusters. In this Letter we use hydrodynamic simulations to model a densely populated young star cluster within a homogeneous cloud to study stellar wind collisions with the surrounding ISM. We model a mass-segregated cluster of 20 B-type young main-sequence stars with masses ranging from 3 to 17 M ⊙ . We evolve the winds for ∼11 kyr and show that wind–ISM collisions and overlapping wind-blown bubbles around B-stars mix the hot gas and ISM material, generating Kolmogorov-like turbulence on small scales early in its evolution. We discuss how turbulence driven by stellar winds may impact the subsequent generation of star formation in the cluster.",
+      "abstractSource": "crossref"
     },
     {
       "title": "Zooming in on Individual Star Formation: Low- and High-Mass Stars",
@@ -544,7 +600,9 @@
         "Vázquez-Semadeni, Enrique",
         "Ginsburg, Adam"
       ],
-      "firstAuthor": true
+      "firstAuthor": true,
+      "abstract": null,
+      "abstractSource": null
     },
     {
       "title": "Massive-star Formation via the Collapse of Subvirial and Virialized Turbulent Massive Cores",
@@ -560,7 +618,9 @@
         "Zhang, Qizhou",
         "Burkhart, Blakesley"
       ],
-      "firstAuthor": true
+      "firstAuthor": true,
+      "abstract": null,
+      "abstractSource": null
     },
     {
       "title": "unyt: Handle, manipulate, and convert data with units in Python",
@@ -577,7 +637,9 @@
         "Kowalik, Kacper",
         "L. Rosen, Anna"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": null,
+      "abstractSource": null
     },
     {
       "title": "Hybrid Adaptive Ray-Moment Method (HARM2): A highly parallel method for radiation hydrodynamics on adaptive grids",
@@ -594,7 +656,9 @@
         "Lee, A.T.",
         "Klein, R.I."
       ],
-      "firstAuthor": true
+      "firstAuthor": true,
+      "abstract": null,
+      "abstractSource": null
     },
     {
       "title": "An unstable truth: how massive stars get their mass",
@@ -610,7 +674,9 @@
         "McKee, Christopher F.",
         "Klein, Richard I."
       ],
-      "firstAuthor": true
+      "firstAuthor": true,
+      "abstract": "The pressure exerted by massive stars' radiation fields is an important mechanism regulating their formation. Detailed simulation of massive star formation therefore requires an accurate treatment of radiation. However, all published simulations have either used a diffusion approximation of limited validity; have only been able to simulate a single star fixed in space, thereby suppressing potentially-important instabilities; or did not provide adequate resolution at locations where instabilities may develop. To remedy this we have developed a new, highly accurate radiation algorithm that properly treats the absorption of the direct radiation field from stars and the re-emission and processing by interstellar dust. We use our new tool to perform three-dimensional radiation-hydrodynamic simulations of the collapse of massive pre-stellar cores with laminar and turbulent initial conditions and properly resolve regions where we expect instabilities to grow. We find that mass is channeled to the stellar system via gravitational and Rayleigh-Taylor (RT) instabilities, in agreement with previous results using stars capable of moving, but in disagreement with methods where the star is held fixed or with simulations that do not adequately resolve the development of RT instabilities. For laminar initial conditions, proper treatment of the direct radiation field produces later onset of instability, but does not suppress it entirely provided the edges of radiation-dominated bubbles are adequately resolved. Instabilities arise immediately for turbulent pre-stellar cores because the initial turbulence seeds the instabilities. Our results suggest that RT features are significant and should be present around accreting massive stars throughout their formation.",
+      "abstractSource": "semanticscholar"
     },
     {
       "title": "Very Massive Stars in the local Universe",
@@ -651,7 +717,9 @@
         "Zhang, Y.",
         "the participants of JD2"
       ],
-      "firstAuthor": false
+      "firstAuthor": false,
+      "abstract": "Recent studies have claimed the existence of very massive stars (VMS) up to 300 solar masses in the local Universe. As this finding may represent a paradigm shift for the canonical stellar upper-mass limit of 150 Msun, it is timely to discuss the status of the data, as well as the far-reaching implications of such objects. We held a Joint Discussion at the General Assembly in Beijing to discuss (i) the determination of the current masses of the most massive stars, (ii) the formation of VMS, (iii) their mass loss, and (iv) their evolution and final fate. The prime aim was to reach broad consensus between observers and theorists on how to identify and quantify the dominant physical processes.",
+      "abstractSource": "arxiv"
     },
     {
       "title": "Gone with the wind: Where is the missing stellar wind energy from massive star clusters?",
@@ -667,7 +735,9 @@
         "Krumholz, Mark R.",
         "Ramirez-Ruiz, Enrico"
       ],
-      "firstAuthor": true
+      "firstAuthor": true,
+      "abstract": "Star clusters larger than $\\sim 10^{3}$ $M_\\odot$ contain multiple hot stars that launch fast stellar winds. The integrated kinetic energy carried by these winds is comparable to that delivered by supernova explosions, suggesting that at early times winds could be an important form of feedback on the surrounding cold material from which the star cluster formed. However, the interaction of these winds with the surrounding clumpy, turbulent, cold gas is complex and poorly understood. Here we investigate this problem via an accounting exercise: we use empirically determined properties of four well-studied massive star clusters to determine where the energy injected by stellar winds ultimately ends up. We consider a range of kinetic energy loss channels, including radiative cooling, mechanical work on the cold interstellar medium, thermal conduction, heating of dust via collisions by the hot gas, and bulk advection of thermal energy by the hot gas. We show that, for at least some of the clusters, none of these channels can account for more than a small fraction of the injected energy. We suggest that turbulent mixing at the hot-cold interface or physical leakage of the hot gas from the HII region can efficiently remove the kinetic energy injected by the massive stars in young star clusters. Even for the clusters where we are able to account for all the injected kinetic energy, we show that our accounting sets strong constraints on the importance of stellar winds as a mechanism for feedback on the cold interstellar medium.",
+      "abstractSource": "semanticscholar"
     },
     {
       "title": "WHAT SETS THE INITIAL ROTATION RATES OF MASSIVE STARS?",
@@ -682,7 +752,9 @@
         "Krumholz, Mark R.",
         "Ramirez-Ruiz, Enrico"
       ],
-      "firstAuthor": true
+      "firstAuthor": true,
+      "abstract": null,
+      "abstractSource": null
     }
   ]
 }

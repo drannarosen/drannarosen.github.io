@@ -14,12 +14,28 @@ import {
   firstAuthored,
   coAuthored,
   unresolvedAuthorship,
+  abstractFor,
   type SyncedWork,
 } from "../data/allPublications";
+import { renderAbstract } from "../lib/abstract";
 
 function authorParts(s: string): { text: string; bold: boolean }[] {
   return s.split("**").map((text, i) => ({ text, bold: i % 2 === 1 }));
 }
+
+/*
+ * Featured cards (the human layer) DERIVE their abstract from the machine
+ * layer, matched on the identifiers their links already carry — the arXiv id in
+ * the arXiv URL and the bibcode in the ADS URL. No abstract is stored twice.
+ */
+const arxivIdOf = (url?: string | null): string | null =>
+  url?.match(/arxiv\.org\/abs\/([^/?#]+)/i)?.[1]?.replace(/v\d+$/, "") ?? null;
+const bibcodeOf = (url?: string | null): string | null =>
+  url?.match(/\/abs\/([^/]+)\/abstract/i)?.[1] ?? null;
+const featuredAbstract = (
+  p: { arxiv?: string | null; ads?: string | null; title?: string | null },
+): string | null =>
+  abstractFor({ arxiv: arxivIdOf(p.arxiv), bibcode: bibcodeOf(p.ads), title: p.title });
 
 /*
  * Link a featured paper to its astrobyte automatically, matched on the arXiv
@@ -84,6 +100,15 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
             )}
           </p>
           <p class="pub__summary prose">{p.summary}</p>
+          {featuredAbstract(p) && (
+            <details class="abstract">
+              <summary class="abstract__toggle">Abstract</summary>
+              <div
+                class="abstract__body prose"
+                set:html={renderAbstract(featuredAbstract(p)!)}
+              />
+            </details>
+          )}
           <p class="pub__links">
             {p.arxiv && (
               <a href={p.arxiv} rel="noopener">
@@ -179,6 +204,15 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
                       >
                         Cite
                       </button>
+                      {w.abstract && (
+                        <details class="abstract abstract--compact">
+                          <summary class="abstract__toggle">Abstract</summary>
+                          <div
+                            class="abstract__body prose"
+                            set:html={renderAbstract(w.abstract)}
+                          />
+                        </details>
+                      )}
                     </li>
                   );
                 })}
@@ -306,6 +340,59 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   .pub__figure {
     margin-block-start: var(--space-l);
   }
+
+  /* Collapsible abstract — the paper's own words, secondary to the summary.
+     Native <details>, so it works with no JS and prints. */
+  .abstract {
+    margin-block-start: var(--space-s);
+  }
+  .abstract__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3xs);
+    inline-size: max-content;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    list-style: none;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  .abstract__toggle::-webkit-details-marker {
+    display: none;
+  }
+  .abstract__toggle::before {
+    content: "▸";
+    display: inline-block;
+    color: var(--ink-faint);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .abstract[open] .abstract__toggle::before {
+    transform: rotate(90deg);
+  }
+  .abstract__toggle:hover {
+    color: var(--ink);
+  }
+  .abstract__body {
+    margin-block-start: var(--space-s);
+    padding-inline-start: var(--space-m);
+    border-inline-start: 2px solid var(--border-strong);
+    color: var(--ink-soft);
+    font-size: var(--step-0);
+  }
+  /* Denser inside the bibliography list. */
+  .abstract--compact {
+    margin-block-start: var(--space-2xs);
+  }
+  .abstract--compact .abstract__toggle {
+    font-size: var(--step--2);
+  }
+  .abstract--compact .abstract__body {
+    margin-block-start: var(--space-2xs);
+    padding-inline-start: var(--space-s);
+    font-size: var(--step--1);
+  }
+
   .pubs__note {
     padding-block-end: var(--space-2xl);
     color: var(--ink-dim);

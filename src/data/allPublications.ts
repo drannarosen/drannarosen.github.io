@@ -42,6 +42,15 @@ export interface SyncedWork {
    * publications.additions.json.
    */
   submittedTo?: string | null;
+  /**
+   * The paper's OWN published abstract, fetched verbatim by the sync from a
+   * tokenless source (arXiv > Crossref > Semantic Scholar). `null`/absent where
+   * none of them carries one — the abstract toggle is simply omitted, never
+   * faked. A citable source, so it may be shown verbatim.
+   */
+  abstract?: string | null;
+  /** Where the abstract came from — provenance kept with the record. */
+  abstractSource?: "arxiv" | "crossref" | "semanticscholar" | null;
 }
 
 /** doi/bibcode -> note, from the human-owned annotations file. */
@@ -118,6 +127,11 @@ const extra: SyncedWork[] = additions.additions
       authors: a.authors,
       firstAuthor: isFirstAuthor(a.authors),
       submittedTo: a.submittedTo,
+      // A submitted paper ORCID cannot see yet may still carry its own abstract
+      // here (verbatim from arXiv). Dropped automatically once it enters ORCID
+      // and this addition de-dupes out.
+      abstract: (a as { abstract?: string }).abstract ?? null,
+      abstractSource: (a as { abstractSource?: SyncedWork["abstractSource"] }).abstractSource ?? null,
     }),
   ) as SyncedWork[];
 
@@ -127,6 +141,45 @@ export const allPublications: SyncedWork[] = [...extra, ...synced].sort(
 export const publicationsSource: string = generated.source;
 /** Counts the merged list, so additions are included rather than only synced. */
 export const publicationCount: number = allPublications.length;
+
+/*
+ * Abstract lookup, so the featured cards (the HUMAN layer) DERIVE their abstract
+ * from this one machine home instead of storing a second copy that could drift.
+ *
+ * Keyed by every identifier a work carries AND by its normalised title. The
+ * title key matters because ORCID recorded only DOIs for Anna's older
+ * first-author papers, so the featured cards (which link by arXiv/ADS, not DOI)
+ * share no machine identifier with the synced record — the title is the only
+ * bridge. It is the same normalisation the additions de-dup already trusts.
+ */
+const abstractIndex = new Map<string, string>();
+const indexAbstract = (k: string | null | undefined, a: string) => {
+  if (k) abstractIndex.set(k.toLowerCase(), a);
+};
+for (const w of allPublications) {
+  if (!w.abstract) continue;
+  indexAbstract(w.arxiv, w.abstract);
+  indexAbstract(w.bibcode, w.abstract);
+  indexAbstract(w.doi, w.abstract);
+  abstractIndex.set(`title:${titleKey(w.title)}`, w.abstract);
+}
+
+/** A reference to a work by any key that might resolve its abstract. */
+export interface AbstractRef {
+  arxiv?: string | null;
+  bibcode?: string | null;
+  doi?: string | null;
+  title?: string | null;
+}
+
+/** The stored abstract for a work, matched by identifier first, then title. */
+export function abstractFor(ref: AbstractRef): string | null {
+  for (const id of [ref.arxiv, ref.bibcode, ref.doi]) {
+    const hit = id ? abstractIndex.get(id.toLowerCase()) : undefined;
+    if (hit) return hit;
+  }
+  return ref.title ? (abstractIndex.get(`title:${titleKey(ref.title)}`) ?? null) : null;
+}
 
 /** Role split. Anything unresolved rides along with co-authored in the list but
  *  is counted separately so it can never silently inflate either number. */
