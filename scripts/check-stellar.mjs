@@ -16,6 +16,7 @@ import {
   zamsRadius,
   effectiveTemperature,
   zamsTeff,
+  spectralType,
 } from "../src/lib/stellar.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +47,16 @@ console.log("\nphysical landmarks:");
 // ZAMS Sun (not present-day): dimmer, cooler — a real, correct feature.
 check("ZAMS Sun Teff", zamsTeff(1.0), 5597, 2e-3);
 check("Stefan-Boltzmann Sun (L=1,R=1)", effectiveTemperature(1, 1), 5772.0, 1e-4);
+
+console.log("\nspectral-type class boundaries (Pecaut & Mamajek 2013):");
+for (const [teff, want] of [
+  [40000, "O"], [20000, "B"], [9000, "A"], [6500, "F"], [5772, "G"], [4500, "K"], [3200, "M"],
+]) {
+  const got = spectralType(teff);
+  const ok = got[0] === want;
+  console.log(`  ${ok ? "ok  " : "FAIL"}  Teff ${teff} -> ${got} (class ${want})`);
+  if (!ok) problems.push(`spectralType(${teff}) = ${got}, expected class ${want}`);
+}
 
 if (problems.length > 0) {
   console.error(`\n[stellar] ${problems.length} check(s) failed:\n  ${problems.join("\n  ")}\n`);

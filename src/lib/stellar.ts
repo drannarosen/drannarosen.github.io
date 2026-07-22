@@ -102,3 +102,35 @@ export function effectiveTemperature(L: number, R: number): number {
 export function zamsTeff(mass: number, Z = Z_REF): number {
   return effectiveTemperature(zamsLuminosity(mass, Z), zamsRadius(mass, Z));
 }
+
+/*
+ * Teff -> MK spectral type (dwarfs, luminosity class V). Anchor Teff values for
+ * subclasses along the main sequence, from Pecaut & Mamajek (2013), ApJS 208, 9
+ * — specifically Mamajek's online "Modern Mean Dwarf Stellar Colour and Teff
+ * Sequence" compilation. Approximate (rounded to the sequence's own precision):
+ * a classification aid, not a fit. Sorted hot -> cool; a star is labelled by the
+ * nearest anchor in Teff. ZAMS stars are all dwarfs, so the class is always V.
+ */
+const SPECTRAL_ANCHORS: Array<[teff: number, type: string]> = [
+  [44900, "O3"], [41400, "O5"], [37000, "O7"], [33300, "O9"],
+  [31400, "B0"], [26000, "B1"], [20600, "B2"], [15200, "B5"], [12300, "B8"], [10700, "B9"],
+  [9700, "A0"], [8800, "A2"], [8080, "A5"], [7500, "A7"],
+  [7200, "F0"], [6810, "F2"], [6510, "F5"], [6170, "F8"],
+  [5930, "G0"], [5770, "G2"], [5660, "G5"], [5440, "G8"],
+  [5280, "K0"], [4830, "K3"], [4410, "K5"], [4050, "K7"],
+  [3870, "M0"], [3550, "M2"], [3200, "M4"], [2810, "M6"], [2500, "M8"],
+];
+
+/** MK spectral type (e.g. "O7V", "G2V") for an effective temperature [K]. */
+export function spectralType(teff: number): string {
+  let best = SPECTRAL_ANCHORS[0];
+  let bestDiff = Infinity;
+  for (const anchor of SPECTRAL_ANCHORS) {
+    const diff = Math.abs(teff - anchor[0]);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = anchor;
+    }
+  }
+  return `${best[1]}V`;
+}
