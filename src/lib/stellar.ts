@@ -174,3 +174,19 @@ export function msLifetime(mass: number): number {
   const bgb = tBGB(mass);
   return Math.max(hurleyMu(mass) * bgb, hurleyX * bgb);
 }
+
+export type RemnantFate = "white dwarf" | "neutron star" | "black hole";
+
+/*
+ * Remnant fate from ZAMS mass at ~solar metallicity — approximate thresholds
+ * from Heger et al. (2003), ApJ 591, 288 (Fig. 2, solar-Z track): stars below
+ * ~8 Msun end as white dwarfs; ~8-25 Msun core-collapse to neutron stars;
+ * above ~25 Msun form black holes. Deliberately coarse — the true boundaries are
+ * metallicity- and model-dependent, and a precise remnant MASS needs the pre-SN
+ * CO-core from full stellar evolution (out of scope here). Kind only.
+ */
+export function remnantFate(mass: number): RemnantFate {
+  if (mass < 8) return "white dwarf";
+  if (mass < 25) return "neutron star";
+  return "black hole";
+}

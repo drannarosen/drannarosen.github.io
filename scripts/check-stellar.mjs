@@ -18,6 +18,7 @@ import {
   zamsTeff,
   spectralType,
   msLifetime,
+  remnantFate,
 } from "../src/lib/stellar.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -58,6 +59,16 @@ for (const [teff, want] of [
   const ok = got[0] === want;
   console.log(`  ${ok ? "ok  " : "FAIL"}  Teff ${teff} -> ${got} (class ${want})`);
   if (!ok) problems.push(`spectralType(${teff}) = ${got}, expected class ${want}`);
+}
+
+console.log("\nremnant fate thresholds (Heger 2003):");
+for (const [m, want] of [
+  [1, "white dwarf"], [7, "white dwarf"], [15, "neutron star"], [40, "black hole"],
+]) {
+  const got = remnantFate(m);
+  const ok = got === want;
+  console.log(`  ${ok ? "ok  " : "FAIL"}  M=${m} -> ${got}`);
+  if (!ok) problems.push(`remnantFate(${m}) = ${got}, expected ${want}`);
 }
 
 if (problems.length > 0) {
