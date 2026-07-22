@@ -124,3 +124,55 @@ remnant maps and (later) surrogate weights are produced offline in startrax/grav
 and shipped as data the browser reads. That keeps the site honest ("this *is* startrax") and
 keeps it decoupled from the research repos. The differentiable surrogate is trained in JAX
 and exported, never reimplemented in TypeScript.
+
+## 8. Portability & module layering
+
+Built **in this repo first** — extraction is insurance, not a committed roadmap — but
+designed so it *could* lift out if it ever gets attention. Four layers, each depending only
+**downward**; the boundary is what makes it versatile.
+
+```
+Layer 3  bindings/UI   Astro islands, pages, sliders          site-specific, swappable
+Layer 2  viz           canvas/WebGL renderers (HR, field)     any-canvas, no framework import
+Layer 1  state         store: identity/view/log + adapters    framework-light
+Layer 0  science core  stellar · imf · dynamics · cluster     ZERO deps, ZERO DOM, pure
+```
+
+**The load-bearing rule: Layer 0 imports nothing but Layer 0** — no Astro, no DOM, no
+`window`, no site paths; pure, deterministic functions. That one constraint is what lets the
+same code run in the browser, in Node (tests + precompute), and in a course notebook,
+unchanged. Portability and testability are the same property: `check-stellar` already
+exercises the pure core in Node against the startrax fixture.
+
+**Core layout — split by physical domain:**
+
+```
+core/ constants/  random/  stellar/  imf/  dynamics/  cluster/  observe/(later)
+```
+
+- `dynamics/`, not `gravity/` — the subject (integrators, energy, relaxation) with the force
+  a file inside it; the integrators are the reusable part.
+- `random/` is its own module — one seeded stream (mulberry32, explicitly passed, never
+  global `Math.random`) shared by IMF, spatial profiles and N-body ICs, so identity→population
+  is a pure, reproducible function. This is the keystone of the seed-based design.
+
+**Naming honesty:** the core is **not** named `startrax` / `gravax` / `progenax`. The site
+consumes those codes' *data*; this TS core is a small live reimplementation of the *physics*,
+not those packages. Neutral domain names (`stellar`, `dynamics`, `cluster`) keep the claim
+true — calling `dynamics` "gravax" would imply the browser runs gravax, which site-claims
+forbids.
+
+**Enforce now, extract later (packaging decision):** core lives in `src/lib/core/` with an
+**import-boundary gate** (in the spirit of `check-sun`/`check-stellar`) that fails the build
+if anything in `core/` imports Astro/DOM/site, or if a layer imports upward. No monorepo, no
+npm publish now — those are premature while it is one site. Because every consumer repo
+(Cosmic Playground, the Sophie/ASTR 201 site, future courses) **and this site** are all
+Astro, the natural eventual extraction is a single **Astro integration** wrapping Layers 2–3
+over a plain-TS Layer 0 — following the Cosmic Playground `starfield.ts` renderer lineage
+(offscreen compositing, DPR cap, reduced-motion, `cleanup()`). The layering delivers that
+versatility whether or not the extraction ever happens.
+
+**Arc I sequencing (recommended, pending "go"):** introduce `src/lib/core/` *with* the gate
+as the first code; move the already-pure, already-validated `stellar.ts` and `imf.ts` into
+`core/stellar/` and `core/imf/` to establish the boundary with real content rather than a
+split brain.
