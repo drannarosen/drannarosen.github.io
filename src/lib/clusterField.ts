@@ -11,7 +11,7 @@
  * bright massive stars swing gently between foreground and background. Motion
  * is deliberately near-subliminal ("felt, not noticed").
  */
-import { sampleCluster, type Star } from "./imf";
+import { sampleCluster, type Star } from "@novascope/core/imf";
 
 export interface ClusterFieldConfig {
   canvas: HTMLCanvasElement;

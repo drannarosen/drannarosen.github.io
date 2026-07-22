@@ -19,7 +19,7 @@ import {
   spectralType,
   msLifetime,
   remnantFate,
-} from "../src/lib/stellar.ts";
+} from "../src/novascope/core/stellar/index.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const fixture = JSON.parse(

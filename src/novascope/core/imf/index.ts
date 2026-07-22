@@ -12,7 +12,7 @@
  * the story, and the /explore inspector all draw from one grounded source.
  */
 
-import { zamsLuminosity, zamsTeff } from "./stellar";
+import { zamsLuminosity, zamsTeff } from "../stellar";
 
 /* ── Deterministic RNG (mulberry32) ──────────────────────────────────
  * Seedable so the static/offscreen layer and animated layer agree, and so
