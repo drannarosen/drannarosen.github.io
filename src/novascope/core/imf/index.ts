@@ -12,8 +12,12 @@
  * the story, and the /explore inspector all draw from one grounded source.
  */
 
-import { zamsLuminosity, zamsTeff } from "../stellar/index.ts";
+import { zamsLuminosity, zamsTeff, teffToRGB } from "../stellar/index.ts";
 import { mulberry32 } from "../random/index.ts";
+
+// teffToRGB is an intrinsic stellar property (core/stellar); re-exported here so
+// existing callers (the hero story) keep importing it from @novascope/core/imf.
+export { teffToRGB };
 
 /* ── Kroupa (2001) IMF ───────────────────────────────────────────────
  * Broken power law  dN/dm ∝ m^-α  (Kroupa 2001, MNRAS 322, 231):
@@ -108,32 +112,6 @@ export function massToTeff(m: number): number {
 /** Mass → ZAMS luminosity (L☉). */
 export function massToLuminosity(m: number): number {
   return zamsLuminosity(Math.min(100, Math.max(0.1, m)));
-}
-
-/** Effective temperature → linear RGB in [0,1]. Blackbody-color approximation
- * after Tanner Helland (2012), valid ~1000–40000 K. Approximate but perceptually
- * convincing: O/B stars blue-white, G yellow, M red. */
-export function teffToRGB(teff: number): [number, number, number] {
-  const t = Math.min(40000, Math.max(1000, teff)) / 100;
-  let r: number, g: number, b: number;
-
-  if (t <= 66) {
-    r = 255;
-    g = 99.4708025861 * Math.log(t) - 161.1195681661;
-  } else {
-    r = 329.698727446 * Math.pow(t - 60, -0.1332047592);
-    g = 288.1221695283 * Math.pow(t - 60, -0.0755148492);
-  }
-  if (t >= 66) {
-    b = 255;
-  } else if (t <= 19) {
-    b = 0;
-  } else {
-    b = 138.5177312231 * Math.log(t - 10) - 305.0447927307;
-  }
-
-  const clamp01 = (v: number) => Math.min(1, Math.max(0, v / 255));
-  return [clamp01(r), clamp01(g), clamp01(b)];
 }
 
 /* ── Plummer sphere positions ────────────────────────────────────────

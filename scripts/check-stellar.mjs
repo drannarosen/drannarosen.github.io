@@ -19,6 +19,7 @@ import {
   spectralType,
   msLifetime,
   remnantFate,
+  star,
 } from "../src/novascope/core/stellar/index.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -71,8 +72,25 @@ for (const [m, want] of [
   if (!ok) problems.push(`remnantFate(${m}) = ${got}, expected ${want}`);
 }
 
+console.log("\nstar() contract (§9.1):");
+const starOk = (cond, msg) => {
+  console.log(`  ${cond ? "ok  " : "FAIL"}  ${msg}`);
+  if (!cond) problems.push(`star(): ${msg}`);
+};
+const sun = star(1.0, 0.02, 0);
+starOk(sun.phase === "MS" && sun.remnant === null, "young Sun is on the MS, no remnant");
+starOk(Math.abs(sun.L - zamsLuminosity(1.0)) < 1e-9, "star().L matches zamsLuminosity");
+starOk(sun.inRange === true, "in-domain inputs flagged inRange");
+starOk(Array.isArray(sun.color) && sun.color.length === 3, "carries an intrinsic colour");
+const deadSun = star(1.0, 0.02, 2e4); // past the ~10 Gyr solar t_MS
+starOk(deadSun.phase === "remnant" && deadSun.remnant === "white dwarf", "old Sun → white dwarf");
+const deadO = star(40, 0.02, 1e4); // massive: dies in a few Myr
+starOk(deadO.phase === "remnant" && deadO.remnant === "black hole", "aged 40 M☉ → black hole");
+starOk(star(0.05).inRange === false, "sub-domain mass clamped, inRange false");
+starOk(star(200).inRange === false, "super-domain mass clamped, inRange false");
+
 if (problems.length > 0) {
   console.error(`\n[stellar] ${problems.length} check(s) failed:\n  ${problems.join("\n  ")}\n`);
   process.exit(1);
 }
-console.log(`\n[stellar] ok — ${fixture.rows.length} masses match startrax within tolerance.`);
+console.log(`\n[stellar] ok — ${fixture.rows.length} masses match startrax; star() contract holds.`);

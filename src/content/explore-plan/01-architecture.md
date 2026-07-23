@@ -201,7 +201,7 @@ them ad-hoc and drift. Types are illustrative TS; units are load-bearing.
 
 ```ts
 type Phase = "MS" | "postMS" | "remnant";   // postMS (giant branch) fills in at rung "later"
-type RemnantKind = "WD" | "NS" | "BH";
+type RemnantFate = "white dwarf" | "neutron star" | "black hole";  // reuse the physics type
 
 interface StarState {
   L: number;            // L_sun
@@ -211,7 +211,7 @@ interface StarState {
   color: [number, number, number];  // INTRINSIC sRGB from Teff — a stellar property (§5)
   spectralType: string;             // e.g. "O7V" (Pecaut–Mamajek)
   Mdot: number;         // M_sun / yr — 0 until the winds engine exists
-  remnant: RemnantKind | null;      // non-null iff phase === "remnant"
+  remnant: RemnantFate | null;      // non-null iff phase === "remnant"
   inRange: boolean;     // false ⇒ inputs were clamped to model validity; treat as illustrative
 }
 

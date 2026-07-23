@@ -190,3 +190,93 @@ export function remnantFate(mass: number): RemnantFate {
   if (mass < 25) return "neutron star";
   return "black hole";
 }
+
+/* ── Intrinsic colour ─────────────────────────────────────────────────
+ * Teff → linear RGB in [0,1]. A star's INTRINSIC colour is a stellar property
+ * (Architecture §5) — the observation face (`observe()`) later reddens it, it
+ * does not own it. Blackbody-colour approximation after Tanner Helland (2012),
+ * valid ~1000–40000 K: O/B blue-white, G yellow, M red. */
+export function teffToRGB(teff: number): [number, number, number] {
+  const t = Math.min(40000, Math.max(1000, teff)) / 100;
+  let r: number, g: number, b: number;
+  if (t <= 66) {
+    r = 255;
+    g = 99.4708025861 * Math.log(t) - 161.1195681661;
+  } else {
+    r = 329.698727446 * Math.pow(t - 60, -0.1332047592);
+    g = 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+  }
+  if (t >= 66) b = 255;
+  else if (t <= 19) b = 0;
+  else b = 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+  const c01 = (v: number) => Math.min(1, Math.max(0, v / 255));
+  return [c01(r), c01(g), c01(b)];
+}
+
+/* ── The star() contract ──────────────────────────────────────────────
+ * The single function every engine reads (Architecture §1, §9.1). Its backend
+ * is on rung 0 today: Tout ZAMS values, with Hurley's t_MS as a lifetime clock —
+ * a star sits at its ZAMS point until t ≥ t_MS, then it is a remnant. No giant
+ * branch yet (that arrives with startrax tracks); `phase: "postMS"` is reserved. */
+
+/** Model validity domain (Tout et al. 1996). Outside it, values are clamped. */
+const M_MIN_VALID = 0.1;
+const M_MAX_VALID = 100;
+const Z_MIN_VALID = 1e-4;
+const Z_MAX_VALID = 0.03;
+
+export type Phase = "MS" | "postMS" | "remnant";
+
+export interface StarState {
+  L: number; // L☉
+  R: number; // R☉
+  Teff: number; // K
+  phase: Phase;
+  color: [number, number, number]; // intrinsic sRGB in [0,1]
+  spectralType: string;
+  Mdot: number; // M☉/yr — 0 until the winds engine
+  remnant: RemnantFate | null; // non-null iff phase === "remnant"
+  inRange: boolean; // false ⇒ inputs were clamped to the model's validity
+}
+
+/**
+ * Derive a star's observable-truth state from its latent (mass, Z) at age t.
+ * Pure and total: out-of-domain inputs are CLAMPED and flagged (`inRange:false`),
+ * never thrown and never silently extrapolated (§9.1).
+ */
+export function star(mass: number, Z: number = Z_REF, t: number = 0): StarState {
+  const m = Math.min(M_MAX_VALID, Math.max(M_MIN_VALID, mass));
+  const z = Math.min(Z_MAX_VALID, Math.max(Z_MIN_VALID, Z));
+  const inRange = mass === m && Z === z;
+
+  if (t >= msLifetime(m)) {
+    // Collapsed: no MS L/R/Teff at rung 0. The consumer renders a remnant, not
+    // a point on the main sequence; colour is a neutral placeholder.
+    return {
+      L: 0,
+      R: 0,
+      Teff: 0,
+      phase: "remnant",
+      color: [0.5, 0.5, 0.55],
+      spectralType: "—",
+      Mdot: 0,
+      remnant: remnantFate(m),
+      inRange,
+    };
+  }
+
+  const L = zamsLuminosity(m, z);
+  const R = zamsRadius(m, z);
+  const Teff = zamsTeff(m, z);
+  return {
+    L,
+    R,
+    Teff,
+    phase: "MS",
+    color: teffToRGB(Teff),
+    spectralType: spectralType(Teff),
+    Mdot: 0,
+    remnant: null,
+    inRange,
+  };
+}
