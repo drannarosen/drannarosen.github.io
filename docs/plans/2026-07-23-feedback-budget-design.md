@@ -290,17 +290,97 @@ picker** (which pre-generated cloud). No census IMF sliders.
 
 ## Sourcing — coefficients to pin (astro-code-dev)
 
-Every magic number gets a provenance comment. **Nothing below is filled in from
-memory** — each is left unset until the reference is checked. To source:
-- Q(Teff, L) ionizing calibration (Vacca et al. / Sternberg et al.)
-- α_B case-B recombination; Strömgren R_S
-- Ṁ(L, Teff, Z) and v∞ wind scalings (Vink et al.)
+Every magic number gets a provenance comment (research-workflow
+`provenance-of-constants`). **Nothing below is filled in from memory** — each is
+left unset until the reference is checked. STILL TO SOURCE:
+- α_B case-B recombination coefficient; the Strömgren radius form
+- Sternberg+2003 Q(Teff, log g) coefficients — paper identified, not transcribed
 - radiation-pressure τ_IR treatment (ORION2-informed)
-- binding-energy coefficient α for the EFF cloud
+- binding-energy coefficient α for the truncated EFF cloud
+- **η_max per channel** (see below)
+- Lopez+2014 pressure-budget coefficients — blocked on the two-verifier gate
 - **η_max per channel** — the adiabatic/Weaver bubble solution for winds, the
   D-front solution for photoionization. The f_leak→η interpolation is labelled a
   parameterization on the page.
 - (v2) Weaver energy-driven bubble R(t); SN energy 1e51 erg
+
+### STELLAR WINDS — sourced 2026-07-23, cross-checked in three places
+
+The per-star wind is **Vink, de Koter & Lamers (2001), A&A 369, 574**, eqs (24)
+hot side / (25) cool side. Confirmed independently by:
+1. **Rosen (2022), ApJ 941, 202** (DOI 10.3847/1538-4357/ac9f3d), §2.4.3
+   Eqs (14)/(15) — read from the paper PDF this session;
+2. **startrax** `src/startrax/hurley/sse/winds.py`, whose header states the
+   coefficients were verified from the rendered Vink PDF, *not* OCR or COMPAS;
+3. the two agreeing coefficient-for-coefficient.
+
+```
+log10 Mdot = -6.688 + 2.210 log10(L/1e5 Lsun)      # COOL side (Vink eq 25 = Rosen eq 14)
+             - 1.339 log10(M/30 Msun)
+             - 1.601 log10((v_inf/v_esc)/2.0)
+             + 1.07  log10(Teff/20 kK)   [+ 0.85 log10(Z/Zsun)]
+
+log10 Mdot = -6.697 + 2.194 log10(L/1e5 Lsun)      # HOT side (Vink eq 24 = Rosen eq 15)
+             - 1.313 log10(M/30 Msun)
+             - 1.226 log10((v_inf/v_esc)/2.0)
+             + 0.933 log10(Teff/40 kK)
+             - 10.92 [log10(Teff/40 kK)]^2  [+ 0.85 log10(Z/Zsun)]
+```
+
+**Terminal velocity — NOT Leitherer.** `v_inf = 1.3 v_esc` on the cool side and
+`2.6 v_esc` on the hot side, with `v_esc = sqrt(2GM/R)` at the stellar surface
+(Rosen 2022 §2.4.3, attributing the ratios to theory+observations of B and O
+stars via Vink 2001 §4 / Lamers et al. 1995; startrax `_VINK_VRATIO_*`).
+
+**This is load-bearing, not a preference:** the Vink Ṁ fit *takes v_inf/v_esc as
+an input term* (`-1.601·log10[(v_inf/v_esc)/2.0]`), so Ṁ is evaluated AT an
+assumed ratio. Substituting a different v_w prescription (e.g. Leitherer) while
+keeping the Vink Ṁ breaks the fit's internal consistency. Use the pair together.
+
+**Bistability jump — computed, not fixed at 25 kK** (Vink eqs 11 → 23 → 15):
+```
+Gamma_e   = 7.66e-5 * sigma_e * (L/Lsun)/(M/Msun)        # eq (11)
+sigma_e   = 0.2 (1 + X)                                   # Lamers & Leitherer (1993)
+log<rho>  = -14.94 + 0.85 log10(Z/Zsun) + 3.2 Gamma_e     # eq (23)
+T_jump[kK]= 61.2 + 2.59 log<rho>                          # eq (15)
+```
+
+**Validity floor: Teff ≥ 12,500 K.** Below it the line-driven recipe is undefined
+and Ṁ is 0 — NOT extrapolated. startrax explicitly flags that COMPAS extrapolates
+below this floor and that doing so is not paper-faithful. Consequence for the
+ledger: only stars above 12.5 kK contribute a line-driven wind, which is most of
+the wind budget's selectivity and must not be quietly softened.
+
+**Injection terms** (Rosen 2022 §2.4.3): `p_w = Mdot·v_inf`,
+`E_k,w = ½ Mdot·v_inf²`.
+
+**Leitherer, Robert & Drissen (1992), ApJ 401, 596** — *Deposition of mass,
+momentum, and energy by massive stars into the ISM*; the STARBURST99 theoretical
+wind model, and the right citation for the POPULATION-deposition framing and for
+the v_inf ∝ Z^0.13 metallicity scaling if Z is ever varied. Not used for the
+per-star v_w, for the internal-consistency reason above.
+
+### IONIZING PHOTON RATE — reference identified 2026-07-23
+**Sternberg, Hoffmann & Pauldrach (2003)**, *Ionizing Photon Emission Rates from
+O- and Early B-Type Stars and Clusters*, ApJ (DOI 10.1086/379506,
+arXiv:astro-ph/0312232). WM-basic wind-atmosphere models, Teff 25,000–55,000 K,
+log g 3–4, solar metallicity. The export gives Teff and R, so
+log g = log10(GM/R²) is available per star. **Coefficients not yet extracted** —
+the paper has been identified, not transcribed.
+
+### STRUCTURE THAT VALIDATES THE LEDGER (coefficients NOT yet usable)
+**Lopez et al. (2014)** measure an H II region's pressure budget as FOUR separate
+channels — direct radiation `P_dir`, dust-processed `P_IR`, warm ionized gas
+`P_HII`, hot X-ray gas `P_X` — explicitly "as separate fields rather than one
+lumped efficiency". That is independent observational support for the
+per-channel ledger design over a single global efficiency, and it is the natural
+validation target for the engine's output.
+
+**Its numbers are NOT cleared for use.** The local digest
+(`~/brain/knowledge/derived/equation-digests/lopez2014-pressure-budgets.md`) is a
+self-declared STUB: every row is `needs-pdf-check`, status `ai:drafted`, with its
+own instruction to treat each coefficient as provisional until a two-verifier
+gate runs. Structure usable; coefficients require that gate first.
 
 ### VERIFIED 2026-07-23 (web-checked against the papers, not recalled)
 
