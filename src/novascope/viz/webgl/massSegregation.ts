@@ -11,29 +11,14 @@
 /* Deterministic PRNG so the permutation depends only on lambda; shared core. */
 import { mulberry32 } from "../../core/random/index.ts";
 
-/** Fenwick tree over ranks 0..n-1 for "find & remove the j-th still-available rank". */
-class AvailableRanks {
-  private tree: Int32Array;
-  private log: number;
-  constructor(private n: number) {
-    this.tree = new Int32Array(n + 1);
-    this.log = Math.floor(Math.log2(n || 1));
-    for (let i = 1; i <= n; i++) this.add(i, 1);
-  }
-  private add(i: number, d: number): void {
-    for (; i <= this.n; i += i & -i) this.tree[i] += d;
-  }
-  /** 0-indexed j-th smallest available rank; removes it. */
-  takeJth(j: number): number {
-    let pos = 0, k = j + 1;
-    for (let pw = 1 << this.log; pw > 0; pw >>= 1) {
-      if (pos + pw <= this.n && this.tree[pos + pw] < k) { pos += pw; k -= this.tree[pos]; }
-    }
-    const rank = pos; // 1-indexed slot pos+1 -> 0-indexed rank pos
-    this.add(pos + 1, -1);
-    return rank;
-  }
-}
+/*
+ * The Fenwick tree ("take the j-th still-available rank") is the shared McLuster
+ * Eq. A1 machinery — one copy lives in core alongside the radius-keyed
+ * segregator. Only the rank KEY and the random draw differ here: local gas
+ * density instead of radius, and fixed uniforms (below) so the permutation
+ * morphs smoothly as lambda scrubs rather than resampling per frame.
+ */
+import { AvailableRanks } from "../../core/cluster/segregation.ts";
 
 export interface Segregator {
   /** Star buffer (n*6: x,y,z,mass,teff,radius) for a given lambda_corr in [0,1]. */

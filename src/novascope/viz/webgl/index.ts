@@ -9,7 +9,7 @@ export { loadScene, sceneFromParts } from "./scene.ts";
 export type { ClusterEngine, EngineOptions } from "./engine.ts";
 export { createEngine, DEFAULT_ZOOM, ZOOM_MIN, ZOOM_MAX } from "./engine.ts";
 export { attachInteraction } from "./interaction.ts";
-export { spectralRGB } from "./spectral.ts";
+export { spectralRGB } from "../spectral.ts";
 export type { Segregator } from "./massSegregation.ts";
 export { makeSegregator } from "./massSegregation.ts";
 export type { Dynamics, DynamicsInit, DynamicsParams, Diagnostics, Phase } from "./dynamics.ts";

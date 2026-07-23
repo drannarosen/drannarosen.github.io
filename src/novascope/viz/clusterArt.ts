@@ -13,6 +13,7 @@
  */
 
 import { mulberry32 } from "../core/random/index.ts";
+import { spectralRGB } from "./spectral.ts";
 
 export interface ClusterMeta {
   ngrid: number;
@@ -44,32 +45,6 @@ export async function loadClusterData(base = "/data/gravoturb"): Promise<Cluster
     gas: new Float32Array(gasBuf),
     gasPoints: new Uint8Array(gpBuf),
   };
-}
-
-/* ── Anna's validated spectral palette (feasibility_figure) ───────────
- * Colors anchored at spectral-class centers; interpolated in log-Teff. */
-const SPEC_LOGT = [2980, 4386, 5586, 6708, 8660, 17320, 40620].map(Math.log10);
-const SPEC_RGB: [number, number, number][] = [
-  [194, 74, 40], // M
-  [232, 121, 31], // K
-  [243, 201, 90], // G
-  [247, 243, 226], // F
-  [205, 217, 255], // A
-  [154, 184, 255], // B
-  [129, 114, 255], // O
-];
-
-function spectralRGB(teff: number): [number, number, number] {
-  const t = Math.log10(Math.min(55000, Math.max(2400, teff)));
-  if (t <= SPEC_LOGT[0]) return SPEC_RGB[0];
-  const last = SPEC_LOGT.length - 1;
-  if (t >= SPEC_LOGT[last]) return SPEC_RGB[last];
-  let i = 0;
-  while (i < last && t > SPEC_LOGT[i + 1]) i++;
-  const f = (t - SPEC_LOGT[i]) / (SPEC_LOGT[i + 1] - SPEC_LOGT[i]);
-  const a = SPEC_RGB[i];
-  const b = SPEC_RGB[i + 1];
-  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
 }
 
 interface Prepared {

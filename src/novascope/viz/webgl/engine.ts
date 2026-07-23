@@ -11,7 +11,7 @@
  */
 
 import { FULLSCREEN_VS, VOLUME_FS, STAR_VS, STAR_FS } from "./shaders.ts";
-import { spectralRGB } from "./spectral.ts";
+import { spectralRGB } from "../spectral.ts";
 import type { Scene, View } from "./scene.ts";
 
 export const DEFAULT_ZOOM = 1.0; // <1 fills more of the frame; user can zoom in/out

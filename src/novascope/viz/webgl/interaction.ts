@@ -18,13 +18,33 @@ const ROT = 3.0; // radians per full canvas-height drag
 const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 
 /** Attach direct-manipulation controls to `canvas`. Returns a detach function. */
-export function attachInteraction(canvas: HTMLCanvasElement, engine: ClusterEngine): () => void {
+export function attachInteraction(
+  canvas: HTMLCanvasElement,
+  engine: ClusterEngine,
+  onArm?: (armed: boolean) => void,
+): () => void {
   const ac = new AbortController();
   const sig: AddEventListenerOptions = { signal: ac.signal };
   canvas.style.cursor = "grab";
   canvas.style.touchAction = "none";
 
+  /*
+   * "Armed" gesture model, matching viz/camera's attachOrbit. The pane accepts
+   * wheel-zoom only after a pointer press, and disarms when the pointer leaves.
+   * Without it, scrolling the PAGE over an un-clicked pane is hijacked into a
+   * zoom — the accidental-zoom the census engine already fixed. `onArm` reports
+   * the state so a caller can show an affordance.
+   */
+  let armed = false;
+  const setArmed = (v: boolean): void => {
+    if (v === armed) return;
+    armed = v;
+    onArm?.(v);
+  };
+
   canvas.addEventListener("wheel", (e) => {
+    // Return BEFORE preventDefault so an un-armed pane lets the page scroll.
+    if (!armed) return;
     e.preventDefault();
     engine.setView({ zoom: clampZoom(engine.getView().zoom * Math.exp(e.deltaY * 0.001)) });
   }, { signal: ac.signal, passive: false });
@@ -42,9 +62,12 @@ export function attachInteraction(canvas: HTMLCanvasElement, engine: ClusterEngi
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     canvas.setPointerCapture(e.pointerId);
     canvas.style.cursor = "grabbing";
+    setArmed(true);
     if (pts.size === 1) mode = (e.shiftKey || e.button === 2) ? "pan" : "rotate";
     if (pts.size === 2) { mode = "pan"; pinch = spread(); }
   }, sig);
+
+  canvas.addEventListener("pointerleave", () => setArmed(false), sig);
 
   canvas.addEventListener("pointermove", (e) => {
     const prev = pts.get(e.pointerId);

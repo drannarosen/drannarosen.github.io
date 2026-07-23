@@ -13,7 +13,14 @@
  */
 
 /** Fenwick tree over ranks 0..n-1: "take the j-th still-available rank". O(log n). */
-class AvailableRanks {
+/*
+ * Exported because the WebGL live-segregation viz (viz/webgl/massSegregation)
+ * runs the same McLuster Eq. A1 draw over a different rank key (local gas
+ * density rather than radius). The Fenwick tree is the shared machinery; the
+ * two callers' shuffles differ deliberately — core draws fresh randoms, the viz
+ * holds fixed uniforms so the permutation morphs smoothly as lambda scrubs.
+ */
+export class AvailableRanks {
   private n: number;
   private tree: Int32Array;
   private log: number;
