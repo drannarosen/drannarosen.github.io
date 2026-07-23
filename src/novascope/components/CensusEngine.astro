@@ -20,7 +20,7 @@ const m = (tex: string, display = false) =>
 
 <div class="xpl-census" data-census>
   <div class="xpl-census__grid">
-    <figure class="xpl-census__panel">
+    <figure class="xpl-census__panel" data-lit="structure">
       <figcaption>
         The cluster
         <span class="xpl-census__modes" role="group" aria-label="Cluster view">
@@ -32,7 +32,7 @@ const m = (tex: string, display = false) =>
       <small class="xpl-census__hint" data-hint></small>
     </figure>
 
-    <figure class="xpl-census__panel xpl-census__panel--hr">
+    <figure class="xpl-census__panel xpl-census__panel--hr" data-lit="census">
       <figcaption>H–R diagram <span>log–log; hotter left</span></figcaption>
       <div class="xpl-census__plot">
         <span class="xpl-census__ytitle" set:html={m("L/L_\\odot")} />
@@ -53,59 +53,64 @@ const m = (tex: string, display = false) =>
     </figure>
 
     <div class="xpl-census__panel xpl-census__panel--pad">
-      <div class="xpl-census__controls">
-        <label class="xpl-census__ctrl">
-          <span>preset</span>
-          <select class="xpl-census__select" data-preset>
-            <option value="">— custom —</option>
-            <option value="default">typical cluster</option>
-            <option value="lowMass">low-mass (noisy)</option>
-            <option value="starburst">starburst</option>
-            <option value="diffuse">diffuse</option>
-            <option value="segregated">segregated</option>
-          </select>
-        </label>
-        <label class="xpl-census__ctrl">
-          <span>high-mass slope <span set:html={m("\\alpha")} /> = <output data-slope-val>2.3</output></span>
-          <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
-          <small>top-heavy ← → bottom-heavy</small>
-        </label>
-        <label class="xpl-census__ctrl">
-          <span>stars N = <output data-count-val>1200</output></span>
-          <input type="range" data-count min="1.301" max="4.301" step="0.01" value="3.079" />
-          <small>watch the rare massive tail flicker</small>
-        </label>
-        <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
+      <div class="xpl-census__lenses" role="group" aria-label="Lenses — turn on more than one to experiment across groups on the same cluster">
+        <button type="button" data-lens-chip="census" class="is-active" aria-pressed="true">Census</button>
+        <button type="button" data-lens-chip="environment" aria-pressed="false">Environment</button>
+        <button type="button" data-lens-chip="structure" aria-pressed="false">Structure</button>
+      </div>
 
-        <details class="xpl-census__advanced">
-          <summary>structure &amp; environment</summary>
-          <div class="xpl-census__advgrid">
-            <label class="xpl-census__check">
-              <input type="checkbox" data-envmode />
-              <span>environment-driven <span set:html={m("\\alpha")} /> (Marks/Jerabkova)</span>
-            </label>
-            <div class="xpl-census__envctrls" data-envctrls hidden>
-              <label class="xpl-census__ctrl">
-                <span>metallicity <span set:html={m("[\\mathrm{Fe}/\\mathrm{H}]")} /> = <output data-feh-val>0.0</output></span>
-                <input type="range" data-feh min="-2" max="0.5" step="0.1" value="0" />
-                <small>metal-poor → top-heavy</small>
-              </label>
-              <label class="xpl-census__ctrl">
-                <span><span set:html={m("\\log_{10} M_\\mathrm{ecl}")} /> = <output data-mecl-val>4.0</output></span>
-                <input type="range" data-mecl min="3" max="7" step="0.1" value="4" />
-                <small>denser cluster → top-heavy</small>
-              </label>
-            </div>
+      <div class="xpl-census__controls">
+        <section class="xpl-census__lens" data-lens="census" aria-label="Census controls">
+          <p class="xpl-census__lenshd"><b>Census</b> — how many stars of each mass?</p>
+          <div class="xpl-census__lensgrid">
             <label class="xpl-census__ctrl">
-              <span>segregation <span set:html={m("\\lambda")} /> = <output data-seg-val>0.0</output></span>
-              <input type="range" data-seg min="0" max="1" step="0.05" value="0" />
-              <small>massive stars sink to the core</small>
+              <span>preset</span>
+              <select class="xpl-census__select" data-preset>
+                <option value="">— custom —</option>
+                <option value="default">typical cluster</option>
+                <option value="lowMass">low-mass (noisy)</option>
+                <option value="starburst">starburst</option>
+                <option value="diffuse">diffuse</option>
+                <option value="segregated">segregated</option>
+              </select>
             </label>
             <label class="xpl-census__ctrl">
-              <span>half-mass radius <span set:html={m("r_h")} /> = <output data-rh-val>1.3</output> pc</span>
-              <input type="range" data-rh min="0.3" max="5" step="0.1" value="1.3" />
-              <small>compact ← → diffuse</small>
+              <span>high-mass slope <span set:html={m("\\alpha")} /> = <output data-slope-val>2.3</output></span>
+              <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
+              <small>top-heavy ← → bottom-heavy</small>
             </label>
+            <label class="xpl-census__ctrl">
+              <span>stars N = <output data-count-val>1200</output></span>
+              <input type="range" data-count min="1.301" max="4.301" step="0.01" value="3.079" />
+              <small>watch the rare massive tail flicker</small>
+            </label>
+          </div>
+          <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
+        </section>
+
+        <section class="xpl-census__lens" data-lens="environment" aria-label="Environment controls" hidden>
+          <p class="xpl-census__lenshd"><b>Environment</b> — what sets the slope?</p>
+          <label class="xpl-census__check">
+            <input type="checkbox" data-envmode />
+            <span>environment-driven <span set:html={m("\\alpha")} /> (Marks/Jerabkova)</span>
+          </label>
+          <div class="xpl-census__envctrls" data-envctrls hidden>
+            <label class="xpl-census__ctrl">
+              <span>metallicity <span set:html={m("[\\mathrm{Fe}/\\mathrm{H}]")} /> = <output data-feh-val>0.0</output></span>
+              <input type="range" data-feh min="-2" max="0.5" step="0.1" value="0" />
+              <small>metal-poor → top-heavy</small>
+            </label>
+            <label class="xpl-census__ctrl">
+              <span><span set:html={m("\\log_{10} M_\\mathrm{ecl}")} /> = <output data-mecl-val>4.0</output></span>
+              <input type="range" data-mecl min="3" max="7" step="0.1" value="4" />
+              <small>denser cluster → top-heavy</small>
+            </label>
+          </div>
+        </section>
+
+        <section class="xpl-census__lens" data-lens="structure" aria-label="Structure controls" hidden>
+          <p class="xpl-census__lenshd"><b>Structure</b> — where do the stars live?</p>
+          <div class="xpl-census__lensgrid">
             <div class="xpl-census__ctrl">
               <span>spatial profile</span>
               <span class="xpl-census__modes" role="group" aria-label="Spatial profile">
@@ -118,8 +123,18 @@ const m = (tex: string, display = false) =>
               <input type="range" data-gamma min="2.5" max="6" step="0.1" value="3" />
               <small>steeper → more concentrated</small>
             </label>
+            <label class="xpl-census__ctrl">
+              <span>segregation <span set:html={m("\\lambda")} /> = <output data-seg-val>0.0</output></span>
+              <input type="range" data-seg min="0" max="1" step="0.05" value="0" />
+              <small>massive stars sink to the core</small>
+            </label>
+            <label class="xpl-census__ctrl">
+              <span>half-mass radius <span set:html={m("r_h")} /> = <output data-rh-val>1.3</output> pc</span>
+              <input type="range" data-rh min="0.3" max="5" step="0.1" value="1.3" />
+              <small>compact ← → diffuse</small>
+            </label>
           </div>
-        </details>
+        </section>
       </div>
       <p class="xpl-census__summary" data-summary aria-live="polite">
         <span data-v="n">—</span> stars · <span data-v="o">—</span> O-type (≥16 <span set:html={m("M_\\odot")} />)
@@ -127,7 +142,7 @@ const m = (tex: string, display = false) =>
       </p>
     </div>
 
-    <figure class="xpl-census__panel">
+    <figure class="xpl-census__panel" data-lit="census environment">
       <figcaption>
         The IMF
         <span class="xpl-census__modes" role="group" aria-label="IMF form">
@@ -354,6 +369,37 @@ const m = (tex: string, display = false) =>
       }),
     );
 
+    // Lens tiers: multi-select chips over ONE cluster. One on = guided focus; two
+    // on = compare knob-groups side by side on the SAME population (nothing is
+    // re-drawn — a chip only toggles which knobs show). The panels a lens drives
+    // get a subtle border while it is active. Local state, like the IMF-form
+    // toggle — the cluster identity is untouched, so no persistence is needed.
+    const lensChips = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-lens-chip]"));
+    const lensSections = Array.from(root.querySelectorAll<HTMLElement>("[data-lens]"));
+    const litPanels = Array.from(root.querySelectorAll<HTMLElement>("[data-lit]"));
+    const activeLenses = new Set<string>(["census"]);
+    const applyLenses = () => {
+      lensChips.forEach((c) => {
+        const on = activeLenses.has(c.dataset.lensChip!);
+        c.classList.toggle("is-active", on);
+        c.setAttribute("aria-pressed", String(on));
+      });
+      lensSections.forEach((s) => (s.hidden = !activeLenses.has(s.dataset.lens!)));
+      litPanels.forEach((p) =>
+        p.classList.toggle("is-lit", (p.dataset.lit ?? "").split(" ").some((l) => activeLenses.has(l))),
+      );
+    };
+    lensChips.forEach((c) =>
+      c.addEventListener("click", () => {
+        const key = c.dataset.lensChip!;
+        if (activeLenses.has(key)) {
+          if (activeLenses.size > 1) activeLenses.delete(key); // always keep one lens on
+        } else activeLenses.add(key);
+        applyLenses();
+      }),
+    );
+    applyLenses();
+
     // Hover previews (faint ring, transient); click pins (solid ring, persistent).
     const redrawSel = () => {
       field.redraw();
@@ -447,6 +493,12 @@ const m = (tex: string, display = false) =>
     max-inline-size: 76rem; /* caps the top row into near-squares on wide screens */
     margin-inline: auto;
   }
+  /* The [hidden] attribute must win over the display:grid/flex a hideable
+   * element gets from its class — otherwise the UA `[hidden]{display:none}` is
+   * overridden and the element stays visible (the readout card, the γ slider and
+   * the env sub-controls all shipped visible-while-hidden because of this). One
+   * !important rule, scoped so it can't leak, is the canonical reset for it. */
+  .xpl-census [hidden] { display: none !important; }
   .xpl-census__grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -498,16 +550,38 @@ const m = (tex: string, display = false) =>
   .xpl-census__modes button:last-child { border-radius: 0 999px 999px 0; }
   .xpl-census__modes button.is-active { color: #0a0b0e; background: var(--xpl-teal); border-color: var(--xpl-teal); }
 
-  /* Two columns so the box stays short and the cluster stays in view while you
-   * experiment. Full-width items (the advanced disclosure) span both. */
-  .xpl-census__controls {
+  /* Lens tiers (multi-select chips) over ONE cluster: one on = guided focus, two
+   * on = compare knob-groups on the same population. The panels a lens drives
+   * take a subtle teal border while it is active. */
+  .xpl-census__lenses { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .xpl-census__lenses button {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-dim);
+    background: transparent;
+    border: 1px solid var(--xpl-border);
+    border-radius: 999px;
+    padding: 0.25rem 0.85rem;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  .xpl-census__lenses button:hover { border-color: var(--xpl-teal); color: var(--xpl-ink); }
+  .xpl-census__lenses button.is-active { color: #0a0b0e; background: var(--xpl-teal); border-color: var(--xpl-teal); }
+  .xpl-census__panel.is-lit { border-color: color-mix(in srgb, var(--xpl-teal) 40%, var(--xpl-border)); }
+
+  /* The controls column is a vertical stack of lens sections; each section lays
+   * its own knobs out in two columns so any single lens stays short. */
+  .xpl-census__controls { display: grid; gap: var(--space-m, 1rem); }
+  .xpl-census__lens { display: grid; gap: var(--space-s, 0.75rem); }
+  .xpl-census__lenshd { margin: 0; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1, 0.85rem); color: var(--xpl-dim); }
+  .xpl-census__lenshd b { color: var(--xpl-teal); font-weight: 600; }
+  .xpl-census__lensgrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-s, 0.75rem) var(--space-l, 1.5rem);
     align-items: start;
   }
-  .xpl-census__controls > .xpl-census__advanced { grid-column: 1 / -1; }
-  @media (max-width: 30rem) { .xpl-census__controls { grid-template-columns: 1fr; } }
+  @media (max-width: 30rem) { .xpl-census__lensgrid { grid-template-columns: 1fr; } }
   .xpl-census__ctrl {
     display: grid;
     gap: 0.25rem;
@@ -545,27 +619,6 @@ const m = (tex: string, display = false) =>
     border-radius: 6px;
     padding: 0.25rem 0.4rem;
   }
-  .xpl-census__advanced { border-block-start: 1px solid var(--xpl-border); padding-block-start: var(--space-s, 0.75rem); }
-  .xpl-census__advanced summary {
-    cursor: pointer;
-    list-style: none;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--step--1, 0.85rem);
-    color: var(--xpl-teal);
-  }
-  .xpl-census__advanced summary::-webkit-details-marker { display: none; }
-  .xpl-census__advanced summary::before { content: "▸ "; }
-  .xpl-census__advanced[open] summary::before { content: "▾ "; }
-  .xpl-census__advgrid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-s, 0.75rem) var(--space-l, 1.5rem);
-    align-items: start;
-    margin-block-start: var(--space-m, 1rem);
-  }
-  .xpl-census__advgrid > .xpl-census__check,
-  .xpl-census__advgrid > .xpl-census__envctrls { grid-column: 1 / -1; }
-  @media (max-width: 30rem) { .xpl-census__advgrid { grid-template-columns: 1fr; } }
   .xpl-census__reseed {
     justify-self: start;
     font-family: var(--font-mono, ui-monospace, monospace);
