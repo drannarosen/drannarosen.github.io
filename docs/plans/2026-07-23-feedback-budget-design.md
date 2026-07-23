@@ -293,12 +293,17 @@ picker** (which pre-generated cloud). No census IMF sliders.
 Every magic number gets a provenance comment (research-workflow
 `provenance-of-constants`). **Nothing below is filled in from memory** — each is
 left unset until the reference is checked. STILL TO SOURCE:
-- α_B case-B recombination coefficient; the Strömgren radius form
-- Sternberg+2003 Q(Teff, log g) coefficients — paper identified, not transcribed
-- radiation-pressure τ_IR treatment (ORION2-informed)
+- Sternberg+2003 Q(Teff, log g) coefficients — paper identified and APPROVED for
+  use; the table/fit itself is not yet transcribed
 - binding-energy coefficient α for the truncated EFF cloud
-- **η_max per channel** (see below)
+- **η_max per channel** (the adiabatic ceiling of the f_leak→η map)
 - Lopez+2014 pressure-budget coefficients — blocked on the two-verifier gate
+
+**Stellar tracks are NOT needed for v1** and are deferred to v2 (startrax).
+Sternberg+2003 offers no shortcut: it consumes the Geneva tracks (Schaller et al.
+1992; Meynet et al. 1994) rather than providing a toy stellar model, so its
+time-dependent cluster output is a computed product, not a formula we can
+implement. v1 is fully self-contained on the export's own per-star Teff and R.
 - **η_max per channel** — the adiabatic/Weaver bubble solution for winds, the
   D-front solution for photoionization. The f_leak→η interpolation is labelled a
   parameterization on the page.
@@ -359,6 +364,55 @@ momentum, and energy by massive stars into the ISM*; the STARBURST99 theoretical
 wind model, and the right citation for the POPULATION-deposition framing and for
 the v_inf ∝ Z^0.13 metallicity scaling if Z is ever varied. Not used for the
 per-star v_w, for the internal-consistency reason above.
+
+### PHOTOIONIZATION + RADIATION PRESSURE — sourced 2026-07-23
+
+**Krumholz & Matzner (2009), ApJ 703, 1352** (arXiv:0906.4343), *The Dynamics of
+Radiation-Pressure-Dominated H II Regions*, building on Matzner (2002). Read from
+the paper PDF this session. This supplies BOTH channels and their discriminator.
+
+Thin-shell momentum equation (their Eq. 1; gas-pressure term first, radiation second):
+```
+d(M_sh ṙ_II)/dt = A_sh · ρ_II[c_II² + u_II(u_II − ṙ_II)] + f_trap·L/(4π r_II² c)
+A_sh = (4,2)π r_II²   M_sh = (4,2)π r_II³ ρ/3      # (spherical, hemispherical/blister)
+```
+Ionization balance (Eq. 2) and the reduced gas-pressure term (Eq. 3):
+```
+(4/3)π r_II³ α_B (ρ_II c_II² / k_B T_II)² = φ S
+ρ_II[c_II² + u_II(u_II − ṙ_II)] ≈ (1,2) · 3Sφ/(4π α_B) · sqrt(k_B T_II) / r_II^{3/2}
+```
+**Characteristic radius — the quantitative discriminator** (Eqs. 4–5): the radius
+at which radiation and gas pressure are EQUAL. Radiation forces go as r⁻², so
+radiation dominates INSIDE r_ch and gas pressure outside:
+```
+r_ch = [α_B / (12(1,4)π φ)] · (ε_0 / k_B T_II)² · (ψ² S / c²) · f_trap²
+     → (9.2, 2.3) × 10⁻² · S_49  pc        # S_49 = S/1e49 s⁻¹
+```
+
+| symbol | value / form | provenance |
+| --- | --- | --- |
+| α_B | 3.46 × 10⁻¹³ cm³ s⁻¹ | KM09 fiducial (case-B recombination) |
+| φ | 0.73 | KM09, after McKee & Williams (1997): He singly ionized, 27 % of ionizing photons absorbed by dust, MW dust-to-gas |
+| T_II | 7000 K | KM09 fiducial (NOT 10⁴ K — must pair with their α_B and φ) |
+| ε_0 | 13.6 eV | KM09 — H ionization threshold |
+| ψ | L/(S ε_0), ≈ 1 when massive stars dominate | KM09 — **computable from our data**, not a free parameter: we have L and S per star |
+| f_trap | free parameter, "of order a few", **fiducial 2** | KM09 §2–3 |
+| (1,2) / (1,4) | spherical vs blister/hemispherical | KM09 |
+
+**Two design decisions this VALIDATES rather than merely permits:**
+
+1. **`f_trap` as a knob is what KM09 themselves do.** They enumerate three
+   trapping routes (wind–shell collision, dust-reprocessed IR trapped in an
+   optically-thick shell, Lyα resonant scattering), conclude it is "always likely
+   to be of order a few", and **deliberately leave it a free parameter** with
+   fiducial 2. Our radiation-pressure knob is therefore sourced, with a sourced
+   default — not invented. f_trap = 0 is the optically-thin limit (all photons
+   escape, no momentum); f_trap = 1 is one absorption per photon.
+2. **`r_ch` is the quantitative form of the environment thesis.** It scales with
+   S, hence with cluster mass / N, so the massive compact environment has a large
+   r_ch and is radiation-dominated while the diffuse one is gas-pressure
+   dominated. That is exactly "which channel can even do the job here", expressed
+   as a number the engine can compute and display rather than assert.
 
 ### IONIZING PHOTON RATE — reference identified 2026-07-23
 **Sternberg, Hoffmann & Pauldrach (2003)**, *Ionizing Photon Emission Rates from
