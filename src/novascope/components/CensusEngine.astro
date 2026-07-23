@@ -55,54 +55,71 @@ const m = (tex: string, display = false) =>
     <div class="xpl-census__panel xpl-census__panel--pad">
       <div class="xpl-census__controls">
         <label class="xpl-census__ctrl">
+          <span>preset</span>
+          <select class="xpl-census__select" data-preset>
+            <option value="">— custom —</option>
+            <option value="default">typical cluster</option>
+            <option value="lowMass">low-mass (noisy)</option>
+            <option value="starburst">starburst</option>
+            <option value="diffuse">diffuse</option>
+            <option value="segregated">segregated</option>
+          </select>
+        </label>
+        <label class="xpl-census__ctrl">
           <span>high-mass slope <span set:html={m("\\alpha")} /> = <output data-slope-val>2.3</output></span>
           <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
           <small>top-heavy ← → bottom-heavy</small>
         </label>
-        <label class="xpl-census__check">
-          <input type="checkbox" data-envmode />
-          <span>environment-driven <span set:html={m("\\alpha")} /> (Marks/Jerabkova)</span>
-        </label>
-        <div class="xpl-census__envctrls" data-envctrls hidden>
-          <label class="xpl-census__ctrl">
-            <span>metallicity <span set:html={m("[\\mathrm{Fe}/\\mathrm{H}]")} /> = <output data-feh-val>0.0</output></span>
-            <input type="range" data-feh min="-2" max="0.5" step="0.1" value="0" />
-            <small>metal-poor → top-heavy</small>
-          </label>
-          <label class="xpl-census__ctrl">
-            <span><span set:html={m("\\log_{10} M_\\mathrm{ecl}")} /> = <output data-mecl-val>4.0</output></span>
-            <input type="range" data-mecl min="3" max="7" step="0.1" value="4" />
-            <small>denser cluster → top-heavy</small>
-          </label>
-        </div>
         <label class="xpl-census__ctrl">
           <span>stars N = <output data-count-val>1200</output></span>
           <input type="range" data-count min="1.301" max="4.301" step="0.01" value="3.079" />
           <small>watch the rare massive tail flicker</small>
         </label>
-        <label class="xpl-census__ctrl">
-          <span>segregation <span set:html={m("\\lambda")} /> = <output data-seg-val>0.0</output></span>
-          <input type="range" data-seg min="0" max="1" step="0.05" value="0" />
-          <small>massive stars sink to the core</small>
-        </label>
-        <label class="xpl-census__ctrl">
-          <span>half-mass radius <span set:html={m("r_h")} /> = <output data-rh-val>1.3</output> pc</span>
-          <input type="range" data-rh min="0.3" max="5" step="0.1" value="1.3" />
-          <small>compact ← → diffuse</small>
-        </label>
-        <div class="xpl-census__ctrl">
-          <span>spatial profile</span>
-          <span class="xpl-census__modes" role="group" aria-label="Spatial profile">
-            <button type="button" data-profile="plummer" class="is-active">Plummer</button>
-            <button type="button" data-profile="eff">EFF</button>
-          </span>
-        </div>
-        <label class="xpl-census__ctrl" data-gammactrl hidden>
-          <span>EFF slope <span set:html={m("\\gamma")} /> = <output data-gamma-val>3.0</output></span>
-          <input type="range" data-gamma min="2.5" max="6" step="0.1" value="3" />
-          <small>steeper → more concentrated</small>
-        </label>
         <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
+
+        <details class="xpl-census__advanced">
+          <summary>structure &amp; environment</summary>
+          <div class="xpl-census__advgrid">
+            <label class="xpl-census__check">
+              <input type="checkbox" data-envmode />
+              <span>environment-driven <span set:html={m("\\alpha")} /> (Marks/Jerabkova)</span>
+            </label>
+            <div class="xpl-census__envctrls" data-envctrls hidden>
+              <label class="xpl-census__ctrl">
+                <span>metallicity <span set:html={m("[\\mathrm{Fe}/\\mathrm{H}]")} /> = <output data-feh-val>0.0</output></span>
+                <input type="range" data-feh min="-2" max="0.5" step="0.1" value="0" />
+                <small>metal-poor → top-heavy</small>
+              </label>
+              <label class="xpl-census__ctrl">
+                <span><span set:html={m("\\log_{10} M_\\mathrm{ecl}")} /> = <output data-mecl-val>4.0</output></span>
+                <input type="range" data-mecl min="3" max="7" step="0.1" value="4" />
+                <small>denser cluster → top-heavy</small>
+              </label>
+            </div>
+            <label class="xpl-census__ctrl">
+              <span>segregation <span set:html={m("\\lambda")} /> = <output data-seg-val>0.0</output></span>
+              <input type="range" data-seg min="0" max="1" step="0.05" value="0" />
+              <small>massive stars sink to the core</small>
+            </label>
+            <label class="xpl-census__ctrl">
+              <span>half-mass radius <span set:html={m("r_h")} /> = <output data-rh-val>1.3</output> pc</span>
+              <input type="range" data-rh min="0.3" max="5" step="0.1" value="1.3" />
+              <small>compact ← → diffuse</small>
+            </label>
+            <div class="xpl-census__ctrl">
+              <span>spatial profile</span>
+              <span class="xpl-census__modes" role="group" aria-label="Spatial profile">
+                <button type="button" data-profile="plummer" class="is-active">Plummer</button>
+                <button type="button" data-profile="eff">EFF</button>
+              </span>
+            </div>
+            <label class="xpl-census__ctrl" data-gammactrl hidden>
+              <span>EFF slope <span set:html={m("\\gamma")} /> = <output data-gamma-val>3.0</output></span>
+              <input type="range" data-gamma min="2.5" max="6" step="0.1" value="3" />
+              <small>steeper → more concentrated</small>
+            </label>
+          </div>
+        </details>
       </div>
       <p class="xpl-census__summary" data-summary aria-live="polite">
         <span data-v="n">—</span> stars · <span data-v="o">—</span> O-type (≥16 <span set:html={m("M_\\odot")} />)
@@ -137,7 +154,7 @@ const m = (tex: string, display = false) =>
 
 <script>
   import { createClusterStore, toRenderModel, toHRModel, toIMFHistogram, localStorageAdapter } from "../state/index.ts";
-  import { defaultIdentity, sampleCluster, PLUMMER_RH_OVER_A, type ClusterIdentity } from "../core/cluster/index.ts";
+  import { defaultIdentity, sampleCluster, presets, PLUMMER_RH_OVER_A, type ClusterIdentity } from "../core/cluster/index.ts";
   import { star } from "../core/stellar/index.ts";
   import { alpha3FromEnvironment } from "../core/imf/index.ts";
   import { mountCanvas, makeCamera, attachOrbit, renderClusterField, pickStar, renderHR, pickHRPoint, renderHistogram } from "../viz/index.ts";
@@ -162,6 +179,7 @@ const m = (tex: string, display = false) =>
     const fehVal = $<HTMLOutputElement>("[data-feh-val]");
     const mecl = $<HTMLInputElement>("[data-mecl]");
     const meclVal = $<HTMLOutputElement>("[data-mecl-val]");
+    const preset = $<HTMLSelectElement>("[data-preset]");
     const card = $<HTMLElement>("[data-card]");
     const summary = $<HTMLElement>("[data-summary]");
     const hint = $<HTMLElement>("[data-hint]");
@@ -179,16 +197,8 @@ const m = (tex: string, display = false) =>
     let hr = toHRModel(latent, store.getView());
     let imf = toIMFHistogram(latent, store.getIdentity());
 
-    // Sync controls to the (possibly restored) identity.
-    const idNow = store.getIdentity();
-    slope.value = String(idNow.imf.alphaHigh);
-    slopeVal.value = idNow.imf.alphaHigh.toFixed(1);
-    count.value = String(Math.log10(idNow.sampling.target));
-    countVal.value = idNow.sampling.target.toLocaleString();
-    seg.value = String(idNow.segregation);
-    segVal.value = idNow.segregation.toFixed(2);
-    rh.value = (idNow.profile.scaleRadius * PLUMMER_RH_OVER_A).toFixed(1);
-    rhVal.value = (idNow.profile.scaleRadius * PLUMMER_RH_OVER_A).toFixed(1);
+    // Controls are synced to the (possibly restored/preset) identity by
+    // syncControls(), defined + called once all refs exist, below.
 
     let hoverId: number | null = null; // transient preview; pinned lives in the store
     let imfForm: "dNdM" | "perDex" = "dNdM"; // IMF plot form (ξ line vs per-dex hump)
@@ -216,6 +226,7 @@ const m = (tex: string, display = false) =>
     function patchIdentity(patch: Partial<ClusterIdentity>) {
       store.setIdentity({ ...store.getIdentity(), ...patch });
       latent = sampleCluster(store.getIdentity());
+      preset.value = ""; // a manual change → custom
       recompute();
     }
 
@@ -276,6 +287,40 @@ const m = (tex: string, display = false) =>
       gammaVal.value = Number(gamma.value).toFixed(1);
       patchIdentity({ profile: { ...store.getIdentity().profile, gamma: Number(gamma.value) } });
     });
+
+    // Reflect the current identity onto every control (initial load + presets).
+    function syncControls() {
+      const id = store.getIdentity();
+      slope.value = String(id.imf.alphaHigh);
+      slopeVal.value = id.imf.alphaHigh.toFixed(2);
+      slope.disabled = false;
+      count.value = String(Math.log10(id.sampling.target));
+      countVal.value = id.sampling.target.toLocaleString();
+      seg.value = String(id.segregation);
+      segVal.value = id.segregation.toFixed(2);
+      const rhv = id.profile.scaleRadius * PLUMMER_RH_OVER_A;
+      rh.value = rhv.toFixed(1);
+      rhVal.value = rhv.toFixed(1);
+      const g = id.profile.gamma ?? 3;
+      gamma.value = String(g);
+      gammaVal.value = g.toFixed(1);
+      gammaCtrl.hidden = id.profile.kind !== "eff";
+      profileBtns.forEach((b) => b.classList.toggle("is-active", b.dataset.profile === id.profile.kind));
+      envmode.checked = false;
+      envctrls.hidden = true;
+    }
+
+    // "Strange universe" presets.
+    preset.addEventListener("change", () => {
+      const p = presets[preset.value];
+      if (!p) return;
+      store.setIdentity(structuredClone(p));
+      latent = sampleCluster(store.getIdentity());
+      syncControls();
+      recompute();
+    });
+
+    syncControls();
     $<HTMLButtonElement>("[data-reseed]").addEventListener("click", () => {
       patchIdentity({ seed: (store.getIdentity().seed * 1103515245 + 12345) >>> 0 });
     });
@@ -482,6 +527,27 @@ const m = (tex: string, display = false) =>
     padding-inline-start: var(--space-s, 0.7rem);
     border-inline-start: 2px solid color-mix(in srgb, var(--xpl-teal) 45%, transparent);
   }
+  .xpl-census__select {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-ink);
+    background: var(--xpl-panel);
+    border: 1px solid var(--xpl-border);
+    border-radius: 6px;
+    padding: 0.25rem 0.4rem;
+  }
+  .xpl-census__advanced { border-block-start: 1px solid var(--xpl-border); padding-block-start: var(--space-s, 0.75rem); }
+  .xpl-census__advanced summary {
+    cursor: pointer;
+    list-style: none;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-teal);
+  }
+  .xpl-census__advanced summary::-webkit-details-marker { display: none; }
+  .xpl-census__advanced summary::before { content: "▸ "; }
+  .xpl-census__advanced[open] summary::before { content: "▾ "; }
+  .xpl-census__advgrid { display: grid; gap: var(--space-m, 1rem); margin-block-start: var(--space-m, 1rem); }
   .xpl-census__reseed {
     justify-self: start;
     font-family: var(--font-mono, ui-monospace, monospace);
