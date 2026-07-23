@@ -30,6 +30,14 @@ const m = (tex: string, display = false) =>
       </figcaption>
       <canvas data-field aria-label="Star cluster; hover a star to inspect it, drag to orbit in 3D"></canvas>
       <small class="xpl-census__hint" data-hint></small>
+      <div class="xpl-census__presets" role="group" aria-label="Quick-start presets">
+        <span class="xpl-census__presets-label">quick starts</span>
+        <button type="button" data-preset-btn="default">typical</button>
+        <button type="button" data-preset-btn="lowMass">low-mass</button>
+        <button type="button" data-preset-btn="starburst">starburst</button>
+        <button type="button" data-preset-btn="diffuse">diffuse</button>
+        <button type="button" data-preset-btn="segregated">segregated</button>
+      </div>
     </figure>
 
     <figure class="xpl-census__panel xpl-census__panel--hr" data-lit="census">
@@ -63,17 +71,6 @@ const m = (tex: string, display = false) =>
         <section class="xpl-census__lens" data-lens="census" aria-label="Census controls">
           <p class="xpl-census__lenshd"><b>Census</b> — how many stars of each mass?</p>
           <div class="xpl-census__lensgrid">
-            <label class="xpl-census__ctrl">
-              <span>preset</span>
-              <select class="xpl-census__select" data-preset>
-                <option value="">— custom —</option>
-                <option value="default">typical cluster</option>
-                <option value="lowMass">low-mass (noisy)</option>
-                <option value="starburst">starburst</option>
-                <option value="diffuse">diffuse</option>
-                <option value="segregated">segregated</option>
-              </select>
-            </label>
             <label class="xpl-census__ctrl">
               <span>high-mass slope <span set:html={m("\\alpha")} /> = <output data-slope-val>2.3</output></span>
               <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
@@ -194,7 +191,9 @@ const m = (tex: string, display = false) =>
     const fehVal = $<HTMLOutputElement>("[data-feh-val]");
     const mecl = $<HTMLInputElement>("[data-mecl]");
     const meclVal = $<HTMLOutputElement>("[data-mecl-val]");
-    const preset = $<HTMLSelectElement>("[data-preset]");
+    const presetBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-preset-btn]"));
+    const setActivePreset = (key: string | null) =>
+      presetBtns.forEach((b) => b.classList.toggle("is-active", b.dataset.presetBtn === key));
     const card = $<HTMLElement>("[data-card]");
     const summary = $<HTMLElement>("[data-summary]");
     const hint = $<HTMLElement>("[data-hint]");
@@ -241,7 +240,7 @@ const m = (tex: string, display = false) =>
     function patchIdentity(patch: Partial<ClusterIdentity>) {
       store.setIdentity({ ...store.getIdentity(), ...patch });
       latent = sampleCluster(store.getIdentity());
-      preset.value = ""; // a manual change → custom
+      setActivePreset(null); // a manual change → no preset highlighted
       recompute();
     }
 
@@ -325,15 +324,20 @@ const m = (tex: string, display = false) =>
       envctrls.hidden = true;
     }
 
-    // "Strange universe" presets.
-    preset.addEventListener("change", () => {
-      const p = presets[preset.value];
-      if (!p) return;
-      store.setIdentity(structuredClone(p));
-      latent = sampleCluster(store.getIdentity());
-      syncControls();
-      recompute();
-    });
+    // "Strange universe" presets — a jump to a whole named identity, sat below
+    // the cluster it reshapes. The highlight clears on any manual tweak (via
+    // patchIdentity → setActivePreset(null)), the old dropdown's "— custom —".
+    presetBtns.forEach((b) =>
+      b.addEventListener("click", () => {
+        const p = presets[b.dataset.presetBtn!];
+        if (!p) return;
+        store.setIdentity(structuredClone(p));
+        latent = sampleCluster(store.getIdentity());
+        syncControls();
+        recompute();
+        setActivePreset(b.dataset.presetBtn!);
+      }),
+    );
 
     syncControls();
     $<HTMLButtonElement>("[data-reseed]").addEventListener("click", () => {
@@ -610,14 +614,38 @@ const m = (tex: string, display = false) =>
     padding-inline-start: var(--space-s, 0.7rem);
     border-inline-start: 2px solid color-mix(in srgb, var(--xpl-teal) 45%, transparent);
   }
-  .xpl-census__select {
+  /* Preset "quick starts" sit under the cluster they reshape. Ghost/outline
+   * pills — single-select JUMPS — deliberately distinct from the solid-filled
+   * lens chips (multi-select tiers), so the two controls don't read as one. */
+  .xpl-census__presets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 var(--space-s, 0.75rem) var(--space-s, 0.75rem);
+  }
+  .xpl-census__presets-label {
     font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--step--1, 0.85rem);
-    color: var(--xpl-ink);
-    background: var(--xpl-panel);
+    font-size: var(--step--2, 0.72rem);
+    color: var(--xpl-dim);
+    margin-inline-end: 0.15rem;
+  }
+  .xpl-census__presets button {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--2, 0.72rem);
+    color: var(--xpl-dim);
+    background: transparent;
     border: 1px solid var(--xpl-border);
-    border-radius: 6px;
-    padding: 0.25rem 0.4rem;
+    border-radius: 999px;
+    padding: 0.15rem 0.7rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .xpl-census__presets button:hover { color: var(--xpl-ink); border-color: var(--xpl-teal); }
+  .xpl-census__presets button.is-active {
+    color: var(--xpl-teal);
+    border-color: var(--xpl-teal);
+    background: color-mix(in srgb, var(--xpl-teal) 14%, transparent);
   }
   .xpl-census__reseed {
     justify-self: start;
