@@ -54,7 +54,7 @@ export function defaultIdentity(over: Partial<ClusterIdentity> = {}): ClusterIde
     sampling: { mode: "count", target: 1200, ...over.sampling },
     imf: { mMin: 0.1, mMax: 100, alphaHigh: 2.3, ...over.imf },
     Z: over.Z ?? 0.02,
-    profile: { kind: "plummer", scaleRadius: 1, ...over.profile },
+    profile: { kind: "eff", scaleRadius: 1, gamma: 5, ...over.profile },
     segregation: over.segregation ?? 0,
     kinematics: { virialRatio: 0.5, ...over.kinematics },
     ...("seed" in over ? { seed: over.seed! } : {}),
@@ -70,8 +70,8 @@ export const presets: Record<string, ClusterIdentity> = {
     sampling: { mode: "mass", target: 3e4 },
     imf: { mMin: 0.1, mMax: 120, alphaHigh: 2.0 }, // top-heavy
   }),
-  diffuse: defaultIdentity({ seed: 99, profile: { kind: "plummer", scaleRadius: 3 } }),
-  segregated: defaultIdentity({ seed: 11, segregation: 1, profile: { kind: "plummer", scaleRadius: 1 } }),
+  diffuse: defaultIdentity({ seed: 99, profile: { kind: "eff", scaleRadius: 3, gamma: 5 } }),
+  segregated: defaultIdentity({ seed: 11, segregation: 1, profile: { kind: "eff", scaleRadius: 1, gamma: 5 } }),
 };
 
 /* ── Versioned (de)serialization ─────────────────────────────────────────

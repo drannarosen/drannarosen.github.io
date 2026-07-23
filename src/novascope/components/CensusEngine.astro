@@ -113,23 +113,17 @@ const m = (tex: string, display = false) =>
         <section class="xpl-census__lens" data-lens="structure" aria-label="Structure controls" hidden>
           <div class="xpl-census__lenshd xpl-census__lenshd--split">
             <span><b>Structure</b> — where do stars live?</span>
-            <span class="xpl-census__profile">
-              <button type="button" class="xpl-census__info" data-info="profile" aria-expanded="false" aria-label="What is the spatial profile?">?</button>
-              <span class="xpl-census__modes" role="group" aria-label="Spatial profile">
-                <button type="button" data-profile="plummer" class="is-active">Plummer</button>
-                <button type="button" data-profile="eff">EFF</button>
-              </span>
-            </span>
+            <button type="button" class="xpl-census__info" data-info="profile" aria-expanded="false" aria-label="About the spatial profile">?</button>
             <div class="xpl-census__popover" data-popover="profile" role="tooltip" hidden>
-              <b>Spatial profile</b> — how stars thin out with radius. <b>Plummer</b> is a smooth cored sphere (the EFF <span set:html={m("\\gamma")} />=5 case); <b>EFF</b> (Elson+1987) adds a power-law halo — lower <span set:html={m("\\gamma")} /> spreads stars into extended wings.
+              <b>Spatial profile</b> — an EFF (Elson+1987) sphere, <span set:html={m("\\rho \\propto (1 + r^2/a^2)^{-\\gamma/2}")} />. <span set:html={m("\\gamma = 5")} /> is the classic Plummer sphere; lower <span set:html={m("\\gamma")} /> spreads stars into an extended power-law halo.
             </div>
           </div>
           <div class="xpl-census__lensgrid">
-            <label class="xpl-census__ctrl" data-gammactrl hidden>
-              <span class="xpl-census__ctrl-name">EFF slope</span>
+            <label class="xpl-census__ctrl">
+              <span class="xpl-census__ctrl-name">concentration</span>
               <span class="xpl-census__ctrl-val"><span set:html={m("\\gamma")} /> = <output data-gamma-val>5.0</output></span>
               <input type="range" data-gamma min="2.5" max="6" step="0.1" value="5" />
-              <small>lower → extended halo (5 = Plummer)</small>
+              <small>5 = Plummer; lower = extended</small>
             </label>
             <label class="xpl-census__ctrl">
               <span class="xpl-census__ctrl-name">segregation</span>
@@ -182,7 +176,7 @@ const m = (tex: string, display = false) =>
 
 <script>
   import { createClusterStore, toRenderModel, toHRModel, toIMFHistogram, localStorageAdapter } from "../state/index.ts";
-  import { defaultIdentity, sampleCluster, presets, PLUMMER_RH_OVER_A, type ClusterIdentity } from "../core/cluster/index.ts";
+  import { defaultIdentity, sampleCluster, presets, effRhOverA, type ClusterIdentity } from "../core/cluster/index.ts";
   import { star } from "../core/stellar/index.ts";
   import { alpha3FromEnvironment } from "../core/imf/index.ts";
   import { mountCanvas, makeCamera, attachOrbit, renderClusterField, pickStar, renderHR, pickHRPoint, renderHistogram } from "../viz/index.ts";
@@ -308,23 +302,24 @@ const m = (tex: string, display = false) =>
       segVal.value = v.toFixed(2);
       patchIdentity({ segregation: v });
     });
+    // Structure geometry: one EFF profile. γ sets concentration (5 = Plummer),
+    // r_h is the half-mass radius. They're orthogonal — scaleRadius is derived
+    // from r_h through the ACTUAL EFF half-mass ratio for the current γ, so the
+    // quoted r_h stays true at every γ, not only the Plummer case.
+    const gamma = $<HTMLInputElement>("[data-gamma]");
+    const gammaVal = $<HTMLOutputElement>("[data-gamma-val]");
+    const setGeometry = (rhPc: number, g: number) =>
+      patchIdentity({ profile: { kind: "eff", scaleRadius: rhPc / effRhOverA(g), gamma: g } });
     rh.addEventListener("input", () => {
       const v = Number(rh.value); // r_h in pc
       rhVal.value = v.toFixed(1);
-      patchIdentity({ profile: { ...store.getIdentity().profile, scaleRadius: v / PLUMMER_RH_OVER_A } });
+      setGeometry(v, Number(gamma.value));
     });
-
-    // Spatial profile: Plummer ↔ EFF (γ slider shown for EFF).
-    const profileBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-profile]"));
-    const gammaCtrl = $<HTMLElement>("[data-gammactrl]");
-    const gamma = $<HTMLInputElement>("[data-gamma]");
-    const gammaVal = $<HTMLOutputElement>("[data-gamma-val]");
-    const setProfile = (kind: "plummer" | "eff") => {
-      profileBtns.forEach((x) => x.classList.toggle("is-active", x.dataset.profile === kind));
-      gammaCtrl.hidden = kind !== "eff";
-      patchIdentity({ profile: { ...store.getIdentity().profile, kind, gamma: Number(gamma.value) } });
-    };
-    profileBtns.forEach((b) => b.addEventListener("click", () => setProfile(b.dataset.profile as "plummer" | "eff")));
+    gamma.addEventListener("input", () => {
+      const g = Number(gamma.value);
+      gammaVal.value = g.toFixed(1);
+      setGeometry(Number(rh.value), g); // hold r_h fixed as the shape changes
+    });
 
     // "?" popover explaining the spatial profile (click to toggle, click-away closes).
     const infoBtn = root.querySelector<HTMLButtonElement>('[data-info="profile"]');
@@ -342,10 +337,6 @@ const m = (tex: string, display = false) =>
         if (!popover.hidden && e.target instanceof Node && !popover.contains(e.target)) setOpen(false);
       });
     }
-    gamma.addEventListener("input", () => {
-      gammaVal.value = Number(gamma.value).toFixed(1);
-      patchIdentity({ profile: { ...store.getIdentity().profile, gamma: Number(gamma.value) } });
-    });
 
     // Reflect the current identity onto every control (initial load + presets).
     function syncControls() {
@@ -358,14 +349,12 @@ const m = (tex: string, display = false) =>
       countVal.value = id.sampling.target.toLocaleString();
       seg.value = String(id.segregation);
       segVal.value = id.segregation.toFixed(2);
-      const rhv = id.profile.scaleRadius * PLUMMER_RH_OVER_A;
-      rh.value = rhv.toFixed(1);
-      rhVal.value = rhv.toFixed(1);
-      const g = id.profile.gamma ?? 5; // 5 = Plummer-equivalent (EFF default)
+      const g = id.profile.gamma ?? 5; // 5 = Plummer sphere
       gamma.value = String(g);
       gammaVal.value = g.toFixed(1);
-      gammaCtrl.hidden = id.profile.kind !== "eff";
-      profileBtns.forEach((b) => b.classList.toggle("is-active", b.dataset.profile === id.profile.kind));
+      const rhv = id.profile.scaleRadius * effRhOverA(g); // true half-mass radius at this γ
+      rh.value = rhv.toFixed(1);
+      rhVal.value = rhv.toFixed(1);
       envmode.checked = false;
       envctrls.hidden = true;
     }
@@ -656,7 +645,6 @@ const m = (tex: string, display = false) =>
    * control row) plus a "?" that pops an explanation over — not through — the
    * controls, so the box stays short and the cluster stays in view. */
   .xpl-census__lenshd--split { position: relative; display: flex; justify-content: space-between; align-items: center; gap: var(--space-s, 0.75rem); flex-wrap: wrap; }
-  .xpl-census__profile { display: inline-flex; align-items: center; gap: 0.4rem; }
   .xpl-census__info {
     flex: none;
     inline-size: 1.3rem;

@@ -80,6 +80,17 @@ function invCDF(u: number, cdf: Float64Array, rGrid: Float64Array): number {
   return rGrid[lo] + t * (rGrid[hi] - rGrid[lo]);
 }
 
+/**
+ * Half-mass radius of a (truncated) EFF(γ) profile in units of the scale radius
+ * a — i.e. r_h / a — from the enclosed-mass CDF. γ=5 gives ≈1.30 (the Plummer
+ * value 1.305), and shallower γ gives a larger ratio (more extended). Lets a UI
+ * quote a real half-mass radius for any γ instead of assuming the Plummer ratio.
+ */
+export function effRhOverA(gamma: number): number {
+  const { cdf, rGrid } = buildEFFCDF(1, gamma, 15);
+  return invCDF(0.5, cdf, rGrid); // a = 1, so this is r_h / a
+}
+
 export interface ProfileSpec {
   kind: "plummer" | "eff";
   scaleRadius: number;
