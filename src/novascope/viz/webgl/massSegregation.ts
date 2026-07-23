@@ -9,7 +9,7 @@
  */
 
 /* Deterministic PRNG so the permutation depends only on lambda; shared core. */
-import { mulberry32 } from "@novascope/core/random";
+import { mulberry32 } from "../../core/random/index.ts";
 
 /** Fenwick tree over ranks 0..n-1 for "find & remove the j-th still-available rank". */
 class AvailableRanks {
