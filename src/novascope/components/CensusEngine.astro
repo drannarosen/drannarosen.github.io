@@ -94,12 +94,14 @@ const m = (tex: string, display = false) =>
           </label>
           <div class="xpl-census__envctrls" data-envctrls hidden>
             <label class="xpl-census__ctrl">
-              <span>metallicity <span set:html={m("[\\mathrm{Fe}/\\mathrm{H}]")} /> = <output data-feh-val>0.0</output></span>
+              <span class="xpl-census__ctrl-name">metallicity</span>
+              <span class="xpl-census__ctrl-val"><span set:html={m("[\\mathrm{Fe}/\\mathrm{H}]")} /> = <output data-feh-val>0.0</output></span>
               <input type="range" data-feh min="-2" max="0.5" step="0.1" value="0" />
               <small>metal-poor → top-heavy</small>
             </label>
             <label class="xpl-census__ctrl">
-              <span><span set:html={m("\\log_{10} M_\\mathrm{ecl}")} /> = <output data-mecl-val>4.0</output></span>
+              <span class="xpl-census__ctrl-name">cluster mass</span>
+              <span class="xpl-census__ctrl-val"><span set:html={m("\\log_{10} M_\\mathrm{ecl}")} /> = <output data-mecl-val>4.0</output></span>
               <input type="range" data-mecl min="3" max="7" step="0.1" value="4" />
               <small>denser cluster → top-heavy</small>
             </label>
@@ -637,10 +639,12 @@ const m = (tex: string, display = false) =>
   .xpl-census__check input { accent-color: var(--xpl-teal); }
   .xpl-census__envctrls {
     display: grid;
-    gap: var(--space-s, 0.75rem);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-s, 0.75rem) var(--space-l, 1.5rem);
     padding-inline-start: var(--space-s, 0.7rem);
     border-inline-start: 2px solid color-mix(in srgb, var(--xpl-teal) 45%, transparent);
   }
+  @media (max-width: 30rem) { .xpl-census__envctrls { grid-template-columns: 1fr; } }
   /* Preset "quick starts" sit under the cluster they reshape. Ghost/outline
    * pills — single-select JUMPS — deliberately distinct from the solid-filled
    * lens chips (multi-select tiers), so the two controls don't read as one. */
