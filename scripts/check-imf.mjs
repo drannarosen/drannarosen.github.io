@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { maschbergerMass, maschbergerMassFraction } from "../src/novascope/core/imf/index.ts";
+import { maschbergerMass, maschbergerMassFraction, alpha3FromEnvironment } from "../src/novascope/core/imf/index.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const fx = JSON.parse(readFileSync(resolve(HERE, "fixtures/imf-maschberger-progenax.json"), "utf8"));
@@ -35,8 +35,19 @@ for (const row of fx.rows) {
   }
 }
 
+// Environment-dependent α₃ (Jerabkova/Marks) vs progenax fixture.
+const envFx = JSON.parse(readFileSync(resolve(HERE, "fixtures/imf-env-progenax.json"), "utf8"));
+console.log("\nenvironment α₃ vs progenax (Jerabkova+2018 mass-based):");
+let envMax = 0;
+for (const r of envFx.rows) {
+  envMax = Math.max(envMax, Math.abs(alpha3FromEnvironment(r.feh, 1e6 * 10 ** r.logMecl6) - r.alpha3));
+}
+const okEnv = envMax < 1e-3;
+console.log(`  ${okEnv ? "ok  " : "FAIL"}  α₃([Fe/H], M_ecl) max abs err ${envMax.toExponential(2)} over ${envFx.rows.length} points`);
+if (!okEnv) problems++;
+
 if (problems > 0) {
-  console.error(`\n[imf] ${problems} check(s) FAILED — the Maschberger port diverges from progenax.`);
+  console.error(`\n[imf] ${problems} check(s) FAILED — the port diverges from progenax.`);
   process.exit(1);
 }
-console.log(`\n[imf] ok — Maschberger matches progenax across ${fx.rows.length} slopes.`);
+console.log(`\n[imf] ok — Maschberger + environment α₃ match progenax.`);

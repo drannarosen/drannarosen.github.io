@@ -59,6 +59,22 @@ const m = (tex: string, display = false) =>
           <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
           <small>top-heavy ← → bottom-heavy</small>
         </label>
+        <label class="xpl-census__check">
+          <input type="checkbox" data-envmode />
+          <span>environment-driven <span set:html={m("\\alpha")} /> (Marks/Jerabkova)</span>
+        </label>
+        <div class="xpl-census__envctrls" data-envctrls hidden>
+          <label class="xpl-census__ctrl">
+            <span>metallicity <span set:html={m("[\\mathrm{Fe}/\\mathrm{H}]")} /> = <output data-feh-val>0.0</output></span>
+            <input type="range" data-feh min="-2" max="0.5" step="0.1" value="0" />
+            <small>metal-poor → top-heavy</small>
+          </label>
+          <label class="xpl-census__ctrl">
+            <span><span set:html={m("\\log_{10} M_\\mathrm{ecl}")} /> = <output data-mecl-val>4.0</output></span>
+            <input type="range" data-mecl min="3" max="7" step="0.1" value="4" />
+            <small>denser cluster → top-heavy</small>
+          </label>
+        </div>
         <label class="xpl-census__ctrl">
           <span>stars N = <output data-count-val>1200</output></span>
           <input type="range" data-count min="1.301" max="4.301" step="0.01" value="3.079" />
@@ -111,6 +127,7 @@ const m = (tex: string, display = false) =>
   import { createClusterStore, toRenderModel, toHRModel, toIMFHistogram, localStorageAdapter } from "../state/index.ts";
   import { defaultIdentity, sampleCluster, PLUMMER_RH_OVER_A, type ClusterIdentity } from "../core/cluster/index.ts";
   import { star } from "../core/stellar/index.ts";
+  import { alpha3FromEnvironment } from "../core/imf/index.ts";
   import { mountCanvas, makeCamera, attachOrbit, renderClusterField, pickStar, renderHR, pickHRPoint, renderHistogram } from "../viz/index.ts";
 
   const root = document.querySelector<HTMLElement>("[data-census]");
@@ -127,6 +144,12 @@ const m = (tex: string, display = false) =>
     const segVal = $<HTMLOutputElement>("[data-seg-val]");
     const rh = $<HTMLInputElement>("[data-rh]");
     const rhVal = $<HTMLOutputElement>("[data-rh-val]");
+    const envmode = $<HTMLInputElement>("[data-envmode]");
+    const envctrls = $<HTMLElement>("[data-envctrls]");
+    const feh = $<HTMLInputElement>("[data-feh]");
+    const fehVal = $<HTMLOutputElement>("[data-feh-val]");
+    const mecl = $<HTMLInputElement>("[data-mecl]");
+    const meclVal = $<HTMLOutputElement>("[data-mecl-val]");
     const card = $<HTMLElement>("[data-card]");
     const summary = $<HTMLElement>("[data-summary]");
     const hint = $<HTMLElement>("[data-hint]");
@@ -194,6 +217,27 @@ const m = (tex: string, display = false) =>
       countVal.value = n.toLocaleString();
       patchIdentity({ sampling: { mode: "count", target: n } });
     });
+    // Environment-driven IMF: [Fe/H] + M_ecl derive α via Marks/Jerabkova.
+    const applyEnv = () => {
+      const a = Math.min(2.8, Math.max(1.1, alpha3FromEnvironment(Number(feh.value), 10 ** Number(mecl.value))));
+      slope.value = a.toFixed(2);
+      slopeVal.value = a.toFixed(2);
+      patchIdentity({ imf: { ...store.getIdentity().imf, alphaHigh: a } });
+    };
+    envmode.addEventListener("change", () => {
+      envctrls.hidden = !envmode.checked;
+      slope.disabled = envmode.checked; // α is derived in env mode
+      if (envmode.checked) applyEnv();
+    });
+    feh.addEventListener("input", () => {
+      fehVal.value = Number(feh.value).toFixed(1);
+      applyEnv();
+    });
+    mecl.addEventListener("input", () => {
+      meclVal.value = Number(mecl.value).toFixed(1);
+      applyEnv();
+    });
+
     seg.addEventListener("input", () => {
       const v = Number(seg.value);
       segVal.value = v.toFixed(2);
@@ -393,6 +437,23 @@ const m = (tex: string, display = false) =>
   .xpl-census__ctrl output { color: var(--xpl-teal); }
   .xpl-census__ctrl small { color: var(--xpl-dim); font-size: var(--step--2, 0.72rem); }
   .xpl-census__ctrl input[type="range"] { accent-color: var(--xpl-rose); inline-size: 100%; }
+  .xpl-census__ctrl input[type="range"]:disabled { accent-color: var(--xpl-dim); opacity: 0.5; }
+  .xpl-census__check {
+    display: flex;
+    gap: 0.45rem;
+    align-items: center;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-ink);
+    cursor: pointer;
+  }
+  .xpl-census__check input { accent-color: var(--xpl-teal); }
+  .xpl-census__envctrls {
+    display: grid;
+    gap: var(--space-s, 0.75rem);
+    padding-inline-start: var(--space-s, 0.7rem);
+    border-inline-start: 2px solid color-mix(in srgb, var(--xpl-teal) 45%, transparent);
+  }
   .xpl-census__reseed {
     justify-self: start;
     font-family: var(--font-mono, ui-monospace, monospace);
