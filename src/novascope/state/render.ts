@@ -56,11 +56,15 @@ export function toRenderModel(
   const logLs = states.filter((s) => s.phase === "MS").map((s) => log10(s.L));
   const size = sizer(Math.min(...logLs), Math.max(...logLs), minPx, maxPx);
 
-  let maxR = 1e-6;
+  // Scale to a high PERCENTILE radius, not the max: a Plummer sphere has a long
+  // sparse tail, and letting one far star set the scale squashes the core to a
+  // dot. The few beyond the 90th percentile simply render toward the edges.
+  const radii = latent.map((s) => Math.hypot(s.x, s.y));
+  const sorted = [...radii].sort((a, b) => a - b);
+  const maxR = sorted[Math.floor(sorted.length * 0.9)] || 1e-6;
+
   const stars: RenderStar[] = latent.map((s, i) => {
     const st = states[i];
-    const r = Math.hypot(s.x, s.y);
-    if (r > maxR) maxR = r;
     const isRemnant = st.phase === "remnant";
     return {
       id: s.id,

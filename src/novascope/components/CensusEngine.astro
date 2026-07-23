@@ -1,0 +1,278 @@
+---
+/*
+ * CensusEngine.astro — the first novascope engine (Layer 3). A 2-D cluster and
+ * its H–R diagram, driven by the shared store: hover a star to read it, drag the
+ * IMF slope to make the cluster top- or bottom-heavy, change N to feel sampling
+ * noise. All physics comes from the star() contract via the selectors; this file
+ * is glue + chrome only. Styled with --xpl-* tokens (site fallbacks) so it can
+ * lift out as a package component unchanged.
+ */
+---
+
+<div class="xpl-census" data-census>
+  <div class="xpl-census__stage">
+    <figure class="xpl-census__panel">
+      <figcaption>The cluster <span>projected</span></figcaption>
+      <canvas data-field aria-label="Projected star cluster; hover a star to inspect it"></canvas>
+    </figure>
+    <figure class="xpl-census__panel">
+      <figcaption>H–R diagram <span>luminosity vs temperature</span></figcaption>
+      <canvas data-hr aria-label="Hertzsprung-Russell diagram of the cluster"></canvas>
+    </figure>
+  </div>
+
+  <div class="xpl-census__controls">
+    <label class="xpl-census__ctrl">
+      <span>high-mass slope α = <output data-slope-val>2.3</output></span>
+      <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
+      <small>top-heavy ← → bottom-heavy</small>
+    </label>
+    <label class="xpl-census__ctrl">
+      <span>stars N = <output data-count-val>1200</output></span>
+      <input type="range" data-count min="100" max="3000" step="100" value="1200" />
+      <small>watch the rare massive tail flicker</small>
+    </label>
+    <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
+  </div>
+
+  <p class="xpl-census__summary" data-summary aria-live="polite"></p>
+
+  <aside class="xpl-census__card" data-card hidden></aside>
+
+  <noscript>
+    <p class="xpl-census__noscript">
+      This interactive samples and renders a star cluster in your browser — enable
+      JavaScript to explore it. The surrounding text explains what it shows.
+    </p>
+  </noscript>
+</div>
+
+<script>
+  import { createClusterStore, toRenderModel, toHRModel, localStorageAdapter } from "../state/index.ts";
+  import { defaultIdentity, sampleCluster, type ClusterIdentity } from "../core/cluster/index.ts";
+  import { star } from "../core/stellar/index.ts";
+  import { mountCanvas, renderClusterField, pickStar, renderHR, pickHRPoint } from "../viz/index.ts";
+
+  const root = document.querySelector<HTMLElement>("[data-census]");
+  if (root) {
+    const $ = <T extends Element>(sel: string) => root.querySelector<T>(sel)!;
+    const fieldCanvas = $<HTMLCanvasElement>("[data-field]");
+    const hrCanvas = $<HTMLCanvasElement>("[data-hr]");
+    const slope = $<HTMLInputElement>("[data-slope]");
+    const slopeVal = $<HTMLOutputElement>("[data-slope-val]");
+    const count = $<HTMLInputElement>("[data-count]");
+    const countVal = $<HTMLOutputElement>("[data-count-val]");
+    const card = $<HTMLElement>("[data-card]");
+    const summary = $<HTMLElement>("[data-summary]");
+
+    const store = createClusterStore({
+      adapter: localStorageAdapter(),
+      instance: "census",
+      identity: defaultIdentity({ sampling: { mode: "count", target: 1200 }, imf: { mMin: 0.1, mMax: 100, alphaHigh: 2.3 } }),
+    });
+
+    let latent = sampleCluster(store.getIdentity());
+    let rm = toRenderModel(latent, store.getView());
+    let hr = toHRModel(latent, store.getView());
+
+    // Sync controls to the (possibly restored) identity.
+    const idNow = store.getIdentity();
+    slope.value = String(idNow.imf.alphaHigh);
+    slopeVal.value = idNow.imf.alphaHigh.toFixed(1);
+    count.value = String(idNow.sampling.target);
+    countVal.value = String(idNow.sampling.target);
+
+    const field = mountCanvas(fieldCanvas, (ctx, w, h) =>
+      renderClusterField(ctx, rm, w, h, { selectedId: store.getView().selectedId }),
+    );
+    const hrView = mountCanvas(hrCanvas, (ctx, w, h) =>
+      renderHR(ctx, hr, w, h, { selectedId: store.getView().selectedId }),
+    );
+
+    function patchIdentity(patch: Partial<ClusterIdentity>) {
+      store.setIdentity({ ...store.getIdentity(), ...patch });
+      latent = sampleCluster(store.getIdentity());
+      recompute();
+    }
+    function recompute() {
+      rm = toRenderModel(latent, store.getView());
+      hr = toHRModel(latent, store.getView());
+      field.redraw();
+      hrView.redraw();
+      updateSummary();
+    }
+
+    slope.addEventListener("input", () => {
+      const a = Number(slope.value);
+      slopeVal.value = a.toFixed(1);
+      patchIdentity({ imf: { ...store.getIdentity().imf, alphaHigh: a } });
+    });
+    count.addEventListener("input", () => {
+      const n = Number(count.value);
+      countVal.value = String(n);
+      patchIdentity({ sampling: { mode: "count", target: n } });
+    });
+    $<HTMLButtonElement>("[data-reseed]").addEventListener("click", () => {
+      patchIdentity({ seed: (store.getIdentity().seed * 1103515245 + 12345) >>> 0 });
+    });
+
+    // Hover selection on either panel.
+    const hover = (canvas: HTMLCanvasElement, pick: (x: number, y: number, w: number, h: number) => number | null) => {
+      canvas.addEventListener("pointermove", (e) => {
+        const r = canvas.getBoundingClientRect();
+        const id = pick(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
+        if (id !== store.getView().selectedId) {
+          store.setView({ selectedId: id });
+          field.redraw();
+          hrView.redraw();
+          updateCard(id);
+        }
+      });
+    };
+    hover(fieldCanvas, (x, y, w, h) => pickStar(rm, x, y, w, h));
+    hover(hrCanvas, (x, y, w, h) => pickHRPoint(hr, x, y, w, h));
+
+    function updateCard(id: number | null) {
+      const s = id == null ? null : latent.find((p) => p.id === id);
+      if (!s) {
+        card.hidden = true;
+        return;
+      }
+      const st = star(s.mass, s.Z, store.getView().t);
+      const phase = st.phase === "remnant" ? `remnant · ${st.remnant}` : "main sequence";
+      card.hidden = false;
+      card.innerHTML = `
+        <span class="xpl-census__swatch" style="background:rgb(${st.color.map((c) => Math.round(c * 255)).join(",")})"></span>
+        <dl>
+          <div><dt>mass</dt><dd>${s.mass.toFixed(2)} M<sub>☉</sub></dd></div>
+          <div><dt>type</dt><dd>${st.phase === "remnant" ? "—" : st.spectralType}</dd></div>
+          <div><dt>T<sub>eff</sub></dt><dd>${st.Teff ? Math.round(st.Teff).toLocaleString() + " K" : "—"}</dd></div>
+          <div><dt>luminosity</dt><dd>${fmtL(st.L)}</dd></div>
+          <div><dt>radius</dt><dd>${st.R ? st.R.toFixed(2) + " R☉" : "—"}</dd></div>
+          <div><dt>phase</dt><dd>${phase}</dd></div>
+        </dl>`;
+    }
+
+    function updateSummary() {
+      const n = latent.length;
+      const oStars = latent.filter((s) => s.mass >= 16).length;
+      const heaviest = latent.reduce((m, s) => Math.max(m, s.mass), 0);
+      summary.textContent = `${n.toLocaleString()} stars · ${oStars} O-type (≥16 M☉) · heaviest ${heaviest.toFixed(1)} M☉`;
+    }
+
+    function fmtL(L: number): string {
+      if (!L) return "—";
+      if (L >= 1e4 || L < 1e-2) {
+        const e = Math.floor(Math.log10(L));
+        return `${(L / 10 ** e).toFixed(1)}×10${sup(e)} L☉`;
+      }
+      return `${L.toFixed(L < 10 ? 2 : 0)} L☉`;
+    }
+    function sup(n: number): string {
+      const m: Record<string, string> = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" };
+      return String(n).split("").map((c) => m[c] ?? c).join("");
+    }
+
+    updateSummary();
+  }
+</script>
+
+<style is:global>
+  /* Global (not Astro-scoped) because the readout card's contents are injected
+   * client-side via innerHTML and would miss scoped selectors. Every rule is
+   * .xpl-census*-prefixed, so nothing leaks — and this is how the styles ship
+   * once the component is extracted as a package anyway. */
+  .xpl-census {
+    --xpl-ink: var(--ink, #e8e8ea);
+    --xpl-dim: var(--ink-dim, #9aa0aa);
+    --xpl-teal: var(--spec-teal-bright, #4fd1c5);
+    --xpl-border: var(--border, #2a2c31);
+    --xpl-panel: var(--surface-1, #14151a);
+    display: grid;
+    gap: var(--space-m, 1rem);
+  }
+  .xpl-census__stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-m, 1rem);
+  }
+  @media (max-width: 46rem) {
+    .xpl-census__stage { grid-template-columns: 1fr; }
+  }
+  .xpl-census__panel {
+    margin: 0;
+    border: 1px solid var(--xpl-border);
+    border-radius: var(--radius, 10px);
+    background: radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--xpl-panel) 92%, black), #0a0b0e);
+    overflow: hidden;
+  }
+  .xpl-census__panel figcaption {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: var(--space-2xs, 0.4rem) var(--space-s, 0.75rem);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-ink);
+    border-bottom: 1px solid var(--xpl-border);
+  }
+  .xpl-census__panel figcaption span { color: var(--xpl-dim); font-size: var(--step--2, 0.75rem); }
+  .xpl-census__panel canvas {
+    display: block;
+    inline-size: 100%;
+    block-size: min(46vh, 30rem);
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .xpl-census__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-m, 1rem) var(--space-l, 1.5rem);
+  }
+  .xpl-census__ctrl {
+    display: grid;
+    gap: 0.25rem;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-ink);
+    min-inline-size: 14rem;
+  }
+  .xpl-census__ctrl output { color: var(--xpl-teal); }
+  .xpl-census__ctrl small { color: var(--xpl-dim); font-size: var(--step--2, 0.72rem); }
+  .xpl-census__ctrl input[type="range"] { accent-color: var(--spec-rose-bright, #f472b6); inline-size: 100%; }
+  .xpl-census__reseed {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-ink);
+    background: transparent;
+    border: 1px solid var(--xpl-border);
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .xpl-census__reseed:hover { border-color: var(--xpl-teal); }
+  .xpl-census__summary {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-dim);
+    margin: 0;
+  }
+  .xpl-census__card {
+    display: flex;
+    gap: var(--space-s, 0.75rem);
+    align-items: start;
+    padding: var(--space-s, 0.75rem);
+    border: 1px solid var(--xpl-border);
+    border-radius: var(--radius, 10px);
+    background: var(--xpl-panel);
+    max-inline-size: max-content;
+  }
+  .xpl-census__swatch { inline-size: 1.5rem; block-size: 1.5rem; border-radius: 50%; box-shadow: 0 0 12px currentColor; margin-block-start: 0.15rem; }
+  .xpl-census__card dl { display: grid; gap: 0.2rem; margin: 0; min-inline-size: 12rem; }
+  .xpl-census__card dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 1.2rem; }
+  .xpl-census__card dt { color: var(--xpl-dim); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--2, 0.75rem); }
+  .xpl-census__card dd { margin: 0; color: var(--xpl-ink); font-size: var(--step--1, 0.85rem); }
+  .xpl-census__noscript { color: var(--xpl-dim); font-size: var(--step--1, 0.85rem); }
+</style>

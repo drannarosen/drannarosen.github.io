@@ -1,0 +1,49 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+import CensusEngine from "../../novascope/components/CensusEngine.astro";
+---
+
+<BaseLayout
+  title="The cluster census — Anna Rosen"
+  description="Sample a star cluster from the initial mass function and read it on the H–R diagram — colours, temperatures and luminosities computed live from validated ZAMS physics."
+  path="/explore/census"
+>
+  <PageHeader eyebrow="Explore · interactive" title="The cluster census">
+    <Fragment slot="lede">
+      A cluster is a <em>draw</em> from the initial mass function, not a smooth curve
+      painted across the sky. Sample one here, then read it two ways at once — as points
+      in space and as points on the Hertzsprung–Russell diagram. Every colour,
+      temperature and luminosity is computed on the spot from the same validated ZAMS
+      relations my software uses.
+    </Fragment>
+  </PageHeader>
+
+  <div class="census-page wrap-wide">
+    <CensusEngine />
+
+    <div class="census-page__note prose wrap">
+      <p>
+        Drag the <strong>high-mass slope</strong> and the whole character of the cluster
+        shifts: flatten it and a few brilliant blue stars appear in the upper-left of the
+        H–R diagram; steepen it and they vanish into a crowd of faint red dwarfs. Cool red
+        stars are always the many; the rare hot stars are always the few — and yet the few
+        are the whole story, because luminosity climbs so steeply with mass that a handful
+        of O stars outshine, and out-push, everything else combined.
+      </p>
+      <p>
+        Change <strong>N</strong> and watch the massive tail <em>flicker</em>. That is not
+        a rendering glitch — it is sampling noise. A small cluster genuinely might not draw
+        a single massive star, which is exactly why the high-mass end of the mass function
+        is so hard to measure and so easy to get wrong. Nothing here is choreographed: the
+        stars are re-sampled from the mass function in your browser, and the diagram is
+        derived, not drawn.
+      </p>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .census-page { padding-block: var(--space-l) var(--space-3xl); }
+  .census-page__note { margin-block-start: var(--space-2xl); }
+</style>
