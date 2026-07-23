@@ -60,10 +60,13 @@ const m = (tex: string, display = false) =>
     </figure>
 
     <div class="xpl-census__panel xpl-census__panel--pad">
-      <div class="xpl-census__lenses" role="group" aria-label="Lenses — turn on more than one to experiment across groups on the same cluster">
-        <button type="button" data-lens-chip="census" class="is-active" aria-pressed="true">Census</button>
-        <button type="button" data-lens-chip="environment" aria-pressed="false">Environment</button>
-        <button type="button" data-lens-chip="structure" aria-pressed="false">Structure</button>
+      <div class="xpl-census__toolbar">
+        <div class="xpl-census__lenses" role="group" aria-label="Lenses — turn on more than one to experiment across groups on the same cluster">
+          <button type="button" data-lens-chip="census" class="is-active" aria-pressed="true">Census</button>
+          <button type="button" data-lens-chip="environment" aria-pressed="false">Environment</button>
+          <button type="button" data-lens-chip="structure" aria-pressed="false">Structure</button>
+        </div>
+        <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
       </div>
 
       <div class="xpl-census__controls">
@@ -83,7 +86,6 @@ const m = (tex: string, display = false) =>
               <small>watch the rare massive tail flicker</small>
             </label>
           </div>
-          <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
         </section>
 
         <section class="xpl-census__lens" data-lens="environment" aria-label="Environment controls" hidden>
@@ -102,7 +104,7 @@ const m = (tex: string, display = false) =>
             <label class="xpl-census__ctrl">
               <span class="xpl-census__ctrl-name">cluster mass</span>
               <span class="xpl-census__ctrl-val"><span set:html={m("\\log_{10} M_\\mathrm{ecl}")} /> = <output data-mecl-val>4.0</output></span>
-              <input type="range" data-mecl min="3" max="7" step="0.1" value="4" />
+              <input type="range" data-mecl min="3" max="4.3" step="0.1" value="4" />
               <small>denser cluster → top-heavy</small>
             </label>
           </div>
@@ -260,17 +262,29 @@ const m = (tex: string, display = false) =>
       countVal.value = n.toLocaleString();
       patchIdentity({ sampling: { mode: "count", target: n } });
     });
-    // Environment-driven IMF: [Fe/H] + M_ecl derive α via Marks/Jerabkova.
+    // Environment mode (Marks/Jerabkova): [Fe/H] + M_ecl set BOTH the IMF slope
+    // α AND the cluster's total stellar mass — M_ecl *is* that mass, so we sample
+    // mass-limited to it. Both α and N (star count) become derived; the slider
+    // max is capped so the drawn population stays renderable (no OOM).
     const applyEnv = () => {
-      const a = Math.min(2.8, Math.max(1.1, alpha3FromEnvironment(Number(feh.value), 10 ** Number(mecl.value))));
+      const mEcl = 10 ** Number(mecl.value);
+      const a = Math.min(2.8, Math.max(1.1, alpha3FromEnvironment(Number(feh.value), mEcl)));
       slope.value = a.toFixed(2);
       slopeVal.value = a.toFixed(2);
-      patchIdentity({ imf: { ...store.getIdentity().imf, alphaHigh: a } });
+      patchIdentity({
+        imf: { ...store.getIdentity().imf, alphaHigh: a },
+        sampling: { mode: "mass", target: mEcl },
+      });
+      // N is now an outcome of (M_ecl, α), not an input — reflect the draw.
+      countVal.value = latent.length.toLocaleString();
+      count.value = String(Math.min(Number(count.max), Math.log10(Math.max(1, latent.length))));
     };
     envmode.addEventListener("change", () => {
       envctrls.hidden = !envmode.checked;
       slope.disabled = envmode.checked; // α is derived in env mode
+      count.disabled = envmode.checked; // …and so is N (M_ecl sets the mass)
       if (envmode.checked) applyEnv();
+      else patchIdentity({ sampling: { mode: "count", target: Math.round(10 ** Number(count.value)) } });
     });
     feh.addEventListener("input", () => {
       fehVal.value = Number(feh.value).toFixed(1);
@@ -314,6 +328,7 @@ const m = (tex: string, display = false) =>
       slope.value = String(id.imf.alphaHigh);
       slopeVal.value = id.imf.alphaHigh.toFixed(2);
       slope.disabled = false;
+      count.disabled = false;
       count.value = String(Math.log10(id.sampling.target));
       countVal.value = id.sampling.target.toLocaleString();
       seg.value = String(id.segregation);
@@ -582,6 +597,10 @@ const m = (tex: string, display = false) =>
   /* Lens tiers (multi-select chips) over ONE cluster: one on = guided focus, two
    * on = compare knob-groups on the same population. The panels a lens drives
    * take a subtle teal border while it is active. */
+  /* Top toolbar: lens chips at left, "new draw" at right — high, always visible,
+   * and available in every lens (it used to live inside the Census section and
+   * vanished when Census was toggled off). */
+  .xpl-census__toolbar { display: flex; justify-content: space-between; align-items: center; gap: var(--space-s, 0.75rem); flex-wrap: wrap; }
   .xpl-census__lenses { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .xpl-census__lenses button {
     font-family: var(--font-mono, ui-monospace, monospace);
