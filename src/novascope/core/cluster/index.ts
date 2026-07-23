@@ -13,3 +13,4 @@ export {
 } from "./params.ts";
 export { samplePlummer, PLUMMER_RH_OVER_A } from "./profiles.ts";
 export { sampleCluster } from "./sample.ts";
+export { segregateMasses } from "./segregation.ts";

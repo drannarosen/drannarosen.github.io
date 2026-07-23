@@ -10,6 +10,7 @@
 import { maschbergerMass } from "../imf/index.ts";
 import { subStream } from "../random/index.ts";
 import { samplePlummer } from "./profiles.ts";
+import { segregateMasses } from "./segregation.ts";
 import type { ClusterIdentity, LatentStar } from "./params.ts";
 
 /** Safety bound for mass-limited sampling, so a tiny target can't spin forever. */
@@ -38,6 +39,15 @@ export function sampleCluster(id: ClusterIdentity): LatentStar[] {
   } else {
     let total = 0;
     for (let i = 0; total < id.sampling.target && i < MAX_STARS; i++) total += draw(i);
+  }
+
+  // Primordial mass segregation: re-pair masses to positions by density (its own
+  // sub-stream, so mass/position draws above are unperturbed — §9.3).
+  if (id.segregation > 0 && stars.length > 1) {
+    const seg = subStream(id.seed, "segregation");
+    const radii = stars.map((s) => Math.hypot(s.x, s.y, s.z));
+    const reassigned = segregateMasses(stars.map((s) => s.mass), radii, id.segregation, seg);
+    for (let i = 0; i < stars.length; i++) stars[i].mass = reassigned[i];
   }
   return stars;
 }

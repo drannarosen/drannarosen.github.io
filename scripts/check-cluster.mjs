@@ -79,6 +79,35 @@ ok(
   `Plummer half-mass radius ≈ ${PLUMMER_RH_OVER_A} a (got ${ratio.toFixed(3)} a)`,
 );
 
+// 4. Mass segregation (McLuster/Küpper via progenax): λ=1 pins massive stars to
+// small radii (mass↔radius anti-correlated); λ=0 is random (≈0 correlation).
+const spearman = (stars) => {
+  const n = stars.length;
+  const rank = (key) => {
+    const order = [...stars.keys()].sort((a, b) => key(stars[a]) - key(stars[b]));
+    const r = new Array(n);
+    order.forEach((idx, i) => (r[idx] = i));
+    return r;
+  };
+  const rm = rank((s) => s.mass);
+  const rr = rank((s) => Math.hypot(s.x, s.y, s.z));
+  const mean = (n - 1) / 2;
+  let cov = 0;
+  let vm = 0;
+  let vr = 0;
+  for (let i = 0; i < n; i++) {
+    cov += (rm[i] - mean) * (rr[i] - mean);
+    vm += (rm[i] - mean) ** 2;
+    vr += (rr[i] - mean) ** 2;
+  }
+  return cov / Math.sqrt(vm * vr);
+};
+const base = { seed: 4, sampling: { mode: "count", target: 1500 }, profile: { kind: "plummer", scaleRadius: 1 } };
+const segFull = spearman(sampleCluster(defaultIdentity({ ...base, segregation: 1 })));
+const segNone = spearman(sampleCluster(defaultIdentity({ ...base, segregation: 0 })));
+ok(segFull < -0.9, `λ=1 → massive stars in the core (mass–radius corr ${segFull.toFixed(3)} ≈ −1)`);
+ok(Math.abs(segNone) < 0.15, `λ=0 → random pairing (mass–radius corr ${segNone.toFixed(3)} ≈ 0)`);
+
 if (failures) {
   console.error(`\n[cluster] ${failures} invariant(s) FAILED.`);
   process.exit(1);

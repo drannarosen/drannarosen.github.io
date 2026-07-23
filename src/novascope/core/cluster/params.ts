@@ -20,8 +20,10 @@ export interface ClusterIdentity {
   imf: { mMin: number; mMax: number; alphaHigh: number };
   /** Metallicity — CLUSTER-level (a coeval cluster is chemically uniform). */
   Z: number;
-  /** Spatial profile; scaleRadius in pc. */
+  /** Spatial profile; scaleRadius in pc (r_h ≈ 1.305·scaleRadius for Plummer). */
   profile: { kind: "plummer"; scaleRadius: number };
+  /** Primordial mass segregation strength λ ∈ [0,1] (McLuster/Küpper; 0 = random). */
+  segregation: number;
   /** Reserved for N-body; theory-only engines ignore it. */
   kinematics: { virialRatio: number };
 }
@@ -52,6 +54,7 @@ export function defaultIdentity(over: Partial<ClusterIdentity> = {}): ClusterIde
     imf: { mMin: 0.1, mMax: 100, alphaHigh: 2.3, ...over.imf },
     Z: over.Z ?? 0.02,
     profile: { kind: "plummer", scaleRadius: 1, ...over.profile },
+    segregation: over.segregation ?? 0,
     kinematics: { virialRatio: 0.5, ...over.kinematics },
     ...("seed" in over ? { seed: over.seed! } : {}),
   };
@@ -67,6 +70,7 @@ export const presets: Record<string, ClusterIdentity> = {
     imf: { mMin: 0.1, mMax: 120, alphaHigh: 2.0 }, // top-heavy
   }),
   diffuse: defaultIdentity({ seed: 99, profile: { kind: "plummer", scaleRadius: 3 } }),
+  segregated: defaultIdentity({ seed: 11, segregation: 1, profile: { kind: "plummer", scaleRadius: 1 } }),
 };
 
 /* ── Versioned (de)serialization ─────────────────────────────────────────
@@ -86,6 +90,7 @@ export function serializeIdentity(id: ClusterIdentity): string {
     z: String(id.Z),
     pr: id.profile.kind,
     sr: String(id.profile.scaleRadius),
+    sg: String(id.segregation),
     vr: String(id.kinematics.virialRatio),
   });
   return p.toString();
@@ -107,6 +112,7 @@ export function deserializeIdentity(query: string): ClusterIdentity {
     imf: { mMin: num("mn", d.imf.mMin), mMax: num("mx", d.imf.mMax), alphaHigh: num("ah", d.imf.alphaHigh) },
     Z: num("z", d.Z),
     profile: { kind, scaleRadius: num("sr", d.profile.scaleRadius) },
+    segregation: num("sg", d.segregation),
     kinematics: { virialRatio: num("vr", d.kinematics.virialRatio) },
   };
 }

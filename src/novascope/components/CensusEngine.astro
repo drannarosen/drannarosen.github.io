@@ -64,6 +64,16 @@ const m = (tex: string, display = false) =>
           <input type="range" data-count min="1.301" max="4.301" step="0.01" value="3.079" />
           <small>watch the rare massive tail flicker</small>
         </label>
+        <label class="xpl-census__ctrl">
+          <span>segregation <span set:html={m("\\lambda")} /> = <output data-seg-val>0.0</output></span>
+          <input type="range" data-seg min="0" max="1" step="0.05" value="0" />
+          <small>massive stars sink to the core</small>
+        </label>
+        <label class="xpl-census__ctrl">
+          <span>half-mass radius <span set:html={m("r_h")} /> = <output data-rh-val>1.3</output> pc</span>
+          <input type="range" data-rh min="0.3" max="5" step="0.1" value="1.3" />
+          <small>compact ← → diffuse</small>
+        </label>
         <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
       </div>
       <p class="xpl-census__summary" data-summary aria-live="polite">
@@ -99,7 +109,7 @@ const m = (tex: string, display = false) =>
 
 <script>
   import { createClusterStore, toRenderModel, toHRModel, toIMFHistogram, localStorageAdapter } from "../state/index.ts";
-  import { defaultIdentity, sampleCluster, type ClusterIdentity } from "../core/cluster/index.ts";
+  import { defaultIdentity, sampleCluster, PLUMMER_RH_OVER_A, type ClusterIdentity } from "../core/cluster/index.ts";
   import { star } from "../core/stellar/index.ts";
   import { mountCanvas, makeCamera, attachOrbit, renderClusterField, pickStar, renderHR, pickHRPoint, renderHistogram } from "../viz/index.ts";
 
@@ -113,6 +123,10 @@ const m = (tex: string, display = false) =>
     const slopeVal = $<HTMLOutputElement>("[data-slope-val]");
     const count = $<HTMLInputElement>("[data-count]");
     const countVal = $<HTMLOutputElement>("[data-count-val]");
+    const seg = $<HTMLInputElement>("[data-seg]");
+    const segVal = $<HTMLOutputElement>("[data-seg-val]");
+    const rh = $<HTMLInputElement>("[data-rh]");
+    const rhVal = $<HTMLOutputElement>("[data-rh-val]");
     const card = $<HTMLElement>("[data-card]");
     const summary = $<HTMLElement>("[data-summary]");
     const hint = $<HTMLElement>("[data-hint]");
@@ -136,6 +150,10 @@ const m = (tex: string, display = false) =>
     slopeVal.value = idNow.imf.alphaHigh.toFixed(1);
     count.value = String(Math.log10(idNow.sampling.target));
     countVal.value = idNow.sampling.target.toLocaleString();
+    seg.value = String(idNow.segregation);
+    segVal.value = idNow.segregation.toFixed(2);
+    rh.value = (idNow.profile.scaleRadius * PLUMMER_RH_OVER_A).toFixed(1);
+    rhVal.value = (idNow.profile.scaleRadius * PLUMMER_RH_OVER_A).toFixed(1);
 
     let hoverId: number | null = null; // transient preview; pinned lives in the store
     let imfForm: "dNdM" | "perDex" = "dNdM"; // IMF plot form (ξ line vs per-dex hump)
@@ -175,6 +193,16 @@ const m = (tex: string, display = false) =>
       const n = Math.round(10 ** Number(count.value));
       countVal.value = n.toLocaleString();
       patchIdentity({ sampling: { mode: "count", target: n } });
+    });
+    seg.addEventListener("input", () => {
+      const v = Number(seg.value);
+      segVal.value = v.toFixed(2);
+      patchIdentity({ segregation: v });
+    });
+    rh.addEventListener("input", () => {
+      const v = Number(rh.value); // r_h in pc
+      rhVal.value = v.toFixed(1);
+      patchIdentity({ profile: { ...store.getIdentity().profile, scaleRadius: v / PLUMMER_RH_OVER_A } });
     });
     $<HTMLButtonElement>("[data-reseed]").addEventListener("click", () => {
       patchIdentity({ seed: (store.getIdentity().seed * 1103515245 + 12345) >>> 0 });
