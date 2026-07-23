@@ -345,7 +345,7 @@ const RADII = ["--radius-s", "--radius-m", "--radius-l"];
   // that restates numbers by hand is wrong the first time a token changes.
   const root = document.documentElement;
 
-  const px = (el: Element, prop: string) => {
+  const px = (prop: string) => {
     const probe = document.createElement("div");
     // type-scale-exempt: measurement probe — reads whichever token it is given
     probe.style.cssText = `position:absolute;visibility:hidden;font-size:var(${prop});inline-size:var(${prop})`;
@@ -359,7 +359,7 @@ const RADII = ["--radius-s", "--radius-m", "--radius-l"];
   function paintSizes() {
     for (const el of document.querySelectorAll<HTMLElement>("[data-px]")) {
       const token = el.dataset.px!;
-      const { fs, w } = px(el, token);
+      const { fs, w } = px(token);
       // Type tokens resolve as a font-size; spacing and radii as a length.
       el.textContent = token.startsWith("--step") ? fs : w;
     }

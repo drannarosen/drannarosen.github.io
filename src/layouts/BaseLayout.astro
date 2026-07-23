@@ -69,7 +69,7 @@ const ogImageUrl = new URL(`/og/${ogImage}`, Astro.site).href;
         would file local page views as real traffic and pollute the reports. */}
     {import.meta.env.PROD && (
       <>
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-50FCCTYBRH" />
+        <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=G-50FCCTYBRH" />
         <script
           is:inline
           set:html={`window.dataLayer = window.dataLayer || [];
@@ -157,6 +157,7 @@ gtag('config', 'G-50FCCTYBRH');`}
         requires proxying. */}
     {import.meta.env.PROD && (
       <script
+        is:inline
         type="module"
         src="https://static.cloudflareinsights.com/beacon.min.js"
         data-cf-beacon='{"token": "f01db47450674d3cb0f1f81e19433790"}'

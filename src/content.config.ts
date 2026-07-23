@@ -12,8 +12,12 @@
  * A gate that only warns is a gate that gets ignored.
  * See docs/plans/2026-07-19-content-integrity-design.md.
  */
-import { defineCollection, z } from "astro:content";
+import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
+// Zod comes from the package directly — astro:content's `z` re-export is
+// deprecated in Astro 7. `zod` is pinned to the same single 4.x instance Astro
+// resolves, so schema types still flow into getCollection() unchanged.
+import { z } from "zod";
 
 /** How a page came to exist. Disclosed publicly on the page. */
 const provenance = z
@@ -32,7 +36,7 @@ const provenance = z
     for (const field of ["reviewedBy", "reviewedOn", "model"] as const) {
       if (!p[field]) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           path: [field],
           message:
             `provenance.${field} is required when authorship is "${p.authorship}". ` +
@@ -47,7 +51,7 @@ const provenance = z
 const source = z.object({
   id: z.string(),
   label: z.string(),
-  url: z.string().url(),
+  url: z.url(),
 });
 
 const astrobytes = defineCollection({
@@ -72,7 +76,7 @@ const astrobytes = defineCollection({
       venue: z.string(),
       year: z.string(),
       status: z.enum(["submitted", "accepted", "published"]).optional(),
-      arxiv: z.string().url().optional(),
+      arxiv: z.url().optional(),
       /*
        * REQUIRED. The post's title links to this, so a reader is always one
        * click from the record itself rather than from a summary of it — and
@@ -83,7 +87,7 @@ const astrobytes = defineCollection({
        * a link a reader stops looking for. A new post without one fails the
        * build instead of quietly shipping an unlinked title.
        */
-      ads: z.string().url(),
+      ads: z.url(),
       })
       .optional(),
     provenance,
@@ -132,8 +136,8 @@ const packages = defineCollection({
     readiness: z.enum(["developing", "advanced", "mature", "published"]),
     /** Free-text maturity note, e.g. "Mature · methods paper in prep". */
     maturity: z.string().optional(),
-    repo: z.string().url().nullable().default(null),
-    docs: z.string().url().nullable().default(null),
+    repo: z.url().nullable().default(null),
+    docs: z.url().nullable().default(null),
     /** The trailer: what is coming, stated concretely rather than teased. */
     upcoming: z.string().optional(),
     /*

@@ -244,18 +244,49 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
             delete btn.dataset.copied;
           }, 1600);
         } catch {
-          // Clipboard can be refused (permissions, insecure context). Fall back
-          // to selecting the text so the reader can copy it by hand rather than
-          // clicking a button that silently does nothing.
+          /*
+           * The Clipboard API was refused (denied permission, or an insecure
+           * context). Show the BibTeX so the reader can copy it themselves, and
+           * say "Copied" ONLY if their copy actually fires.
+           *
+           * The previous fallback used document.execCommand("copy") and threw
+           * away its boolean result, so a failed copy still reported success —
+           * the reader would paste and get nothing. Never assert a copy we did
+           * not observe. execCommand is also deprecated; a real selection the
+           * reader can act on outlives it.
+           */
+          const label = btn.textContent;
           const ta = document.createElement("textarea");
+          ta.className = "allpubs__bibtex";
+          ta.readOnly = true;
+          ta.rows = 6;
           ta.value = btn.dataset.bibtex ?? "";
-          ta.style.cssText = "position:fixed;opacity:0";
-          document.body.appendChild(ta);
+          btn.after(ta);
+          ta.focus();
           ta.select();
-          document.execCommand("copy");
-          ta.remove();
-          btn.textContent = "Copied";
-          setTimeout(() => (btn.textContent = "Cite"), 1600);
+          btn.textContent = "Press ⌘C / Ctrl+C";
+
+          let settled = false;
+          const settle = (copied: boolean) => {
+            if (settled) return; // copy then blur would otherwise fire twice
+            settled = true;
+            ta.remove();
+            if (!copied) {
+              btn.textContent = label;
+              return;
+            }
+            btn.textContent = "Copied";
+            btn.dataset.copied = "true";
+            setTimeout(() => {
+              btn.textContent = label;
+              delete btn.dataset.copied;
+            }, 1600);
+          };
+          ta.addEventListener("copy", () => settle(true));
+          ta.addEventListener("blur", () => settle(false));
+          ta.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") settle(false);
+          });
         }
       });
     }
@@ -588,6 +619,28 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   .allpubs__cite[data-copied] {
     color: var(--spec-teal-bright);
     border-color: var(--spec-teal-bright);
+  }
+  /*
+   * Manual-copy fallback. Only ever inserted when the Clipboard API is refused,
+   * so it must look deliberate rather than like a stray form field.
+   *
+   * :global because this textarea is created in JS, so it never receives
+   * Astro's data-astro-cid-* scoping attribute — a scoped selector silently
+   * would not match it, leaving an unstyled 212px default box.
+   */
+  :global(.allpubs__bibtex) {
+    display: block;
+    inline-size: 100%;
+    margin-block-start: var(--space-3xs);
+    padding: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    line-height: 1.5;
+    color: var(--ink-soft);
+    background: color-mix(in srgb, var(--spec-teal) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--spec-teal-bright) 45%, transparent);
+    border-radius: var(--radius-s);
+    resize: vertical;
   }
   .allpubs__note {
     display: block;

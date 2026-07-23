@@ -28,7 +28,7 @@
  */
 
 import sharp from "sharp";
-import { readFileSync, mkdirSync, existsSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
