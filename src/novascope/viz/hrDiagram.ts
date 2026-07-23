@@ -19,7 +19,7 @@ export interface HROpts {
   colors?: Partial<HRColors>;
 }
 
-const MARGIN = { top: 16, right: 18, bottom: 36, left: 74 };
+const MARGIN = { top: 16, right: 18, bottom: 36, left: 72 };
 const LOGTEFF_TICKS = [3.5, 4.0, 4.5]; // log₁₀ T_eff, consistent with the log L axis
 const AXIS_FONT = "14px ui-monospace, SFMono-Regular, Menlo, monospace";
 const SUB_FONT = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -114,7 +114,7 @@ export function renderHR(
     ctx.moveTo(MARGIN.left, y);
     ctx.lineTo(MARGIN.left + f.plotW, y);
     ctx.stroke();
-    if (n % 2 === 0) drawPower(ctx, n, MARGIN.left - 8, y, "right", c.text); // 10^n every 2 decades
+    if (n % 2 === 0) drawPower(ctx, n, MARGIN.left - 5, y, "right", c.text); // 10^n every 2 decades
   }
 
   // Axis frame.
