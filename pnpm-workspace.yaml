@@ -1,0 +1,10 @@
+# pnpm settings (pnpm 11 moved non-auth config out of .npmrc / package.json's
+# "pnpm" field into this file — see https://pnpm.io/settings).
+#
+# allowBuilds: explicit allowlist of dependencies permitted to run
+# postinstall/build scripts. pnpm 10+ blocks all dependency lifecycle scripts by
+# default (supply-chain hardening); esbuild (transitive via Astro/Vite) needs its
+# script to link its platform binary, or `astro build`'s pre-run install check
+# fails. This is the v11 replacement for the removed `onlyBuiltDependencies`.
+allowBuilds:
+  esbuild: true
