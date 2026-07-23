@@ -89,12 +89,21 @@ for (const file of files) {
       continue; // downward or same-layer @novascope import is fine
     }
 
-    // 3. Relative imports must stay within the file's own layer root.
+    // 3. Relative imports: allowed WITHIN the package as long as they point
+    //    downward (to a lower layer) or stay in the same layer. Within-package
+    //    imports are relative (not the @novascope alias) so the Node gates can
+    //    run the modules and so the whole package still moves as one on
+    //    extraction; the alias is for SITE → package imports only.
     if (spec.startsWith(".")) {
       const resolved = resolve(dirname(file), spec);
-      const layerRoot = resolve(PKG, layer);
-      if (relative(layerRoot, resolved).startsWith("..")) {
-        violations.push(`${rel}: relative import "${spec}" escapes the ${layer}/ boundary`);
+      const relToPkg = relative(PKG, resolved);
+      if (relToPkg.startsWith("..")) {
+        violations.push(`${rel}: relative import "${spec}" escapes the novascope package (site coupling)`);
+      } else {
+        const targetIdx = LAYER_ORDER.indexOf(relToPkg.split("/")[0]);
+        if (targetIdx > layerIdx) {
+          violations.push(`${rel}: ${layer} imports higher layer via "${spec}" — dependencies may only point downward`);
+        }
       }
       continue;
     }
