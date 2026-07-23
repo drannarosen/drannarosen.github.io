@@ -17,8 +17,17 @@
  *     src/lib or a sibling layer);
  *   - core additionally: no DOM globals (window/document/globalThis member use).
  *
- * Scoped to the core today because that is all that exists; the layer table
- * already covers state/viz/components for when they land.
+ * Covers every layer that exists (core/state/viz today). The inward-import rule
+ * — a relative import escaping the package is site coupling — is what makes
+ * novascope a self-contained, extractable package reused across sites (this
+ * site, cosmic-playground, the Sophie consumers): each configures its own
+ * @novascope/* alias, so a green gate here means the package `git mv`s out with
+ * no per-import rewrite. The WebGL viz backend (viz/webgl) is allowed its
+ * canvas/WebGL DOM use — the DOM ban is core-only (rule 5); viz renders.
+ *
+ * Known seam: this scans .ts only, so Layer-3 .astro components are unchecked
+ * and MAY import the site by design (the Astro binding is where package meets
+ * site). An .astro-aware check is a possible follow-on, not a bug.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";

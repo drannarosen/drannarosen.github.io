@@ -11,8 +11,8 @@
  *   double-click               → reset view (resume auto-spin)
  */
 
-import type { ClusterEngine } from "./engine";
-import { ZOOM_MIN, ZOOM_MAX } from "./engine";
+import type { ClusterEngine } from "./engine.ts";
+import { ZOOM_MIN, ZOOM_MAX } from "./engine.ts";
 
 const ROT = 3.0; // radians per full canvas-height drag
 const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
