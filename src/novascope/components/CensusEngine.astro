@@ -71,12 +71,14 @@ const m = (tex: string, display = false) =>
           <p class="xpl-census__lenshd"><b>Census</b> — how many stars of each mass?</p>
           <div class="xpl-census__lensgrid">
             <label class="xpl-census__ctrl">
-              <span>high-mass slope <span set:html={m("\\alpha")} /> = <output data-slope-val>2.3</output></span>
+              <span class="xpl-census__ctrl-name">high-mass slope</span>
+              <span class="xpl-census__ctrl-val"><span set:html={m("\\alpha")} /> = <output data-slope-val>2.3</output></span>
               <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
               <small>top-heavy ← → bottom-heavy</small>
             </label>
             <label class="xpl-census__ctrl">
-              <span>stars N = <output data-count-val>1200</output></span>
+              <span class="xpl-census__ctrl-name">stars</span>
+              <span class="xpl-census__ctrl-val"><span set:html={m("N")} /> = <output data-count-val>1200</output></span>
               <input type="range" data-count min="1.301" max="4.301" step="0.01" value="3.079" />
               <small>watch the rare massive tail flicker</small>
             </label>
@@ -615,6 +617,10 @@ const m = (tex: string, display = false) =>
     color: var(--xpl-ink);
   }
   .xpl-census__ctrl { max-inline-size: 16rem; }
+  /* Two-line label: dim descriptive name over the "symbol = value" line, so the
+   * value lines (and the sliders under them) align across the two columns. */
+  .xpl-census__ctrl-name { color: var(--xpl-dim); }
+  .xpl-census__ctrl-val { margin-block-start: -0.1rem; }
   .xpl-census__ctrl output { color: var(--xpl-teal); }
   .xpl-census__ctrl small { color: var(--xpl-dim); font-size: var(--step--2, 0.72rem); }
   .xpl-census__ctrl input[type="range"] { accent-color: var(--xpl-rose); inline-size: 100%; }
