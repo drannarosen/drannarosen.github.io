@@ -76,7 +76,6 @@ export function renderHR(
     ctx.fillStyle = c.text;
     ctx.fillText(t >= 1000 ? `${t / 1000}k` : `${t}`, x, h - MARGIN.bottom + 14);
   }
-  ctx.fillText("T_eff (K)  →  cooler", MARGIN.left + f.plotW / 2, h - 6);
 
   // log L gridlines + labels (y).
   ctx.textAlign = "right";
@@ -89,7 +88,7 @@ export function renderHR(
     ctx.lineTo(MARGIN.left + f.plotW, y);
     ctx.stroke();
     ctx.fillStyle = c.text;
-    ctx.fillText(`10${sup(n)}`, MARGIN.left - 6, y);
+    ctx.fillText(`${n}`, MARGIN.left - 6, y); // plain log₁₀ L decades; unit in the HTML caption
   }
 
   // Axis frame.
@@ -139,12 +138,4 @@ export function pickHRPoint(
     }
   }
   return best;
-}
-
-function sup(n: number): string {
-  const map: Record<string, string> = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
-  return String(n)
-    .split("")
-    .map((ch) => map[ch] ?? ch)
-    .join("");
 }

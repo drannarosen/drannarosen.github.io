@@ -99,5 +99,5 @@ export function renderHistogram(
     if (lm < lo - 1e-9 || lm > hi + 1e-9) continue;
     ctx.fillText(`${m}`, x(lm), h - MARGIN.bottom + 12);
   }
-  ctx.fillText("mass (M☉) →", MARGIN.left + plotW / 2, h - 4);
+  // Axis titles live in an HTML KaTeX caption under the canvas, not on it.
 }

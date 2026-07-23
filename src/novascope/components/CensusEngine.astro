@@ -7,7 +7,15 @@
  * selectors; this file is glue + chrome. Styled with --xpl-* tokens (site
  * fallbacks); the style block is global because the readout card is injected
  * client-side and would miss Astro-scoped selectors.
+ *
+ * Math is real KaTeX, rendered at BUILD time here (no Unicode "M☉"/"T_eff"): the
+ * component imports katex directly (self-contained for extraction, not the site's
+ * Math.astro), and JS fills only plain-number values into the typeset skeletons.
+ * Canvas tick labels are plain ASCII; axis titles live in HTML KaTeX captions.
  */
+import katex from "katex";
+const m = (tex: string, display = false) =>
+  katex.renderToString(tex, { throwOnError: false, displayMode: display, output: "htmlAndMathml" });
 ---
 
 <div class="xpl-census" data-census>
@@ -27,13 +35,26 @@
     <figure class="xpl-census__panel xpl-census__panel--hr">
       <figcaption>H–R diagram <span>luminosity vs temperature</span></figcaption>
       <canvas data-hr aria-label="Hertzsprung-Russell diagram of the cluster; hover to preview, click to pin"></canvas>
-      <aside class="xpl-census__card" data-card hidden></aside>
+      <p class="xpl-census__axiscap">
+        <span set:html={m("T_\\mathrm{eff}")} /> (K), hotter left · vertical <span set:html={m("\\log_{10} L/L_\\odot")} />
+      </p>
+      <aside class="xpl-census__card" data-card hidden>
+        <span class="xpl-census__swatch" data-swatch></span>
+        <dl>
+          <div><dt>mass</dt><dd><span data-v="mass">—</span> <span set:html={m("M_\\odot")} /></dd></div>
+          <div><dt>type</dt><dd data-v="type">—</dd></div>
+          <div><dt><span set:html={m("T_\\mathrm{eff}")} /></dt><dd><span data-v="teff">—</span> K</dd></div>
+          <div><dt><span set:html={m("\\log_{10} L/L_\\odot")} /></dt><dd data-v="logl">—</dd></div>
+          <div><dt>radius</dt><dd><span data-v="radius">—</span> <span set:html={m("R_\\odot")} /></dd></div>
+          <div><dt>phase</dt><dd data-v="phase">—</dd></div>
+        </dl>
+      </aside>
     </figure>
 
     <div class="xpl-census__panel xpl-census__panel--pad">
       <div class="xpl-census__controls">
         <label class="xpl-census__ctrl">
-          <span>high-mass slope α = <output data-slope-val>2.3</output></span>
+          <span>high-mass slope <span set:html={m("\\alpha")} /> = <output data-slope-val>2.3</output></span>
           <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
           <small>top-heavy ← → bottom-heavy</small>
         </label>
@@ -44,12 +65,18 @@
         </label>
         <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
       </div>
-      <p class="xpl-census__summary" data-summary aria-live="polite"></p>
+      <p class="xpl-census__summary" data-summary aria-live="polite">
+        <span data-v="n">—</span> stars · <span data-v="o">—</span> O-type (≥16 <span set:html={m("M_\\odot")} />)
+        · heaviest <span data-v="heaviest">—</span> <span set:html={m("M_\\odot")} />
+      </p>
     </div>
 
     <figure class="xpl-census__panel">
       <figcaption>The IMF <span>sampled bars vs Maschberger law</span></figcaption>
       <canvas data-imf aria-label="Initial mass function: sampled counts against the analytic law"></canvas>
+      <p class="xpl-census__axiscap">
+        mass (<span set:html={m("M_\\odot")} />) · bars sampled · line <span set:html={m("\\xi(m)")} />
+      </p>
     </figure>
   </div>
 
@@ -199,6 +226,11 @@
     bind(fieldCanvas, (x, y, w, h) => pickStar(rm, x, y, w, h, camera));
     bind(hrCanvas, (x, y, w, h) => pickHRPoint(hr, x, y, w, h));
 
+    const setV = (host: HTMLElement, key: string, val: string) => {
+      const el = host.querySelector<HTMLElement>(`[data-v="${key}"]`);
+      if (el) el.textContent = val;
+    };
+
     function updateCard(id: number | null) {
       const s = id == null ? null : latent.find((p) => p.id === id);
       if (!s) {
@@ -206,38 +238,25 @@
         return;
       }
       const st = star(s.mass, s.Z, store.getView().t);
-      const phase = st.phase === "remnant" ? `remnant · ${st.remnant}` : "main sequence";
       card.hidden = false;
-      card.innerHTML = `
-        <span class="xpl-census__swatch" style="background:rgb(${st.color.map((c) => Math.round(c * 255)).join(",")})"></span>
-        <dl>
-          <div><dt>mass</dt><dd>${s.mass.toFixed(2)} M<sub>☉</sub></dd></div>
-          <div><dt>type</dt><dd>${st.phase === "remnant" ? "—" : st.spectralType}</dd></div>
-          <div><dt>T<sub>eff</sub></dt><dd>${st.Teff ? Math.round(st.Teff).toLocaleString() + " K" : "—"}</dd></div>
-          <div><dt>luminosity</dt><dd>${fmtL(st.L)}</dd></div>
-          <div><dt>radius</dt><dd>${st.R ? st.R.toFixed(2) + " R☉" : "—"}</dd></div>
-          <div><dt>phase</dt><dd>${phase}</dd></div>
-        </dl>`;
+      const sw = card.querySelector<HTMLElement>("[data-swatch]");
+      if (sw) {
+        const col = `rgb(${st.color.map((c) => Math.round(c * 255)).join(",")})`;
+        sw.style.background = col;
+        sw.style.color = col; // box-shadow glow uses currentColor
+      }
+      setV(card, "mass", s.mass.toFixed(2));
+      setV(card, "type", st.phase === "remnant" ? "—" : st.spectralType);
+      setV(card, "teff", st.Teff ? Math.round(st.Teff).toLocaleString() : "—");
+      setV(card, "logl", st.L > 0 ? Math.log10(st.L).toFixed(2) : "—");
+      setV(card, "radius", st.R ? st.R.toFixed(2) : "—");
+      setV(card, "phase", st.phase === "remnant" ? `remnant · ${st.remnant}` : "main sequence");
     }
 
     function updateSummary() {
-      const n = latent.length;
-      const oStars = latent.filter((s) => s.mass >= 16).length;
-      const heaviest = latent.reduce((m, s) => Math.max(m, s.mass), 0);
-      summary.textContent = `${n.toLocaleString()} stars · ${oStars} O-type (≥16 M☉) · heaviest ${heaviest.toFixed(1)} M☉`;
-    }
-
-    function fmtL(L: number): string {
-      if (!L) return "—";
-      if (L >= 1e4 || L < 1e-2) {
-        const e = Math.floor(Math.log10(L));
-        return `${(L / 10 ** e).toFixed(1)}×10${sup(e)} L☉`;
-      }
-      return `${L.toFixed(L < 10 ? 2 : 0)} L☉`;
-    }
-    function sup(n: number): string {
-      const m: Record<string, string> = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" };
-      return String(n).split("").map((c) => m[c] ?? c).join("");
+      setV(summary, "n", latent.length.toLocaleString());
+      setV(summary, "o", String(latent.filter((s) => s.mass >= 16).length));
+      setV(summary, "heaviest", latent.reduce((mx, s) => Math.max(mx, s.mass), 0).toFixed(1));
     }
 
     updateSummary();
@@ -363,4 +382,15 @@
   .xpl-census__card dt { color: var(--xpl-dim); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--2, 0.75rem); }
   .xpl-census__card dd { margin: 0; color: var(--xpl-ink); font-size: var(--step--1, 0.85rem); }
   .xpl-census__noscript { color: var(--xpl-dim); font-size: var(--step--1, 0.85rem); }
+
+  /* KaTeX axis captions under each plot (no Unicode math on the canvas). */
+  .xpl-census__axiscap {
+    margin: 0;
+    padding: 0.15rem var(--space-s, 0.7rem) var(--space-2xs, 0.5rem);
+    text-align: center;
+    font-size: var(--step--2, 0.72rem);
+    color: var(--xpl-dim);
+  }
+  .xpl-census .katex { font-size: 1em; color: var(--xpl-ink); }
+  .xpl-census__card .katex, .xpl-census__axiscap .katex { color: inherit; }
 </style>
