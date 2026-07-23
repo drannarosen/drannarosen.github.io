@@ -17,7 +17,7 @@
     "sync:pubs:check": "node scripts/publications/sync_orcid.mjs --check",
     "check:figures": "node scripts/figures/check.mjs",
     "og": "node scripts/og/generate.mjs",
-    "prebuild": "node --experimental-strip-types scripts/check-sun.mjs && node --experimental-strip-types scripts/check-stellar.mjs && node --experimental-strip-types scripts/check-cluster.mjs && node --experimental-strip-types scripts/check-store.mjs && node scripts/check-novascope-boundary.mjs && node scripts/check-type.mjs && node scripts/figures/check.mjs && node scripts/cv/check.mjs --check && node scripts/og/generate.mjs",
+    "prebuild": "node --experimental-strip-types scripts/check-sun.mjs && node --experimental-strip-types scripts/check-stellar.mjs && node --experimental-strip-types scripts/check-cluster.mjs && node --experimental-strip-types scripts/check-store.mjs && node --experimental-strip-types scripts/check-render.mjs && node scripts/check-novascope-boundary.mjs && node scripts/check-type.mjs && node scripts/figures/check.mjs && node scripts/cv/check.mjs --check && node scripts/og/generate.mjs",
     "check:type": "node scripts/check-type.mjs",
     "cv:pdf": "typst compile --root . cv/cv_rosen.typ public/documents/cv-anna-rosen.pdf",
     "check:links": "node scripts/check-links.mjs",
@@ -28,6 +28,7 @@
     "check:novascope": "node scripts/check-novascope-boundary.mjs",
     "check:cluster": "node --experimental-strip-types scripts/check-cluster.mjs",
     "check:store": "node --experimental-strip-types scripts/check-store.mjs",
+    "check:render": "node --experimental-strip-types scripts/check-render.mjs",
     "search:index": "node scripts/search/build-index.mjs",
     "check:sun": "node --experimental-strip-types scripts/check-sun.mjs",
     "postbuild": "node scripts/search/build-index.mjs && node scripts/check-links.mjs && node scripts/check-markup.mjs"
