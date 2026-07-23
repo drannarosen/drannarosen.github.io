@@ -344,7 +344,9 @@ const m = (tex: string, display = false) =>
       };
       infoBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        setOpen(popover.hidden);
+        // `hidden` is now `boolean | "until-found"` (TS 6 DOM lib); coerce to a
+        // strict bool — "until-found" counts as hidden, so a click should open.
+        setOpen(Boolean(popover.hidden));
       });
       document.addEventListener("click", (e) => {
         if (!popover.hidden && e.target instanceof Node && !popover.contains(e.target)) setOpen(false);
