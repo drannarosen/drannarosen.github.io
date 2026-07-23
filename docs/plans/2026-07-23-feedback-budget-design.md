@@ -414,13 +414,51 @@ r_ch = [α_B / (12(1,4)π φ)] · (ε_0 / k_B T_II)² · (ψ² S / c²) · f_tra
    dominated. That is exactly "which channel can even do the job here", expressed
    as a number the engine can compute and display rather than assert.
 
-### IONIZING PHOTON RATE — reference identified 2026-07-23
+### IONIZING PHOTON RATE — transcribed 2026-07-23
 **Sternberg, Hoffmann & Pauldrach (2003)**, *Ionizing Photon Emission Rates from
 O- and Early B-Type Stars and Clusters*, ApJ (DOI 10.1086/379506,
-arXiv:astro-ph/0312232). WM-basic wind-atmosphere models, Teff 25,000–55,000 K,
-log g 3–4, solar metallicity. The export gives Teff and R, so
-log g = log10(GM/R²) is available per star. **Coefficients not yet extracted** —
-the paper has been identified, not transcribed.
+arXiv:astro-ph/0312232), **Table 1 (luminosity class V)** — read from the paper
+PDF. WM-basic wind-atmosphere models, solar metallicity.
+
+Per the table's own header, the stellar parameters (Teff, log g, R⋆, spectral
+class) are **as specified by Vacca, Garmany & Shull (1996)**; Sternberg et al.
+supply the ionizing fluxes from their atmospheres. The two references in the
+original sourcing list are therefore COMPLEMENTARY, not alternatives.
+
+Class V is the right table: the realization population is ZAMS.
+
+| Sp | Teff [K] | log g | R⋆ [R☉] | log L [L☉] | M [M☉] | log Q_H [s⁻¹] | log q_H [cm⁻² s⁻¹] |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| O3 | 51230 | 4.149 | 13.2 | 6.04 | 87.6 | 49.87 | 24.84 |
+| O4 | 48670 | 4.106 | 12.3 | 5.88 | 68.9 | 49.68 | 24.72 |
+| O4.5 | 47400 | 4.093 | 11.8 | 5.81 | 62.3 | 49.59 | 24.66 |
+| O5 | 46120 | 4.081 | 11.4 | 5.73 | 56.6 | 49.49 | 24.59 |
+| O5.5 | 44840 | 4.060 | 11.0 | 5.65 | 50.4 | 49.39 | 24.52 |
+| O6 | 43560 | 4.042 | 10.7 | 5.57 | 45.2 | 49.29 | 24.45 |
+| O6.5 | 42280 | 4.030 | 10.3 | 5.49 | 41.0 | 49.18 | 24.37 |
+| O7 | 41010 | 4.021 | 10.0 | 5.40 | 37.7 | 49.06 | 24.28 |
+| O7.5 | 39730 | 4.006 | 9.6 | 5.32 | 34.1 | 48.92 | 24.17 |
+| O8 | 38450 | 3.989 | 9.3 | 5.24 | 30.8 | 48.75 | 24.03 |
+| O8.5 | 37170 | 3.974 | 9.0 | 5.15 | 28.0 | 48.61 | 23.92 |
+| O9 | 35900 | 3.959 | 8.8 | 5.06 | 25.4 | 48.47 | 23.80 |
+| O9.5 | 34620 | 3.947 | 8.5 | 4.97 | 23.3 | 48.26 | 23.62 |
+| B0 | 33340 | 3.932 | 8.3 | 4.88 | 21.2 | 48.02 | 23.40 |
+| B0.5 | 32060 | 3.914 | 8.0 | 4.79 | 19.3 | 47.71 | 23.12 |
+
+**Use q_H, not Q_H.** The SURFACE FLUX q_H is an atmosphere property (Teff, log g);
+Q_H additionally folds in Vacca's radius for that spectral type. Our export
+carries progenax's own per-star R, so the self-consistent route is
+`Q = 4π R² · q_H(Teff)` — interpolate q_H in Teff and supply R ourselves, rather
+than adopting Q_H and silently importing a radius that contradicts the export.
+
+**Do not extrapolate below B0.5 (32,060 K).** log Q_H falls from 49.87 (O3) to
+47.71 (B0.5) — a factor >100 across the table — so cooler stars contribute
+negligibly and the grid must be gated at its cool edge, exactly as the Vink wind
+recipe is gated at 12,500 K. Neither channel gets extrapolated past its
+calibration; that gating is what makes the budget selective by environment.
+
+This table travels as ONE labelled block in `core/feedback` with the citation
+attached, never scattered across call sites (provenance-of-constants).
 
 ### STRUCTURE THAT VALIDATES THE LEDGER (coefficients NOT yet usable)
 **Lopez et al. (2014)** measure an H II region's pressure budget as FOUR separate
