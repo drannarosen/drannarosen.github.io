@@ -6,10 +6,11 @@ export type { ClusterView, ClusterStore, ClusterStoreOptions } from "./store.ts"
 export { createClusterStore, defaultView } from "./store.ts";
 export type { PersistenceAdapter } from "./adapters.ts";
 export { memoryAdapter, localStorageAdapter } from "./adapters.ts";
-export type { RenderStar, RenderModel, HRPoint, HRModel } from "./render.ts";
+export type { RenderStar, RenderModel, HRPoint, HRModel, IMFBin, IMFModel } from "./render.ts";
 export {
   toRenderModel,
   toHRModel,
+  toIMFHistogram,
   HR_TEFF_RANGE,
   HR_LOGL_RANGE,
 } from "./render.ts";

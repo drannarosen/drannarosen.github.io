@@ -98,6 +98,23 @@ export function sampleKroupaMass(u: number, segs: Segment[]): number {
   return segs[segs.length - 1].hi;
 }
 
+/**
+ * Fraction of stars expected in [mLo, mHi] under the normalized Kroupa law —
+ * the analytic curve the histogram overlays on the sampled counts. Integrates
+ * ξ over the requested range, clipped to each segment, ÷ the total.
+ */
+export function kroupaMassFraction(mLo: number, mHi: number, segs: Segment[]): number {
+  let acc = 0;
+  let total = 0;
+  for (const s of segs) {
+    total += s.weight;
+    const a = Math.max(mLo, s.lo);
+    const b = Math.min(mHi, s.hi);
+    if (b > a) acc += segmentIntegral(s.alpha, s.amp, a, b);
+  }
+  return total > 0 ? acc / total : 0;
+}
+
 /* ── Main-sequence relations ──────────────────────────────────────────
  * Physics-grounded ZAMS properties come from the shared stellar core
  * (src/lib/stellar.ts): Tout et al. (1996), ported from startrax and validated

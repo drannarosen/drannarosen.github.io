@@ -8,7 +8,8 @@
  * is what lets a backend swap (ZAMS → tracks) reach every renderer for free.
  */
 import { star } from "../core/stellar/index.ts";
-import type { LatentStar } from "../core/cluster/index.ts";
+import { buildKroupaSegments, kroupaMassFraction } from "../core/imf/index.ts";
+import type { ClusterIdentity, LatentStar } from "../core/cluster/index.ts";
 import type { ClusterView } from "./store.ts";
 
 /* Fixed HR-diagram bounds, so the diagram does not rescale as you resample —
@@ -94,6 +95,50 @@ export interface HRModel {
   points: HRPoint[];
   teffRange: [number, number];
   logLRange: [number, number];
+}
+
+export interface IMFBin {
+  logMlo: number;
+  logMhi: number;
+  logMc: number; // bin centre (log10 M☉)
+  count: number; // sampled stars in this bin
+  expected: number; // stars the analytic Kroupa law predicts here
+}
+
+export interface IMFModel {
+  bins: IMFBin[];
+  maxCount: number; // for the y-axis (max of sampled and expected)
+}
+
+/**
+ * The IMF as sampled vs as prescribed: logarithmic mass bins with the sampled
+ * count and the analytic Kroupa expectation. The gap between them — ragged,
+ * sparse high-mass bins straying from the smooth law — is sampling noise made
+ * visible, the whole point of the Census.
+ */
+export function toIMFHistogram(latent: LatentStar[], id: ClusterIdentity, nBins = 22): IMFModel {
+  const { mMin, mMax, alphaHigh } = id.imf;
+  const lo = log10(mMin);
+  const hi = log10(mMax);
+  const width = (hi - lo) / nBins;
+  const segs = buildKroupaSegments(mMin, mMax, alphaHigh);
+  const N = latent.length;
+
+  const counts = new Array(nBins).fill(0);
+  for (const s of latent) {
+    const k = Math.min(nBins - 1, Math.max(0, Math.floor((log10(s.mass) - lo) / width)));
+    counts[k]++;
+  }
+
+  let maxCount = 1;
+  const bins: IMFBin[] = counts.map((count, k) => {
+    const logMlo = lo + k * width;
+    const logMhi = logMlo + width;
+    const expected = N * kroupaMassFraction(10 ** logMlo, 10 ** logMhi, segs);
+    maxCount = Math.max(maxCount, count, expected);
+    return { logMlo, logMhi, logMc: logMlo + width / 2, count, expected };
+  });
+  return { bins, maxCount };
 }
 
 /** HR diagram: one point per living (MS) star; remnants leave the diagram. */

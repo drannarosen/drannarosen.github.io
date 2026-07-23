@@ -1,43 +1,57 @@
 ---
 /*
- * CensusEngine.astro — the first novascope engine (Layer 3). A 2-D cluster and
- * its H–R diagram, driven by the shared store: hover a star to read it, drag the
- * IMF slope to make the cluster top- or bottom-heavy, change N to feel sampling
- * noise. All physics comes from the star() contract via the selectors; this file
- * is glue + chrome only. Styled with --xpl-* tokens (site fallbacks) so it can
- * lift out as a package component unchanged.
+ * CensusEngine.astro — the first novascope engine (Layer 3). Four panels in two
+ * rows: top, the cluster (2-D or orbitable 3-D) and its H–R diagram; bottom, the
+ * controls and the live IMF histogram — the distribution you're dragging, right
+ * next to the slider that shapes it. All physics comes from star() via the
+ * selectors; this file is glue + chrome. Styled with --xpl-* tokens (site
+ * fallbacks); the style block is global because the readout card is injected
+ * client-side and would miss Astro-scoped selectors.
  */
 ---
 
 <div class="xpl-census" data-census>
-  <div class="xpl-census__stage">
+  <div class="xpl-census__grid">
     <figure class="xpl-census__panel">
-      <figcaption>The cluster <span>projected</span></figcaption>
-      <canvas data-field aria-label="Projected star cluster; hover a star to inspect it"></canvas>
+      <figcaption>
+        The cluster
+        <span class="xpl-census__modes" role="group" aria-label="Cluster view">
+          <button type="button" data-mode="2D" class="is-active">2D</button>
+          <button type="button" data-mode="3D">3D</button>
+        </span>
+      </figcaption>
+      <canvas data-field aria-label="Star cluster; hover a star to inspect it, drag to orbit in 3D"></canvas>
+      <small class="xpl-census__hint" data-hint></small>
     </figure>
+
     <figure class="xpl-census__panel">
       <figcaption>H–R diagram <span>luminosity vs temperature</span></figcaption>
       <canvas data-hr aria-label="Hertzsprung-Russell diagram of the cluster"></canvas>
     </figure>
+
+    <div class="xpl-census__panel xpl-census__panel--pad">
+      <div class="xpl-census__controls">
+        <label class="xpl-census__ctrl">
+          <span>high-mass slope α = <output data-slope-val>2.3</output></span>
+          <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
+          <small>top-heavy ← → bottom-heavy</small>
+        </label>
+        <label class="xpl-census__ctrl">
+          <span>stars N = <output data-count-val>1200</output></span>
+          <input type="range" data-count min="100" max="3000" step="100" value="1200" />
+          <small>watch the rare massive tail flicker</small>
+        </label>
+        <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
+      </div>
+      <p class="xpl-census__summary" data-summary aria-live="polite"></p>
+      <aside class="xpl-census__card" data-card hidden></aside>
+    </div>
+
+    <figure class="xpl-census__panel">
+      <figcaption>The IMF <span>sampled bars vs prescribed law</span></figcaption>
+      <canvas data-imf aria-label="Initial mass function: sampled counts against the analytic law"></canvas>
+    </figure>
   </div>
-
-  <div class="xpl-census__controls">
-    <label class="xpl-census__ctrl">
-      <span>high-mass slope α = <output data-slope-val>2.3</output></span>
-      <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
-      <small>top-heavy ← → bottom-heavy</small>
-    </label>
-    <label class="xpl-census__ctrl">
-      <span>stars N = <output data-count-val>1200</output></span>
-      <input type="range" data-count min="100" max="3000" step="100" value="1200" />
-      <small>watch the rare massive tail flicker</small>
-    </label>
-    <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
-  </div>
-
-  <p class="xpl-census__summary" data-summary aria-live="polite"></p>
-
-  <aside class="xpl-census__card" data-card hidden></aside>
 
   <noscript>
     <p class="xpl-census__noscript">
@@ -48,22 +62,24 @@
 </div>
 
 <script>
-  import { createClusterStore, toRenderModel, toHRModel, localStorageAdapter } from "../state/index.ts";
+  import { createClusterStore, toRenderModel, toHRModel, toIMFHistogram, localStorageAdapter } from "../state/index.ts";
   import { defaultIdentity, sampleCluster, type ClusterIdentity } from "../core/cluster/index.ts";
   import { star } from "../core/stellar/index.ts";
-  import { mountCanvas, renderClusterField, pickStar, renderHR, pickHRPoint } from "../viz/index.ts";
+  import { mountCanvas, makeCamera, attachOrbit, renderClusterField, pickStar, renderHR, pickHRPoint, renderHistogram } from "../viz/index.ts";
 
   const root = document.querySelector<HTMLElement>("[data-census]");
   if (root) {
-    const $ = <T extends Element>(sel: string) => root.querySelector<T>(sel)!;
+    const $ = <T extends Element>(s: string) => root.querySelector<T>(s)!;
     const fieldCanvas = $<HTMLCanvasElement>("[data-field]");
     const hrCanvas = $<HTMLCanvasElement>("[data-hr]");
+    const imfCanvas = $<HTMLCanvasElement>("[data-imf]");
     const slope = $<HTMLInputElement>("[data-slope]");
     const slopeVal = $<HTMLOutputElement>("[data-slope-val]");
     const count = $<HTMLInputElement>("[data-count]");
     const countVal = $<HTMLOutputElement>("[data-count-val]");
     const card = $<HTMLElement>("[data-card]");
     const summary = $<HTMLElement>("[data-summary]");
+    const hint = $<HTMLElement>("[data-hint]");
 
     const store = createClusterStore({
       adapter: localStorageAdapter(),
@@ -71,9 +87,12 @@
       identity: defaultIdentity({ sampling: { mode: "count", target: 1200 }, imf: { mMin: 0.1, mMax: 100, alphaHigh: 2.3 } }),
     });
 
+    const camera = makeCamera(store.getView().toggles.threeD ? "3D" : "2D");
+
     let latent = sampleCluster(store.getIdentity());
     let rm = toRenderModel(latent, store.getView());
     let hr = toHRModel(latent, store.getView());
+    let imf = toIMFHistogram(latent, store.getIdentity());
 
     // Sync controls to the (possibly restored) identity.
     const idNow = store.getIdentity();
@@ -83,23 +102,28 @@
     countVal.value = String(idNow.sampling.target);
 
     const field = mountCanvas(fieldCanvas, (ctx, w, h) =>
-      renderClusterField(ctx, rm, w, h, { selectedId: store.getView().selectedId }),
+      renderClusterField(ctx, rm, w, h, { camera, selectedId: store.getView().selectedId }),
     );
     const hrView = mountCanvas(hrCanvas, (ctx, w, h) =>
       renderHR(ctx, hr, w, h, { selectedId: store.getView().selectedId }),
     );
+    const imfView = mountCanvas(imfCanvas, (ctx, w, h) => renderHistogram(ctx, imf, w, h));
 
+    attachOrbit(fieldCanvas, camera, () => field.redraw());
+
+    function recompute() {
+      rm = toRenderModel(latent, store.getView());
+      hr = toHRModel(latent, store.getView());
+      imf = toIMFHistogram(latent, store.getIdentity());
+      field.redraw();
+      hrView.redraw();
+      imfView.redraw();
+      updateSummary();
+    }
     function patchIdentity(patch: Partial<ClusterIdentity>) {
       store.setIdentity({ ...store.getIdentity(), ...patch });
       latent = sampleCluster(store.getIdentity());
       recompute();
-    }
-    function recompute() {
-      rm = toRenderModel(latent, store.getView());
-      hr = toHRModel(latent, store.getView());
-      field.redraw();
-      hrView.redraw();
-      updateSummary();
     }
 
     slope.addEventListener("input", () => {
@@ -116,9 +140,27 @@
       patchIdentity({ seed: (store.getIdentity().seed * 1103515245 + 12345) >>> 0 });
     });
 
-    // Hover selection on either panel.
+    // 2-D / 3-D toggle.
+    const modeBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-mode]"));
+    const setMode = (mode: "2D" | "3D") => {
+      camera.mode = mode;
+      camera.yaw = mode === "3D" ? 0.5 : 0;
+      camera.pitch = mode === "3D" ? 0.35 : 0;
+      camera.zoom = 1;
+      camera.panX = 0;
+      camera.panY = 0;
+      store.setView({ toggles: { ...store.getView().toggles, threeD: mode === "3D" } });
+      modeBtns.forEach((b) => b.classList.toggle("is-active", b.dataset.mode === mode));
+      hint.textContent = mode === "3D" ? "drag to orbit · scroll to zoom · shift-drag to pan" : "scroll to zoom · drag to pan";
+      field.redraw();
+    };
+    modeBtns.forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode as "2D" | "3D")));
+    setMode(camera.mode);
+
+    // Hover selection (only when not dragging the camera).
     const hover = (canvas: HTMLCanvasElement, pick: (x: number, y: number, w: number, h: number) => number | null) => {
       canvas.addEventListener("pointermove", (e) => {
+        if (e.buttons !== 0) return; // a drag is an orbit/pan, not a hover
         const r = canvas.getBoundingClientRect();
         const id = pick(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
         if (id !== store.getView().selectedId) {
@@ -129,7 +171,7 @@
         }
       });
     };
-    hover(fieldCanvas, (x, y, w, h) => pickStar(rm, x, y, w, h));
+    hover(fieldCanvas, (x, y, w, h) => pickStar(rm, x, y, w, h, camera));
     hover(hrCanvas, (x, y, w, h) => pickHRPoint(hr, x, y, w, h));
 
     function updateCard(id: number | null) {
@@ -186,18 +228,20 @@
     --xpl-ink: var(--ink, #e8e8ea);
     --xpl-dim: var(--ink-dim, #9aa0aa);
     --xpl-teal: var(--spec-teal-bright, #4fd1c5);
+    --xpl-rose: var(--spec-rose-bright, #f472b6);
     --xpl-border: var(--border, #2a2c31);
     --xpl-panel: var(--surface-1, #14151a);
     display: grid;
     gap: var(--space-m, 1rem);
   }
-  .xpl-census__stage {
+  .xpl-census__grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-m, 1rem);
+    align-items: start;
   }
   @media (max-width: 46rem) {
-    .xpl-census__stage { grid-template-columns: 1fr; }
+    .xpl-census__grid { grid-template-columns: 1fr; }
   }
   .xpl-census__panel {
     margin: 0;
@@ -206,42 +250,50 @@
     background: radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--xpl-panel) 92%, black), #0a0b0e);
     overflow: hidden;
   }
+  .xpl-census__panel--pad { padding: var(--space-s, 0.75rem); display: grid; gap: var(--space-s, 0.75rem); align-content: start; background: var(--xpl-panel); }
   .xpl-census__panel figcaption {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
     padding: var(--space-2xs, 0.4rem) var(--space-s, 0.75rem);
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: var(--step--1, 0.85rem);
     color: var(--xpl-ink);
     border-bottom: 1px solid var(--xpl-border);
   }
-  .xpl-census__panel figcaption span { color: var(--xpl-dim); font-size: var(--step--2, 0.75rem); }
-  .xpl-census__panel canvas {
-    display: block;
-    inline-size: 100%;
-    block-size: min(46vh, 30rem);
-    cursor: crosshair;
-    touch-action: none;
+  .xpl-census__panel figcaption > span { color: var(--xpl-dim); font-size: var(--step--2, 0.75rem); }
+  .xpl-census__panel canvas { display: block; inline-size: 100%; touch-action: none; }
+  .xpl-census__panel [data-field], .xpl-census__panel [data-hr] { block-size: min(40vh, 24rem); cursor: crosshair; }
+  .xpl-census__panel [data-imf] { block-size: min(24vh, 13rem); }
+  .xpl-census__hint { display: block; padding: 0 var(--space-s, 0.75rem) var(--space-2xs, 0.4rem); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--2, 0.72rem); color: var(--xpl-dim); }
+
+  .xpl-census__modes { display: inline-flex; gap: 2px; }
+  .xpl-census__modes button {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--2, 0.72rem);
+    color: var(--xpl-dim);
+    background: transparent;
+    border: 1px solid var(--xpl-border);
+    padding: 1px 8px;
+    cursor: pointer;
   }
-  .xpl-census__controls {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: end;
-    gap: var(--space-m, 1rem) var(--space-l, 1.5rem);
-  }
+  .xpl-census__modes button:first-child { border-radius: 999px 0 0 999px; }
+  .xpl-census__modes button:last-child { border-radius: 0 999px 999px 0; }
+  .xpl-census__modes button.is-active { color: #0a0b0e; background: var(--xpl-teal); border-color: var(--xpl-teal); }
+
+  .xpl-census__controls { display: grid; gap: var(--space-s, 0.75rem); }
   .xpl-census__ctrl {
     display: grid;
     gap: 0.25rem;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: var(--step--1, 0.85rem);
     color: var(--xpl-ink);
-    min-inline-size: 14rem;
   }
   .xpl-census__ctrl output { color: var(--xpl-teal); }
   .xpl-census__ctrl small { color: var(--xpl-dim); font-size: var(--step--2, 0.72rem); }
-  .xpl-census__ctrl input[type="range"] { accent-color: var(--spec-rose-bright, #f472b6); inline-size: 100%; }
+  .xpl-census__ctrl input[type="range"] { accent-color: var(--xpl-rose); inline-size: 100%; }
   .xpl-census__reseed {
+    justify-self: start;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: var(--step--1, 0.85rem);
     color: var(--xpl-ink);
@@ -253,12 +305,7 @@
     transition: border-color 0.15s;
   }
   .xpl-census__reseed:hover { border-color: var(--xpl-teal); }
-  .xpl-census__summary {
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--step--1, 0.85rem);
-    color: var(--xpl-dim);
-    margin: 0;
-  }
+  .xpl-census__summary { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1, 0.85rem); color: var(--xpl-dim); margin: 0; }
   .xpl-census__card {
     display: flex;
     gap: var(--space-s, 0.75rem);
@@ -266,11 +313,10 @@
     padding: var(--space-s, 0.75rem);
     border: 1px solid var(--xpl-border);
     border-radius: var(--radius, 10px);
-    background: var(--xpl-panel);
-    max-inline-size: max-content;
+    background: color-mix(in srgb, var(--xpl-panel) 80%, black);
   }
-  .xpl-census__swatch { inline-size: 1.5rem; block-size: 1.5rem; border-radius: 50%; box-shadow: 0 0 12px currentColor; margin-block-start: 0.15rem; }
-  .xpl-census__card dl { display: grid; gap: 0.2rem; margin: 0; min-inline-size: 12rem; }
+  .xpl-census__swatch { flex: none; inline-size: 1.4rem; block-size: 1.4rem; border-radius: 50%; box-shadow: 0 0 12px currentColor; margin-block-start: 0.15rem; }
+  .xpl-census__card dl { display: grid; gap: 0.2rem; margin: 0; flex: 1; }
   .xpl-census__card dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 1.2rem; }
   .xpl-census__card dt { color: var(--xpl-dim); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--2, 0.75rem); }
   .xpl-census__card dd { margin: 0; color: var(--xpl-ink); font-size: var(--step--1, 0.85rem); }

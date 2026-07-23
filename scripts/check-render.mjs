@@ -5,7 +5,7 @@
  * canvas renderers can trust it: finite positive sizes, remnants leaving the HR
  * diagram, determinism, and hot massive stars landing upper-left.
  */
-import { toRenderModel, toHRModel, defaultView, HR_TEFF_RANGE } from "../src/novascope/state/index.ts";
+import { toRenderModel, toHRModel, toIMFHistogram, defaultView, HR_TEFF_RANGE } from "../src/novascope/state/index.ts";
 import { sampleCluster, defaultIdentity } from "../src/novascope/core/cluster/index.ts";
 
 let failures = 0;
@@ -49,6 +49,19 @@ const hottest = hr0.points.reduce((a, b) => (b.logTeff > a.logTeff ? b : a));
 ok(hottest.logTeff > Math.log10(20000), "hottest star is a hot (>20 kK) O/B star");
 ok(hottest.logL > 3, "…and highly luminous (log L/L☉ > 3), i.e. upper-left of the HRD");
 ok(HR_TEFF_RANGE[0] < HR_TEFF_RANGE[1], "HR Teff bounds well-ordered");
+
+// IMF histogram: counts conserved, law normalized, slope knob works.
+const imf = toIMFHistogram(latent, id);
+const totalCount = imf.bins.reduce((t, b) => t + b.count, 0);
+const totalExpected = imf.bins.reduce((t, b) => t + b.expected, 0);
+ok(totalCount === latent.length, "sampled bin counts sum to N");
+ok(Math.abs(totalExpected - latent.length) / latent.length < 0.02, "analytic expectation integrates to ≈ N");
+ok(imf.maxCount > 0 && imf.bins.every((b) => b.expected >= 0 && b.count >= 0), "histogram well-formed");
+// Flattening the high-mass slope must raise the expected count in the top bin.
+const steep = toIMFHistogram(sampleCluster(defaultIdentity({ seed: 3, sampling: { mode: "count", target: 1500 }, imf: { mMin: 0.1, mMax: 100, alphaHigh: 2.8 } })), defaultIdentity({ imf: { mMin: 0.1, mMax: 100, alphaHigh: 2.8 } }));
+const flat = toIMFHistogram(sampleCluster(defaultIdentity({ seed: 3, sampling: { mode: "count", target: 1500 }, imf: { mMin: 0.1, mMax: 100, alphaHigh: 1.7 } })), defaultIdentity({ imf: { mMin: 0.1, mMax: 100, alphaHigh: 1.7 } }));
+const topExpected = (m) => m.bins[m.bins.length - 1].expected;
+ok(topExpected(flat) > topExpected(steep), "flatter high-mass slope predicts more massive stars");
 
 if (failures) {
   console.error(`\n[render] ${failures} check(s) FAILED.`);
