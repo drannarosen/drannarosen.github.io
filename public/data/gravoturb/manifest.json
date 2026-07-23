@@ -2,34 +2,54 @@
   "generated_by": "scripts/gravoturb/export_cluster.py",
   "realizations": [
     {
-      "name": "calm",
-      "label": "calm (Mach 4)",
-      "path": "/data/gravoturb/calm",
-      "mach": 4.0,
-      "n_stars": 10000,
-      "m_star_total_msun": 3883.1449246063817,
-      "r_half_pc": 0.6790547882489699,
-      "q_virial_at_sfe_ic": 0.004063805639908987
+      "name": "diffuse",
+      "label": "diffuse (low-mass)",
+      "path": "/data/gravoturb/diffuse",
+      "mach": 3.7863426812690895,
+      "n_stars": 1030,
+      "m_star_total_msun": 359.85307462146466,
+      "r_half_pc": 0.8159430672778784,
+      "q_virial_at_sfe_ic": 0.04480400373041721
     },
     {
-      "name": "fiducial",
-      "label": "fiducial (Mach 8)",
+      "name": "orion",
+      "label": "Orion-like",
       "path": "/data/gravoturb",
-      "mach": 8.0,
-      "n_stars": 10000,
-      "m_star_total_msun": 3883.144924606381,
-      "r_half_pc": 0.6786729236014948,
-      "q_virial_at_sfe_ic": 0.008356363878663087
+      "mach": 13.11627579764927,
+      "n_stars": 10301,
+      "m_star_total_msun": 4081.2087170288687,
+      "r_half_pc": 0.6761677178663568,
+      "q_virial_at_sfe_ic": 0.014685085688009424
     },
     {
-      "name": "turbulent",
-      "label": "turbulent (Mach 12)",
-      "path": "/data/gravoturb/turbulent",
-      "mach": 12.0,
-      "n_stars": 10000,
-      "m_star_total_msun": 3883.1449246063817,
-      "r_half_pc": 0.676118123136338,
-      "q_virial_at_sfe_ic": 0.01339562250798512
+      "name": "compact",
+      "label": "massive compact",
+      "path": "/data/gravoturb/compact",
+      "mach": 32.79068949412318,
+      "n_stars": 51507,
+      "m_star_total_msun": 19077.860813485895,
+      "r_half_pc": 0.5398669112742653,
+      "q_virial_at_sfe_ic": 0.0024890111607247293
+    },
+    {
+      "name": "orion-solenoidal",
+      "label": "Orion-like \u00b7 solenoidal",
+      "path": "/data/gravoturb/orion-solenoidal",
+      "mach": 13.11627579764927,
+      "n_stars": 10301,
+      "m_star_total_msun": 4081.2087170288687,
+      "r_half_pc": 0.6778165990446021,
+      "q_virial_at_sfe_ic": 0.019226129433830542
+    },
+    {
+      "name": "orion-compressive",
+      "label": "Orion-like \u00b7 compressive",
+      "path": "/data/gravoturb/orion-compressive",
+      "mach": 13.11627579764927,
+      "n_stars": 10301,
+      "m_star_total_msun": 4081.2087170288683,
+      "r_half_pc": 0.6733725481055687,
+      "q_virial_at_sfe_ic": 0.006104413302490297
     }
   ]
 }

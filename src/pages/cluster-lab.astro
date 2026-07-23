@@ -1,6 +1,9 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
+import { starCount } from "../lib/gravoturb";
+
+// Derived — the lede must not retype a count the dataset already states.
 ---
 
 <BaseLayout
@@ -11,7 +14,7 @@ import PageHeader from "../components/PageHeader.astro";
   <PageHeader
     eyebrow="Prototype · not linked"
     title="Cluster, two ways"
-    lede="Your real gravoturb cluster (5,000 stars, mass-segregated, from progenax) rendered straight from the exported data — flat 2D on the left, 3D-rotating on the right. Deciding which."
+    lede={`Your real gravoturb cluster (${starCount()} stars, mass-segregated, from progenax) rendered straight from the exported data — flat 2D on the left, 3D-rotating on the right. Deciding which.`}
   />
 
   <div class="lab wrap-wide">

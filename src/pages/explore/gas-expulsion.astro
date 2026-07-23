@@ -101,7 +101,9 @@ import Math from "../../components/Math.astro";
       } else {
         setPlay(true); // default: play the loop
       }
-      if (status) status.textContent = "homologous expansion · real gravoturb cloud + 10,000 stars";
+      if (status)
+        status.textContent =
+          `homologous expansion · real gravoturb cloud + ${scene.stars.length / 6} stars`;
     } catch (err) {
       if (status) status.textContent = `Failed to load: ${String(err)}`;
     }

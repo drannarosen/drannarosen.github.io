@@ -1,6 +1,11 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
+import { gravoturbMeta, starCount } from "../lib/gravoturb";
+
+// Derived, never retyped — regenerating the realization set must not falsify
+// the copy (it silently did when the Mach ladder became the environment set).
+const meta = gravoturbMeta();
 ---
 
 <BaseLayout
@@ -12,7 +17,7 @@ import PageHeader from "../components/PageHeader.astro";
   <PageHeader
     eyebrow="Prototype · not linked"
     title="The turbulent cube"
-    lede="Your real gravoturb density volume (128³) + 10,000 stars, raymarched in WebGL as a yt-style log colorbar. Scroll/pinch to zoom, drag to pan, double-click to reset. Every knob below is live — nothing is baked in."
+    lede={`Your real gravoturb density volume (${meta.ngrid}³) + ${starCount()} stars, raymarched in WebGL as a yt-style log colorbar. Scroll/pinch to zoom, drag to pan, double-click to reset. Every knob below is live — nothing is baked in.`}
   />
 
   <div class="vl wrap">

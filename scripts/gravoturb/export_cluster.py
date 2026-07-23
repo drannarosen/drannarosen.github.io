@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from dataclasses import dataclass, replace
@@ -73,29 +74,67 @@ from progenax.stellar import zams_effective_temperature, zams_radius  # noqa: E4
 OUT_ROOT = Path(__file__).resolve().parents[2] / "public" / "data" / "gravoturb"
 
 
+# --- physical constants (provenance required; see research-workflow) ----------
+# Gravitational constant in [pc (km/s)^2 / Msun]. IAU 2015 nominal GM_sun
+# (1.327124400e20 m^3 s^-2) divided by the parsec (3.0856775814913673e16 m),
+# converted to (km/s)^2: 1.327124400e20 / 3.0856775814913673e16 / 1e6.
+G_PC_KMS2_MSUN: float = 4.300917270e-3
+
+# Cloud shape is held fixed across environments so only (M, R) and the forcing
+# differ: the shipped fiducial had eff_a/r_t = 0.8/2.5 and box/r_t = 6.0/2.5.
+_A_OVER_RT: float = 0.32
+_BOX_OVER_RT: float = 2.4
+
+
+def mach_for_alpha_vir(
+    m_cloud_msun: float, radius_pc: float, c_s_km_s: float, alpha_vir: float
+) -> float:
+    """Turbulent Mach number placing a cloud of (M, R) at virial parameter alpha_vir.
+
+    alpha_vir = 5 sigma_v^2 R / (G M)   -- Bertoldi & McKee (1992), ApJ 395, 140,
+    the standard uniform-sphere virial parameter. Inverting for the 1-D turbulent
+    velocity dispersion, sigma_v = sqrt(alpha_vir G M / (5 R)), and Mach = sigma_v/c_s.
+
+    ML is set THIS way rather than by inverting the exported q_virial_at_sfe_ic:
+    that diagnostic is the STARS' T/|W| (they inherit velocities through progenax's
+    VelocitySpec), so it is a different quantity and is reported, not targeted.
+    """
+    sigma_v = math.sqrt(alpha_vir * G_PC_KMS2_MSUN * m_cloud_msun / (5.0 * radius_pc))
+    return sigma_v / c_s_km_s
+
+
 # --- one realization's parameters --------------------------------------------
 @dataclass(frozen=True)
 class Realization:
-    """Everything that defines one gravoturb IC export. Defaults are the shipped
-    fiducial (byte-identical to the original single-shot script)."""
+    """One gravoturb IC export, specified as a physical ENVIRONMENT.
+
+    The realization axis is (m_cloud, radius): Sigma, N, v_esc and the Mach number
+    all FOLLOW from it rather than being typed independently. Mach is derived by
+    fixing alpha_vir (marginally bound, as observed) so no environment is left
+    unphysically sub-virial -- holding Mach constant while raising the mass 50x
+    would do exactly that. See docs/plans/2026-07-23-feedback-budget-design.md.
+    """
 
     name: str
     label: str  # human label for the picker
-    # cloud turbulence + kinematics
-    mach: float = 8.0
+    # --- the environment: everything below is derived from these -------------
+    m_cloud: float = 2.0e4  # target cloud mass [Msun] (gas + stars at sfe)
+    radius: float = 2.5  # cloud truncation radius r_t [pc]
+    alpha_vir: float = 1.0  # virial parameter that SETS the Mach number
+    mean_imf_mass: float = 0.3883  # <m> [Msun], measured from the shipped IMF draw
+    # cloud turbulence + kinematics (mach is derived; see .mach)
     b: float = 0.5  # turbulence forcing (0.5 = natural mix)
     alpha: float = 1.8  # density-PDF/power-spectrum knob
     coupling: str = "helmholtz"
     c_s_km_s: float = 0.2
     beta_v: float = 4.0
-    # cloud radial shape: truncated EFF (Elson-Fall-Freeman 1987)
-    eff_a: float = 0.8  # core scale radius [pc]
+    # cloud radial shape: truncated EFF (Elson-Fall-Freeman 1987). a and r_t are
+    # DERIVED from `radius` at the shipped fiducial's fixed shape ratios, so the
+    # profile is identical across environments and only the SCALE changes.
     eff_gamma: float = 3.0  # 3-D density slope (~3 young cluster; 5 = Plummer)
-    eff_rt: float = 2.5  # truncation radius [pc] (box half-width is 3.0)
     # sampling
-    box: Optional[float] = None  # None -> ff.BOX (model's own box)
+    box_override: Optional[float] = None  # None -> derived from radius
     ngrid: int = 128  # gas-field grid resolution
-    n_stars: int = 10000
     gas_points: int = 55000  # 3-D gas motes
     sfe: float = 0.2  # star-formation efficiency of the IC
     lambda_corr: float = 0.6  # mass<->natal-density coupling (0.6 = reference figure)
@@ -106,13 +145,67 @@ class Realization:
     gaspoints_seed: int = 0
     root: bool = False  # also write to OUT_ROOT (backward compat)
 
+    # --- derived: the environment fixes all of these -------------------------
+    @property
+    def mach(self) -> float:
+        """Turbulent Mach number at the requested alpha_vir (never hand-set)."""
+        return mach_for_alpha_vir(self.m_cloud, self.radius, self.c_s_km_s, self.alpha_vir)
 
-# The shipped v1 set: a controlled Mach ladder, seeds fixed so only the
-# turbulence differs (calm -> filamentary). Mach-8 is the backward-compat root.
+    @property
+    def n_stars(self) -> int:
+        """N follows from the cloud: N = SFE * M_cloud / <m>."""
+        return int(round(self.sfe * self.m_cloud / self.mean_imf_mass))
+
+    @property
+    def eff_rt(self) -> float:
+        return self.radius
+
+    @property
+    def eff_a(self) -> float:
+        return _A_OVER_RT * self.radius
+
+    @property
+    def box(self) -> float:
+        return self.box_override if self.box_override is not None else _BOX_OVER_RT * self.radius
+
+    @property
+    def sigma_cloud(self) -> float:
+        """Mean surface density Sigma = M/(pi R^2) [Msun/pc^2] -- the axis along
+        which the feedback verdict moves (Fall, Krumholz & Matzner 2010)."""
+        return self.m_cloud / (math.pi * self.radius**2)
+
+    @property
+    def v_esc(self) -> float:
+        """Escape speed sqrt(2GM/R) [km/s]. Compared against the ~10 km/s sound
+        speed of photoionized gas, this decides whether photoionization can drive
+        material out at all, or whether the H II region is trapped."""
+        return math.sqrt(2.0 * G_PC_KMS2_MSUN * self.m_cloud / self.radius)
+
+
+# The v1 set: physical ENVIRONMENTS spanning the surface density at which the
+# feedback verdict flips, plus a forcing (b) axis at the Orion-like point that
+# varies density structure at FIXED kinetic energy and fixed alpha_vir.
+#
+# v_esc straddles the ~10 km/s ionized-gas sound speed by design: photoionization
+# disperses the diffuse cloud, is marginal at Orion-like, and is TRAPPED in the
+# massive compact one -- so the picker changes WHICH channel can do the job.
 REALIZATIONS: list[Realization] = [
-    Realization(name="calm", label="calm (Mach 4)", mach=4.0),
-    Realization(name="fiducial", label="fiducial (Mach 8)", mach=8.0, root=True),
-    Realization(name="turbulent", label="turbulent (Mach 12)", mach=12.0),
+    Realization(
+        name="diffuse", label="diffuse (low-mass)", m_cloud=2.0e3, radius=3.0
+    ),
+    Realization(
+        name="orion", label="Orion-like", m_cloud=2.0e4, radius=2.5, root=True
+    ),
+    Realization(
+        name="compact", label="massive compact", m_cloud=1.0e5, radius=2.0
+    ),
+    # forcing axis at the Orion-like environment (solenoidal -> compressive)
+    Realization(
+        name="orion-solenoidal", label="Orion-like · solenoidal", m_cloud=2.0e4, radius=2.5, b=0.33
+    ),
+    Realization(
+        name="orion-compressive", label="Orion-like · compressive", m_cloud=2.0e4, radius=2.5, b=1.0
+    ),
 ]
 
 
@@ -207,6 +300,58 @@ def _local_density(ic, rho: np.ndarray, box: float, ngrid: int) -> np.ndarray:
     return rho[cell[:, 0], cell[:, 1], cell[:, 2]].astype(np.float32)
 
 
+def _sigma_turb(rho: np.ndarray, r_t_pc: float, box_pc: float) -> float:
+    """Width of the TURBULENT density PDF: sigma of ln(rho) after removing the
+    spherically-averaged radial profile.
+
+    The smooth EFF gradient is not structure that corrugates a bubble interface,
+    so it must be divided out: the total sigma is dominated by the profile and
+    actually FALLS as the Mach number rises, which would invert the physics if
+    used directly. Only this residual rises with turbulence.
+
+    This is the quantity the feedback ledger's leakage default reads: mixing at a
+    fractal bubble/shell interface is what radiates the wind energy away
+    (Lancaster, Ostriker, Kim & Kim 2021, ApJ 914, 89 & 90), and interface area
+    is set by density structure, not by the Mach number directly.
+    """
+    n = rho.shape[0]
+    c = (n - 1) / 2.0
+    idx = np.arange(n) - c
+    rr = np.sqrt(
+        idx[:, None, None] ** 2 + idx[None, :, None] ** 2 + idx[None, None, :] ** 2
+    )
+
+    # Mask GEOMETRICALLY, to just inside the EFF truncation radius. Two wrong
+    # masks were tried first and both biased the answer:
+    #   rho > 0            -- admits numerically-tiny cells at the truncation
+    #                         edge (ln ~ -700); gave a nonsense sigma of 83.
+    #   rho > max*1e-dyn_dex -- dyn_dex is a DISPLAY range, so once the true PDF
+    #                         is wider than it the low-density tail is clipped and
+    #                         sigma SATURATES (~1.54 for every cloud above Mach 13,
+    #                         hiding the b axis entirely).
+    # Inside r_t the turbulent field is defined everywhere; outside, density is
+    # truncated to zero by construction and is not turbulence at all.
+    r_cells = (r_t_pc / box_pc) * n
+    live = (rr < 0.95 * r_cells) & (rho > 0.0)
+    lnrho = np.zeros_like(rho, dtype=np.float64)
+    lnrho[live] = np.log(rho[live])
+    nb = 32
+    rmax = float(rr.max()) or 1.0
+    bins = np.minimum(nb - 1, (rr / rmax * nb).astype(int))
+
+    resid = np.empty(int(live.sum()), dtype=np.float64)
+    k = 0
+    for b in range(nb):
+        sel = live & (bins == b)
+        cnt = int(sel.sum())
+        if cnt == 0:
+            continue
+        vals = lnrho[sel]
+        resid[k : k + cnt] = vals - vals.mean()
+        k += cnt
+    return float(resid[:k].std())
+
+
 def _diagnostics(xyz, mass, vel, gas_menc_frac, r_grid, sfe, G) -> dict:
     """Dynamical diagnostics the web integrator + the ledger need. Virial ratio Q
     uses the spherical enclosed-mass approximation the page also integrates, so
@@ -234,12 +379,16 @@ def _diagnostics(xyz, mass, vel, gas_menc_frac, r_grid, sfe, G) -> dict:
 
 # --- build one realization ---------------------------------------------------
 def build_one(r: Realization) -> dict:
-    box = float(ff.BOX) if r.box is None else r.box
+    # Derived from the environment's radius (box/r_t held at the fiducial ratio),
+    # so a bigger cloud gets a bigger box instead of being clipped by ff.BOX.
+    box = float(r.box)
     dx = box / r.ngrid
     out = OUT_ROOT if r.root else OUT_ROOT / r.name
     print(
-        f"[build] {r.name}: Mach={r.mach} EFF a={r.eff_a} gamma={r.eff_gamma} "
-        f"r_t={r.eff_rt}  lambda_corr={r.lambda_corr}  N={r.n_stars} grid={r.ngrid}^3 ...",
+        f"[build] {r.name}: M={r.m_cloud:.3g} Msun R={r.radius} pc "
+        f"-> Sigma={r.sigma_cloud:.0f} v_esc={r.v_esc:.1f} km/s "
+        f"Mach={r.mach:.2f} (alpha_vir={r.alpha_vir}) b={r.b} "
+        f"N={r.n_stars} box={box:.1f} grid={r.ngrid}^3 ...",
         flush=True,
     )
 
@@ -309,8 +458,43 @@ def build_one(r: Realization) -> dict:
         ),
         # read back from the specs — single source of truth, no double-typing
         "mach": float(cloud.mach),
+        "b_forcing": float(cloud.b),
         "c_s_km_s": float(velocity.c_s),
         "sfe_ic": r.sfe,
+        # --- ENVIRONMENT: the axis the picker walks -------------------------
+        # (m_cloud, radius) are the inputs; everything else here is DERIVED, so
+        # the page never retypes a number it could compute. m_cloud_actual uses
+        # the realized stellar mass rather than the target, since IMF sampling
+        # scatters it slightly.
+        "env_m_cloud_target_msun": float(r.m_cloud),
+        "env_m_cloud_actual_msun": float(dyn["m_star_total_msun"] / r.sfe),
+        "env_radius_pc": float(r.radius),
+        "env_sigma_msun_pc2": float(
+            (dyn["m_star_total_msun"] / r.sfe) / (math.pi * r.radius**2)
+        ),
+        "env_v_esc_km_s": float(
+            math.sqrt(
+                2.0 * G_PC_KMS2_MSUN * (dyn["m_star_total_msun"] / r.sfe) / r.radius
+            )
+        ),
+        "env_alpha_vir_target": float(r.alpha_vir),
+        "env_alpha_vir_note": (
+            "alpha_vir = 5 sigma_v^2 R/(G M) (Bertoldi & McKee 1992) SETS the Mach "
+            "number; q_virial_at_sfe_ic below is a DIFFERENT quantity — the stars' "
+            "T/|W| — and is reported, not targeted."
+        ),
+        "env_v_esc_vs_c_ii_note": (
+            "photoionized gas has c ~ 10 km/s: where v_esc exceeds it the H II "
+            "region is trapped and photoionization cannot drive material out"
+        ),
+        # structure: the leakage default reads this, not the Mach number
+        "sigma_turb": float(_sigma_turb(rho, r.eff_rt, box)),
+        "sigma_turb_definition": (
+            "sigma of ln(rho) after removing the spherically-averaged radial "
+            "profile — the TURBULENT fluctuation only. The total width is "
+            "dominated by the smooth EFF gradient and falls as Mach rises, so it "
+            "must not be used in its place."
+        ),
         "G_pc3_msun_myr2": float(ff.G),
         **dyn,
         "gas_menc_n": int(gas_menc_frac.size),
