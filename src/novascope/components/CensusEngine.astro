@@ -77,23 +77,20 @@ const m = (tex: string, display = false) =>
               <span class="xpl-census__ctrl-name">high-mass slope</span>
               <span class="xpl-census__ctrl-val"><span set:html={m("\\alpha")} /> = <output data-slope-val>2.3</output></span>
               <input type="range" data-slope min="1.5" max="3" step="0.1" value="2.3" />
-              <small>top-heavy ← → bottom-heavy</small>
             </label>
             <label class="xpl-census__ctrl">
               <span class="xpl-census__ctrl-name">stars</span>
               <span class="xpl-census__ctrl-val"><span set:html={m("N")} /> = <output data-count-val>1200</output></span>
               <input type="range" data-count min="1.301" max="4.301" step="0.01" value="3.079" />
-              <small>watch the rare massive tail flicker</small>
             </label>
           </div>
         </section>
 
         <section class="xpl-census__lens" data-lens="environment" aria-label="Environment controls" hidden>
-          <p class="xpl-census__lenshd"><b>Environment</b> — what sets the slope?</p>
-          <label class="xpl-census__check">
-            <input type="checkbox" data-envmode />
-            <span>environment-driven <span set:html={m("\\alpha")} /> (Marks/Jerabkova)</span>
-          </label>
+          <div class="xpl-census__lenshd xpl-census__lenshd--split">
+            <span><b>Environment</b> — what sets the slope?</span>
+            <label class="xpl-census__switch"><input type="checkbox" data-envmode /> derive <span set:html={m("\\alpha")} /></label>
+          </div>
           <div class="xpl-census__envctrls" data-envctrls hidden>
             <label class="xpl-census__ctrl">
               <span class="xpl-census__ctrl-name">metallicity</span>
@@ -129,7 +126,7 @@ const m = (tex: string, display = false) =>
               <span class="xpl-census__ctrl-name">segregation</span>
               <span class="xpl-census__ctrl-val"><span set:html={m("\\lambda")} /> = <output data-seg-val>0.0</output></span>
               <input type="range" data-seg min="0" max="1" step="0.05" value="0" />
-              <small>massive stars sink to the core</small>
+              <small>massive stars → core</small>
             </label>
             <label class="xpl-census__ctrl">
               <span class="xpl-census__ctrl-name">half-mass radius</span>
@@ -561,7 +558,7 @@ const m = (tex: string, display = false) =>
   }
   /* Controls size to their content and top-align — the stats now live under the
    * IMF, so this box stays compact and the cluster above it stays in view. */
-  .xpl-census__panel--pad { padding: var(--space-s, 0.75rem); display: flex; flex-direction: column; gap: var(--space-s, 0.75rem); background: var(--xpl-panel); align-self: start; }
+  .xpl-census__panel--pad { padding: var(--space-2xs, 0.55rem); display: flex; flex-direction: column; gap: 0.5rem; background: var(--xpl-panel); align-self: start; }
   /* A live "cluster at a glance" readout at the panel's foot — derived facts
    * only. margin-block-start:auto pins it down, so the box's matched height
    * reads as controls-on-top / readout-at-bottom rather than dead air. */
@@ -622,12 +619,12 @@ const m = (tex: string, display = false) =>
   .xpl-census__lenses { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .xpl-census__lenses button {
     font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--step--1, 0.85rem);
+    font-size: var(--step--2, 0.72rem);
     color: var(--xpl-dim);
     background: transparent;
     border: 1px solid var(--xpl-border);
     border-radius: 999px;
-    padding: 0.25rem 0.85rem;
+    padding: 0.2rem 0.7rem;
     cursor: pointer;
     transition: color 0.15s, background 0.15s, border-color 0.15s;
   }
@@ -637,14 +634,14 @@ const m = (tex: string, display = false) =>
 
   /* The controls column is a vertical stack of lens sections; each section lays
    * its own knobs out in two columns so any single lens stays short. */
-  .xpl-census__controls { display: grid; gap: var(--space-m, 1rem); }
-  .xpl-census__lens { display: grid; gap: var(--space-s, 0.75rem); }
-  .xpl-census__lenshd { margin: 0; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1, 0.85rem); color: var(--xpl-dim); }
+  .xpl-census__controls { display: grid; gap: 0.55rem; }
+  .xpl-census__lens { display: grid; gap: 0.35rem; }
+  .xpl-census__lenshd { margin: 0; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--2, 0.72rem); color: var(--xpl-dim); }
   .xpl-census__lenshd b { color: var(--xpl-teal); font-weight: 600; }
   /* Structure header carries the spatial-profile toggle at its right end (saves a
    * control row) plus a "?" that pops an explanation over — not through — the
    * controls, so the box stays short and the cluster stays in view. */
-  .xpl-census__lenshd--split { position: relative; display: flex; justify-content: space-between; align-items: center; gap: var(--space-s, 0.75rem); flex-wrap: wrap; }
+  .xpl-census__lenshd--split { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .xpl-census__info {
     flex: none;
     inline-size: 1.3rem;
@@ -679,41 +676,43 @@ const m = (tex: string, display = false) =>
   .xpl-census__lensgrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-s, 0.75rem) var(--space-l, 1.5rem);
+    gap: 0.35rem 1rem;
     align-items: start;
   }
   @media (max-width: 30rem) { .xpl-census__lensgrid { grid-template-columns: 1fr; } }
   .xpl-census__ctrl {
     display: grid;
-    gap: 0.25rem;
+    gap: 0.1rem;
     font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--step--1, 0.85rem);
+    font-size: var(--step--2, 0.72rem);
     color: var(--xpl-ink);
   }
   .xpl-census__ctrl { max-inline-size: 16rem; }
   /* Two-line label: dim descriptive name over the "symbol = value" line, so the
    * value lines (and the sliders under them) align across the two columns. */
-  .xpl-census__ctrl-name { color: var(--xpl-dim); }
-  .xpl-census__ctrl-val { margin-block-start: -0.1rem; }
+  .xpl-census__ctrl-name { color: var(--xpl-dim); line-height: 1.2; }
+  .xpl-census__ctrl-val { margin-block-start: -0.05rem; }
   .xpl-census__ctrl output { color: var(--xpl-teal); }
   .xpl-census__ctrl small { color: var(--xpl-dim); font-size: var(--step--2, 0.72rem); }
   .xpl-census__ctrl input[type="range"] { accent-color: var(--xpl-rose); inline-size: 100%; }
   .xpl-census__ctrl input[type="range"]:disabled { accent-color: var(--xpl-dim); opacity: 0.5; }
-  .xpl-census__check {
-    display: flex;
-    gap: 0.45rem;
+  /* Compact "derive α" toggle that rides on the Environment header. */
+  .xpl-census__switch {
+    display: inline-flex;
+    gap: 0.3rem;
     align-items: center;
     font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--step--1, 0.85rem);
-    color: var(--xpl-ink);
+    font-size: var(--step--2, 0.72rem);
+    color: var(--xpl-dim);
     cursor: pointer;
+    white-space: nowrap;
   }
-  .xpl-census__check input { accent-color: var(--xpl-teal); }
+  .xpl-census__switch input { accent-color: var(--xpl-teal); }
   .xpl-census__envctrls {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-s, 0.75rem) var(--space-l, 1.5rem);
-    padding-inline-start: var(--space-s, 0.7rem);
+    gap: 0.35rem 1rem;
+    padding-inline-start: 0.55rem;
     border-inline-start: 2px solid color-mix(in srgb, var(--xpl-teal) 45%, transparent);
   }
   @media (max-width: 30rem) { .xpl-census__envctrls { grid-template-columns: 1fr; } }
@@ -750,12 +749,12 @@ const m = (tex: string, display = false) =>
   .xpl-census__reseed {
     justify-self: start;
     font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--step--1, 0.85rem);
+    font-size: var(--step--2, 0.72rem);
     color: var(--xpl-ink);
     background: transparent;
     border: 1px solid var(--xpl-border);
     border-radius: 999px;
-    padding: 0.35rem 0.9rem;
+    padding: 0.2rem 0.7rem;
     cursor: pointer;
     transition: border-color 0.15s;
   }
