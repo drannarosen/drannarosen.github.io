@@ -31,7 +31,6 @@ const m = (tex: string, display = false) =>
       <canvas data-field aria-label="Star cluster; hover a star to inspect it, drag to orbit in 3D"></canvas>
       <small class="xpl-census__hint" data-hint></small>
       <div class="xpl-census__presets" role="group" aria-label="Quick-start presets">
-        <span class="xpl-census__presets-label">quick starts</span>
         <button type="button" data-preset-btn="default">typical</button>
         <button type="button" data-preset-btn="lowMass">low-mass</button>
         <button type="button" data-preset-btn="starburst">starburst</button>
@@ -133,10 +132,13 @@ const m = (tex: string, display = false) =>
           </div>
         </section>
       </div>
-      <p class="xpl-census__summary" data-summary aria-live="polite">
-        <span data-v="n">—</span> stars · <span data-v="o">—</span> O-type (≥16 <span set:html={m("M_\\odot")} />)
-        · heaviest <span data-v="heaviest">—</span> <span set:html={m("M_\\odot")} />
-      </p>
+      <dl class="xpl-census__stats" data-summary aria-live="polite">
+        <div><dt>stars</dt><dd data-v="n">—</dd></div>
+        <div><dt>O-type (≥16 <span set:html={m("M_\\odot")} />)</dt><dd data-v="o">—</dd></div>
+        <div><dt>heaviest</dt><dd><span data-v="heaviest">—</span> <span set:html={m("M_\\odot")} /></dd></div>
+        <div><dt>median mass</dt><dd><span data-v="median">—</span> <span set:html={m("M_\\odot")} /></dd></div>
+        <div><dt>total mass</dt><dd><span data-v="total">—</span> <span set:html={m("M_\\odot")} /></dd></div>
+      </dl>
     </div>
 
     <figure class="xpl-census__panel" data-lit="census environment">
@@ -474,6 +476,11 @@ const m = (tex: string, display = false) =>
       setV(summary, "n", latent.length.toLocaleString());
       setV(summary, "o", String(latent.filter((s) => s.mass >= 16).length));
       setV(summary, "heaviest", latent.reduce((mx, s) => Math.max(mx, s.mass), 0).toFixed(1));
+      const sorted = latent.map((s) => s.mass).sort((a, b) => a - b);
+      const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+      setV(summary, "median", median.toFixed(2));
+      const total = latent.reduce((t, s) => t + s.mass, 0);
+      setV(summary, "total", total.toLocaleString(undefined, { maximumFractionDigits: 0 }));
     }
 
     updateSummary();
@@ -507,7 +514,7 @@ const m = (tex: string, display = false) =>
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-m, 1rem);
-    align-items: start;
+    align-items: stretch; /* each row's two cells match height → columns align */
   }
   @media (max-width: 46rem) {
     .xpl-census__grid { grid-template-columns: 1fr; }
@@ -519,7 +526,21 @@ const m = (tex: string, display = false) =>
     background: radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--xpl-panel) 92%, black), #0a0b0e);
     overflow: hidden;
   }
-  .xpl-census__panel--pad { padding: var(--space-s, 0.75rem); display: grid; gap: var(--space-s, 0.75rem); align-content: start; background: var(--xpl-panel); }
+  .xpl-census__panel--pad { padding: var(--space-s, 0.75rem); display: flex; flex-direction: column; gap: var(--space-s, 0.75rem); background: var(--xpl-panel); }
+  /* A live "cluster at a glance" readout at the panel's foot — derived facts
+   * only. margin-block-start:auto pins it down, so the box's matched height
+   * reads as controls-on-top / readout-at-bottom rather than dead air. */
+  .xpl-census__stats {
+    margin: 0;
+    margin-block-start: auto;
+    display: grid;
+    gap: var(--space-2xs, 0.5rem);
+    padding-block-start: var(--space-s, 0.75rem);
+    border-block-start: 1px solid var(--xpl-border);
+  }
+  .xpl-census__stats > div { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+  .xpl-census__stats dt { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1, 0.85rem); color: var(--xpl-dim); }
+  .xpl-census__stats dd { margin: 0; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1, 0.85rem); color: var(--xpl-ink); }
   .xpl-census__panel figcaption {
     display: flex;
     justify-content: space-between;
@@ -619,25 +640,22 @@ const m = (tex: string, display = false) =>
    * lens chips (multi-select tiers), so the two controls don't read as one. */
   .xpl-census__presets {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 0.4rem;
+    justify-content: space-between;
+    gap: 0.35rem;
     padding: 0 var(--space-s, 0.75rem) var(--space-s, 0.75rem);
   }
-  .xpl-census__presets-label {
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: var(--step--2, 0.72rem);
-    color: var(--xpl-dim);
-    margin-inline-end: 0.15rem;
-  }
   .xpl-census__presets button {
+    flex: 1 1 auto;
+    text-align: center;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: var(--step--2, 0.72rem);
     color: var(--xpl-dim);
     background: transparent;
     border: 1px solid var(--xpl-border);
     border-radius: 999px;
-    padding: 0.15rem 0.7rem;
+    padding: 0.2rem 0.5rem;
     cursor: pointer;
     transition: color 0.15s, border-color 0.15s, background 0.15s;
   }
@@ -660,7 +678,6 @@ const m = (tex: string, display = false) =>
     transition: border-color 0.15s;
   }
   .xpl-census__reseed:hover { border-color: var(--xpl-teal); }
-  .xpl-census__summary { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1, 0.85rem); color: var(--xpl-dim); margin: 0; }
   /* Docked to the HR panel's empty upper-right corner as a compact HUD readout,
    * so a selected star's properties sit right beside the diagram. Built to
    * relocate to an under-canvas strip when stellar tracks add time-dependent
