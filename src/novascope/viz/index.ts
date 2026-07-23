@@ -10,5 +10,5 @@ export type { ClusterFieldOpts } from "./clusterField.ts";
 export { renderClusterField, pickStar } from "./clusterField.ts";
 export type { HRColors, HROpts } from "./hrDiagram.ts";
 export { renderHR, pickHRPoint } from "./hrDiagram.ts";
-export type { HistogramColors } from "./histogram.ts";
+export type { HistogramColors, IMFForm } from "./histogram.ts";
 export { renderHistogram } from "./histogram.ts";

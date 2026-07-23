@@ -6,6 +6,7 @@
  */
 import type { HRModel } from "../state/render.ts";
 import { rgb } from "./lifecycle.ts";
+import { AXIS_FONT, drawPower } from "./axis.ts";
 
 export interface HRColors {
   axis: string;
@@ -21,35 +22,7 @@ export interface HROpts {
 
 const MARGIN = { top: 16, right: 18, bottom: 36, left: 72 };
 const LOGTEFF_TICKS = [3.5, 4.0, 4.5]; // log₁₀ T_eff, consistent with the log L axis
-const AXIS_FONT = "14px ui-monospace, SFMono-Regular, Menlo, monospace";
-const SUB_FONT = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
 const log10 = Math.log10;
-
-/** Draw "10^exp" at (x,y) with a raised exponent — a proper power of ten, no
- *  Unicode superscript chars. `align` anchors the whole label. */
-function drawPower(
-  ctx: CanvasRenderingContext2D,
-  exp: number,
-  x: number,
-  y: number,
-  align: "center" | "right",
-  color: string,
-): void {
-  const expStr = Number.isInteger(exp) ? String(exp) : exp.toFixed(1);
-  ctx.font = AXIS_FONT;
-  const baseW = ctx.measureText("10").width;
-  ctx.font = SUB_FONT;
-  const expW = ctx.measureText(expStr).width;
-  const total = baseW + 1 + expW;
-  const sx = align === "right" ? x - total : x - total / 2;
-  ctx.fillStyle = color;
-  ctx.textAlign = "left";
-  ctx.font = AXIS_FONT;
-  ctx.fillText("10", sx, y);
-  ctx.font = SUB_FONT;
-  ctx.fillText(expStr, sx + baseW + 1, y - 5);
-  ctx.font = AXIS_FONT;
-}
 
 const DEFAULTS: HRColors = {
   axis: "rgba(230,232,238,0.5)",

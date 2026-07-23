@@ -73,11 +73,19 @@ const m = (tex: string, display = false) =>
     </div>
 
     <figure class="xpl-census__panel">
-      <figcaption>The IMF <span>sampled bars vs Maschberger law</span></figcaption>
-      <canvas data-imf aria-label="Initial mass function: sampled counts against the analytic law"></canvas>
-      <p class="xpl-census__axiscap">
-        mass (<span set:html={m("M_\\odot")} />) · bars sampled · line <span set:html={m("\\xi(m)")} />
-      </p>
+      <figcaption>
+        The IMF
+        <span class="xpl-census__modes" role="group" aria-label="IMF form">
+          <button type="button" data-imfform="dNdM" class="is-active">dN/dM</button>
+          <button type="button" data-imfform="perDex">dN/dlog m</button>
+        </span>
+      </figcaption>
+      <div class="xpl-census__plot">
+        <span class="xpl-census__ytitle" data-imfy="dNdM" set:html={m("\\xi(m)=\\mathrm{d}N/\\mathrm{d}M")} />
+        <span class="xpl-census__ytitle" data-imfy="perDex" hidden set:html={m("\\mathrm{d}N/\\mathrm{d}\\log m")} />
+        <canvas data-imf aria-label="Initial mass function: sampled bars against the analytic Maschberger law"></canvas>
+        <span class="xpl-census__xtitle" set:html={m("\\mathrm{mass}\\;(M_\\odot)")} />
+      </div>
     </figure>
   </div>
 
@@ -130,6 +138,7 @@ const m = (tex: string, display = false) =>
     countVal.value = idNow.sampling.target.toLocaleString();
 
     let hoverId: number | null = null; // transient preview; pinned lives in the store
+    let imfForm: "dNdM" | "perDex" = "dNdM"; // IMF plot form (ξ line vs per-dex hump)
 
     const field = mountCanvas(fieldCanvas, (ctx, w, h) =>
       renderClusterField(ctx, rm, w, h, { camera, selectedId: store.getView().selectedId, hoverId }),
@@ -137,7 +146,7 @@ const m = (tex: string, display = false) =>
     const hrView = mountCanvas(hrCanvas, (ctx, w, h) =>
       renderHR(ctx, hr, w, h, { selectedId: store.getView().selectedId, hoverId }),
     );
-    const imfView = mountCanvas(imfCanvas, (ctx, w, h) => renderHistogram(ctx, imf, w, h));
+    const imfView = mountCanvas(imfCanvas, (ctx, w, h) => renderHistogram(ctx, imf, w, h, { form: imfForm }));
 
     attachOrbit(fieldCanvas, camera, () => field.redraw());
 
@@ -187,6 +196,18 @@ const m = (tex: string, display = false) =>
     };
     modeBtns.forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode as "2D" | "3D")));
     setMode(camera.mode);
+
+    // IMF form toggle (ξ = dN/dM line ↔ per-dex hump).
+    const imfBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-imfform]"));
+    const yTitles = Array.from(root.querySelectorAll<HTMLElement>("[data-imfy]"));
+    imfBtns.forEach((b) =>
+      b.addEventListener("click", () => {
+        imfForm = b.dataset.imfform as "dNdM" | "perDex";
+        imfBtns.forEach((x) => x.classList.toggle("is-active", x === b));
+        yTitles.forEach((el) => (el.hidden = el.dataset.imfy !== imfForm));
+        imfView.redraw();
+      }),
+    );
 
     // Hover previews (faint ring, transient); click pins (solid ring, persistent).
     const redrawSel = () => {
@@ -313,8 +334,8 @@ const m = (tex: string, display = false) =>
   /* Square viewscreens for the two main plots; the cap on .xpl-census keeps them
    * from ballooning on very wide screens. */
   .xpl-census__panel [data-field], .xpl-census__panel [data-hr] { aspect-ratio: 1; block-size: auto; cursor: crosshair; }
-  /* IMF: less wide, a bit taller — a 4:3 box, centred in its cell. */
-  .xpl-census__panel [data-imf] { aspect-ratio: 4 / 3; block-size: auto; max-inline-size: 26rem; margin-inline: auto; }
+  /* IMF: a 4:3 box filling its plot (so the rotated y-title aligns to the canvas edge). */
+  .xpl-census__panel [data-imf] { aspect-ratio: 4 / 3; block-size: auto; }
   .xpl-census__panel--hr { position: relative; }
   .xpl-census__hint { display: block; padding: 0 var(--space-s, 0.75rem) var(--space-2xs, 0.4rem); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--2, 0.72rem); color: var(--xpl-dim); }
 
