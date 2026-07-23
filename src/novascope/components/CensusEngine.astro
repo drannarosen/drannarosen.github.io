@@ -120,7 +120,7 @@ const m = (tex: string, display = false) =>
               <span class="xpl-census__ctrl-name">concentration</span>
               <span class="xpl-census__ctrl-val"><span set:html={m("\\gamma")} /> = <output data-gamma-val>5.0</output></span>
               <input type="range" data-gamma min="2.5" max="6" step="0.1" value="5" />
-              <small>5 = Plummer; lower = extended</small>
+              <small>5 = Plummer</small>
             </label>
             <label class="xpl-census__ctrl">
               <span class="xpl-census__ctrl-name">segregation</span>
@@ -680,6 +680,9 @@ const m = (tex: string, display = false) =>
     align-items: start;
   }
   @media (max-width: 30rem) { .xpl-census__lensgrid { grid-template-columns: 1fr; } }
+  /* Structure's three knobs sit on one row — shorter sliders, a whole row saved. */
+  [data-lens="structure"] .xpl-census__lensgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 34rem) { [data-lens="structure"] .xpl-census__lensgrid { grid-template-columns: 1fr; } }
   .xpl-census__ctrl {
     display: grid;
     gap: 0.1rem;
