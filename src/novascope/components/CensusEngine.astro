@@ -39,7 +39,7 @@
         </label>
         <label class="xpl-census__ctrl">
           <span>stars N = <output data-count-val>1200</output></span>
-          <input type="range" data-count min="100" max="3000" step="100" value="1200" />
+          <input type="range" data-count min="1.301" max="4.301" step="0.01" value="3.079" />
           <small>watch the rare massive tail flicker</small>
         </label>
         <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
@@ -98,8 +98,8 @@
     const idNow = store.getIdentity();
     slope.value = String(idNow.imf.alphaHigh);
     slopeVal.value = idNow.imf.alphaHigh.toFixed(1);
-    count.value = String(idNow.sampling.target);
-    countVal.value = String(idNow.sampling.target);
+    count.value = String(Math.log10(idNow.sampling.target));
+    countVal.value = idNow.sampling.target.toLocaleString();
 
     let hoverId: number | null = null; // transient preview; pinned lives in the store
 
@@ -135,8 +135,8 @@
       patchIdentity({ imf: { ...store.getIdentity().imf, alphaHigh: a } });
     });
     count.addEventListener("input", () => {
-      const n = Number(count.value);
-      countVal.value = String(n);
+      const n = Math.round(10 ** Number(count.value));
+      countVal.value = n.toLocaleString();
       patchIdentity({ sampling: { mode: "count", target: n } });
     });
     $<HTMLButtonElement>("[data-reseed]").addEventListener("click", () => {
