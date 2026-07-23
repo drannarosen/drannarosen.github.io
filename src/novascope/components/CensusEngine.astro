@@ -137,6 +137,13 @@ const m = (tex: string, display = false) =>
           </div>
         </section>
       </div>
+      <dl class="xpl-census__stats" data-summary aria-live="polite">
+        <div><dt>stars</dt><dd data-v="n">—</dd></div>
+        <div><dt>O-type (≥16 <span set:html={m("M_\\odot")} />)</dt><dd data-v="o">—</dd></div>
+        <div><dt>heaviest</dt><dd><span data-v="heaviest">—</span> <span set:html={m("M_\\odot")} /></dd></div>
+        <div><dt>median mass</dt><dd><span data-v="median">—</span> <span set:html={m("M_\\odot")} /></dd></div>
+        <div><dt>total mass</dt><dd><span data-v="total">—</span> <span set:html={m("M_\\odot")} /></dd></div>
+      </dl>
     </div>
 
     <figure class="xpl-census__panel" data-lit="census environment">
@@ -153,13 +160,6 @@ const m = (tex: string, display = false) =>
         <canvas data-imf aria-label="Initial mass function: sampled bars against the analytic Maschberger law"></canvas>
         <span class="xpl-census__xtitle" set:html={m("\\mathrm{mass}\\;(M_\\odot)")} />
       </div>
-      <dl class="xpl-census__stats" data-summary aria-live="polite">
-        <div><dt>stars</dt><dd data-v="n">—</dd></div>
-        <div><dt>O-type (≥16 <span set:html={m("M_\\odot")} />)</dt><dd data-v="o">—</dd></div>
-        <div><dt>heaviest</dt><dd><span data-v="heaviest">—</span> <span set:html={m("M_\\odot")} /></dd></div>
-        <div><dt>median mass</dt><dd><span data-v="median">—</span> <span set:html={m("M_\\odot")} /></dd></div>
-        <div><dt>total mass</dt><dd><span data-v="total">—</span> <span set:html={m("M_\\odot")} /></dd></div>
-      </dl>
     </figure>
   </div>
 
@@ -232,7 +232,23 @@ const m = (tex: string, display = false) =>
     );
     const imfView = mountCanvas(imfCanvas, (ctx, w, h) => renderHistogram(ctx, imf, w, h, { form: imfForm }));
 
-    attachOrbit(fieldCanvas, camera, () => field.redraw());
+    // The cluster pane ignores wheel-zoom until it's clicked ("armed"), so
+    // scrolling the page over it doesn't hijack into a zoom. The hint + a teal
+    // ring reflect the state; leaving the pane releases it.
+    const fieldFig = fieldCanvas.closest("figure");
+    let armed = false;
+    const updateHint = () => {
+      hint.textContent = !armed
+        ? "click to zoom & orbit"
+        : camera.mode === "3D"
+          ? "drag to orbit · scroll to zoom · shift-drag to pan"
+          : "scroll to zoom · drag to pan";
+    };
+    attachOrbit(fieldCanvas, camera, () => field.redraw(), (a) => {
+      armed = a;
+      fieldFig?.classList.toggle("is-armed", a);
+      updateHint();
+    });
 
     function recompute() {
       rm = toRenderModel(latent, store.getView());
@@ -387,7 +403,7 @@ const m = (tex: string, display = false) =>
       camera.panY = 0;
       store.setView({ toggles: { ...store.getView().toggles, threeD: mode === "3D" } });
       modeBtns.forEach((b) => b.classList.toggle("is-active", b.dataset.mode === mode));
-      hint.textContent = mode === "3D" ? "drag to orbit · scroll to zoom · shift-drag to pan" : "scroll to zoom · drag to pan";
+      updateHint();
       field.redraw();
     };
     modeBtns.forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode as "2D" | "3D")));
@@ -558,7 +574,7 @@ const m = (tex: string, display = false) =>
   }
   /* Controls size to their content and top-align — the stats now live under the
    * IMF, so this box stays compact and the cluster above it stays in view. */
-  .xpl-census__panel--pad { padding: var(--space-2xs, 0.55rem); display: flex; flex-direction: column; gap: 0.5rem; background: var(--xpl-panel); align-self: start; }
+  .xpl-census__panel--pad { padding: var(--space-2xs, 0.55rem); display: flex; flex-direction: column; gap: 0.5rem; background: var(--xpl-panel); }
   /* A live "cluster at a glance" readout at the panel's foot — derived facts
    * only. margin-block-start:auto pins it down, so the box's matched height
    * reads as controls-on-top / readout-at-bottom rather than dead air. */
@@ -567,9 +583,10 @@ const m = (tex: string, display = false) =>
    * to stay compact, so the cluster stays in view while you drag. */
   .xpl-census__stats {
     margin: 0;
+    margin-block-start: auto;
     display: grid;
     gap: var(--space-2xs, 0.5rem);
-    padding: var(--space-s, 0.75rem);
+    padding-block-start: var(--space-2xs, 0.5rem);
     border-block-start: 1px solid var(--xpl-border);
   }
   .xpl-census__stats > div { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
@@ -631,6 +648,8 @@ const m = (tex: string, display = false) =>
   .xpl-census__lenses button:hover { border-color: var(--xpl-teal); color: var(--xpl-ink); }
   .xpl-census__lenses button.is-active { color: #0a0b0e; background: var(--xpl-teal); border-color: var(--xpl-teal); }
   .xpl-census__panel.is-lit { border-color: color-mix(in srgb, var(--xpl-teal) 40%, var(--xpl-border)); }
+  /* Cluster pane is "armed" for zoom/orbit only after a click — a teal inner ring says so. */
+  .xpl-census__panel.is-armed { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--xpl-teal) 55%, transparent); }
 
   /* The controls column is a vertical stack of lens sections; each section lays
    * its own knobs out in two columns so any single lens stays short. */

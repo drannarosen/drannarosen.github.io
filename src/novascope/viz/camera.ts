@@ -68,11 +68,19 @@ export function project(
   };
 }
 
-/** Drag to orbit (3-D), wheel to zoom, shift-drag (or two-finger) to pan. */
+/**
+ * Drag to orbit (3-D), wheel to zoom, shift-drag (or two-finger) to pan.
+ *
+ * The pane is "armed" only after a pointer press, and disarms when the pointer
+ * leaves. Wheel-zoom is ignored until armed, so scrolling the page OVER an
+ * un-clicked pane scrolls the page instead of hijacking it into a zoom. `onArm`
+ * reports the state so the caller can update its affordance (hint, ring).
+ */
 export function attachOrbit(
   canvas: HTMLCanvasElement,
   cam: Camera,
   onChange: () => void,
+  onArm?: (armed: boolean) => void,
 ): () => void {
   let dragging = false;
   let panning = false;
@@ -80,6 +88,12 @@ export function attachOrbit(
   let lastY = 0;
   const pointers = new Map<number, { x: number; y: number }>();
   let pinch0 = 0;
+  let armed = false;
+  const setArmed = (v: boolean) => {
+    if (v === armed) return;
+    armed = v;
+    onArm?.(v);
+  };
 
   const down = (e: PointerEvent) => {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -88,8 +102,10 @@ export function attachOrbit(
     panning = e.shiftKey || e.button === 1;
     lastX = e.clientX;
     lastY = e.clientY;
+    setArmed(true);
     if (pointers.size === 2) pinch0 = twoDist();
   };
+  const leave = () => setArmed(false);
   const move = (e: PointerEvent) => {
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {
@@ -124,6 +140,7 @@ export function attachOrbit(
     if (pointers.size === 0) dragging = false;
   };
   const wheel = (e: WheelEvent) => {
+    if (!armed) return; // not clicked yet — let the wheel scroll the page
     e.preventDefault();
     cam.zoom = clampZoom(cam.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
     onChange();
@@ -137,12 +154,14 @@ export function attachOrbit(
   canvas.addEventListener("pointermove", move);
   canvas.addEventListener("pointerup", up);
   canvas.addEventListener("pointercancel", up);
+  canvas.addEventListener("pointerleave", leave);
   canvas.addEventListener("wheel", wheel, { passive: false });
   return () => {
     canvas.removeEventListener("pointerdown", down);
     canvas.removeEventListener("pointermove", move);
     canvas.removeEventListener("pointerup", up);
     canvas.removeEventListener("pointercancel", up);
+    canvas.removeEventListener("pointerleave", leave);
     canvas.removeEventListener("wheel", wheel);
   };
 }
