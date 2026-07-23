@@ -108,6 +108,19 @@ const segNone = spearman(sampleCluster(defaultIdentity({ ...base, segregation: 0
 ok(segFull < -0.9, `λ=1 → massive stars in the core (mass–radius corr ${segFull.toFixed(3)} ≈ −1)`);
 ok(Math.abs(segNone) < 0.15, `λ=0 → random pairing (mass–radius corr ${segNone.toFixed(3)} ≈ 0)`);
 
+// 5. EFF profile (Elson+1987, via progenax): finite, truncated, γ tunes concentration.
+const median = (arr) => {
+  const s = [...arr].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+};
+const effRadii = (gamma) =>
+  sampleCluster(
+    defaultIdentity({ seed: 8, sampling: { mode: "count", target: 3000 }, profile: { kind: "eff", scaleRadius: 1, gamma } }),
+  ).map((s) => Math.hypot(s.x, s.y, s.z));
+const eff3 = effRadii(3);
+ok(eff3.every((r) => Number.isFinite(r) && r <= 15 + 1e-6), "EFF positions finite and within the truncation radius (15 a)");
+ok(median(eff3) > median(effRadii(5)), "shallower γ=3 is more extended than γ=5 (≈ Plummer)");
+
 if (failures) {
   console.error(`\n[cluster] ${failures} invariant(s) FAILED.`);
   process.exit(1);

@@ -9,7 +9,7 @@
  */
 import { maschbergerMass } from "../imf/index.ts";
 import { subStream } from "../random/index.ts";
-import { samplePlummer } from "./profiles.ts";
+import { makeProfileSampler } from "./profiles.ts";
 import { segregateMasses } from "./segregation.ts";
 import type { ClusterIdentity, LatentStar } from "./params.ts";
 
@@ -23,12 +23,12 @@ export function sampleCluster(id: ClusterIdentity): LatentStar[] {
   // yet, so theory stays velocity-free and dynamics can add it without a reshuffle.
 
   const imf = { mMin: id.imf.mMin, mMax: id.imf.mMax, alpha: id.imf.alphaHigh };
-  const a = id.profile.scaleRadius;
+  const sampleProfile = makeProfileSampler(id.profile);
 
   const stars: LatentStar[] = [];
   const draw = (i: number): number => {
     const mass = maschbergerMass(massStream(), imf);
-    const [x, y, z] = samplePlummer(posStream(), posStream, a);
+    const [x, y, z] = sampleProfile(posStream);
     stars.push({ id: i, mass, Z: id.Z, x, y, z, vx: 0, vy: 0, vz: 0 });
     return mass;
   };

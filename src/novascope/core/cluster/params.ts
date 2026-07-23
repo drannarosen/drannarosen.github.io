@@ -20,8 +20,9 @@ export interface ClusterIdentity {
   imf: { mMin: number; mMax: number; alphaHigh: number };
   /** Metallicity — CLUSTER-level (a coeval cluster is chemically uniform). */
   Z: number;
-  /** Spatial profile; scaleRadius in pc (r_h ≈ 1.305·scaleRadius for Plummer). */
-  profile: { kind: "plummer"; scaleRadius: number };
+  /** Spatial profile; scaleRadius in pc (r_h ≈ 1.305·scaleRadius for Plummer).
+   *  EFF (Elson+1987) adds `gamma`, the 3-D density slope (γ=5 ≈ Plummer). */
+  profile: { kind: "plummer" | "eff"; scaleRadius: number; gamma?: number };
   /** Primordial mass segregation strength λ ∈ [0,1] (McLuster/Küpper; 0 = random). */
   segregation: number;
   /** Reserved for N-body; theory-only engines ignore it. */
@@ -90,6 +91,7 @@ export function serializeIdentity(id: ClusterIdentity): string {
     z: String(id.Z),
     pr: id.profile.kind,
     sr: String(id.profile.scaleRadius),
+    gm: String(id.profile.gamma ?? 3),
     sg: String(id.segregation),
     vr: String(id.kinematics.virialRatio),
   });
@@ -104,14 +106,14 @@ export function deserializeIdentity(query: string): ClusterIdentity {
   };
   const d = defaultIdentity();
   const mode = p.get("sm") === "mass" ? "mass" : "count";
-  const kind = p.get("pr") === "plummer" ? "plummer" : d.profile.kind;
+  const kind = p.get("pr") === "eff" ? "eff" : "plummer";
   return {
     schemaVersion: CLUSTER_SCHEMA_VERSION, // normalize to current on load
     seed: num("seed", d.seed),
     sampling: { mode, target: num("st", d.sampling.target) },
     imf: { mMin: num("mn", d.imf.mMin), mMax: num("mx", d.imf.mMax), alphaHigh: num("ah", d.imf.alphaHigh) },
     Z: num("z", d.Z),
-    profile: { kind, scaleRadius: num("sr", d.profile.scaleRadius) },
+    profile: { kind, scaleRadius: num("sr", d.profile.scaleRadius), gamma: num("gm", 3) },
     segregation: num("sg", d.segregation),
     kinematics: { virialRatio: num("vr", d.kinematics.virialRatio) },
   };
