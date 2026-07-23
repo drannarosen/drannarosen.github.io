@@ -14,7 +14,8 @@ export interface HRColors {
 }
 
 export interface HROpts {
-  selectedId?: number | null;
+  selectedId?: number | null; // pinned (persistent)
+  hoverId?: number | null; // transient preview
   colors?: Partial<HRColors>;
 }
 
@@ -104,17 +105,19 @@ export function renderHR(
     ctx.fill();
   }
 
-  // Selection.
-  if (opts.selectedId != null) {
-    const sel = model.points.find((p) => p.id === opts.selectedId);
-    if (sel) {
-      ctx.strokeStyle = "rgba(255,255,255,0.95)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(f.x(sel.logTeff), f.y(sel.logL), Math.max(sel.sizePx + 4, 7), 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
+  // Hover preview (faint) then pinned selection (solid), so pinned wins.
+  const ring = (id: number | null | undefined, style: string, width: number) => {
+    if (id == null) return;
+    const p = model.points.find((q) => q.id === id);
+    if (!p) return;
+    ctx.strokeStyle = style;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.arc(f.x(p.logTeff), f.y(p.logL), Math.max(p.sizePx + 4, 7), 0, Math.PI * 2);
+    ctx.stroke();
+  };
+  ring(opts.hoverId, "rgba(255,255,255,0.4)", 1);
+  ring(opts.selectedId, "rgba(255,255,255,0.95)", 1.5);
 }
 
 /** Nearest HR point to a canvas coordinate, or null. */

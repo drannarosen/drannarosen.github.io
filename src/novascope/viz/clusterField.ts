@@ -9,7 +9,8 @@ import { type Camera, project } from "./camera.ts";
 
 export interface ClusterFieldOpts {
   camera: Camera;
-  selectedId?: number | null;
+  selectedId?: number | null; // pinned (persistent)
+  hoverId?: number | null; // transient preview
 }
 
 export function renderClusterField(
@@ -47,17 +48,20 @@ export function renderClusterField(
   }
   ctx.globalCompositeOperation = "source-over";
 
-  if (opts.selectedId != null) {
-    const sel = model.stars.find((s) => s.id === opts.selectedId);
-    if (sel) {
-      const p = project(sel.x, sel.y, sel.z, cam, w, h, model.maxR);
-      ctx.strokeStyle = "rgba(255,255,255,0.9)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(p.sx, p.sy, Math.max(sel.sizePx + 4, 7), 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
+  // Hover preview (faint) then pinned selection (solid).
+  const ring = (id: number | null | undefined, style: string, width: number) => {
+    if (id == null) return;
+    const s = model.stars.find((q) => q.id === id);
+    if (!s) return;
+    const p = project(s.x, s.y, s.z, cam, w, h, model.maxR);
+    ctx.strokeStyle = style;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.arc(p.sx, p.sy, Math.max(s.sizePx + 4, 7), 0, Math.PI * 2);
+    ctx.stroke();
+  };
+  ring(opts.hoverId, "rgba(255,255,255,0.4)", 1);
+  ring(opts.selectedId, "rgba(255,255,255,0.95)", 1.5);
 }
 
 /** Nearest star to a canvas point under the current camera, or null. */

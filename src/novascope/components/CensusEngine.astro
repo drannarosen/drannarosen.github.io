@@ -24,9 +24,10 @@
       <small class="xpl-census__hint" data-hint></small>
     </figure>
 
-    <figure class="xpl-census__panel">
+    <figure class="xpl-census__panel xpl-census__panel--hr">
       <figcaption>H–R diagram <span>luminosity vs temperature</span></figcaption>
-      <canvas data-hr aria-label="Hertzsprung-Russell diagram of the cluster"></canvas>
+      <canvas data-hr aria-label="Hertzsprung-Russell diagram of the cluster; hover to preview, click to pin"></canvas>
+      <aside class="xpl-census__card" data-card hidden></aside>
     </figure>
 
     <div class="xpl-census__panel xpl-census__panel--pad">
@@ -44,7 +45,6 @@
         <button type="button" class="xpl-census__reseed" data-reseed>↻ new draw</button>
       </div>
       <p class="xpl-census__summary" data-summary aria-live="polite"></p>
-      <aside class="xpl-census__card" data-card hidden></aside>
     </div>
 
     <figure class="xpl-census__panel">
@@ -101,11 +101,13 @@
     count.value = String(idNow.sampling.target);
     countVal.value = String(idNow.sampling.target);
 
+    let hoverId: number | null = null; // transient preview; pinned lives in the store
+
     const field = mountCanvas(fieldCanvas, (ctx, w, h) =>
-      renderClusterField(ctx, rm, w, h, { camera, selectedId: store.getView().selectedId }),
+      renderClusterField(ctx, rm, w, h, { camera, selectedId: store.getView().selectedId, hoverId }),
     );
     const hrView = mountCanvas(hrCanvas, (ctx, w, h) =>
-      renderHR(ctx, hr, w, h, { selectedId: store.getView().selectedId }),
+      renderHR(ctx, hr, w, h, { selectedId: store.getView().selectedId, hoverId }),
     );
     const imfView = mountCanvas(imfCanvas, (ctx, w, h) => renderHistogram(ctx, imf, w, h));
 
@@ -119,6 +121,7 @@
       hrView.redraw();
       imfView.redraw();
       updateSummary();
+      updateCard(hoverId ?? store.getView().selectedId);
     }
     function patchIdentity(patch: Partial<ClusterIdentity>) {
       store.setIdentity({ ...store.getIdentity(), ...patch });
@@ -157,22 +160,44 @@
     modeBtns.forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode as "2D" | "3D")));
     setMode(camera.mode);
 
-    // Hover selection (only when not dragging the camera).
-    const hover = (canvas: HTMLCanvasElement, pick: (x: number, y: number, w: number, h: number) => number | null) => {
+    // Hover previews (faint ring, transient); click pins (solid ring, persistent).
+    const redrawSel = () => {
+      field.redraw();
+      hrView.redraw();
+      updateCard(hoverId ?? store.getView().selectedId);
+    };
+    const setHover = (id: number | null) => {
+      if (id === hoverId) return;
+      hoverId = id;
+      redrawSel();
+    };
+    const bind = (
+      canvas: HTMLCanvasElement,
+      pick: (x: number, y: number, w: number, h: number) => number | null,
+    ) => {
+      const at = (e: PointerEvent) => {
+        const r = canvas.getBoundingClientRect();
+        return pick(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
+      };
+      let downX = 0;
+      let downY = 0;
       canvas.addEventListener("pointermove", (e) => {
         if (e.buttons !== 0) return; // a drag is an orbit/pan, not a hover
-        const r = canvas.getBoundingClientRect();
-        const id = pick(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
-        if (id !== store.getView().selectedId) {
-          store.setView({ selectedId: id });
-          field.redraw();
-          hrView.redraw();
-          updateCard(id);
-        }
+        setHover(at(e));
+      });
+      canvas.addEventListener("pointerleave", () => setHover(null));
+      canvas.addEventListener("pointerdown", (e) => {
+        downX = e.clientX;
+        downY = e.clientY;
+      });
+      canvas.addEventListener("pointerup", (e) => {
+        if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return; // that was a drag
+        store.setView({ selectedId: at(e) }); // pin (or clear on empty space)
+        redrawSel();
       });
     };
-    hover(fieldCanvas, (x, y, w, h) => pickStar(rm, x, y, w, h, camera));
-    hover(hrCanvas, (x, y, w, h) => pickHRPoint(hr, x, y, w, h));
+    bind(fieldCanvas, (x, y, w, h) => pickStar(rm, x, y, w, h, camera));
+    bind(hrCanvas, (x, y, w, h) => pickHRPoint(hr, x, y, w, h));
 
     function updateCard(id: number | null) {
       const s = id == null ? null : latent.find((p) => p.id === id);
@@ -233,6 +258,8 @@
     --xpl-panel: var(--surface-1, #14151a);
     display: grid;
     gap: var(--space-m, 1rem);
+    max-inline-size: 76rem; /* caps the top row into near-squares on wide screens */
+    margin-inline: auto;
   }
   .xpl-census__grid {
     display: grid;
@@ -263,8 +290,12 @@
   }
   .xpl-census__panel figcaption > span { color: var(--xpl-dim); font-size: var(--step--2, 0.75rem); }
   .xpl-census__panel canvas { display: block; inline-size: 100%; touch-action: none; }
-  .xpl-census__panel [data-field], .xpl-census__panel [data-hr] { block-size: min(40vh, 24rem); cursor: crosshair; }
-  .xpl-census__panel [data-imf] { block-size: min(24vh, 13rem); }
+  /* Square viewscreens for the two main plots; the cap on .xpl-census keeps them
+   * from ballooning on very wide screens. */
+  .xpl-census__panel [data-field], .xpl-census__panel [data-hr] { aspect-ratio: 1; block-size: auto; cursor: crosshair; }
+  /* IMF: less wide, a bit taller — a 4:3 box, centred in its cell. */
+  .xpl-census__panel [data-imf] { aspect-ratio: 4 / 3; block-size: auto; max-inline-size: 26rem; margin-inline: auto; }
+  .xpl-census__panel--hr { position: relative; }
   .xpl-census__hint { display: block; padding: 0 var(--space-s, 0.75rem) var(--space-2xs, 0.4rem); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--2, 0.72rem); color: var(--xpl-dim); }
 
   .xpl-census__modes { display: inline-flex; gap: 2px; }
@@ -289,6 +320,7 @@
     font-size: var(--step--1, 0.85rem);
     color: var(--xpl-ink);
   }
+  .xpl-census__ctrl { max-inline-size: 16rem; }
   .xpl-census__ctrl output { color: var(--xpl-teal); }
   .xpl-census__ctrl small { color: var(--xpl-dim); font-size: var(--step--2, 0.72rem); }
   .xpl-census__ctrl input[type="range"] { accent-color: var(--xpl-rose); inline-size: 100%; }
@@ -306,14 +338,24 @@
   }
   .xpl-census__reseed:hover { border-color: var(--xpl-teal); }
   .xpl-census__summary { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1, 0.85rem); color: var(--xpl-dim); margin: 0; }
-  .xpl-census__card {
+  /* Docked to the HR panel's empty upper-right corner as a compact HUD readout,
+   * so a selected star's properties sit right beside the diagram. Built to
+   * relocate to an under-canvas strip when stellar tracks add time-dependent
+   * readouts (just change these position rules). */
+  .xpl-census__panel--hr .xpl-census__card {
+    position: absolute;
+    inset-block-start: 2.7rem;
+    inset-inline-end: 0.55rem;
+    z-index: 2;
     display: flex;
-    gap: var(--space-s, 0.75rem);
+    gap: var(--space-xs, 0.6rem);
     align-items: start;
-    padding: var(--space-s, 0.75rem);
-    border: 1px solid var(--xpl-border);
+    max-inline-size: 15rem;
+    padding: var(--space-2xs, 0.5rem) var(--space-s, 0.7rem);
+    border: 1px solid color-mix(in srgb, var(--xpl-teal) 30%, var(--xpl-border));
     border-radius: var(--radius, 10px);
-    background: color-mix(in srgb, var(--xpl-panel) 80%, black);
+    background: color-mix(in srgb, var(--xpl-panel) 92%, black);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   }
   .xpl-census__swatch { flex: none; inline-size: 1.4rem; block-size: 1.4rem; border-radius: 50%; box-shadow: 0 0 12px currentColor; margin-block-start: 0.15rem; }
   .xpl-census__card dl { display: grid; gap: 0.2rem; margin: 0; flex: 1; }
