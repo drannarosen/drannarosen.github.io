@@ -550,12 +550,11 @@ const m = (tex: string, display = false) =>
     max-inline-size: 76rem; /* caps the top row into near-squares on wide screens */
     margin-inline: auto;
   }
-  /* The [hidden] attribute must win over the display:grid/flex a hideable
-   * element gets from its class — otherwise the UA `[hidden]{display:none}` is
-   * overridden and the element stays visible (the readout card, the γ slider and
-   * the env sub-controls all shipped visible-while-hidden because of this). One
-   * !important rule, scoped so it can't leak, is the canonical reset for it. */
-  .xpl-census [hidden] { display: none !important; }
+  /* The readout card, the γ slider and the env sub-controls are toggled with
+   * the `hidden` attribute while carrying a `display:grid/flex` class, which
+   * shipped visible-while-hidden here once. The global unlayered
+   * `[hidden]{display:none!important}` guard in global.css now covers this for
+   * every component, so no local override is needed. */
   .xpl-census__grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

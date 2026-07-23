@@ -2,16 +2,20 @@
  * global.css — the single stylesheet entry point.
  *
  * Declares the cascade-layer order ONCE (so import order never determines
- * precedence), then pulls in the modular pieces. Component styles live scoped
- * inside their .astro files and slot into the `components` layer implicitly.
+ * precedence), then pulls in the modular pieces. Scoped `.astro` styles are
+ * UNLAYERED (Astro does not assign them a layer), so for normal declarations
+ * they outrank every layer below — the `components` slot in the order exists
+ * for editorial.css / figures.css, which opt in explicitly.
  *
  *   fonts      → @font-face (unlayered)
  *   tokens     → design tokens (custom properties)
  *   reset      → minimal modern reset
  *   base       → bare-element defaults
- *   editorial  → long-form article layout (in the `components` layer)
- *   components → (scoped .astro styles)
+ *   editorial  → long-form article layout (opts into `components`)
+ *   figures    → figure presentation (opts into `components`)
  *   utilities  → composable helpers
+ *
+ * A single UNLAYERED guard follows the imports (see below).
  */
 @layer reset, tokens, base, components, utilities;
 
@@ -22,3 +26,28 @@
 @import "./editorial.css";
 @import "./figures.css";
 @import "./utilities.css";
+
+/*
+ * The `hidden` attribute must always win over `display`.
+ *
+ * The UA `[hidden]{display:none}` is a NORMAL, low-specificity rule, so any
+ * component that sets `display:grid/flex` on an element it also toggles with
+ * `hidden` re-shows it while hidden (this shipped as a real bug in
+ * CensusEngine — the readout card, gamma slider and env controls all rendered
+ * while `hidden`). This guard closes that off site-wide.
+ *
+ * It is deliberately UNLAYERED, not in @layer reset:
+ *   - `!important` is required so it beats a component's *normal* `display`
+ *     (important always outranks normal, whatever the layer).
+ *   - it must stay UNLAYERED so it does NOT beat a component's *important*
+ *     override. For important declarations the cascade ranks layered above
+ *     unlayered *before* specificity — a layered guard would silently defeat
+ *     `@media print { .allpubs__group[hidden]{display:block!important} }` on
+ *     /publications. Unlayered keeps both in the same bucket, where the
+ *     higher-specificity component rule (0,3,0 > our 0,1,0) rightly wins.
+ * A component that intends `display` to win must therefore out-specify a bare
+ * `[hidden]` and use `!important` — exactly what the print rule does.
+ */
+[hidden] {
+  display: none !important;
+}
