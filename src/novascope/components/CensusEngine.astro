@@ -498,7 +498,16 @@ const m = (tex: string, display = false) =>
   .xpl-census__modes button:last-child { border-radius: 0 999px 999px 0; }
   .xpl-census__modes button.is-active { color: #0a0b0e; background: var(--xpl-teal); border-color: var(--xpl-teal); }
 
-  .xpl-census__controls { display: grid; gap: var(--space-s, 0.75rem); }
+  /* Two columns so the box stays short and the cluster stays in view while you
+   * experiment. Full-width items (the advanced disclosure) span both. */
+  .xpl-census__controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-s, 0.75rem) var(--space-l, 1.5rem);
+    align-items: start;
+  }
+  .xpl-census__controls > .xpl-census__advanced { grid-column: 1 / -1; }
+  @media (max-width: 30rem) { .xpl-census__controls { grid-template-columns: 1fr; } }
   .xpl-census__ctrl {
     display: grid;
     gap: 0.25rem;
@@ -547,7 +556,16 @@ const m = (tex: string, display = false) =>
   .xpl-census__advanced summary::-webkit-details-marker { display: none; }
   .xpl-census__advanced summary::before { content: "▸ "; }
   .xpl-census__advanced[open] summary::before { content: "▾ "; }
-  .xpl-census__advgrid { display: grid; gap: var(--space-m, 1rem); margin-block-start: var(--space-m, 1rem); }
+  .xpl-census__advgrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-s, 0.75rem) var(--space-l, 1.5rem);
+    align-items: start;
+    margin-block-start: var(--space-m, 1rem);
+  }
+  .xpl-census__advgrid > .xpl-census__check,
+  .xpl-census__advgrid > .xpl-census__envctrls { grid-column: 1 / -1; }
+  @media (max-width: 30rem) { .xpl-census__advgrid { grid-template-columns: 1fr; } }
   .xpl-census__reseed {
     justify-self: start;
     font-family: var(--font-mono, ui-monospace, monospace);
