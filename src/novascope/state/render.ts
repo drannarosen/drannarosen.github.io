@@ -8,7 +8,7 @@
  * is what lets a backend swap (ZAMS → tracks) reach every renderer for free.
  */
 import { star } from "../core/stellar/index.ts";
-import { buildKroupaSegments, kroupaMassFraction } from "../core/imf/index.ts";
+import { maschbergerMassFraction } from "../core/imf/index.ts";
 import type { ClusterIdentity, LatentStar } from "../core/cluster/index.ts";
 import type { ClusterView } from "./store.ts";
 
@@ -112,16 +112,16 @@ export interface IMFModel {
 
 /**
  * The IMF as sampled vs as prescribed: logarithmic mass bins with the sampled
- * count and the analytic Kroupa expectation. The gap between them — ragged,
- * sparse high-mass bins straying from the smooth law — is sampling noise made
- * visible, the whole point of the Census.
+ * count and the analytic Maschberger (2013) expectation. The gap between them —
+ * ragged, sparse high-mass bins straying from the smooth law — is sampling noise
+ * made visible, the whole point of the Census.
  */
 export function toIMFHistogram(latent: LatentStar[], id: ClusterIdentity, nBins = 22): IMFModel {
   const { mMin, mMax, alphaHigh } = id.imf;
   const lo = log10(mMin);
   const hi = log10(mMax);
   const width = (hi - lo) / nBins;
-  const segs = buildKroupaSegments(mMin, mMax, alphaHigh);
+  const imf = { mMin, mMax, alpha: alphaHigh };
   const N = latent.length;
 
   const counts = new Array(nBins).fill(0);
@@ -134,7 +134,7 @@ export function toIMFHistogram(latent: LatentStar[], id: ClusterIdentity, nBins 
   const bins: IMFBin[] = counts.map((count, k) => {
     const logMlo = lo + k * width;
     const logMhi = logMlo + width;
-    const expected = N * kroupaMassFraction(10 ** logMlo, 10 ** logMhi, segs);
+    const expected = N * maschbergerMassFraction(10 ** logMlo, 10 ** logMhi, imf);
     maxCount = Math.max(maxCount, count, expected);
     return { logMlo, logMhi, logMc: logMlo + width / 2, count, expected };
   });
