@@ -94,7 +94,7 @@ export interface ProfileSpec {
 export function makeProfileSampler(profile: ProfileSpec): (rng: () => number) => [number, number, number] {
   const a = profile.scaleRadius;
   if (profile.kind === "eff") {
-    const gamma = profile.gamma ?? 3;
+    const gamma = profile.gamma ?? 5; // 5 = Plummer-equivalent
     const { cdf, rGrid } = buildEFFCDF(a, gamma, a * 15); // truncate at 15 a
     return (rng) => isotropic(invCDF(rng(), cdf, rGrid), rng);
   }

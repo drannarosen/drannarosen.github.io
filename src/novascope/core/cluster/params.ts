@@ -91,7 +91,7 @@ export function serializeIdentity(id: ClusterIdentity): string {
     z: String(id.Z),
     pr: id.profile.kind,
     sr: String(id.profile.scaleRadius),
-    gm: String(id.profile.gamma ?? 3),
+    gm: String(id.profile.gamma ?? 5),
     sg: String(id.segregation),
     vr: String(id.kinematics.virialRatio),
   });
@@ -113,7 +113,7 @@ export function deserializeIdentity(query: string): ClusterIdentity {
     sampling: { mode, target: num("st", d.sampling.target) },
     imf: { mMin: num("mn", d.imf.mMin), mMax: num("mx", d.imf.mMax), alphaHigh: num("ah", d.imf.alphaHigh) },
     Z: num("z", d.Z),
-    profile: { kind, scaleRadius: num("sr", d.profile.scaleRadius), gamma: num("gm", 3) },
+    profile: { kind, scaleRadius: num("sr", d.profile.scaleRadius), gamma: num("gm", 5) },
     segregation: num("sg", d.segregation),
     kinematics: { virialRatio: num("vr", d.kinematics.virialRatio) },
   };

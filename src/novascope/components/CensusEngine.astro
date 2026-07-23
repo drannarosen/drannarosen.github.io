@@ -105,25 +105,30 @@ const m = (tex: string, display = false) =>
               <span class="xpl-census__ctrl-name">cluster mass</span>
               <span class="xpl-census__ctrl-val"><span set:html={m("\\log_{10} M_\\mathrm{ecl}")} /> = <output data-mecl-val>4.0</output></span>
               <input type="range" data-mecl min="3" max="4.3" step="0.1" value="4" />
-              <small>denser cluster → top-heavy</small>
+              <small>→ more stars, top-heavier</small>
             </label>
           </div>
         </section>
 
         <section class="xpl-census__lens" data-lens="structure" aria-label="Structure controls" hidden>
-          <p class="xpl-census__lenshd"><b>Structure</b> — where do the stars live?</p>
-          <div class="xpl-census__lensgrid">
-            <div class="xpl-census__ctrl">
-              <span>spatial profile</span>
+          <div class="xpl-census__lenshd xpl-census__lenshd--split">
+            <span><b>Structure</b> — where do stars live?</span>
+            <span class="xpl-census__profile">
+              <button type="button" class="xpl-census__info" data-info="profile" aria-expanded="false" aria-label="What is the spatial profile?">?</button>
               <span class="xpl-census__modes" role="group" aria-label="Spatial profile">
                 <button type="button" data-profile="plummer" class="is-active">Plummer</button>
                 <button type="button" data-profile="eff">EFF</button>
               </span>
+            </span>
+            <div class="xpl-census__popover" data-popover="profile" role="tooltip" hidden>
+              <b>Spatial profile</b> — how stars thin out with radius. <b>Plummer</b> is a smooth cored sphere (the EFF <span set:html={m("\\gamma")} />=5 case); <b>EFF</b> (Elson+1987) adds a power-law halo — lower <span set:html={m("\\gamma")} /> spreads stars into extended wings.
             </div>
+          </div>
+          <div class="xpl-census__lensgrid">
             <label class="xpl-census__ctrl" data-gammactrl hidden>
-              <span>EFF slope <span set:html={m("\\gamma")} /> = <output data-gamma-val>3.0</output></span>
-              <input type="range" data-gamma min="2.5" max="6" step="0.1" value="3" />
-              <small>steeper → more concentrated</small>
+              <span>EFF slope <span set:html={m("\\gamma")} /> = <output data-gamma-val>5.0</output></span>
+              <input type="range" data-gamma min="2.5" max="6" step="0.1" value="5" />
+              <small>lower → extended halo (5 = Plummer)</small>
             </label>
             <label class="xpl-census__ctrl">
               <span>segregation <span set:html={m("\\lambda")} /> = <output data-seg-val>0.0</output></span>
@@ -317,6 +322,23 @@ const m = (tex: string, display = false) =>
       patchIdentity({ profile: { ...store.getIdentity().profile, kind, gamma: Number(gamma.value) } });
     };
     profileBtns.forEach((b) => b.addEventListener("click", () => setProfile(b.dataset.profile as "plummer" | "eff")));
+
+    // "?" popover explaining the spatial profile (click to toggle, click-away closes).
+    const infoBtn = root.querySelector<HTMLButtonElement>('[data-info="profile"]');
+    const popover = root.querySelector<HTMLElement>('[data-popover="profile"]');
+    if (infoBtn && popover) {
+      const setOpen = (open: boolean) => {
+        popover.hidden = !open;
+        infoBtn.setAttribute("aria-expanded", String(open));
+      };
+      infoBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setOpen(popover.hidden);
+      });
+      document.addEventListener("click", (e) => {
+        if (!popover.hidden && e.target instanceof Node && !popover.contains(e.target)) setOpen(false);
+      });
+    }
     gamma.addEventListener("input", () => {
       gammaVal.value = Number(gamma.value).toFixed(1);
       patchIdentity({ profile: { ...store.getIdentity().profile, gamma: Number(gamma.value) } });
@@ -336,7 +358,7 @@ const m = (tex: string, display = false) =>
       const rhv = id.profile.scaleRadius * PLUMMER_RH_OVER_A;
       rh.value = rhv.toFixed(1);
       rhVal.value = rhv.toFixed(1);
-      const g = id.profile.gamma ?? 3;
+      const g = id.profile.gamma ?? 5; // 5 = Plummer-equivalent (EFF default)
       gamma.value = String(g);
       gammaVal.value = g.toFixed(1);
       gammaCtrl.hidden = id.profile.kind !== "eff";
@@ -623,6 +645,42 @@ const m = (tex: string, display = false) =>
   .xpl-census__lens { display: grid; gap: var(--space-s, 0.75rem); }
   .xpl-census__lenshd { margin: 0; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1, 0.85rem); color: var(--xpl-dim); }
   .xpl-census__lenshd b { color: var(--xpl-teal); font-weight: 600; }
+  /* Structure header carries the spatial-profile toggle at its right end (saves a
+   * control row) plus a "?" that pops an explanation over — not through — the
+   * controls, so the box stays short and the cluster stays in view. */
+  .xpl-census__lenshd--split { position: relative; display: flex; justify-content: space-between; align-items: center; gap: var(--space-s, 0.75rem); flex-wrap: wrap; }
+  .xpl-census__profile { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .xpl-census__info {
+    flex: none;
+    inline-size: 1.3rem;
+    block-size: 1.3rem;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--xpl-border);
+    background: transparent;
+    color: var(--xpl-dim);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--2, 0.72rem);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .xpl-census__info:hover, .xpl-census__info[aria-expanded="true"] { color: var(--xpl-teal); border-color: var(--xpl-teal); }
+  .xpl-census__popover {
+    position: absolute;
+    z-index: 5;
+    inset-block-start: 100%;
+    inset-inline: 0;
+    margin-block-start: 0.35rem;
+    padding: var(--space-2xs, 0.5rem) var(--space-s, 0.7rem);
+    border: 1px solid color-mix(in srgb, var(--xpl-teal) 30%, var(--xpl-border));
+    border-radius: var(--radius, 10px);
+    background: color-mix(in srgb, var(--xpl-panel) 94%, black);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-dim);
+    line-height: 1.45;
+  }
+  .xpl-census__popover b { color: var(--xpl-ink); font-weight: 600; }
   .xpl-census__lensgrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
