@@ -19,7 +19,7 @@ export interface HROpts {
   colors?: Partial<HRColors>;
 }
 
-const MARGIN = { top: 16, right: 18, bottom: 34, left: 62 };
+const MARGIN = { top: 16, right: 18, bottom: 36, left: 74 };
 const LOGTEFF_TICKS = [3.5, 4.0, 4.5]; // log₁₀ T_eff, consistent with the log L axis
 const AXIS_FONT = "14px ui-monospace, SFMono-Regular, Menlo, monospace";
 const SUB_FONT = "10px ui-monospace, SFMono-Regular, Menlo, monospace";

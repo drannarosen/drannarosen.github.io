@@ -78,11 +78,11 @@ export function renderClusterField(
     ctx.moveTo(x0 + barPx, y0 - 4);
     ctx.lineTo(x0 + barPx, y0 + 4);
     ctx.stroke();
-    ctx.fillStyle = "rgba(230,232,238,0.85)";
-    ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+    ctx.fillStyle = "rgba(230,232,238,0.9)";
+    ctx.font = "14px ui-monospace, SFMono-Regular, Menlo, monospace";
     ctx.textAlign = "left";
     ctx.textBaseline = "bottom";
-    ctx.fillText(`${Lpc} pc`, x0, y0 - 5);
+    ctx.fillText(`${Lpc} pc`, x0, y0 - 6);
   }
 
   // Hover preview (faint) then pinned selection (solid).
