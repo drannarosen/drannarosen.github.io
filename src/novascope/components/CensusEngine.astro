@@ -33,11 +33,12 @@ const m = (tex: string, display = false) =>
     </figure>
 
     <figure class="xpl-census__panel xpl-census__panel--hr">
-      <figcaption>H–R diagram <span>luminosity vs temperature</span></figcaption>
-      <canvas data-hr aria-label="Hertzsprung-Russell diagram of the cluster; hover to preview, click to pin"></canvas>
-      <p class="xpl-census__axiscap">
-        horizontal <span set:html={m("\\log_{10} T_\\mathrm{eff}")} /> (hotter left) · vertical <span set:html={m("\\log_{10} L/L_\\odot")} />
-      </p>
+      <figcaption>H–R diagram <span>log–log; hotter left</span></figcaption>
+      <div class="xpl-census__plot">
+        <span class="xpl-census__ytitle" set:html={m("L/L_\\odot")} />
+        <canvas data-hr aria-label="Hertzsprung-Russell diagram of the cluster; hover to preview, click to pin"></canvas>
+        <span class="xpl-census__xtitle" set:html={m("T_\\mathrm{eff}\\;(\\mathrm{K})")} />
+      </div>
       <aside class="xpl-census__card" data-card hidden>
         <span class="xpl-census__swatch" data-swatch></span>
         <dl>
@@ -393,4 +394,26 @@ const m = (tex: string, display = false) =>
   }
   .xpl-census .katex { font-size: 1em; color: var(--xpl-ink); }
   .xpl-census__card .katex, .xpl-census__axiscap .katex { color: inherit; }
+
+  /* On-plot axis titles for the H–R diagram (KaTeX). */
+  .xpl-census__plot { position: relative; }
+  .xpl-census__xtitle {
+    display: block;
+    text-align: center;
+    padding-block: 0.2rem 0.35rem;
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-dim);
+  }
+  .xpl-census__ytitle {
+    position: absolute;
+    inset-inline-start: 0.15rem;
+    inset-block-start: 46%;
+    transform: translateY(-50%) rotate(-90deg);
+    transform-origin: center;
+    font-size: var(--step--1, 0.85rem);
+    color: var(--xpl-dim);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .xpl-census__xtitle .katex, .xpl-census__ytitle .katex { color: var(--xpl-ink); }
 </style>
