@@ -104,6 +104,27 @@ Limits are exact: `f_leak = 0` → adiabatic (full energy, maximum boost);
 and must be labelled as such on the page. `η_max` is sourced per channel — it is
 left unset until the reference is pinned rather than filled with a plausible number.
 
+**Those two endpoints are the literature's own bracketing, not our invention.**
+Fall, Krumholz & Matzner (2010) treat energy-driven and momentum-driven feedback
+as the limiting regimes corresponding to minimum and maximum radiative losses,
+and argue they bracket realistic cases. `f_leak` is the interpolation variable
+between exactly those two limits.
+
+**Where the realistic wind value sits — sourced.** Lancaster, Ostriker, Kim &
+Kim (2021, Papers I & II) show that a wind bubble's hot interior meets the
+surrounding cloud across a FRACTAL interface; the resulting large area drives
+turbulent mixing and cooling at T ≈ 10⁴–10⁵ K, where radiation is maximally
+efficient. Most of the injected wind energy is radiated away, so the bubble is
+**momentum-driven rather than energy-driven**: relative to the classical Weaver
+(1977) solution they find momentum lower by factors of 10–10² at given radius,
+pressure lower by 10²–10³, and R ∝ t^½ instead of the Weaver scaling.
+
+Two consequences for this model, both defensible rather than chosen:
+- the **default `f_leak` for winds in a turbulent cloud is HIGH** (near the
+  momentum-driven end), not a neutral 0.5;
+- the mechanism setting it is **interface area**, which is what ties `f_leak` to
+  the cloud's density structure (σ_turb) rather than to Mach number directly.
+
 ### Independent η is a v2 feature, because it is time-dependent
 
 Momentum has memory: impulse already delivered is not un-delivered when the
@@ -172,8 +193,16 @@ with Σ, N, v_esc and α_vir REPORTED as derived diagnostics.
 | Orion-like (fiducial) | 2×10⁴ | 2.5 | 1 018 | ~10 000 | 8.3 |
 | massive compact / YMC progenitor | 1×10⁵ | 2.0 | 7 958 | ~51 000 | 20.7 |
 
+**Σ as the controlling parameter is sourced, not assumed.** Fall, Krumholz &
+Matzner (2010) find that the star-formation efficiency set by feedback depends on
+protocluster mass and size *only through their mean surface density* — which is
+why Σ is the axis along which the verdict moves. They also find that HII regions
+inflated by radiation pressure predominate in massive protoclusters, the same
+hand-off this picker is built to show.
+
 **The thesis is the v_esc column.** Photoionized gas has a sound speed ~10 km/s,
-so photoionization can only drive material out while v_esc ≲ 10 km/s. The three
+so photoionization can only drive material out while v_esc ≲ 10 km/s (threshold
+confirmed by Anna, 2026-07-23). The three
 environments straddle that threshold: the diffuse cloud is dispersed easily,
 Orion-like sits right at the boundary (which is why it is the contested case),
 and in the massive compact cloud the HII region is TRAPPED — photoionization
@@ -271,13 +300,27 @@ memory** — each is left unset until the reference is checked. To source:
 - **η_max per channel** — the adiabatic/Weaver bubble solution for winds, the
   D-front solution for photoionization. The f_leak→η interpolation is labelled a
   parameterization on the page.
-- **the ~10 km/s ionized-gas sound speed threshold** for HII confinement, and the
-  M–Σ regime framing (which mechanism dominates where). Both are real literature
-  results, but were stated from background knowledge in the brainstorm and must
-  be verified and cited before appearing on the page.
-- **mixing-driven cooling** collapsing energy-driven wind bubbles in turbulent
-  media — the basis for tying f_leak to σ_turb. Verify before citing.
 - (v2) Weaver energy-driven bubble R(t); SN energy 1e51 erg
+
+### VERIFIED 2026-07-23 (web-checked against the papers, not recalled)
+
+- **Σ as the controlling parameter, and the radiation-pressure hand-off in
+  massive protoclusters** — Fall, S. M., Krumholz, M. R. & Matzner, C. D. (2010),
+  *Stellar Feedback in Molecular Clouds and its Influence on the Mass Function of
+  Young Star Clusters*, ApJ 710, L142. arXiv:0910.2238 ·
+  bibcode 2010ApJ...710L.142F. Establishes that feedback-set star-formation
+  efficiency depends on protocluster mass and size only through mean surface
+  density, and frames energy-driven / momentum-driven as the limiting regimes of
+  minimum / maximum radiative losses.
+- **Mixing-driven cooling makes wind bubbles momentum-driven** — Lancaster, L.,
+  Ostriker, E. C., Kim, J.-G. & Kim, C.-G. (2021), *Efficiently Cooled Stellar
+  Wind Bubbles in Turbulent Clouds*, **I. Fractal Theory** ApJ 914, 89
+  (arXiv:2104.07691) and **II. Validation with Hydrodynamic Simulations** ApJ 914,
+  90 (arXiv:2104.07722). Fractal bubble/shell interface → turbulent mixing →
+  cooling at 10⁴–10⁵ K; most wind energy radiated; momentum lower by 10–10² and
+  pressure by 10²–10³ vs Weaver (1977), with R ∝ t^½.
+- **~10 km/s ionized-gas sound speed** as the HII-confinement threshold —
+  confirmed by Anna (2026-07-23).
 
 Validate aggregate feedback vs. Anna's codes / literature (progenax / ORION2 /
 HARM² regime), following the IMF/EFF fixture discipline.
