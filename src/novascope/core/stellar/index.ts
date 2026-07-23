@@ -98,6 +98,19 @@ export function effectiveTemperature(L: number, R: number): number {
   return TEFF_REF * L ** 0.25 / R ** 0.5;
 }
 
+/**
+ * Luminosity [Lsun] from Teff [K] and R [Rsun] — the exact inverse of
+ * `effectiveTemperature`, L = (Teff/Teff_sun)^4 R^2.
+ *
+ * Lives here, beside its inverse, so the Stefan-Boltzmann relation has ONE
+ * definition: the feedback channels need L per star from the realization's
+ * exported (teff, radius), and deriving it there would mean a second sigma_SB
+ * that could drift from this one.
+ */
+export function luminosity(teff: number, R: number): number {
+  return (teff / TEFF_REF) ** 4 * R ** 2;
+}
+
 /** ZAMS effective temperature [K] from mass [Msun]. */
 export function zamsTeff(mass: number, Z = Z_REF): number {
   return effectiveTemperature(zamsLuminosity(mass, Z), zamsRadius(mass, Z));
