@@ -19,8 +19,9 @@ export interface HROpts {
   colors?: Partial<HRColors>;
 }
 
-const MARGIN = { top: 14, right: 14, bottom: 34, left: 44 };
-const TEFF_TICKS = [40000, 20000, 10000, 5000, 3000];
+const MARGIN = { top: 16, right: 18, bottom: 34, left: 46 };
+const LOGTEFF_TICKS = [3.5, 4.0, 4.5]; // log₁₀ T_eff, consistent with the log L axis
+const AXIS_FONT = "14px ui-monospace, SFMono-Regular, Menlo, monospace";
 const log10 = Math.log10;
 
 const DEFAULTS: HRColors = {
@@ -60,13 +61,13 @@ export function renderHR(
   const c = { ...DEFAULTS, ...opts.colors };
   const f = frame(model, w, h);
   ctx.clearRect(0, 0, w, h);
-  ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.font = AXIS_FONT;
   ctx.textBaseline = "middle";
 
-  // Teff gridlines + labels (x).
+  // log₁₀ T_eff gridlines + labels (x), reversed so hot is on the left.
   ctx.textAlign = "center";
-  for (const t of TEFF_TICKS) {
-    const x = f.x(log10(t));
+  for (const lt of LOGTEFF_TICKS) {
+    const x = f.x(lt);
     ctx.strokeStyle = c.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -74,7 +75,7 @@ export function renderHR(
     ctx.lineTo(x, MARGIN.top + f.plotH);
     ctx.stroke();
     ctx.fillStyle = c.text;
-    ctx.fillText(t >= 1000 ? `${t / 1000}k` : `${t}`, x, h - MARGIN.bottom + 14);
+    ctx.fillText(lt.toFixed(1), x, h - MARGIN.bottom + 15);
   }
 
   // log L gridlines + labels (y).

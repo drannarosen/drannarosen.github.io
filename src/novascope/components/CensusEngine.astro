@@ -36,7 +36,7 @@ const m = (tex: string, display = false) =>
       <figcaption>H–R diagram <span>luminosity vs temperature</span></figcaption>
       <canvas data-hr aria-label="Hertzsprung-Russell diagram of the cluster; hover to preview, click to pin"></canvas>
       <p class="xpl-census__axiscap">
-        <span set:html={m("T_\\mathrm{eff}")} /> (K), hotter left · vertical <span set:html={m("\\log_{10} L/L_\\odot")} />
+        horizontal <span set:html={m("\\log_{10} T_\\mathrm{eff}")} /> (hotter left) · vertical <span set:html={m("\\log_{10} L/L_\\odot")} />
       </p>
       <aside class="xpl-census__card" data-card hidden>
         <span class="xpl-census__swatch" data-swatch></span>
@@ -386,9 +386,9 @@ const m = (tex: string, display = false) =>
   /* KaTeX axis captions under each plot (no Unicode math on the canvas). */
   .xpl-census__axiscap {
     margin: 0;
-    padding: 0.15rem var(--space-s, 0.7rem) var(--space-2xs, 0.5rem);
+    padding: 0.2rem var(--space-s, 0.7rem) var(--space-2xs, 0.5rem);
     text-align: center;
-    font-size: var(--step--2, 0.72rem);
+    font-size: var(--step--1, 0.85rem);
     color: var(--xpl-dim);
   }
   .xpl-census .katex { font-size: 1em; color: var(--xpl-ink); }

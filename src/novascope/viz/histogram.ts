@@ -21,7 +21,8 @@ const DEFAULTS: HistogramColors = {
   text: "rgba(230,232,238,0.65)",
 };
 
-const MARGIN = { top: 12, right: 12, bottom: 30, left: 40 };
+const MARGIN = { top: 14, right: 14, bottom: 28, left: 44 };
+const AXIS_FONT = "13px ui-monospace, SFMono-Regular, Menlo, monospace";
 const FLOOR = 0.3; // y-axis floor (count) so sub-1 expectations still show
 const log10 = Math.log10;
 
@@ -50,7 +51,7 @@ export function renderHistogram(
   const y0 = MARGIN.top + plotH;
 
   ctx.clearRect(0, 0, w, h);
-  ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.font = AXIS_FONT;
   ctx.textBaseline = "middle";
 
   // Count gridlines (y).
