@@ -1,5 +1,10 @@
 # Feedback Budget — Step 1: merge the `lib/cluster` WebGL engine into novascope
 
+> **⚠️ SUPERSEDED (2026-07-23)** by
+> `docs/plans/2026-07-23-novascope-absorb-cluster-viz.md`, which absorbs the WebGL
+> engine PLUS the hero and gravoturb-art renderers in one branch. Do not execute
+> this WebGL-only version — it is kept for context only.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Re-home the `lib/cluster` WebGL volumetric engine into `src/novascope`
