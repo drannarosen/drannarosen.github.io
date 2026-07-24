@@ -128,14 +128,28 @@ import RatioBar from "./RatioBar.astro";
     let fb: FeedbackRealization | null = null;
     let raf = 0;
     let playing = true;
+    // The animation clock is this float, NOT the range input: a stepped
+    // <input type=range> snaps every assignment to its step, so driving the
+    // animation through scrub.value quantized the sub-step increments and
+    // stalled it. animT drives setExpel; the slider is written for display only.
+    let animT = 0;
+    let playStart = 0; // wall-clock origin; 0 = recompute from animT next frame
+    const PERIOD_MS = 6000;
 
     const setPlaying = (on: boolean) => {
       playing = on;
+      playStart = 0; // resume from the current animT, not from where it began
       play.classList.toggle("is-active", on);
       play.setAttribute("aria-pressed", String(on));
       play.textContent = on ? "❙❙ pause" : "▸ play";
     };
     play.addEventListener("click", () => setPlaying(!playing));
+
+    const seek = (v: number) => {
+      animT = Math.min(1, Math.max(0, v));
+      scrub.value = String(animT);
+      applyScrub(animT);
+    };
 
     // ── realization picker from the manifest (labels never retyped) ──
     const manifest = await fetch("/data/gravoturb/manifest.json").then((r) => r.json());
@@ -216,7 +230,7 @@ import RatioBar from "./RatioBar.astro";
     }
 
     // ── controls ──
-    scrub.addEventListener("input", () => { setPlaying(false); applyScrub(+scrub.value); });
+    scrub.addEventListener("input", () => { setPlaying(false); animT = +scrub.value; applyScrub(animT); });
     for (const c of el.querySelectorAll<HTMLButtonElement>("[data-ch]"))
       c.addEventListener("click", () => {
         const on = !c.classList.contains("is-active");
@@ -226,24 +240,19 @@ import RatioBar from "./RatioBar.astro";
         fb = recomputeFeedback(fb, { enabled: enabled() });
         renderBudget();
       });
-    frame?.addEventListener("present:next", () => {
-      setPlaying(false); scrub.value = String(Math.min(1, +scrub.value + 0.04)); applyScrub(+scrub.value);
-    });
-    frame?.addEventListener("present:prev", () => {
-      setPlaying(false); scrub.value = String(Math.max(0, +scrub.value - 0.04)); applyScrub(+scrub.value);
-    });
-    frame?.addEventListener("present:reset", () => { scrub.value = "0"; applyScrub(0); });
+    frame?.addEventListener("present:next", () => { setPlaying(false); seek(animT + 0.04); });
+    frame?.addEventListener("present:prev", () => { setPlaying(false); seek(animT - 0.04); });
+    frame?.addEventListener("present:reset", () => { setPlaying(false); seek(0); });
 
-    // ── play loop (respects reduced motion via engine.reducedMotion) ──
-    let last = 0;
+    // ── play loop: absolute wall-clock, immune to frame jitter and to the
+    // range input's step-snapping (drives animT, writes the slider for show) ──
     function tick(ts: number) {
       raf = requestAnimationFrame(tick);
-      if (!playing) { last = ts; return; }
-      const dt = last ? (ts - last) / 1000 : 0; last = ts;
-      let v = +scrub.value + dt / 6; // ~6 s sweep
-      if (v >= 1) v = 0;
-      scrub.value = String(v);
-      applyScrub(v);
+      if (!playing || !engine) return;
+      if (!playStart) playStart = ts - animT * PERIOD_MS;
+      animT = ((ts - playStart) % PERIOD_MS) / PERIOD_MS;
+      scrub.value = String(animT);
+      applyScrub(animT);
     }
     raf = requestAnimationFrame(tick);
     window.addEventListener("beforeunload", () => { cancelAnimationFrame(raf); engine?.cleanup(); });
