@@ -16,6 +16,7 @@
  * prescription: the Vink fit takes v_inf/v_esc as an INPUT term
  * (-1.601 log10[(v_inf/v_esc)/2.0]), so Mdot is evaluated AT an assumed ratio.
  */
+import { clampMass } from "./sources.ts";
 
 /* ── composition ──────────────────────────────────────────────────────────
  * The realizations are solar-metallicity by construction (progenax gravoturb),
@@ -38,7 +39,7 @@ export function sigmaE(hydrogenX: number = X_H): number {
  * is radius-independent and acts as an effective-mass factor (1 - Gamma_e).
  */
 export function gammaE(lSun: number, mSun: number, hydrogenX: number = X_H): number {
-  return 7.66e-5 * sigmaE(hydrogenX) * (lSun / mSun);
+  return 7.66e-5 * sigmaE(hydrogenX) * (lSun / clampMass(mSun));
 }
 
 /* G in [pc (km/s)^2 / Msun] and Rsun in pc — same values/epoch as
@@ -70,8 +71,9 @@ export function effectiveEscapeSpeed(
   lSun: number,
   hydrogenX: number = X_H,
 ): number {
-  const g = Math.min(gammaE(lSun, mSun, hydrogenX), 1);
-  return Math.sqrt((2 * G_PC_KMS2_MSUN * mSun * (1 - g)) / (rSun * RSUN_PC));
+  const m = clampMass(mSun);
+  const g = Math.min(gammaE(lSun, m, hydrogenX), 1);
+  return Math.sqrt((2 * G_PC_KMS2_MSUN * m * (1 - g)) / (rSun * RSUN_PC));
 }
 
 /* ── bi-stability jump ────────────────────────────────────────────────────
@@ -164,7 +166,7 @@ export function starWind(
 
   const hot = teffK >= bistabilityTeff(lSun, mSun, z, hydrogenX);
   const logL5 = Math.log10(lSun / 1e5);
-  const logM30 = Math.log10(mSun / 30);
+  const logM30 = Math.log10(clampMass(mSun) / 30);
   const logZ = Math.log10(z / Z_SUN);
   const logMdot = hot
     ? logMdotHot(logL5, logM30, teffK, logZ)

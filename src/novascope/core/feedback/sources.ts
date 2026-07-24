@@ -10,7 +10,34 @@
  * re-derived here, so the stars the ledger reasons about are the stars the
  * scene renders.
  */
-import { luminosity } from "../stellar/index.ts";
+import { luminosity, msLifetime } from "../stellar/index.ts";
+
+/* ── mass clamp — the export's own bounds ─────────────────────────────────
+ * progenax samples the IMF to 300 Msun (Maschberger, m_max=300) but computes
+ * each star's teff/radius from mass CLIPPED to [0.08, 150]
+ * (feasibility_figure.py: jnp.clip(masses, 0.08, 150.0)). Verified against the
+ * data: the 195.3 Msun star in the `compact` realization carries exactly
+ * zamsTeff(150) and zamsRadius(150).
+ *
+ * Every mass-dependent term here uses the SAME clip so each star's
+ * (M, Teff, R, L) stay mutually consistent — pairing a 195 Msun mass with a
+ * 150 Msun luminosity would understate Gamma_e by ~1.3x. These are progenax's
+ * bounds, matched rather than chosen.
+ *
+ * Noted honestly: 150 already exceeds the Tout et al. (1996) validity ceiling
+ * that core/stellar declares (M_MAX_VALID = 100). That extension is inherited
+ * from the model that generated the data, not adopted here; core/stellar's
+ * constant still states Tout's range and must not be edited to hide this.
+ * Affected stars are few (7 above 100 Msun, 2 above 150, in `compact`) but they
+ * are the most massive, so they dominate Q and the wind budget.
+ */
+export const MASS_MIN = 0.08;
+export const MASS_MAX = 150;
+
+/** Clamp a sampled mass to the export's stellar-property range. */
+export function clampMass(mSun: number): number {
+  return Math.min(MASS_MAX, Math.max(MASS_MIN, mSun));
+}
 
 /* ── constants ────────────────────────────────────────────────────────────
  * G in [pc (km/s)^2 / Msun]: IAU 2015 nominal GM_sun (1.327124400e20 m^3 s^-2)
@@ -40,7 +67,31 @@ export function starLuminosity(teffK: number, radiusRsun: number): number {
  * terminal velocity to — not the cloud escape speed the ledger compares against.
  */
 export function escapeSpeed(massMsun: number, radiusRsun: number): number {
-  return Math.sqrt((2 * G_PC_KMS2_MSUN * massMsun) / (radiusRsun * RSUN_PC));
+  const m = clampMass(massMsun);
+  return Math.sqrt((2 * G_PC_KMS2_MSUN * m) / (radiusRsun * RSUN_PC));
+}
+
+/**
+ * Integration window for the v1 budget [Myr]: the time before the FIRST
+ * supernova, i.e. t_MS of the most massive star present.
+ *
+ * v1 tallies photoionization, winds and radiation pressure — the pre-SN
+ * channels — so the budget is only well posed up to the moment that set stops
+ * being complete. Supernovae arrive with the time axis in v2.
+ *
+ * This is EMERGENT, not a knob: it falls out of each realization's own IMF draw
+ * via Hurley, Pols & Tout (2000) t_MS, so a richer cluster samples a more
+ * massive star and gets a SHORTER window (diffuse 5.65 Myr at 31 Msun; orion
+ * 3.20; compact 3.07 before clamping). Mass is clamped to the export's range
+ * first, so t_MS is evaluated at the same mass whose Teff/R the star carries.
+ */
+export function preSNWindowMyr(mass: ArrayLike<number>): number {
+  let mMax = MASS_MIN;
+  for (let i = 0; i < mass.length; i++) {
+    const m = clampMass(mass[i]!);
+    if (m > mMax) mMax = m;
+  }
+  return msLifetime(mMax);
 }
 
 /* ── ionizing photon rate ─────────────────────────────────────────────────
