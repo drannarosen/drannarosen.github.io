@@ -131,7 +131,16 @@ class Realization:
     # cloud radial shape: truncated EFF (Elson-Fall-Freeman 1987). a and r_t are
     # DERIVED from `radius` at the shipped fiducial's fixed shape ratios, so the
     # profile is identical across environments and only the SCALE changes.
-    eff_gamma: float = 3.0  # 3-D density slope (~3 young cluster; 5 = Plummer)
+    # 3-D density slope. NOTE THE CONVENTION: this is the exponent of the
+    # SPACE density, rho ~ (1 + r^2/a^2)^(-gamma/2), so gamma = 5 is Plummer.
+    # Elson, Fall & Freeman (1987) ApJ 323, 54 fit the projected SURFACE
+    # brightness, and Abel deprojection gives gamma_3D = gamma_surface + 1
+    # (check: Plummer projects to Sigma ~ (1+R^2/a^2)^-2, i.e. 4 = 5 - 1).
+    # Their 10 young LMC clusters have median gamma_surface = 2.6 over
+    # 2.2 <= gamma <= 3.2, so the young-cluster median in THIS convention is
+    # 3.6, spanning 3.2-4.2. The previous default of 3.0 corresponds to a
+    # surface slope of 2.0 — shallower than any cluster in that sample.
+    eff_gamma: float = 3.6
     # sampling
     box_override: Optional[float] = None  # None -> derived from radius
     ngrid: int = 128  # gas-field grid resolution
@@ -199,12 +208,28 @@ REALIZATIONS: list[Realization] = [
     Realization(
         name="compact", label="massive compact", m_cloud=1.0e5, radius=2.0
     ),
-    # forcing axis at the Orion-like environment (solenoidal -> compressive)
+    # forcing axis at the Orion-like environment (solenoidal -> compressive).
+    # Changes density STRUCTURE at fixed kinetic energy and fixed alpha_vir.
     Realization(
         name="orion-solenoidal", label="Orion-like · solenoidal", m_cloud=2.0e4, radius=2.5, b=0.33
     ),
     Realization(
         name="orion-compressive", label="Orion-like · compressive", m_cloud=2.0e4, radius=2.5, b=1.0
+    ),
+    # concentration axis at the Orion-like environment: the EFF young-cluster
+    # range, gamma_3D 3.2-4.2 (= surface 2.2-3.2, Elson, Fall & Freeman 1987),
+    # bracketing the 3.6 median the other realizations use. Changes how centrally
+    # the SAME mass is arranged, so it moves the binding energy (+/-10%) and the
+    # local densities the H II regions expand into, at fixed M, R and Mach.
+    Realization(
+        name="orion-shallow",
+        label="Orion-like · shallow profile",
+        m_cloud=2.0e4, radius=2.5, eff_gamma=3.2,
+    ),
+    Realization(
+        name="orion-concentrated",
+        label="Orion-like · concentrated profile",
+        m_cloud=2.0e4, radius=2.5, eff_gamma=4.2,
     ),
 ]
 

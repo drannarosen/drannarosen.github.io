@@ -8,8 +8,8 @@
       "mach": 3.7863426812690895,
       "n_stars": 1030,
       "m_star_total_msun": 359.85307462146466,
-      "r_half_pc": 0.8159430672778784,
-      "q_virial_at_sfe_ic": 0.04480400373041721
+      "r_half_pc": 0.8145065975159685,
+      "q_virial_at_sfe_ic": 0.03742623071108923
     },
     {
       "name": "orion",
@@ -18,8 +18,8 @@
       "mach": 13.11627579764927,
       "n_stars": 10301,
       "m_star_total_msun": 4081.2087170288687,
-      "r_half_pc": 0.6761677178663568,
-      "q_virial_at_sfe_ic": 0.014685085688009424
+      "r_half_pc": 0.67643550691007,
+      "q_virial_at_sfe_ic": 0.014862662391520525
     },
     {
       "name": "compact",
@@ -28,8 +28,8 @@
       "mach": 32.79068949412318,
       "n_stars": 51507,
       "m_star_total_msun": 19077.860813485895,
-      "r_half_pc": 0.5398669112742653,
-      "q_virial_at_sfe_ic": 0.0024890111607247293
+      "r_half_pc": 0.5400848728531843,
+      "q_virial_at_sfe_ic": 0.0019253540242977645
     },
     {
       "name": "orion-solenoidal",
@@ -38,8 +38,8 @@
       "mach": 13.11627579764927,
       "n_stars": 10301,
       "m_star_total_msun": 4081.2087170288687,
-      "r_half_pc": 0.6778165990446021,
-      "q_virial_at_sfe_ic": 0.019226129433830542
+      "r_half_pc": 0.6738477546378022,
+      "q_virial_at_sfe_ic": 0.018648536269882207
     },
     {
       "name": "orion-compressive",
@@ -47,9 +47,29 @@
       "path": "/data/gravoturb/orion-compressive",
       "mach": 13.11627579764927,
       "n_stars": 10301,
-      "m_star_total_msun": 4081.2087170288683,
-      "r_half_pc": 0.6733725481055687,
-      "q_virial_at_sfe_ic": 0.006104413302490297
+      "m_star_total_msun": 4081.2087170288687,
+      "r_half_pc": 0.6758362401380776,
+      "q_virial_at_sfe_ic": 0.005383350307545618
+    },
+    {
+      "name": "orion-shallow",
+      "label": "Orion-like \u00b7 shallow profile",
+      "path": "/data/gravoturb/orion-shallow",
+      "mach": 13.11627579764927,
+      "n_stars": 10301,
+      "m_star_total_msun": 4081.2087170288687,
+      "r_half_pc": 0.6767456264113653,
+      "q_virial_at_sfe_ic": 0.013513289113800902
+    },
+    {
+      "name": "orion-concentrated",
+      "label": "Orion-like \u00b7 concentrated profile",
+      "path": "/data/gravoturb/orion-concentrated",
+      "mach": 13.11627579764927,
+      "n_stars": 10301,
+      "m_star_total_msun": 4081.2087170288687,
+      "r_half_pc": 0.6726908830233953,
+      "q_virial_at_sfe_ic": 0.008732505334787853
     }
   ]
 }
