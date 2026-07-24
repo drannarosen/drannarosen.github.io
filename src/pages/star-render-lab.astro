@@ -16,6 +16,11 @@ import PageHeader from "../components/PageHeader.astro";
   />
 
   <div class="srl wrap-wide">
+    <div class="srl__renderers" role="group" aria-label="Renderer">
+      <span class="srl__grp">Renderer</span>
+      <button type="button" class="srl__pill is-on" data-renderer="legacy">Legacy</button>
+      <button type="button" class="srl__pill" data-renderer="v2">Observed-v2</button>
+    </div>
     <div class="srl__stage">
       <canvas class="srl__canvas" data-stage aria-label="A Three.js star cluster testbed."></canvas>
       <p class="srl__status" data-status aria-live="polite">Loading…</p>
@@ -48,43 +53,85 @@ import PageHeader from "../components/PageHeader.astro";
 
 <script>
   import { initStarLabLegacy, type StarLabFlags } from "../lib/starlab/scene-legacy";
+  import { initStarLabV2 } from "../lib/starlab/scene";
 
-  const canvas = document.querySelector<HTMLCanvasElement>("[data-stage]");
+  type Renderer = "legacy" | "v2";
+  interface Mounted { dispose(): void; starCount: number }
+
   const status = document.querySelector<HTMLElement>("[data-status]");
-  if (canvas) {
-    initStarLabLegacy(canvas)
-      .then((lab) => {
-        if (status) status.textContent = `${lab.starCount.toLocaleString()} stars · Three.js + HDR`;
-        const panel = document.querySelector<HTMLElement>("[data-panel]");
-        const push = (el: HTMLInputElement) => {
-          const key = el.dataset.f as keyof StarLabFlags;
-          const val: number | boolean = el.type === "checkbox" ? el.checked : +el.value;
-          lab.setFlags({ [key]: val } as Partial<StarLabFlags>);
-          const out = panel?.querySelector<HTMLElement>(`[data-v="${key}"]`);
-          if (out) out.textContent = String(val);
-        };
-        for (const el of panel!.querySelectorAll<HTMLInputElement>("[data-f]")) {
-          el.addEventListener("input", () => push(el));
-          push(el); // apply initial
-        }
-        // A/C size-law mode buttons (set the numeric sizeMode directly)
-        for (const btn of panel!.querySelectorAll<HTMLButtonElement>("[data-mode]")) {
-          btn.addEventListener("click", () => {
-            for (const b of panel!.querySelectorAll<HTMLButtonElement>("[data-mode]"))
-              b.classList.toggle("is-on", b === btn);
-            lab.setFlags({ sizeMode: +btn.dataset.mode! });
-          });
-        }
-      })
-      .catch((err) => {
-        if (status) status.textContent = `Failed: ${String(err)}`;
+  const panel = document.querySelector<HTMLElement>("[data-panel]");
+  const setStatus = (t: string) => { if (status) status.textContent = t; };
+
+  // Wire the legacy control panel to a legacy lab instance.
+  function wireLegacyPanel(lab: { setFlags(f: Partial<StarLabFlags>): void }) {
+    if (!panel) return;
+    const push = (el: HTMLInputElement) => {
+      const key = el.dataset.f as keyof StarLabFlags;
+      const val: number | boolean = el.type === "checkbox" ? el.checked : +el.value;
+      lab.setFlags({ [key]: val } as Partial<StarLabFlags>);
+      const out = panel.querySelector<HTMLElement>(`[data-v="${key}"]`);
+      if (out) out.textContent = String(val);
+    };
+    for (const el of panel.querySelectorAll<HTMLInputElement>("[data-f]")) {
+      el.addEventListener("input", () => push(el));
+      push(el); // apply initial
+    }
+    for (const btn of panel.querySelectorAll<HTMLButtonElement>("[data-mode]")) {
+      btn.addEventListener("click", () => {
+        for (const b of panel.querySelectorAll<HTMLButtonElement>("[data-mode]"))
+          b.classList.toggle("is-on", b === btn);
+        lab.setFlags({ sizeMode: +btn.dataset.mode! });
       });
+    }
   }
+
+  let current: Mounted | null = null;
+
+  // Swap renderers on the SAME stage. A canvas keeps its first context type for
+  // life, so replace the node with a fresh clone before initialising the next
+  // renderer — this lets Legacy (Three/WebGL) and v2 (raw WebGL2) coexist behind
+  // one A/B switch without a stale context.
+  async function mount(kind: Renderer) {
+    current?.dispose();
+    current = null;
+    const old = document.querySelector<HTMLCanvasElement>("[data-stage]");
+    if (!old) return;
+    const canvas = old.cloneNode(false) as HTMLCanvasElement;
+    old.replaceWith(canvas);
+
+    // The legacy control panel only drives the legacy renderer.
+    panel?.toggleAttribute("hidden", kind !== "legacy");
+    setStatus("Loading…");
+    try {
+      if (kind === "legacy") {
+        const lab = await initStarLabLegacy(canvas);
+        current = lab;
+        setStatus(`${lab.starCount.toLocaleString()} stars · Three.js + HDR (legacy)`);
+        wireLegacyPanel(lab);
+      } else {
+        current = await initStarLabV2(canvas);
+        setStatus("Observed-v2 · renderer arrives in Stage 4 (WebGL2 ready)");
+      }
+    } catch (err) {
+      setStatus(`Failed: ${String(err)}`);
+    }
+  }
+
+  for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-renderer]")) {
+    btn.addEventListener("click", () => {
+      for (const b of document.querySelectorAll<HTMLButtonElement>("[data-renderer]"))
+        b.classList.toggle("is-on", b === btn);
+      void mount(btn.dataset.renderer as Renderer);
+    });
+  }
+
+  void mount("legacy"); // default: the real baseline, so live preview stays useful
 </script>
 
 <style>
   .srl { padding-block: var(--space-l) var(--space-3xl); display: grid; gap: var(--space-m); }
-  @media (min-width: 60rem) { .srl { grid-template-columns: minmax(0, 1fr) 18rem; align-items: start; } }
+  @media (min-width: 60rem) { .srl { grid-template-columns: minmax(0, 1fr) 18rem; align-items: start; } .srl__renderers { grid-column: 1 / -1; } }
+  .srl__renderers { display: flex; gap: 0.5rem; align-items: center; }
   .srl__stage { position: relative; aspect-ratio: 1 / 1; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #05060a; }
   .srl__canvas { inline-size: 100%; block-size: 100%; display: block; }
   .srl__status { position: absolute; inset-block-end: 0.5rem; inset-inline-start: 0.6rem; margin: 0; font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: overlay status */
