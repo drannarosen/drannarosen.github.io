@@ -22,6 +22,8 @@
 
 import { blackbodyLinearRGB, normalizeChroma } from "./index.ts";
 import { spectralType } from "../stellar/index.ts";
+import { BAND_COMPOSITES, bandIntegral, type BandComposite } from "../photometry/passbands.ts";
+import { planckNm } from "../blackbody/index.ts";
 
 export type SchemeKind = "physical" | "stretched" | "schematic";
 
@@ -121,6 +123,38 @@ export const COLOR_SCHEMES: ColorScheme[] = [
     color: (T) => CLASS_COLORS.get(classOf(T)) ?? FALLBACK,
   },
 ];
+
+/**
+ * Colour from a three-band composite: each channel is the star's flux through
+ * one filter, exactly as an astronomical colour image is assembled.
+ *
+ * This is a genuinely different route to colour from the schemes above. Those
+ * integrate the whole visible spectrum against the human observer; this samples
+ * three filters and assigns them to channels, so it can show light the eye
+ * cannot see. Channels are normalized to their peak, keeping colour independent
+ * of flux like every other scheme.
+ *
+ * The RATIOS come from physics — a cool star really is far brighter in K than in
+ * V — so the strong colour separation here is earned rather than dialled in.
+ */
+export function compositeColor(teffK: number, composite: BandComposite): [number, number, number] {
+  const spectrum = (l: number): number => planckNm(l, teffK);
+  const [r, g, b] = composite.bands.map((band) => bandIntegral(spectrum, band));
+  return normalizeChroma([r ?? 0, g ?? 0, b ?? 0]);
+}
+
+/** Composite schemes, derived from the shared band definitions. */
+const COMPOSITE_SCHEMES: ColorScheme[] = BAND_COMPOSITES.map((c) => ({
+  id: `band-${c.id}`,
+  label: c.label,
+  // Only the visible composite approximates what a person would see; the others
+  // are false colour in the ordinary astronomical sense.
+  kind: c.id === "visible" ? "physical" : "schematic",
+  note: c.note,
+  color: (T: number) => compositeColor(T, c),
+}));
+
+COLOR_SCHEMES.push(...COMPOSITE_SCHEMES);
 
 /** Look up a scheme by id, falling back to true colour. */
 export function getScheme(id: string): ColorScheme {

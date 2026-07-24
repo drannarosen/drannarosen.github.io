@@ -23,6 +23,7 @@ import {
 } from "../src/novascope/core/colorimetry/index.ts";
 import { planckNm, wienPeakLambda, NM_TO_CM } from "../src/novascope/core/blackbody/index.ts";
 import { COLOR_SCHEMES, getScheme, stretchChroma } from "../src/novascope/core/colorimetry/schemes.ts";
+import { PASSBANDS, bandFlux, bandIntegral, colorIndex, bandResponse, VEGA_TEFF_K, BAND_COMPOSITES } from "../src/novascope/core/photometry/passbands.ts";
 import { moffat, aureole, DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
 import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../src/novascope/core/imaging/index.ts";
 import { coreRadiusPx, computeTiers, DEFAULT_CORE } from "../src/novascope/viz/starfield/sizing.ts";
@@ -169,6 +170,66 @@ ok(
 // Guards: the LUT is sampled at arbitrary Teff, so it must not blow up at the ends.
 ok(blackbodyLinearRGB(1000).every(Number.isFinite), "finite below the fit range");
 ok(blackbodyLinearRGB(60000).every(Number.isFinite), "finite above the fit range");
+
+/* ── passbands: what a FILTER sees, not the bolometric total ── */
+const bU = PASSBANDS.U, bB = PASSBANDS.B, bV = PASSBANDS.V, bR = PASSBANDS.R;
+const bI = PASSBANDS.I, bJ = PASSBANDS.J, bH = PASSBANDS.H, bK = PASSBANDS.K;
+ok(Object.values(PASSBANDS).every((b) => b.lambdaEffNm > 0 && b.fwhmNm > 0), "every band is well-formed");
+ok(bU.lambdaEffNm < bB.lambdaEffNm && bB.lambdaEffNm < bV.lambdaEffNm, "UBV are ordered in wavelength");
+ok(bV.lambdaEffNm < bR.lambdaEffNm && bR.lambdaEffNm < bI.lambdaEffNm, "VRI are ordered");
+ok(bI.lambdaEffNm < bJ.lambdaEffNm && bJ.lambdaEffNm < bH.lambdaEffNm && bH.lambdaEffNm < bK.lambdaEffNm, "IJHK are ordered");
+ok(Math.abs(bandResponse(bV.lambdaEffNm, bV) - 1) < 1e-12, "band response peaks at 1 at lambda_eff");
+ok(
+  Math.abs(bandResponse(bV.lambdaEffNm + bV.fwhmNm / 2, bV) - 0.5) < 1e-6,
+  "…and is at half power one half-FWHM away, by construction",
+);
+
+// The Vega convention: an A0V-like star has zero colour in every index.
+ok(Math.abs(colorIndex(VEGA_TEFF_K, bB, bV)) < 1e-9, "A0V-like star has B-V = 0 (Vega zero point)");
+ok(Math.abs(colorIndex(VEGA_TEFF_K, bV, bK)) < 1e-9, "…and V-K = 0");
+
+// Colour indices must redden monotonically as stars cool.
+const bvSeq = [30000, 15000, 9550, 6000, 4500, 3200].map((T) => colorIndex(T, bB, bV));
+ok(
+  bvSeq.every((v, i) => i === 0 || v > bvSeq[i - 1]),
+  "B-V reddens monotonically from O to M",
+);
+ok(colorIndex(30000, bB, bV) < 0 && colorIndex(3200, bB, bV) > 1, "hot stars are blue (B-V<0), M stars red (B-V>1)");
+
+/* Against REAL dwarf colours (Pecaut & Mamajek 2013). A blackbody is not a star:
+ * line blanketing suppresses the blue, so real stars are REDDER than these
+ * synthetic colours by a few tenths of a magnitude. The gate pins the sign and
+ * the size of that known deficit, so the approximation stays honest and a future
+ * empirical correction has something to beat. */
+for (const [name, T, realBV] of [["Sun", 5772, 0.65], ["K5V", 4410, 1.15], ["M4V", 3200, 1.6]]) {
+  const synth = colorIndex(T, bB, bV);
+  ok(synth < realBV, `${name}: blackbody B-V is bluer than the real star, as expected`);
+  ok(realBV - synth < 0.45, `${name}: …and the blackbody deficit stays under 0.45 mag`);
+}
+
+/* The bug this module fixes: bolometric flux over-brightens stars whose light
+ * falls mostly OUTSIDE the band being viewed — cool stars (IR) and hot stars
+ * (UV) alike. */
+const vRel = (T, Rs) => bandFlux(T, Rs, 400, bV) / bandFlux(5772, 1, 400, bV);
+const boloRel = (T, Rs) => (Rs * Rs * (T / 5772) ** 4) / 1;
+ok(boloRel(3200, 0.3) / vRel(3200, 0.3) > 2, "a cool star is over-bright bolometrically vs in V");
+ok(boloRel(20000, 5) / vRel(20000, 5) > 2, "…and so is a hot star, whose flux is largely UV");
+// The inversion that makes an IR view worth having.
+const coolVK = bandFlux(3200, 0.3, 400, bK) / bandFlux(3200, 0.3, 400, bV);
+const hotVK = bandFlux(20000, 5, 400, bK) / bandFlux(20000, 5, 400, bV);
+ok(coolVK > hotVK, "cool stars are relatively far brighter in K than in V — the point of an IR view");
+ok(bandFlux(5772, 1, 400, bV) > bandFlux(5772, 1, 800, bV), "band flux falls with distance");
+ok(bandFlux(0, 1, 400, bV) === 0 && bandFlux(5772, 0, 400, bV) === 0, "degenerate inputs give 0");
+ok(bandIntegral(() => 0, bV) === 0, "a null spectrum integrates to zero");
+ok(
+  BAND_COMPOSITES.every((c) => c.bands.length === 3 && c.note.length > 0),
+  "every composite names three bands and carries a caption",
+);
+// A composite must be ordered red -> blue in wavelength, or the mapping lies.
+ok(
+  BAND_COMPOSITES.every((c) => c.bands[0].lambdaEffNm > c.bands[2].lambdaEffNm),
+  "…and maps the longest wavelength to red, the shortest to blue",
+);
 
 /* ── colour schemes: one physics, several honest presentations ── */
 const chromaDistance = (c) => {
