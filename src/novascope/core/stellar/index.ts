@@ -19,18 +19,22 @@
  * so Z is clipped to [1e-4, 0.03] before forming zeta = log10(Z / 0.02).
  */
 
+import { T_SUN_K } from "../constants/index.ts";
+
 /** Tout 1996 fit-normalization metallicity (the tables' "solar" anchor). */
 const Z_REF = 0.02;
 const Z_MIN = 1e-4;
 const Z_MAX = 0.03;
 
 /*
- * Teff reference: (Lsun / (4 pi Rsun^2 sigma_SB))^(1/4) with startrax/jaxstro's
- * CGS constants (Lsun=3.828e33 erg/s, Rsun=6.957e10 cm, sigma=5.670374419e-5).
- * Equals the IAU nominal solar Teff. So Teff = TEFF_REF * L^(1/4) / R^(1/2)
- * reproduces zams.py's Stefan-Boltzmann closure exactly.
+ * Teff reference: (Lsun / (4 pi Rsun^2 sigma_SB))^(1/4), which core/constants
+ * derives from the IAU 2015 nominal Lsun/Rsun and CODATA sigma_SB — the same
+ * CGS constants startrax/jaxstro use, so Teff = TEFF_REF * L^(1/4) / R^(1/2)
+ * reproduces zams.py's Stefan-Boltzmann closure exactly. Imported rather than
+ * typed (it was 5772.003429145849 here) so this anchor cannot drift from the
+ * constants it is built from; check-constants asserts they agree bit-for-bit.
  */
-const TEFF_REF = 5772.003429145849;
+const TEFF_REF = T_SUN_K;
 
 /* Tout 1996 Table 1: L(M,Z). Each row is a degree-4 polynomial in
  * zeta = log10(Z/0.02) for one coefficient of eq. (1):

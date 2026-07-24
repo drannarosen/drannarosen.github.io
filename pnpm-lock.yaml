@@ -33,7 +33,7 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
       three:
-        specifier: ^0.185.1
+        specifier: 0.185.1
         version: 0.185.1
       zod:
         specifier: ^4.4.3
@@ -46,7 +46,7 @@ importers:
         specifier: ^0.16.8
         version: 0.16.8
       '@types/three':
-        specifier: ^0.185.1
+        specifier: 0.185.1
         version: 0.185.1
       sharp:
         specifier: ^0.35.3

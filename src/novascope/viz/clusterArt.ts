@@ -13,6 +13,7 @@
  */
 
 import { mulberry32 } from "../core/random/index.ts";
+import { T_SUN_K } from "../core/constants/index.ts";
 import { spectralRGB } from "./spectral.ts";
 
 export interface ClusterMeta {
@@ -90,7 +91,7 @@ function prepare(data: ClusterData): Prepared {
     const radius = stars[o + 5];
     rsz[i] = Math.sqrt(Math.min(30, Math.max(0.05, radius))); // radius already in Rsun
     // Luminosity (Lsun): L = R^2 (Teff/Tsun)^4 — used for BRIGHTNESS only
-    const L = radius * radius * Math.pow(teff / 5772, 4);
+    const L = radius * radius * Math.pow(teff / T_SUN_K, 4);
     logL[i] = Math.log10(Math.max(1e-4, L));
     const [r, g, b] = spectralRGB(teff);
     color[i] = `${Math.round(r)},${Math.round(g)},${Math.round(b)}`;

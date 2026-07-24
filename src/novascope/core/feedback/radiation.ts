@@ -16,12 +16,13 @@
  * work by a hot bubble, f_trap from a photon interacting more than once.
  */
 import { ALPHA_B, PHI_DUST, T_II, EPS_0_ERG, hiiPressure } from "./photoionization.ts";
+import { L_SUN_ERG_S, SIGMA_SB_CGS } from "../constants/index.ts";
 
 /* ── constants ────────────────────────────────────────────────────────────
  * Speed of light [cm/s] — exact by SI definition. */
 const C_CM_S = 2.99792458e10;
-/** Solar luminosity [erg/s]. IAU 2015 nominal L_sun = 3.828e33. */
-const LSUN_ERG_S = 3.828e33;
+/** Solar luminosity [erg/s]. IAU 2015 nominal — see @novascope/core/constants. */
+const LSUN_ERG_S = L_SUN_ERG_S;
 const PC_CM = 3.086e18;
 const MSUN_G = 1.989e33;
 const KMS_CM_S = 1e5;
@@ -62,8 +63,8 @@ export const F_TRAP_DIRECT = 1.0;
  */
 export const F_TRAP_LYA = 0.0;
 
-/** Stefan-Boltzmann constant [erg cm^-2 s^-1 K^-4]. */
-const SIGMA_SB = 5.670374419e-5;
+/** Stefan-Boltzmann constant [erg cm^-2 s^-1 K^-4]. CODATA — see /core/constants. */
+const SIGMA_SB = SIGMA_SB_CGS;
 
 /**
  * Effective temperature of the shell's photosphere [K], from KM09's

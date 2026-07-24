@@ -12,6 +12,7 @@
 
 import { FULLSCREEN_VS, VOLUME_FS, STAR_VS, STAR_FS } from "./shaders.ts";
 import { spectralRGB } from "../spectral.ts";
+import { T_SUN_K } from "../../core/constants/index.ts";
 import type { Scene, View } from "./scene.ts";
 
 export const DEFAULT_ZOOM = 1.0; // <1 fills more of the frame; user can zoom in/out
@@ -92,7 +93,7 @@ function program(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgr
  * luminosity range (ZAMS 0.08-150 Msun => ~[-3.5, 6.5] dex) so a given star is
  * the same size in every realization; only the min/max marker size is a display
  * range. */
-const T_SUN = 5772; // K, IAU nominal solar effective temperature
+const T_SUN = T_SUN_K; // IAU nominal — see @novascope/core/constants
 const LOGL_LO = -3.5, LOGL_HI = 6.5; // log10 L/Lsun spanning the IMF
 
 /** Interleave stars (n*6) into the GPU buffer layout [x,y,z, r,g,b, size] (n*7). */

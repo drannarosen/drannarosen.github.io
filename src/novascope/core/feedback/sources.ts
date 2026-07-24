@@ -11,6 +11,7 @@
  * scene renders.
  */
 import { luminosity, msLifetime } from "../stellar/index.ts";
+import { R_SUN_CM } from "../constants/index.ts";
 
 /* ── mass clamp — the export's own bounds ─────────────────────────────────
  * progenax samples the IMF to 300 Msun (Maschberger, m_max=300) but computes
@@ -48,8 +49,8 @@ const G_PC_KMS2_MSUN = 4.300917270e-3;
 /** Solar radius in parsec: IAU 2015 nominal R_sun 6.957e8 m / parsec. */
 const RSUN_PC = 2.2546101516841093e-8;
 
-/** Solar radius in cm (IAU 2015 nominal R_sun = 6.957e10 cm). */
-const RSUN_CM = 6.957e10;
+/** Solar radius in cm. IAU 2015 nominal — see @novascope/core/constants. */
+const RSUN_CM = R_SUN_CM;
 
 /**
  * Bolometric luminosity [Lsun] from the exported (teff [K], radius [Rsun]).
