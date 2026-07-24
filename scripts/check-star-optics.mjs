@@ -22,6 +22,7 @@ import {
   spectrumLinearRGB,
 } from "../src/novascope/core/colorimetry/index.ts";
 import { planckNm, wienPeakLambda, NM_TO_CM } from "../src/novascope/core/blackbody/index.ts";
+import { COLOR_SCHEMES, getScheme, stretchChroma } from "../src/novascope/core/colorimetry/schemes.ts";
 import { moffat, aureole, DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
 import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../src/novascope/core/imaging/index.ts";
 import { coreRadiusPx, computeTiers, DEFAULT_CORE } from "../src/novascope/viz/starfield/sizing.ts";
@@ -168,6 +169,57 @@ ok(
 // Guards: the LUT is sampled at arbitrary Teff, so it must not blow up at the ends.
 ok(blackbodyLinearRGB(1000).every(Number.isFinite), "finite below the fit range");
 ok(blackbodyLinearRGB(60000).every(Number.isFinite), "finite above the fit range");
+
+/* ── colour schemes: one physics, several honest presentations ── */
+const chromaDistance = (c) => {
+  const lum = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+  return Math.hypot(c[0] - lum, c[1] - lum, c[2] - lum);
+};
+for (const s of COLOR_SCHEMES) {
+  const samples = [2500, 3200, 5800, 10000, 40000].map((T) => s.color(T));
+  ok(
+    samples.every((c) => c.every((v) => v >= 0 && v <= 1 && Number.isFinite(v))),
+    `scheme '${s.id}' returns valid linear RGB across the stellar range`,
+  );
+  ok(
+    Math.abs(Math.max(...samples[0]) - 1) < 1e-9,
+    `scheme '${s.id}' is peak-normalized, so colour stays independent of flux`,
+  );
+  // Every scheme must declare what kind of claim it makes, so a page can caption
+  // it honestly instead of implying a designed palette is a measurement.
+  ok(
+    ["physical", "stretched", "schematic"].includes(s.kind) && s.note.length > 0,
+    `scheme '${s.id}' declares its kind ('${s.kind}') and carries a caption`,
+  );
+}
+// The physical baseline must BE the physics, not a near-copy of it.
+ok(
+  getScheme("true").color(9000).every((v, i) => Math.abs(v - blackbodyLinearRGB(9000)[i]) < 1e-12),
+  "the 'true' scheme is exactly blackbodyLinearRGB",
+);
+// Stretching is monotone in chroma: true < stretched < vivid, at a fixed Teff.
+const chromaAt = (id) => chromaDistance(getScheme(id).color(3200));
+ok(
+  chromaAt("true") < chromaAt("stretched") && chromaAt("stretched") < chromaAt("vivid"),
+  "chroma increases true -> stretched -> vivid",
+);
+// …and stretching must preserve HUE ORDER: hot stays bluer than cool everywhere.
+for (const s of COLOR_SCHEMES) {
+  const cool = s.color(3200);
+  const hot = s.color(20000);
+  ok(
+    hot[2] / (hot[0] || 1e-9) > cool[2] / (cool[0] || 1e-9),
+    `scheme '${s.id}' keeps hot stars bluer than cool ones (hue order preserved)`,
+  );
+}
+// A stretch of 1 is the identity — the knob has no hidden offset.
+ok(
+  stretchChroma(blackbodyLinearRGB(6000), 1).every(
+    (v, i) => Math.abs(v - blackbodyLinearRGB(6000)[i]) < 1e-12,
+  ),
+  "stretchChroma(c, 1) is the identity",
+);
+ok(getScheme("nonexistent").id === "true", "an unknown scheme id falls back to true colour");
 
 /* ── robust exposure: a percentile, NEVER the max ──
  * This is the fix for the giant central blob. Normalizing by the single

@@ -1,6 +1,27 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
+import { COLOR_SCHEMES } from "@novascope/core/colorimetry/schemes";
+import { linearToSrgbRGB } from "@novascope/core/colorimetry";
+import { spectralType } from "@novascope/core/stellar";
+
+/*
+ * Colour-scheme comparison, rendered at BUILD time. Every swatch is computed by
+ * the same functions the GPU path will mirror, so this strip is a real preview
+ * of the renderer's colour, not a mock-up drawn to look like one.
+ */
+const SAMPLE_TEFF = [2500, 3200, 4000, 4500, 5300, 5800, 6800, 8800, 12000, 20000, 30000, 40000];
+const css = (c: readonly [number, number, number]): string => {
+  const [r, g, b] = linearToSrgbRGB(c).map((v) => Math.round(v * 255));
+  return `rgb(${r} ${g} ${b})`;
+};
+const schemeRows = COLOR_SCHEMES.map((s) => ({
+  id: s.id,
+  label: s.label,
+  kind: s.kind,
+  note: s.note,
+  swatches: SAMPLE_TEFF.map((T) => ({ teff: T, css: css(s.color(T)), type: spectralType(T) })),
+}));
 ---
 
 <BaseLayout
@@ -20,6 +41,43 @@ import PageHeader from "../components/PageHeader.astro";
       <canvas class="srl__canvas" data-stage aria-label="A star cluster rendered in observed mode."></canvas>
       <p class="srl__status" data-status aria-live="polite">Loading…</p>
     </div>
+
+    <section class="srl__schemes" aria-labelledby="schemes-h">
+      <h2 id="schemes-h" class="srl__h">Colour schemes</h2>
+      <p class="srl__intro">
+        One physics, several presentations. True colour is faithful and
+        deliberately subtle — stellar blackbody colours trace only a short arc of
+        colour space, so a real cluster reads mostly white with restrained tints.
+        The vivid schemes keep each star's physical <em>hue</em> and exaggerate
+        only its saturation; the schematic one encodes classification instead of
+        appearance.
+      </p>
+
+      {schemeRows.map((row) => (
+        <div class="srl__scheme">
+          <div class="srl__schemeHead">
+            <span class="srl__schemeName">{row.label}</span>
+            <span class={`srl__kind srl__kind--${row.kind}`}>{row.kind}</span>
+          </div>
+          <div class="srl__ramp">
+            {row.swatches.map((s) => (
+              <span
+                class="srl__sw"
+                style={`background:${s.css}`}
+                title={`${s.teff.toLocaleString()} K · ${s.type}`}
+              />
+            ))}
+          </div>
+          <p class="srl__note">{row.note}</p>
+        </div>
+      ))}
+
+      <div class="srl__axis">
+        <span>2,500 K · M</span>
+        <span>cooler ← Teff → hotter</span>
+        <span>40,000 K · O</span>
+      </div>
+    </section>
   </div>
 </BaseLayout>
 
@@ -56,4 +114,18 @@ import PageHeader from "../components/PageHeader.astro";
   .srl__stage { position: relative; aspect-ratio: 1 / 1; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #05060a; }
   .srl__canvas { inline-size: 100%; block-size: 100%; display: block; }
   .srl__status { position: absolute; inset-block-end: 0.5rem; inset-inline-start: 0.6rem; margin: 0; font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: overlay status */
+
+  .srl__schemes { display: grid; gap: var(--space-m); padding: var(--space-m); border: 1px solid var(--border); border-radius: 10px; }
+  .srl__h { margin: 0; font-size: var(--step-1); }
+  .srl__intro { margin: 0; max-inline-size: var(--width-prose); color: var(--ink-dim); font-size: var(--step--1); }
+  .srl__scheme { display: grid; gap: 0.4rem; }
+  .srl__schemeHead { display: flex; gap: 0.6rem; align-items: baseline; }
+  .srl__schemeName { font-size: var(--step-0); font-weight: 600; }
+  .srl__kind { font-family: var(--font-mono); font-size: var(--step--2); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--border); color: var(--ink-dim); }
+  .srl__kind--physical { color: var(--spec-teal-bright, #4fd6c4); border-color: currentColor; }
+  .srl__kind--schematic { color: var(--ink-faint); }
+  .srl__ramp { display: flex; block-size: 2.75rem; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+  .srl__sw { flex: 1; }
+  .srl__note { margin: 0; max-inline-size: var(--width-prose); color: var(--ink-dim); font-size: var(--step--2); }
+  .srl__axis { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-faint); }
 </style>
