@@ -12,5 +12,5 @@ export { attachInteraction } from "./interaction.ts";
 export { spectralRGB } from "../spectral.ts";
 export type { Segregator } from "./massSegregation.ts";
 export { makeSegregator } from "./massSegregation.ts";
-export type { Dynamics, DynamicsInit, DynamicsParams, Diagnostics, Phase } from "./dynamics.ts";
-export { createDynamics, RELAX_TCROSS } from "./dynamics.ts";
+export type { Dynamics, DynamicsInit, DynamicsParams, Diagnostics, Phase } from "../../core/dynamics/index.ts";
+export { createDynamics, RELAX_TCROSS } from "../../core/dynamics/index.ts";

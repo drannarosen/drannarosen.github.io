@@ -23,7 +23,12 @@ import { L_SUN_ERG_S, SIGMA_SB_CGS } from "../constants/index.ts";
 const C_CM_S = 2.99792458e10;
 /** Solar luminosity [erg/s]. IAU 2015 nominal — see @novascope/core/constants. */
 const LSUN_ERG_S = L_SUN_ERG_S;
+/* Parsec [cm]. NOTE: the rounded 3.086e18 shared by bubble/ledger/photoionization,
+ * NOT constants.PC_CM (exact). Unifying only this file desynchronised r_ch from the
+ * H II pressure it is defined against and broke the P_rad/P_HII = 1 self-consistency
+ * check. The feedback channels must move together — see ADR 0015 consequences. */
 const PC_CM = 3.086e18;
+
 const MSUN_G = 1.989e33;
 const KMS_CM_S = 1e5;
 const K_B = 1.380649e-16;
