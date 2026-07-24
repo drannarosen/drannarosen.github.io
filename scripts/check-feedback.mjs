@@ -1,0 +1,75 @@
+/*
+ * check-feedback.mjs — gates the internal consistency of the feedback core.
+ *
+ * r_ch, P_rad(r) and P_HII(r) are three expressions of ONE physical statement:
+ * the radius where the two pressure terms of Krumholz & Matzner (2009)'s
+ * thin-shell equation of motion balance. Nothing in the type system ties them
+ * together, so a future edit to alpha_B, phi, T_II or the particle-count
+ * convention would leave code that still runs and curves that still plot,
+ * crossing at the wrong place. That is exactly the failure this gate exists to
+ * make loud.
+ */
+import {
+  characteristicRadius,
+  radiationPressure,
+  pressureComparison,
+} from "../src/novascope/core/feedback/radiation.ts";
+import { hiiPressure } from "../src/novascope/core/feedback/photoionization.ts";
+
+let failures = 0;
+function check(label, got, want, rtol) {
+  const ok = Math.abs(got - want) <= rtol * Math.abs(want);
+  if (!ok) {
+    failures++;
+    console.error(`  FAIL ${label}: got ${got}, want ${want} (rtol ${rtol})`);
+  } else {
+    console.log(`  ok   ${label}: ${typeof got === "number" ? got.toPrecision(4) : got}`);
+  }
+}
+
+console.log("feedback: KM09 pressure consistency");
+
+/* 1. The published numerical evaluation. KM09 give r_ch = (9.2, 2.3)e-2 S_49 pc
+ *    for (spherical, blister) at their fiducial alpha_B, phi, T_II, with
+ *    f_trap = 2 and psi = 1. This anchors the whole normalization to a number
+ *    in the paper rather than to a counting argument reconstructed here. */
+check("r_ch spherical @ S=1e49, psi=1, f_trap=2", characteristicRadius(1e49, 1, 2, true), 9.2e-2, 5e-3);
+check("r_ch blister   @ S=1e49, psi=1, f_trap=2", characteristicRadius(1e49, 1, 2, false), 2.3e-2, 5e-3);
+
+/* 2. The crossing. P_rad ~ r^-2 and P_HII ~ r^(-3/2) meet exactly once, and
+ *    that radius must BE r_ch. Swept across four decades of S and a range of
+ *    f_trap so the check constrains the scalings, not one lucky point. */
+for (const S of [1e47, 1e49, 1e51]) {
+  for (const fTrap of [1, 2, 9]) {
+    // psi = L/(S eps_0) = 1  =>  L in Lsun that makes psi exactly 1
+    const EPS_0_ERG = 13.6 * 1.602176634e-12;
+    const LSUN = 3.828e33;
+    const lSun = (S * EPS_0_ERG) / LSUN;
+    const rCh = characteristicRadius(S, 1, fTrap, true);
+    const { ratio } = pressureComparison(lSun, S, rCh, fTrap);
+    check(`P_rad/P_HII at r_ch (S=${S.toExponential(0)}, f_trap=${fTrap})`, ratio, 1, 1e-6);
+
+    // and the crossing is a genuine crossing, not a tangency
+    const inside = pressureComparison(lSun, S, rCh * 0.5, fTrap).ratio;
+    const outside = pressureComparison(lSun, S, rCh * 2, fTrap).ratio;
+    if (!(inside > 1 && outside < 1)) {
+      failures++;
+      console.error(`  FAIL dominance flips across r_ch: inside=${inside}, outside=${outside}`);
+    }
+  }
+}
+
+/* 3. The scalings themselves, stated independently of the formula above. */
+const L0 = 1e5;
+check("P_rad ~ r^-2", radiationPressure(L0, 2) / radiationPressure(L0, 4), 4, 1e-12);
+check("P_rad ~ f_trap", radiationPressure(L0, 2, 4) / radiationPressure(L0, 2, 2), 2, 1e-12);
+check("P_HII ~ r^-3/2", hiiPressure(1e49, 1) / hiiPressure(1e49, 4), 8, 1e-12);
+check("P_HII ~ S^1/2", hiiPressure(4e49, 1) / hiiPressure(1e49, 1), 2, 1e-12);
+check("r_ch ~ f_trap^2", characteristicRadius(1e49, 1, 4) / characteristicRadius(1e49, 1, 2), 4, 1e-12);
+check("r_ch ~ psi^2", characteristicRadius(1e49, 2, 2) / characteristicRadius(1e49, 1, 2), 4, 1e-12);
+
+if (failures) {
+  console.error(`\nfeedback: ${failures} check(s) failed`);
+  process.exit(1);
+}
+console.log("feedback: all checks passed");

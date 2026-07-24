@@ -15,7 +15,7 @@
  * different physical statements and must not be conflated -- eta comes from PdV
  * work by a hot bubble, f_trap from a photon interacting more than once.
  */
-import { ALPHA_B, PHI_DUST, T_II, EPS_0_ERG } from "./photoionization.ts";
+import { ALPHA_B, PHI_DUST, T_II, EPS_0_ERG, hiiPressure } from "./photoionization.ts";
 
 /* ── constants ────────────────────────────────────────────────────────────
  * Speed of light [cm/s] — exact by SI definition. */
@@ -105,6 +105,48 @@ export function radiationMomentum(
 }
 
 /**
+ * Radiation pressure [dyn/cm^2] at radius r [pc] — the radiation term of KM09's
+ * thin-shell equation of motion (eq 1), f_trap L / (4 pi r^2 c).
+ *
+ * Falls as r^-2, against the H II term's r^(-3/2), so the two cross exactly
+ * once: at r_ch. Radiation dominates INSIDE, gas pressure outside.
+ */
+export function radiationPressure(
+  lSun: number,
+  rPc: number,
+  fTrap: number = F_TRAP_FIDUCIAL,
+): number {
+  if (!(rPc > 0)) return 0;
+  const rCm = rPc * PC_CM;
+  return (fTrap * lSun * LSUN_ERG_S) / (4 * Math.PI * rCm ** 2 * C_CM_S);
+}
+
+/**
+ * Instantaneous pressure comparison at radius r — the criterion KM09 and Fall,
+ * Krumholz & Matzner (2010) actually apply.
+ *
+ * DISTINCT FROM THE LEDGER, deliberately. The ledger integrates each channel's
+ * momentum over the pre-SN window and asks which delivered more; this asks
+ * which pushes harder RIGHT NOW at radius r. The two can disagree, and the
+ * disagreement is physical rather than a discrepancy to tune away: radiation
+ * deposits momentum linearly in t, while a D-front decelerates (R ~ t^(4/7),
+ * so v ~ t^(-3/7)), so radiation can win the time-integral in an environment
+ * where gas pressure wins the instantaneous comparison.
+ *
+ * Both are reported. Neither is "the" answer.
+ */
+export function pressureComparison(
+  lSun: number,
+  sPerS: number,
+  rPc: number,
+  fTrap: number = F_TRAP_FIDUCIAL,
+): { pRad: number; pHii: number; ratio: number } {
+  const pRad = radiationPressure(lSun, rPc, fTrap);
+  const pHii = hiiPressure(sPerS, rPc);
+  return { pRad, pHii, ratio: pHii > 0 ? pRad / pHii : Infinity };
+}
+
+/**
  * Characteristic radius r_ch [pc] — KM09 eqs (4)-(5), where radiation and gas
  * pressure are equal:
  *
@@ -165,6 +207,19 @@ export interface RadiationBudget {
    * radiation-pressure-predominant corner of the M-Sigma plane.
    */
   radiationDominated: boolean;
+  /** Radiation pressure at the cloud radius [dyn/cm^2]. */
+  pRadAtCloud: number;
+  /** Ionized-gas pressure at the cloud radius [dyn/cm^2]. */
+  pHiiAtCloud: number;
+  /**
+   * P_rad/P_HII at the cloud radius — the INSTANTANEOUS dominance criterion,
+   * reported alongside the ledger's integrated-momentum comparison because the
+   * two ask different questions and may disagree. Equivalent to
+   * `radiationDominated` by construction (both are the r_ch crossing), but a
+   * continuous number rather than a boolean, so "marginal" is visible instead
+   * of being rounded to one side.
+   */
+  pressureRatioAtCloud: number;
 }
 
 export function radiationBudget(
@@ -176,11 +231,15 @@ export function radiationBudget(
 ): RadiationBudget {
   const psi = psiRatio(lTotalSun, sTotalPerS);
   const rCh = characteristicRadius(sTotalPerS, psi, fTrap);
+  const cmp = pressureComparison(lTotalSun, sTotalPerS, cloudRadiusPc, fTrap);
   return {
     lTotal: lTotalSun,
     momentum: radiationMomentum(lTotalSun, tMyr, fTrap),
     psi,
     rCh,
     radiationDominated: rCh >= cloudRadiusPc,
+    pRadAtCloud: cmp.pRad,
+    pHiiAtCloud: cmp.pHii,
+    pressureRatioAtCloud: cmp.ratio,
   };
 }

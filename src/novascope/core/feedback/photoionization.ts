@@ -95,6 +95,44 @@ export function dFrontSpeed(rStromgrenPc: number, tMyr: number): number {
   return (c * Math.pow(x, -3 / 7)) / KMS_TO_PC_MYR;
 }
 
+/**
+ * Ionized-gas number density [cm^-3] at radius r [pc] inside an H II region
+ * driven by ionizing rate S, from the same balance as `stromgrenRadius`
+ * (KM09 eq 2) read the other way round — solving for n at a GIVEN r rather than
+ * for r at a given n:
+ *
+ *   (4/3) pi r^3 alpha_B n^2 = phi S   =>   n = sqrt(3 phi S / (4 pi alpha_B r^3))
+ *
+ * so n ~ r^(-3/2), which is what makes the gas-pressure term fall more slowly
+ * than the r^-2 radiation term and gives the two curves exactly one crossing.
+ */
+export function ionizedDensity(sPerS: number, rPc: number): number {
+  if (!(sPerS > 0) || !(rPc > 0)) return 0;
+  const rCm = rPc * PC_CM;
+  return Math.sqrt((3 * PHI_DUST * sPerS) / (4 * Math.PI * ALPHA_B * rCm ** 3));
+}
+
+/**
+ * Ionized-gas pressure [dyn/cm^2] at radius r [pc] — the gas-pressure term of
+ * KM09's thin-shell equation of motion, P_II = n_II k T_II.
+ *
+ * ON THE PARTICLE-COUNT CONVENTION. Writing this as n k T rather than 2 n k T
+ * is not an oversight about electrons. KM09 express the term as
+ * rho_II c_II^2 (u_II/c_II) (eq 3), and the coefficient that reproduces their
+ * PUBLISHED r_ch of 9.2e-2 S_49 pc (fiducial alpha_B, phi, T_II, f_trap = 2,
+ * psi = 1) is exactly this one — verified numerically, and gated below. Their
+ * quoted blister value 2.3e-2 is the same number over 4, and that 4 is the
+ * GEOMETRIC (u_II/c_II = 2, squared) factor already carried by
+ * `characteristicRadius`'s `spherical` flag, not a second particle-count.
+ *
+ * The normalization is therefore anchored to a published number rather than to
+ * a counting argument reconstructed here, which is the direction that cannot
+ * silently drift.
+ */
+export function hiiPressure(sPerS: number, rPc: number): number {
+  return ionizedDensity(sPerS, rPc) * 1.380649e-16 * T_II;
+}
+
 export interface HiiRegion {
   /** Initial Strömgren radius [pc]. */
   rStromgren: number;
