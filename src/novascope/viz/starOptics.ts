@@ -197,3 +197,145 @@ export function asinhResponse(flux: number, exposure: number, k: number, whiteFl
   if (denom <= 0) return 0;
   return Math.asinh((k * exposure * Math.max(0, flux)) / white) / denom;
 }
+
+/* ────────────────────────────── the star profile ───────────────────────────── */
+
+/** Parameters of the bounded unresolved core, in screen pixels. */
+export interface CoreParams {
+  /** Radius of a zero-flux star [px] — also the floor. */
+  r0: number;
+  /** Growth per e-fold of flux [px]. */
+  a: number;
+  /** Hard floor [px]. */
+  coreMin: number;
+  /** Hard ceiling [px] — the brightest core is still only a few pixels. */
+  coreMax: number;
+  /** Flux scale for the log1p [same units as apparent flux, relative to white]. */
+  F0: number;
+}
+
+/**
+ * Defaults sized for the spec: ordinary stars land near 0.7–1.6 px radius and the
+ * very brightest core never exceeds 3 px. `F0` is expressed in units of
+ * whiteFlux, so callers pass `F/whiteFlux` and the defaults stay meaningful for
+ * any cluster.
+ */
+export const DEFAULT_CORE: CoreParams = { r0: 0.75, a: 0.35, coreMin: 0.7, coreMax: 3.0, F0: 0.05 };
+
+/**
+ * Screen radius of a star's unresolved core [px]:
+ *
+ *     r = clamp(r0 + a·log1p(F/F0), coreMin, coreMax)
+ *
+ * Deliberately a WEAK, BOUNDED function of flux — and the single most important
+ * departure from the legacy renderer, which mapped luminosity onto billboard
+ * diameter directly. That made the brightest stars the largest quads precisely
+ * where the cluster is densest, so their footprints overlapped and summed into
+ * the central blob. Here luminosity drives RADIANCE (`asinhResponse`) and barely
+ * touches size: across 6 dex of flux the core grows by well under a factor of 4
+ * and stops at `coreMax`.
+ *
+ * Physically this is the right shape too: these stars are unresolved point
+ * sources, so their apparent size is set by the instrument's PSF, not by the
+ * star. A brighter star looks bigger only because more of its PSF wing clears the
+ * noise floor — a logarithmic, saturating effect, which is what log1p gives.
+ */
+export function coreRadiusPx(flux: number, p: CoreParams): number {
+  const r = p.r0 + p.a * Math.log1p(Math.max(0, flux) / p.F0);
+  return Math.min(p.coreMax, Math.max(p.coreMin, r));
+}
+
+/**
+ * Moffat (1969) PSF, normalized to 1 on axis:
+ *
+ *     psf(rho) = (1 + (rho/alpha)^2)^(-beta)
+ *
+ * Preferred over a Gaussian because real seeing/optics put far more light in the
+ * wings than a Gaussian allows — which is exactly the faint halo the spec wants
+ * around bright stars, and it comes from the profile rather than from bloom.
+ * Smaller `beta` = heavier wings; `beta → ∞` approaches a Gaussian.
+ *
+ * `rho` is a normalized screen radius (1 = the core radius).
+ */
+export function moffat(rho: number, alpha: number, beta: number): number {
+  const x = rho / alpha;
+  return (1 + x * x) ** -beta;
+}
+
+/** Parameters of the broad faint aureole. */
+export interface AureoleParams {
+  /** Peak amplitude — must be far below the core's peak of 1. */
+  amp: number;
+  /** Angular scale: large, so the wing is broad. */
+  scale: number;
+  /** Falloff exponent. */
+  p: number;
+}
+
+/**
+ * Faint, broad scattered-light wing (atmosphere/optics), Tier ≥ 2 only.
+ * `amp` is 6% of the core peak by default — visible as a glow, never as a disk.
+ */
+export const DEFAULT_AUREOLE: AureoleParams = { amp: 0.06, scale: 2.5, p: 2.5 };
+
+/**
+ * Broad faint aureole: `amp / (1 + rho/scale)^p`.
+ *
+ * Falls off far more slowly than the PSF by construction — that is what makes it
+ * a WING rather than a second core. It must stay dim and wide: an aureole with
+ * too much amplitude or too small a scale becomes an opaque coloured disk, which
+ * is one of the ways the legacy image turned into a pedestal of overlapping
+ * halos under the cluster core.
+ */
+export function aureole(rho: number, p: AureoleParams): number {
+  return p.amp / (1 + Math.max(0, rho) / p.scale) ** p.p;
+}
+
+/* ──────────────────────────────── population tiers ─────────────────────────── */
+
+/** Percentile boundaries between render tiers. */
+export interface TierBoundaries {
+  /** Tier 1 → 2 boundary as a fraction in [0,1]. */
+  t2: number;
+  /** Tier 2 → 3 boundary as a fraction in [0,1]. */
+  t3: number;
+}
+
+export interface TierAssignment {
+  /** Per-star tier: 1 (faint field), 2 (bright), 3 (hero). */
+  tier: Uint8Array;
+  /** The flux values at the boundaries. */
+  thresholds: { t2: number; t3: number };
+}
+
+/**
+ * Split the population into three render tiers by apparent flux percentile.
+ *
+ *   Tier 1 — the faint majority: compact PSF only, cheapest shader path.
+ *   Tier 2 — bright stars: full PSF wing and aureole.
+ *   Tier 3 — hero stars (~top 0.5%): diffraction and other expensive optics.
+ *
+ * Tiering exists so the costly path stays rare: evaluating diffraction for all
+ * 10,301 stars is both slow AND wrong — diffraction is an instrument artifact
+ * visible only on genuinely bright sources, so applying it everywhere is the
+ * decorative-effect failure the spec forbids.
+ *
+ * Assignment is by the star's OWN flux against fixed thresholds, so it is
+ * order-independent and stable: a star does not change tier because the array
+ * was sorted differently. The thresholds are population percentiles — that is a
+ * property of the exposure (which sources are bright enough to show artifacts),
+ * not a per-star size law, so it does not reintroduce rank-based sizing.
+ */
+export function computeTiers(fluxes: ArrayLike<number>, b: TierBoundaries): TierAssignment {
+  const n = fluxes.length;
+  const tier = new Uint8Array(n);
+  if (n === 0) return { tier, thresholds: { t2: 0, t3: 0 } };
+
+  const t2 = robustWhiteFlux(fluxes, b.t2);
+  const t3 = robustWhiteFlux(fluxes, b.t3);
+  for (let i = 0; i < n; i++) {
+    const f = fluxes[i] ?? 0;
+    tier[i] = f >= t3 ? 3 : f >= t2 ? 2 : 1;
+  }
+  return { tier, thresholds: { t2, t3 } };
+}

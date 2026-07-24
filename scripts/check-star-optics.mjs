@@ -17,6 +17,12 @@ import {
   robustWhiteFlux,
   asinhResponse,
   DEFAULT_SOFTENING,
+  coreRadiusPx,
+  moffat,
+  aureole,
+  computeTiers,
+  DEFAULT_CORE,
+  DEFAULT_AUREOLE,
 } from "../src/novascope/viz/starOptics.ts";
 import { effectiveTemperature } from "../src/novascope/core/stellar/index.ts";
 
@@ -152,4 +158,74 @@ ok(
   "…while the white point stays fixed, so k and exposure stay orthogonal",
 );
 
+
+
+/* ── core radius: BOUNDED, and decoupled from the brightness law ──
+ * The legacy renderer mapped luminosity to billboard DIAMETER, so the brightest
+ * stars were also the largest quads — maximum overlap area exactly where the
+ * cluster is densest. Size must be a weak, bounded function of flux; luminosity
+ * drives RADIANCE instead. */
+for (const F of [0, 1e-6, 1e-3, 1, 1e3, 1e6, 1e9]) {
+  const rpx = coreRadiusPx(F, DEFAULT_CORE);
+  ok(
+    rpx >= DEFAULT_CORE.coreMin - 1e-9 && rpx <= DEFAULT_CORE.coreMax + 1e-9,
+    `core radius bounded at F=${F} (${rpx.toFixed(2)} px)`,
+  );
+}
+// Spec: normal stars ~0.7-1.6 px, brightest cores no more than a few px.
+ok(DEFAULT_CORE.coreMax <= 3.5, "the brightest unresolved core is at most a few px");
+// A zero-flux star sits at r0. coreMin is a defensive clamp below it, so it does
+// not bind at the defaults — assert the real property, not r0 === coreMin.
+ok(coreRadiusPx(0, DEFAULT_CORE) === DEFAULT_CORE.r0, "a zero-flux star sits at r0");
+ok(coreRadiusPx(0, DEFAULT_CORE) >= DEFAULT_CORE.coreMin, "…and never below the floor");
+ok(
+  coreRadiusPx(0, { ...DEFAULT_CORE, r0: 0.1 }) === DEFAULT_CORE.coreMin,
+  "the floor does bind when r0 is pushed below it",
+);
+// Weak growth: 6 dex of flux must not span the whole size range linearly.
+const rFaint = coreRadiusPx(1, DEFAULT_CORE);
+const rBright = coreRadiusPx(1e6, DEFAULT_CORE);
+ok(rBright > rFaint, "core grows with flux (monotone)");
+ok(rBright / rFaint < 4, "…but only weakly — size is not the brightness law");
+
+/* ── Moffat PSF ── */
+ok(Math.abs(moffat(0, 1, 3.2) - 1) < 1e-12, "Moffat peaks at 1 on axis");
+ok(moffat(2, 1, 3.2) < moffat(1, 1, 3.2), "Moffat decreases with radius");
+ok(moffat(1e3, 1, 3.2) > 0, "Moffat wings never reach exactly zero");
+// beta controls wing weight: a smaller beta means MORE light in the wings.
+ok(moffat(3, 1, 2.5) > moffat(3, 1, 4.5), "smaller beta puts more light in the wings");
+
+/* ── aureole: broad and faint, never an opaque disk ── */
+ok(aureole(0, DEFAULT_AUREOLE) <= DEFAULT_AUREOLE.amp, "aureole peak is faint (<= amp)");
+ok(DEFAULT_AUREOLE.amp < 0.15, "…and amp is far below the core's peak of 1");
+ok(
+  aureole(3, DEFAULT_AUREOLE) > aureole(0, DEFAULT_AUREOLE) * 0.05,
+  "aureole is BROAD — still present far out at rho=3",
+);
+ok(aureole(2, DEFAULT_AUREOLE) < aureole(1, DEFAULT_AUREOLE), "aureole decreases with radius");
+// It must be much flatter than the PSF, or it is just a second core.
+const psfDrop = moffat(2, 1, 3.2) / moffat(0.5, 1, 3.2);
+const aurDrop = aureole(2, DEFAULT_AUREOLE) / aureole(0.5, DEFAULT_AUREOLE);
+ok(aurDrop > psfDrop, "aureole falls off more slowly than the PSF (a wing, not a core)");
+
+/* ── population tiers: keep the expensive path rare ── */
+const fluxAsc = Array.from({ length: 10000 }, (_, i) => i);
+const { tier, thresholds } = computeTiers(fluxAsc, { t2: 0.9, t3: 0.995 });
+const counts = [0, 0, 0, 0];
+for (const t of tier) counts[t]++;
+ok(tier.length === fluxAsc.length, "one tier per star");
+ok(counts[1] > counts[2] && counts[2] > counts[3], "Tier 1 is the majority, Tier 3 the rarest");
+ok(Math.abs(counts[3] / fluxAsc.length - 0.005) < 0.002, "Tier 3 is ~the top 0.5%");
+ok(Math.abs(counts[2] / fluxAsc.length - 0.095) < 0.005, "Tier 2 is ~the next 9.5%");
+ok(counts[1] + counts[2] + counts[3] === fluxAsc.length, "every star lands in exactly one tier");
+ok(thresholds.t2 < thresholds.t3, "thresholds are ordered");
+// Tiering is by the star's own flux, so it must not depend on input order.
+const shuffled = [...fluxAsc].reverse();
+const rev = computeTiers(shuffled, { t2: 0.9, t3: 0.995 });
+ok(
+  rev.thresholds.t2 === thresholds.t2 && rev.thresholds.t3 === thresholds.t3,
+  "thresholds are order-independent",
+);
+ok(rev.tier[0] === 3, "…and the brightest star is Tier 3 wherever it sits in the array");
+ok(computeTiers([], { t2: 0.9, t3: 0.995 }).tier.length === 0, "empty population is safe");
 process.exit(failures ? 1 : 0);
