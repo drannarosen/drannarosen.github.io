@@ -1,0 +1,342 @@
+---
+/*
+ * FeedbackEngine — the /explore/feedback-budget explorable.
+ *
+ * Renders a gravoturb cluster and, beside it, the feedback ACCOUNTING: two
+ * ratio bars (momentum delivered vs the gas threshold, energy vs binding), the
+ * two-stage gas-expulsion verdict, and the per-channel momentum-vs-time plot.
+ * Scrubbing time drives the gas render (setGasFraction) and the plot cursor from
+ * the SAME budget the bars read, so the spectacle and the accounting can never
+ * tell different stories.
+ *
+ * Data flow: viz/loadScene + createEngine render the cloud; state/feedback runs
+ * the Layer-0 budget. The two share the browser-cached fetches but nothing else,
+ * keeping the import boundary intact.
+ */
+import PresentFrame from "../../components/explore/PresentFrame.astro";
+import RatioBar from "./RatioBar.astro";
+---
+
+<div class="fbe" data-fbe>
+  <PresentFrame
+    label="A star cluster and its feedback budget"
+    hint="drag to rotate · scroll to zoom · ←/→ scrubs time · space plays · F fullscreen"
+  >
+    <canvas slot="stage" data-cluster aria-label="A young star cluster embedded in its natal gas."></canvas>
+
+    <div slot="controls" class="fbe__controls">
+      <div class="fbe__row fbe__pickers" data-realizations role="group" aria-label="Choose an environment">
+        <!-- realization buttons injected from the manifest -->
+      </div>
+
+      <label class="fbe__scrub">
+        <span class="fbe__scrub-head">
+          Time <span class="fbe__t" data-t>0.00 Myr</span>
+          <span class="fbe__cleared" data-cleared>gas 0% cleared</span>
+        </span>
+        <input type="range" min="0" max="1" step="0.005" value="0" autocomplete="off" data-scrub />
+      </label>
+
+      <div class="fbe__row fbe__toggles" role="group" aria-label="Feedback channels">
+        <label class="fbe__chk"><input type="checkbox" checked data-ch="winds" /> winds</label>
+        <label class="fbe__chk"><input type="checkbox" checked data-ch="photoionization" /> H II</label>
+        <label class="fbe__chk"><input type="checkbox" checked data-ch="radiation" /> radiation</label>
+        <label class="fbe__chk fbe__play"><input type="checkbox" checked data-play /> play</label>
+      </div>
+
+      <p class="fbe__status" data-status aria-live="polite">Loading cluster…</p>
+    </div>
+  </PresentFrame>
+
+  <div class="fbe__panel">
+    <div class="fbe__bars">
+      <RatioBar
+        id="momentum"
+        label="Momentum delivered"
+        thresholdLabel="expel the gas"
+        ariaLabel="Feedback momentum delivered, relative to the momentum needed to expel the residual gas."
+      />
+      <RatioBar
+        id="energy"
+        label="Energy retained"
+        thresholdLabel="unbind"
+        ariaLabel="Feedback energy retained, relative to the cloud's binding energy."
+      />
+    </div>
+
+    <div class="fbe__verdict" data-verdict>
+      <p class="fbe__stage" data-stage1>—</p>
+      <p class="fbe__stage" data-stage2>—</p>
+    </div>
+
+    <figure class="fbe__plot">
+      <svg data-plot viewBox="0 0 340 170" preserveAspectRatio="xMidYMid meet" role="img"
+        aria-label="Momentum delivered by each feedback channel versus time.">
+      </svg>
+      <figcaption class="fbe__legend" data-legend></figcaption>
+    </figure>
+
+    <dl class="fbe__nums" data-nums></dl>
+  </div>
+</div>
+
+<script>
+  import { loadScene, createEngine, attachInteraction } from "../../lib/cluster";
+  import { loadFeedbackRealization, recomputeFeedback, type FeedbackRealization }
+    from "../state/feedback";
+
+  const root = document.querySelector<HTMLElement>("[data-fbe]");
+  if (root) void mount(root);
+
+  type Ch = "winds" | "photoionization" | "radiation";
+  const CH_COLORS: Record<Ch | "total", string> = {
+    winds: "#9ab8ff", photoionization: "#4fd6c4", radiation: "#f3c95a", total: "#f7f3e2",
+  };
+
+  /** Fill fraction for a ratio: threshold (1) sits at 0.62; above it log-compresses. */
+  function ratioFill(r: number): number {
+    if (r <= 0) return 0;
+    if (r <= 1) return 0.62 * r;
+    return 0.62 + 0.38 * Math.min(1, Math.log10(r) / Math.log10(12));
+  }
+  function ratioState(r: number): "bound" | "marginal" | "blow-out" {
+    return r >= 1.2 ? "blow-out" : r <= 0.8 ? "bound" : "marginal";
+  }
+  const fmt = (x: number, d = 1) =>
+    x >= 1e4 ? x.toExponential(1) : x.toLocaleString("en-US", { maximumFractionDigits: d });
+
+  async function mount(el: HTMLElement) {
+    const canvas = el.querySelector<HTMLCanvasElement>("[data-cluster]")!;
+    const status = el.querySelector<HTMLElement>("[data-status]")!;
+    const scrub = el.querySelector<HTMLInputElement>("[data-scrub]")!;
+    const play = el.querySelector<HTMLInputElement>("[data-play]")!;
+    const tOut = el.querySelector<HTMLElement>("[data-t]")!;
+    const clearedOut = el.querySelector<HTMLElement>("[data-cleared]")!;
+    const frame = el.querySelector<HTMLElement>("[data-present]");
+
+    let engine: ReturnType<typeof createEngine> | null = null;
+    let fb: FeedbackRealization | null = null;
+    let raf = 0;
+
+    // ── realization picker from the manifest (labels never retyped) ──
+    const manifest = await fetch("/data/gravoturb/manifest.json").then((r) => r.json());
+    const picker = el.querySelector<HTMLElement>("[data-realizations]")!;
+    for (const r of manifest.realizations as { label: string; path: string }[]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "fbe__pick";
+      b.textContent = r.label;
+      b.dataset.path = r.path;
+      b.addEventListener("click", () => void select(r.path));
+      picker.appendChild(b);
+    }
+
+    const enabled = (): Record<Ch, boolean> => {
+      const on = {} as Record<Ch, boolean>;
+      for (const c of el.querySelectorAll<HTMLInputElement>("[data-ch]"))
+        on[c.dataset.ch as Ch] = c.checked;
+      return on;
+    };
+
+    async function select(path: string) {
+      for (const b of picker.querySelectorAll<HTMLButtonElement>(".fbe__pick"))
+        b.setAttribute("aria-pressed", String(b.dataset.path === path));
+      status.textContent = "Loading…";
+      const name = path === "/data/gravoturb" ? undefined : path.split("/").pop();
+      const [scene, budget] = await Promise.all([
+        loadScene(path),
+        loadFeedbackRealization(name, { enabled: enabled() }),
+      ]);
+      engine?.cleanup();
+      engine = createEngine(canvas, scene, { emphasizeHot: true });
+      attachInteraction(canvas, engine);
+      fb = budget;
+      renderBudget();
+      applyScrub(+scrub.value);
+      if (engine.reducedMotion) { play.checked = false; play.disabled = true; }
+      status.textContent =
+        `${fmt(budget.meta.n_stars as number, 0)} stars · budget is an accounting tool, not a hydro sim`;
+    }
+
+    // ── the budget readouts (bars, verdict, plot, numbers) ──
+    function renderBudget() {
+      if (!fb) return;
+      const L = fb.ledger, g = L.gasExpulsion;
+      setBar(el, "momentum", g.gasMomentumRatio);
+      setBar(el, "energy", L.energyRatio);
+      // stage 1
+      const s1 = el.querySelector<HTMLElement>("[data-stage1]")!;
+      s1.textContent = g.gasExpelled
+        ? `Gas expelled — momentum ${g.gasMomentumRatio.toFixed(1)}× the threshold, ${g.removalRegime} removal`
+        : `Gas retained — only ${(g.gasMomentumRatio * 100).toFixed(0)}% of the momentum needed; cluster stays embedded`;
+      // stage 2
+      const s2 = el.querySelector<HTMLElement>("[data-stage2]")!;
+      s2.textContent = g.gasExpelled
+        ? `Cluster ${g.survivalLabel} — q = ${g.qVirialPost.toFixed(3)} after expulsion (bound below 1): born dynamically cold`
+        : `Survival moot while the gas stays`;
+      s2.dataset.fate = g.survivalLabel;
+      drawPlot(el, fb, +scrub.value);
+      renderNums(el, fb);
+    }
+
+    function applyScrub(frac: number) {
+      if (!fb || !engine) return;
+      const tr = fb.trajectory;
+      const i = Math.round(frac * (tr.tMyr.length - 1));
+      const cleared = tr.clearedFraction[i]!;
+      engine.setGasFraction(1 - cleared);
+      tOut.textContent = `${tr.tMyr[i]!.toFixed(2)} Myr`;
+      clearedOut.textContent = `gas ${(cleared * 100).toFixed(0)}% cleared`;
+      moveCursor(el, fb, frac);
+    }
+
+    // ── controls ──
+    scrub.addEventListener("input", () => { play.checked = false; applyScrub(+scrub.value); });
+    for (const c of el.querySelectorAll<HTMLInputElement>("[data-ch]"))
+      c.addEventListener("change", () => {
+        if (!fb) return;
+        fb = recomputeFeedback(fb, { enabled: enabled() });
+        renderBudget();
+        applyScrub(+scrub.value);
+      });
+    frame?.addEventListener("present:next", () => {
+      play.checked = false; scrub.value = String(Math.min(1, +scrub.value + 0.04)); applyScrub(+scrub.value);
+    });
+    frame?.addEventListener("present:prev", () => {
+      play.checked = false; scrub.value = String(Math.max(0, +scrub.value - 0.04)); applyScrub(+scrub.value);
+    });
+    frame?.addEventListener("present:reset", () => { scrub.value = "0"; applyScrub(0); });
+
+    // ── play loop (respects reduced motion via engine.reducedMotion) ──
+    let last = 0;
+    function tick(ts: number) {
+      raf = requestAnimationFrame(tick);
+      if (!play.checked) { last = ts; return; }
+      const dt = last ? (ts - last) / 1000 : 0; last = ts;
+      let v = +scrub.value + dt / 6; // ~6 s sweep
+      if (v >= 1) v = 0;
+      scrub.value = String(v);
+      applyScrub(v);
+    }
+    raf = requestAnimationFrame(tick);
+    window.addEventListener("beforeunload", () => { cancelAnimationFrame(raf); engine?.cleanup(); });
+
+    await select("/data/gravoturb"); // default: the Orion-like fiducial
+  }
+
+  // ── small DOM helpers ──
+  function setBar(el: HTMLElement, id: string, ratio: number) {
+    const bar = el.querySelector<HTMLElement>(`[data-ratiobar="${id}"]`);
+    if (!bar) return;
+    bar.dataset.state = ratioState(ratio);
+    bar.querySelector<HTMLElement>("[data-ratiobar-fill]")!.style.inlineSize =
+      `${(ratioFill(ratio) * 100).toFixed(1)}%`;
+    bar.querySelector<HTMLElement>("[data-ratiobar-value]")!.textContent = `${ratio.toFixed(2)}×`;
+  }
+
+  function renderNums(el: HTMLElement, fb: FeedbackRealization) {
+    const L = fb.ledger, m = fb.meta;
+    const rows: [string, string][] = [
+      ["window", `${L.windowMyr.toFixed(2)} Myr`],
+      ["Σ", `${(m.env_sigma_msun_pc2 as number).toFixed(0)} M⊙/pc²`],
+      ["ψ", L.diagnostics.radiation.psi.toFixed(2)],
+      ["r_ch", `${L.diagnostics.radiation.rCh.toFixed(2)} pc`],
+      ["M_gas", `${fmt(L.gasExpulsion.mGas)} M⊙`],
+    ];
+    el.querySelector<HTMLElement>("[data-nums]")!.innerHTML = rows
+      .map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+  }
+
+  // ── the momentum-vs-time plot (pure SVG from the trajectory) ──
+  const PW = 340, PH = 170, PAD = 26;
+  function scaleX(t: number, win: number) { return PAD + (t / win) * (PW - PAD - 6); }
+  function scaleY(p: number, pmax: number) { return PH - PAD - (p / pmax) * (PH - PAD - 10); }
+
+  function drawPlot(el: HTMLElement, fb: FeedbackRealization, frac: number) {
+    const svg = el.querySelector<SVGSVGElement>("[data-plot]")!;
+    const tr = fb.trajectory;
+    const win = tr.windowMyr || 1;
+    const pmax = Math.max(tr.gasMomentumNeeded, ...tr.totalMomentum) * 1.08 || 1;
+    const line = (ys: number[], color: string, w = 1.5) =>
+      `<polyline fill="none" stroke="${color}" stroke-width="${w}" points="${
+        tr.tMyr.map((t, i) => `${scaleX(t, win).toFixed(1)},${scaleY(ys[i]!, pmax).toFixed(1)}`).join(" ")
+      }"/>`;
+    const yThresh = scaleY(tr.gasMomentumNeeded, pmax);
+    const vline = (t: number, color: string, dash: string, label: string) => {
+      if (!isFinite(t) || t <= 0 || t > win) return "";
+      const x = scaleX(t, win);
+      return `<line x1="${x.toFixed(1)}" y1="8" x2="${x.toFixed(1)}" y2="${PH - PAD}" stroke="${color}" stroke-width="1" stroke-dasharray="${dash}" opacity="0.7"/>`
+        + `<text x="${(x + 2).toFixed(1)}" y="16" fill="${color}" font-size="8" font-family="monospace">${label}</text>`;
+    };
+    svg.innerHTML =
+      `<line x1="${PAD}" y1="${PH - PAD}" x2="${PW - 6}" y2="${PH - PAD}" stroke="currentColor" stroke-width="1" opacity="0.4"/>`
+      + `<line x1="${PAD}" y1="8" x2="${PAD}" y2="${PH - PAD}" stroke="currentColor" stroke-width="1" opacity="0.4"/>`
+      + `<line x1="${PAD}" y1="${yThresh.toFixed(1)}" x2="${PW - 6}" y2="${yThresh.toFixed(1)}" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"/>`
+      + `<text x="${PW - 8}" y="${(yThresh - 3).toFixed(1)}" text-anchor="end" fill="currentColor" font-size="8" font-family="monospace" opacity="0.7">gas threshold</text>`
+      + vline(tr.tCrossMyr, "#c98", "2 2", "t_cross")
+      + vline(tr.tRemoveMyr, "#8c8", "2 2", "t_remove")
+      + line(tr.windMomentum, CH_COLORS.winds)
+      + line(tr.hiiMomentum, CH_COLORS.photoionization)
+      + line(tr.radMomentum, CH_COLORS.radiation)
+      + line(tr.totalMomentum, CH_COLORS.total, 2)
+      + `<line data-cursor x1="0" y1="8" x2="0" y2="${PH - PAD}" stroke="currentColor" stroke-width="1" opacity="0.5"/>`
+      + `<text x="${PAD}" y="${PH - 8}" fill="currentColor" font-size="8" font-family="monospace" opacity="0.6">0</text>`
+      + `<text x="${PW - 6}" y="${PH - 8}" text-anchor="end" fill="currentColor" font-size="8" font-family="monospace" opacity="0.6">${win.toFixed(1)} Myr</text>`;
+    moveCursor(el, fb, frac);
+    el.querySelector<HTMLElement>("[data-legend]")!.innerHTML =
+      (["winds", "photoionization", "radiation", "total"] as const)
+        .map((c) => `<span style="--c:${CH_COLORS[c]}">${c === "photoionization" ? "H II" : c}</span>`).join("");
+  }
+  function moveCursor(el: HTMLElement, fb: FeedbackRealization, frac: number) {
+    const cur = el.querySelector<SVGLineElement>("[data-cursor]");
+    if (!cur) return;
+    const win = fb.trajectory.windowMyr || 1;
+    const x = scaleX(frac * win, win);
+    cur.setAttribute("x1", x.toFixed(1));
+    cur.setAttribute("x2", x.toFixed(1));
+  }
+</script>
+
+<style>
+  .fbe {
+    display: grid;
+    gap: var(--space-l);
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 60rem) {
+    .fbe { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; }
+  }
+  .fbe__controls { display: grid; gap: 0.55rem; }
+  .fbe__row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .fbe__pick {
+    font-family: var(--font-mono); font-size: var(--step--2);
+    padding: 0.25em 0.6em; border-radius: 5px;
+    background: var(--bg-surface); color: var(--ink-dim);
+    border: 1px solid var(--border); cursor: pointer;
+  }
+  .fbe__pick[aria-pressed="true"] { color: var(--ink); border-color: var(--spec-teal-bright, #4fd6c4); background: color-mix(in oklab, var(--spec-teal-bright, #4fd6c4) 12%, var(--bg-surface)); }
+  .fbe__scrub { display: grid; gap: 0.2rem; }
+  .fbe__scrub-head { display: flex; gap: 0.6em; align-items: baseline; flex-wrap: wrap; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink); }
+  .fbe__t { color: var(--spec-teal-bright, #4fd6c4); }
+  .fbe__cleared { color: var(--ink-dim); }
+  .fbe__scrub input[type="range"] { inline-size: 100%; accent-color: var(--spec-teal-bright, #4fd6c4); }
+  .fbe__chk { display: inline-flex; gap: 0.35em; align-items: center; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); cursor: pointer; }
+  .fbe__chk input { accent-color: var(--spec-teal-bright, #4fd6c4); }
+  .fbe__play { margin-inline-start: auto; }
+  .fbe__status { font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: dense status line */
+
+  .fbe__panel { display: grid; gap: var(--space-m); align-content: start; }
+  .fbe__bars { display: grid; gap: var(--space-s); margin-block-start: 1.1rem; }
+  .fbe__verdict { display: grid; gap: 0.35rem; padding: var(--space-s); border-radius: 6px; background: var(--bg-surface); }
+  .fbe__stage { font-size: var(--step--1); color: var(--ink); margin: 0; }
+  .fbe__stage[data-fate="dissolves"] { color: var(--spec-amber, #e8a33d); }
+  .fbe__plot { margin: 0; display: grid; gap: 0.3rem; }
+  .fbe__plot svg { inline-size: 100%; block-size: auto; color: var(--ink-dim); }
+  .fbe__legend { display: flex; flex-wrap: wrap; gap: 0.8em; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
+  .fbe__legend span { display: inline-flex; align-items: center; gap: 0.35em; }
+  .fbe__legend span::before { content: ""; inline-size: 10px; block-size: 2px; background: var(--c); border-radius: 2px; }
+  .fbe__nums { display: flex; flex-wrap: wrap; gap: 0.6rem 1.1rem; margin: 0; }
+  .fbe__nums div { display: grid; }
+  .fbe__nums dt { font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: compact stat key */
+  .fbe__nums dd { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink); margin: 0; font-variant-numeric: tabular-nums; }
+</style>

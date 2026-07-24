@@ -1,0 +1,46 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
+---
+
+<BaseLayout
+  title="Feedback budget — Anna Rosen"
+  description="Do massive-star winds, photoionization, and radiation pressure deliver enough momentum to expel a cluster's natal gas — and does the cluster survive if they do? An interactive budget over six simulated environments."
+  path="/explore/feedback-budget"
+>
+  <PageHeader
+    eyebrow="Explore · interactive"
+    title="The feedback budget"
+    lede="Massive stars pour winds, ionizing photons, and radiation pressure into the gas they were born in. This is the accounting: how much momentum each channel delivers, whether it clears the residual gas, and whether the young cluster stays bound once the gas is gone. The cluster and gas are a real gravoturb simulation; the budget is a per-channel momentum ledger, not a hydrodynamics run."
+  />
+
+  <div class="fbwrap wrap-wide">
+    <FeedbackEngine />
+
+    <div class="fbwrap__note prose wrap">
+      <p>
+        Two questions, in the order the physics asks them. <strong>First:</strong> is the
+        retained feedback momentum enough to lift the residual gas out of the cloud's
+        potential? <strong>Then, if it is:</strong> do the stars stay bound once the gas —
+        most of the mass — is gone? Across these six environments the gas is always
+        expelled, and expelled <em>fast</em>, yet every cluster survives: they are born
+        dynamically cold, so removing the gas cannot unbind stars already this deeply
+        self-bound. The margin, and which channel does the clearing, is what changes with
+        the environment — switch between them above.
+      </p>
+      <p>
+        The expanding shells implied by the time plot are analytic similarity solutions
+        (Weaver winds, Spitzer H II fronts), and the gas here thins at fixed radial shape
+        as the budget clears it — a legible stand-in for the anisotropic champagne flows
+        and blister breakouts a full radiation-hydrodynamics run resolves. That physics is
+        what my research code models; this piece makes its accounting visible.
+      </p>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .fbwrap { padding-block: var(--space-l) var(--space-3xl); }
+  .fbwrap__note { margin-block-start: var(--space-2xl); }
+</style>

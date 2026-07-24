@@ -1,0 +1,101 @@
+---
+/*
+ * RatioBar — a CONTINUOUS bar for a feedback ratio against a threshold of 1.
+ *
+ * Distinct from Meter (discrete status segments): this shows a real-valued
+ * ratio that can exceed 1 by a lot (a 25x blow-out), so the region above the
+ * threshold is log-compressed to stay on screen while the threshold tick stays
+ * fixed. The fill and state class are set by the engine script at runtime via
+ * data hooks; the server render is the empty track, populated on load.
+ *
+ * The fill mapping lives in ONE place — `ratioFill()` below, imported by both
+ * this component's inline seed and the engine — so the tick and the fill can
+ * never disagree about where "1" sits.
+ */
+interface Props {
+  /** Stable id so the engine can target this bar's fill/value nodes. */
+  id: string;
+  /** Row label, e.g. "Momentum delivered". */
+  label: string;
+  /** What the threshold is, e.g. "M_gas v_esc". */
+  thresholdLabel: string;
+  ariaLabel: string;
+}
+const { id, label, thresholdLabel, ariaLabel } = Astro.props;
+/** Threshold (ratio = 1) sits at this fraction of the track. */
+const THRESH_POS = 0.62;
+---
+
+<div class="rbar" data-ratiobar={id} role="img" aria-label={ariaLabel}>
+  <div class="rbar__head">
+    <span class="rbar__label">{label}</span>
+    <span class="rbar__value" data-ratiobar-value>—</span>
+  </div>
+  <div class="rbar__track">
+    <div class="rbar__fill" data-ratiobar-fill style="inline-size:0%"></div>
+    <div class="rbar__thresh" style={`inset-inline-start:${THRESH_POS * 100}%`}>
+      <span class="rbar__thresh-tag">{thresholdLabel}</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .rbar {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .rbar__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5em;
+  }
+  .rbar__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink);
+  }
+  .rbar__value {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .rbar__track {
+    position: relative;
+    block-size: 0.75rem;
+    background: var(--bg-surface);
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px var(--border);
+    overflow: hidden;
+  }
+  .rbar__fill {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    border-radius: 4px 0 0 4px;
+    background: var(--spec-teal-bright, #4fd6c4);
+    transition: inline-size 0.18s ease, background 0.18s ease;
+  }
+  /* verdict state colours the fill; set by the engine on the .rbar element */
+  .rbar[data-state="bound"] .rbar__fill { background: var(--spec-amber, #e8a33d); }
+  .rbar[data-state="marginal"] .rbar__fill { background: var(--spec-gold, #d9c85a); }
+  .rbar[data-state="blow-out"] .rbar__fill { background: var(--spec-teal-bright, #4fd6c4); }
+  .rbar__thresh {
+    position: absolute;
+    inset-block: -2px;
+    inline-size: 2px;
+    background: var(--ink);
+    opacity: 0.65;
+  }
+  .rbar__thresh-tag {
+    position: absolute;
+    inset-block-start: -1.15rem;
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--step--3, 0.62rem); /* type-scale-exempt: micro annotation tag */
+    color: var(--ink-faint);
+  }
+</style>
