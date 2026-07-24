@@ -67,3 +67,59 @@ export function deriveLogL(teffK: number, radiusRsun: number): number {
 export function apparentFlux(logL: number, distancePc: number): number {
   return 10 ** logL / (distancePc * distancePc);
 }
+
+/* ─────────────────────────────── chromaticity ──────────────────────────────── */
+
+/**
+ * Blackbody chromaticity at temperature `teffK`, as **linear-light** sRGB
+ * primaries normalized so the largest channel is 1.
+ *
+ * Planckian locus in CIE 1931 xy (Kim et al. 2002 cubic-spline approximation,
+ * valid 1667–25000 K), converted xy → XYZ → linear sRGB (IEC 61966-2-1 matrix).
+ * Inputs outside the fit range are clamped to its endpoints; the colour of a
+ * 40 kK star is essentially the 25 kK limit, so extrapolating the cubic — which
+ * diverges — would buy nothing but artefacts.
+ *
+ * WHY NOT `core/stellar`'s `teffToRGB`: that is a Tanner Helland fit producing
+ * DISPLAY (gamma-encoded, sRGB) values, which is correct for the canvas UI it
+ * serves. This pipeline composites in linear HDR, and multiplying gamma-encoded
+ * values by a radiance is the classic colour-management error — it distorts
+ * every overlap and every tone-mapped highlight. These are two different
+ * quantities (display colour vs linear radiometric chromaticity), not one fact
+ * stated twice.
+ *
+ * Normalizing the max channel to 1 is what SEPARATES chromaticity from flux: the
+ * caller multiplies by `apparentFlux`, so a star's hue is fixed by its
+ * temperature alone and cannot shift as it brightens. Bright cores then approach
+ * white through exposure and tone mapping — the physical route — rather than by
+ * desaturating the colour itself.
+ */
+export function blackbodyLinearRGB(teffK: number): [number, number, number] {
+  const T = Math.min(25000, Math.max(1667, teffK));
+  const t = 1 / T;
+
+  // CIE 1931 x along the Planckian locus (Kim et al. 2002), two temperature branches.
+  const x =
+    T < 4000
+      ? -0.2661239e9 * t ** 3 - 0.2343589e6 * t ** 2 + 0.8776956e3 * t + 0.17991
+      : -3.0258469e9 * t ** 3 + 2.1070379e6 * t ** 2 + 0.2226347e3 * t + 0.24039;
+  // y as a cubic in x, three branches.
+  const y =
+    T < 2222
+      ? -1.1063814 * x ** 3 - 1.3481102 * x ** 2 + 2.18555832 * x - 0.20219683
+      : T < 4000
+        ? -0.9549476 * x ** 3 - 1.37418593 * x ** 2 + 2.09137015 * x - 0.16748867
+        : 3.081758 * x ** 3 - 5.8733867 * x ** 2 + 3.75112997 * x - 0.37001483;
+
+  // xyY (at unit luminance) → XYZ → linear sRGB.
+  const X = x / y;
+  const Z = (1 - x - y) / y;
+  const r = 3.2406 * X - 1.5372 - 0.4986 * Z;
+  const g = -0.9689 * X + 1.8758 + 0.0415 * Z;
+  const b = 0.0557 * X - 0.204 + 1.057 * Z;
+
+  // Clamp negatives (locus colours outside the sRGB gamut) and normalize the peak.
+  const rgb: [number, number, number] = [Math.max(0, r), Math.max(0, g), Math.max(0, b)];
+  const peak = Math.max(rgb[0], rgb[1], rgb[2]) || 1;
+  return [rgb[0] / peak, rgb[1] / peak, rgb[2] / peak];
+}
