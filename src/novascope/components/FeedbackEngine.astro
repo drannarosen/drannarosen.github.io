@@ -4,10 +4,15 @@
  *
  * Renders a gravoturb cluster and, beside it, the feedback ACCOUNTING: two
  * ratio bars (momentum delivered vs the gas threshold, energy vs binding), the
- * two-stage gas-expulsion verdict, and the per-channel momentum-vs-time plot.
- * Scrubbing time drives the gas render (setGasFraction) and the plot cursor from
- * the SAME budget the bars read, so the spectacle and the accounting can never
- * tell different stories.
+ * two-stage gas-expulsion verdict, and (collapsed) the per-channel
+ * momentum-vs-time plot.
+ *
+ * Two deliberately SEPARATE axes: the scrub is expulsion PROGRESS (embedded →
+ * cleared) driving the outward gas render (setExpel), because the gas physically
+ * clears in the first ~10% of the window and time would make a blink-and-miss
+ * animation. The real-time story -- how fast, which channel leads -- lives in
+ * the plot, with t_remove marked. The bars and verdict are the accounting the
+ * spectacle exists to make legible.
  *
  * Data flow: viz/loadScene + createEngine render the cloud; state/feedback runs
  * the Layer-0 budget. The two share the browser-cached fetches but nothing else,
@@ -31,8 +36,8 @@ import RatioBar from "./RatioBar.astro";
 
       <label class="fbe__scrub">
         <span class="fbe__scrub-head">
-          Time <span class="fbe__t" data-t>0.00 Myr</span>
-          <span class="fbe__cleared" data-cleared>gas 0% cleared</span>
+          Expulsion <span class="fbe__cleared" data-cleared>embedded</span>
+          <span class="fbe__endpts">embedded → gas cleared</span>
         </span>
         <input type="range" min="0" max="1" step="0.005" value="0" autocomplete="off" data-scrub />
       </label>
@@ -49,6 +54,11 @@ import RatioBar from "./RatioBar.astro";
   </PresentFrame>
 
   <div class="fbe__panel">
+    <div class="fbe__verdict" data-verdict>
+      <p class="fbe__stage fbe__stage--1" data-stage1>—</p>
+      <p class="fbe__stage fbe__stage--2" data-stage2>—</p>
+    </div>
+
     <div class="fbe__bars">
       <RatioBar
         id="momentum"
@@ -64,19 +74,16 @@ import RatioBar from "./RatioBar.astro";
       />
     </div>
 
-    <div class="fbe__verdict" data-verdict>
-      <p class="fbe__stage" data-stage1>—</p>
-      <p class="fbe__stage" data-stage2>—</p>
-    </div>
-
-    <figure class="fbe__plot">
-      <svg data-plot viewBox="0 0 340 170" preserveAspectRatio="xMidYMid meet" role="img"
-        aria-label="Momentum delivered by each feedback channel versus time.">
-      </svg>
-      <figcaption class="fbe__legend" data-legend></figcaption>
-    </figure>
-
-    <dl class="fbe__nums" data-nums></dl>
+    <details class="fbe__more">
+      <summary>components over time</summary>
+      <figure class="fbe__plot">
+        <svg data-plot viewBox="0 0 340 170" preserveAspectRatio="xMidYMid meet" role="img"
+          aria-label="Momentum delivered by each feedback channel versus time.">
+        </svg>
+        <figcaption class="fbe__legend" data-legend></figcaption>
+      </figure>
+      <dl class="fbe__nums" data-nums></dl>
+    </details>
   </div>
 </div>
 
@@ -110,7 +117,6 @@ import RatioBar from "./RatioBar.astro";
     const status = el.querySelector<HTMLElement>("[data-status]")!;
     const scrub = el.querySelector<HTMLInputElement>("[data-scrub]")!;
     const play = el.querySelector<HTMLInputElement>("[data-play]")!;
-    const tOut = el.querySelector<HTMLElement>("[data-t]")!;
     const clearedOut = el.querySelector<HTMLElement>("[data-cleared]")!;
     const frame = el.querySelector<HTMLElement>("[data-present]");
 
@@ -175,19 +181,21 @@ import RatioBar from "./RatioBar.astro";
         ? `Cluster ${g.survivalLabel} — q = ${g.qVirialPost.toFixed(3)} after expulsion (bound below 1): born dynamically cold`
         : `Survival moot while the gas stays`;
       s2.dataset.fate = g.survivalLabel;
-      drawPlot(el, fb, +scrub.value);
+      drawPlot(el, fb);
       renderNums(el, fb);
     }
 
+    // The scrub is EXPULSION PROGRESS (0 = embedded, 1 = cleared), not time --
+    // the gas clears in the first ~11% of the pre-SN window, so time is a poor
+    // scrub axis (the animation would finish in a blink). setExpel balloons the
+    // gas OUTWARD (homologous stand-in) so the cluster emerges. The real-time
+    // story -- how FAST this happens -- lives in the components plot, with
+    // t_remove marked. Two honest axes, deliberately decoupled.
     function applyScrub(frac: number) {
-      if (!fb || !engine) return;
-      const tr = fb.trajectory;
-      const i = Math.round(frac * (tr.tMyr.length - 1));
-      const cleared = tr.clearedFraction[i]!;
-      engine.setGasFraction(1 - cleared);
-      tOut.textContent = `${tr.tMyr[i]!.toFixed(2)} Myr`;
-      clearedOut.textContent = `gas ${(cleared * 100).toFixed(0)}% cleared`;
-      moveCursor(el, fb, frac);
+      if (!engine) return;
+      engine.setExpel(frac);
+      clearedOut.textContent =
+        frac <= 0.01 ? "embedded" : frac >= 0.99 ? "gas cleared" : `gas ${Math.round(frac * 100)}% expelled`;
     }
 
     // ── controls ──
@@ -252,7 +260,7 @@ import RatioBar from "./RatioBar.astro";
   function scaleX(t: number, win: number) { return PAD + (t / win) * (PW - PAD - 6); }
   function scaleY(p: number, pmax: number) { return PH - PAD - (p / pmax) * (PH - PAD - 10); }
 
-  function drawPlot(el: HTMLElement, fb: FeedbackRealization, frac: number) {
+  function drawPlot(el: HTMLElement, fb: FeedbackRealization) {
     const svg = el.querySelector<SVGSVGElement>("[data-plot]")!;
     const tr = fb.trajectory;
     const win = tr.windowMyr || 1;
@@ -279,21 +287,11 @@ import RatioBar from "./RatioBar.astro";
       + line(tr.hiiMomentum, CH_COLORS.photoionization)
       + line(tr.radMomentum, CH_COLORS.radiation)
       + line(tr.totalMomentum, CH_COLORS.total, 2)
-      + `<line data-cursor x1="0" y1="8" x2="0" y2="${PH - PAD}" stroke="currentColor" stroke-width="1" opacity="0.5"/>`
       + `<text x="${PAD}" y="${PH - 8}" fill="currentColor" font-size="8" font-family="monospace" opacity="0.6">0</text>`
       + `<text x="${PW - 6}" y="${PH - 8}" text-anchor="end" fill="currentColor" font-size="8" font-family="monospace" opacity="0.6">${win.toFixed(1)} Myr</text>`;
-    moveCursor(el, fb, frac);
     el.querySelector<HTMLElement>("[data-legend]")!.innerHTML =
       (["winds", "photoionization", "radiation", "total"] as const)
         .map((c) => `<span style="--c:${CH_COLORS[c]}">${c === "photoionization" ? "H II" : c}</span>`).join("");
-  }
-  function moveCursor(el: HTMLElement, fb: FeedbackRealization, frac: number) {
-    const cur = el.querySelector<SVGLineElement>("[data-cursor]");
-    if (!cur) return;
-    const win = fb.trajectory.windowMyr || 1;
-    const x = scaleX(frac * win, win);
-    cur.setAttribute("x1", x.toFixed(1));
-    cur.setAttribute("x2", x.toFixed(1));
   }
 </script>
 
@@ -325,17 +323,33 @@ import RatioBar from "./RatioBar.astro";
   .fbe__play { margin-inline-start: auto; }
   .fbe__status { font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: dense status line */
 
-  .fbe__panel { display: grid; gap: var(--space-m); align-content: start; }
-  .fbe__bars { display: grid; gap: var(--space-s); margin-block-start: 1.1rem; }
-  .fbe__verdict { display: grid; gap: 0.35rem; padding: var(--space-s); border-radius: 6px; background: var(--bg-surface); }
-  .fbe__stage { font-size: var(--step--1); color: var(--ink); margin: 0; }
-  .fbe__stage[data-fate="dissolves"] { color: var(--spec-amber, #e8a33d); }
-  .fbe__plot { margin: 0; display: grid; gap: 0.3rem; }
+  .fbe__panel { display: grid; gap: var(--space-l); align-content: start; }
+
+  /* verdict is the hero: the answer, in plain language, first */
+  .fbe__verdict { display: grid; gap: 0.5rem; }
+  .fbe__stage { margin: 0; }
+  .fbe__stage--1 { font-size: var(--step-1); line-height: 1.3; color: var(--ink); }
+  .fbe__stage--2 { font-size: var(--step--1); line-height: 1.4; color: var(--ink-dim); }
+  .fbe__stage--2[data-fate="dissolves"] { color: var(--spec-amber, #e8a33d); }
+
+  .fbe__bars { display: grid; gap: var(--space-m); }
+
+  /* everything quantitative-but-secondary folds away */
+  .fbe__more { border-block-start: 1px solid var(--border); padding-block-start: var(--space-s); }
+  .fbe__more > summary {
+    cursor: pointer; font-family: var(--font-mono); font-size: var(--step--2);
+    color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em;
+    list-style: none;
+  }
+  .fbe__more > summary::-webkit-details-marker { display: none; }
+  .fbe__more > summary::before { content: "› "; display: inline-block; transition: transform 0.15s; }
+  .fbe__more[open] > summary::before { transform: rotate(90deg); }
+  .fbe__plot { margin: var(--space-s) 0 0; display: grid; gap: 0.3rem; }
   .fbe__plot svg { inline-size: 100%; block-size: auto; color: var(--ink-dim); }
   .fbe__legend { display: flex; flex-wrap: wrap; gap: 0.8em; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
   .fbe__legend span { display: inline-flex; align-items: center; gap: 0.35em; }
   .fbe__legend span::before { content: ""; inline-size: 10px; block-size: 2px; background: var(--c); border-radius: 2px; }
-  .fbe__nums { display: flex; flex-wrap: wrap; gap: 0.6rem 1.1rem; margin: 0; }
+  .fbe__nums { display: flex; flex-wrap: wrap; gap: 0.6rem 1.1rem; margin: var(--space-s) 0 0; }
   .fbe__nums div { display: grid; }
   .fbe__nums dt { font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: compact stat key */
   .fbe__nums dd { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink); margin: 0; font-variant-numeric: tabular-nums; }
