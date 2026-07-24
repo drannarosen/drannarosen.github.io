@@ -12,7 +12,7 @@ import PageHeader from "../components/PageHeader.astro";
   <PageHeader
     eyebrow="Prototype · not linked"
     title="Star-render lab"
-    lede="A testbed for the photographic star renderer: apparent flux from each star's own luminosity, robust asinh exposure, a bounded unresolved core with a Moffat PSF, and restrained HDR glare. The physics-to-pixel mathematics lives in a pure, dependency-free novascope module; this page is the Three.js harness around it. Real gravoturb cluster; drag to orbit, scroll to zoom."
+    lede="A testbed for the photographic star renderer: apparent flux from each star's own luminosity, robust asinh exposure, a bounded unresolved core with a Moffat PSF, and restrained HDR glare. The physics lives in pure, dependency-free novascope modules; this page is the Three.js harness around them. Currently showing a backend smoke test — instanced quads through WebGPU, or WebGL 2 with ?forceWebGL — not yet the cluster."
   />
 
   <div class="srl wrap-wide">
@@ -24,7 +24,7 @@ import PageHeader from "../components/PageHeader.astro";
 </BaseLayout>
 
 <script>
-  import { initStarLabV2 } from "../lib/starlab/scene";
+  import { initStarLab } from "../lib/starlab/scene";
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-stage]");
   const status = document.querySelector<HTMLElement>("[data-status]");
@@ -32,10 +32,18 @@ import PageHeader from "../components/PageHeader.astro";
     if (status) status.textContent = t;
   };
 
+  // ?forceWebGL exercises the WebGPURenderer's WebGL 2 fallback on a machine
+  // that would otherwise always take the native path. Development affordance:
+  // ~5% of visitors get that backend, so it needs to be checkable on demand.
+  const forceWebGL = new URLSearchParams(location.search).has("forceWebGL");
+
   if (canvas) {
-    initStarLabV2(canvas)
+    initStarLab(canvas, { forceWebGL })
       .then((lab) => {
-        setStatus(`${lab.starCount.toLocaleString()} stars · observed mode`);
+        const label = lab.backend === "webgpu" ? "WebGPU" : "WebGL 2";
+        setStatus(`${label}${forceWebGL ? " (forced)" : ""} · ${lab.starCount} test quads`);
+        // Expose the live backend for verification without a screenshot.
+        (window as unknown as { starlab?: unknown }).starlab = { backend: lab.backend };
       })
       .catch((err: unknown) => {
         setStatus(`Failed: ${String(err)}`);
