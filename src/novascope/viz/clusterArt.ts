@@ -7,7 +7,7 @@
  *   'flat'   — the 2D projected gas field (smooth image) + stars projected in x,y
  *   'rotate' — stars + a 3D gas-mote cloud, tumbling about the vertical axis
  *
- * Stars use Anna's own validated spectral palette (Teff -> color), with GLOW
+ * Stars use the physical blackbody colour (Teff -> color, see spectral.ts), with GLOW
  * driven by luminosity (L ∝ R^2 Teff^4) so a blue giant reads as a brilliant
  * blue point, not a white blob. Gas is a restrained teal, brightness ∝ density.
  */

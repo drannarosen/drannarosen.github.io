@@ -89,7 +89,7 @@ in vec3 aColor;  // 0..1
 in float aSize;  // sqrt(radius) scale
 uniform float uYaw, uPitch, uBox, uPix, uZoom;
 uniform float uAspect;   // canvas width/height — the volume normalizes uv by height
-uniform float uStarGlow; // 0 = flat point (legacy), 1 = enlarge the quad for a halo
+uniform float uStarGlow; // shared with the FS (one program uniform); size no longer uses it
 uniform vec2 uPan;
 out vec3 vColor;
 mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
@@ -102,9 +102,10 @@ void main(){
   // + uPan to match the volume FS (which subtracts uPan from uv); *2 => clip space.
   // x is divided by uAspect because uv spans +-aspect/2 horizontally but clip spans +-1.
   gl_Position = vec4((clipx + uPan.x)*2.0/uAspect, (clipy + uPan.y)*2.0, 0.0, 1.0);
-  // Enlarge the point quad when glowing so the halo has room; uStarGlow=0 keeps
-  // the legacy size exactly.
-  gl_PointSize = clamp(aSize * uPix * (1.0 + uStarGlow*0.9) / (denom*uZoom), 1.8, 64.0);
+  // The glow halo lives inside the point quad, so it scales with the star and
+  // needs no size boost. Floor lifted to 2.5 px so the low-mass haze stays
+  // visible now that sizes come from the compressed magnitude law.
+  gl_PointSize = clamp(aSize * uPix / (denom*uZoom), 2.5, 44.0);
   vColor = aColor;
 }`;
 
@@ -128,7 +129,11 @@ void main(){
   float halo = exp(-r*r*13.0);
   float core = smoothstep(0.16, 0.0, r);
   float pip  = smoothstep(0.06, 0.0, r);
-  vec3 glow = vColor * (core + halo*0.55) + vec3(pip*0.7);
+  // Let the HUED HALO carry the colour (a blue star = a blue glow around a
+  // bright core, like the blue stars in a Hubble cluster image). Additive blend
+  // clips a bright core to white no matter its hue, so keep the core modest and
+  // the halo strong-and-hued; only a tiny white speck at the very centre.
+  vec3 glow = vColor * (core*0.55 + halo*0.9 + pip*0.5) + vec3(pip*pip*0.3);
 
   vec3 c = mix(base, glow, uStarGlow);
   float a = mix(disk, halo, uStarGlow);

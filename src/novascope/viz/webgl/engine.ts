@@ -87,6 +87,14 @@ function program(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgr
   return p;
 }
 
+/* Marker size runs on the MAGNITUDE scale — linear in bolometric magnitude, the
+ * astronomical brightness convention. logL anchors span the population's
+ * luminosity range (ZAMS 0.08-150 Msun => ~[-3.5, 6.5] dex) so a given star is
+ * the same size in every realization; only the min/max marker size is a display
+ * range. */
+const T_SUN = 5772; // K, IAU nominal solar effective temperature
+const LOGL_LO = -3.5, LOGL_HI = 6.5; // log10 L/Lsun spanning the IMF
+
 /** Interleave stars (n*6) into the GPU buffer layout [x,y,z, r,g,b, size] (n*7). */
 function buildStarBuffer(stars: Float32Array, emphasizeHot = false): Float32Array {
   const n = stars.length / 6;
@@ -101,12 +109,20 @@ function buildStarBuffer(stars: Float32Array, emphasizeHot = false): Float32Arra
     sbuf[q + 3] = r / 255;
     sbuf[q + 4] = g / 255;
     sbuf[q + 5] = b / 255;
-    // Two-regime size law, continuous at 1 Rsun: giants ∝ sqrt(r); dwarfs
-    // (< 1 Rsun) ∝ r^0.18 so they shrink gently and stay visible.
-    const rc = Math.min(30, Math.max(0.05, stars[o + 5]));
-    let sz = rc >= 1 ? Math.sqrt(rc) : Math.pow(rc, 0.18);
-    // Emphasize hot massive stars so O/B structure (segregation) pops.
-    if (emphasizeHot) sz *= teff > 30000 ? 2.4 : teff > 10000 ? 1.7 : 1;
+    // Size by BOLOMETRIC MAGNITUDE (log luminosity), the physical brightness
+    // scale. A star's apparent size is set by how bright it looks, not its
+    // physical radius (all stars are unresolved point sources) -- and linear
+    // radius (204x) or linear L (10^9.6) is unusable. Luminosity carries the
+    // radius: L/Lsun = (R/Rsun)^2 (T/Tsun)^4; magnitude m ~ -2.5 log10 L is the
+    // log scale every star catalogue uses. Marker size is linear in that, so
+    // equal magnitude steps are equal size steps.
+    const R = Math.min(30, Math.max(0.05, stars[o + 5]));
+    const logL = 2 * Math.log10(R) + 4 * Math.log10(teff / T_SUN); // log10 L/Lsun
+    const t = Math.min(1, Math.max(0, (logL - LOGL_LO) / (LOGL_HI - LOGL_LO)));
+    let sz = 1.0 + 3.0 * t;
+    // Optional DISPLAY nudge (not physics): lift the hottest stars a touch so
+    // O/B segregation reads on a small figure. Off => size is purely magnitude.
+    if (emphasizeHot) sz *= teff > 30000 ? 1.15 : 1;
     sbuf[q + 6] = sz;
   }
   return sbuf;
