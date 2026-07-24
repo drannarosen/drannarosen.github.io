@@ -141,18 +141,79 @@ function logMdotCool(logL5: number, logM30: number, teff: number, logZ: number):
   );
 }
 
+/* ── Björklund et al. (2022) ──────────────────────────────────────────────
+ * Björklund, Sundqvist, Singh, Puls & Najarro (2022), A&A,
+ * DOI 10.1051/0004-6361/202141948, arXiv:2203.08218 — eq (7), read from the
+ * paper PDF. Dynamically-consistent models solving the steady-state
+ * equation-of-motion with NLTE radiative transfer in the co-moving frame.
+ *
+ *   log Mdot = -5.52 + 2.39 log(L/1e6 Lsun)
+ *                    - 1.48 log(M_eff/45 Msun)
+ *                    + 2.12 log(Teff/45 kK)
+ *                    + [0.75 - 1.87 log(Teff/45 kK)] log(Z/Zsun)
+ *
+ * with M_eff = M(1 - Gamma_e) the EFFECTIVE stellar mass. That the modern fit
+ * is written in the Eddington-reduced mass independently confirms the same
+ * reasoning applied to v_esc above.
+ *
+ * Structurally different from Vink in three ways that matter here:
+ *  - rates are ~3x LOWER for O stars;
+ *  - there is NO bi-stability jump — the paper finds rates through that region
+ *    follow the same scaling as O stars, so this is a single branch;
+ *  - v_inf/v_esc,eff ~ 4.5 rather than 2.6, which is why the lower rate does
+ *    NOT translate into a proportionally lower budget: momentum falls only
+ *    ~1.7x and the mechanical luminosity is nearly unchanged.
+ * The authors flag their own terminal speeds as high relative to observation.
+ */
+const BJ_VRATIO = 4.5; // v_inf / v_esc,eff, grid mean
+
+/** Björklund validity box (their sec 4). Outside it the recipe is not defined. */
+export const BJ_LOGL_MIN = 4.5;
+export const BJ_LOGL_MAX = 6.0;
+export const BJ_MASS_MIN = 15;
+export const BJ_MASS_MAX = 80;
+export const BJ_TEFF_MIN = 15000;
+export const BJ_TEFF_MAX = 50000;
+
+/** Which mass-loss prescription to use. */
+export type WindPrescription = "bjorklund" | "vink";
+
 export interface Wind {
   /** Mass-loss rate [Msun/yr]; 0 below the calibration floor. */
   mdot: number;
   /** Terminal velocity [km/s]; 0 where there is no wind. */
   vInf: number;
-  /** True on the hot side of the bi-stability jump. */
+  /** True on the hot side of the bi-stability jump (Vink only; false for Björklund). */
   hot: boolean;
+  /** True when the star fell outside the prescription's stated validity box. */
+  outOfRange?: boolean;
+}
+
+/** Björklund eq (7). log10 Mdot [Msun/yr]. Single branch — no bi-stability. */
+function logMdotBjorklund(
+  lSun: number,
+  mEff: number,
+  teff: number,
+  z: number,
+): number {
+  const lt = Math.log10(teff / 45000);
+  return (
+    -5.52 +
+    2.39 * Math.log10(lSun / 1e6) -
+    1.48 * Math.log10(mEff / 45) +
+    2.12 * lt +
+    (0.75 - 1.87 * lt) * Math.log10(z / Z_SUN)
+  );
 }
 
 /**
  * Line-driven wind for one star from the export's (mass, teff, radius) and the
- * luminosity derived from them. Returns zero below VINK_TEFF_MIN.
+ * luminosity derived from them.
+ *
+ * Returns zero outside the chosen prescription's calibrated range rather than
+ * extrapolating, and marks `outOfRange` when a star is dropped, so a caller can
+ * report how much of the population a recipe actually covers instead of
+ * silently summing over a subset.
  */
 export function starWind(
   mSun: number,
@@ -161,9 +222,32 @@ export function starWind(
   lSun: number,
   z: number = Z_SUN,
   hydrogenX: number = X_H,
+  prescription: WindPrescription = "bjorklund",
 ): Wind {
-  if (!(teffK >= VINK_TEFF_MIN)) return { mdot: 0, vInf: 0, hot: false };
+  const vEsc = effectiveEscapeSpeed(mSun, rSun, lSun, hydrogenX);
 
+  if (prescription === "bjorklund") {
+    const m = clampMass(mSun);
+    const inRange =
+      Math.log10(lSun) >= BJ_LOGL_MIN &&
+      Math.log10(lSun) <= BJ_LOGL_MAX &&
+      m >= BJ_MASS_MIN &&
+      m <= BJ_MASS_MAX &&
+      teffK >= BJ_TEFF_MIN &&
+      teffK <= BJ_TEFF_MAX;
+    if (!inRange) return { mdot: 0, vInf: 0, hot: false, outOfRange: true };
+    const mEff = m * (1 - Math.min(gammaE(lSun, m, hydrogenX), 1));
+    if (!(mEff > 0)) return { mdot: 0, vInf: 0, hot: false, outOfRange: true };
+    return {
+      mdot: 10 ** logMdotBjorklund(lSun, mEff, teffK, z),
+      vInf: BJ_VRATIO * vEsc,
+      hot: false,
+    };
+  }
+
+  // Vink: Mdot and v_inf must travel together — the fit takes v_inf/v_esc as an
+  // input term, so the branch choice sets both.
+  if (!(teffK >= VINK_TEFF_MIN)) return { mdot: 0, vInf: 0, hot: false, outOfRange: true };
   const hot = teffK >= bistabilityTeff(lSun, mSun, z, hydrogenX);
   const logL5 = Math.log10(lSun / 1e5);
   const logM30 = Math.log10(clampMass(mSun) / 30);
@@ -171,8 +255,6 @@ export function starWind(
   const logMdot = hot
     ? logMdotHot(logL5, logM30, teffK, logZ)
     : logMdotCool(logL5, logM30, teffK, logZ);
-
-  const vEsc = effectiveEscapeSpeed(mSun, rSun, lSun, hydrogenX);
   return {
     mdot: 10 ** logMdot,
     vInf: (hot ? VRATIO_HOT : VRATIO_COOL) * vEsc,
@@ -190,8 +272,10 @@ export interface WindBudget {
   pDot: number;
   /** Kinetic-energy injection rate (mechanical luminosity) [Msun (km/s)^2 /yr]. */
   eDot: number;
-  /** How many stars cleared the 12500 K calibration floor. */
+  /** How many stars cleared the prescription's calibration range. */
   nDriving: number;
+  /** How many were dropped as outside it — reported, never hidden. */
+  nOutOfRange: number;
 }
 
 export function windBudget(
@@ -200,18 +284,23 @@ export function windBudget(
   radius: ArrayLike<number>,
   lum: ArrayLike<number>,
   z: number = Z_SUN,
+  prescription: WindPrescription = "bjorklund",
 ): WindBudget {
   let mdot = 0;
   let pDot = 0;
   let eDot = 0;
   let nDriving = 0;
+  let nOutOfRange = 0;
   for (let i = 0; i < mass.length; i++) {
-    const w = starWind(mass[i]!, teff[i]!, radius[i]!, lum[i]!, z);
-    if (w.mdot <= 0) continue;
+    const w = starWind(mass[i]!, teff[i]!, radius[i]!, lum[i]!, z, X_H, prescription);
+    if (w.mdot <= 0) {
+      if (w.outOfRange) nOutOfRange++;
+      continue;
+    }
     nDriving++;
     mdot += w.mdot;
     pDot += w.mdot * w.vInf;
     eDot += 0.5 * w.mdot * w.vInf * w.vInf;
   }
-  return { mdot, pDot, eDot, nDriving };
+  return { mdot, pDot, eDot, nDriving, nOutOfRange };
 }

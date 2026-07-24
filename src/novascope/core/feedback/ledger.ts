@@ -9,7 +9,7 @@
  * the momentum one, or the reverse, and which of the two actually unbinds a
  * cloud is the tension the tool exists to show.
  */
-import { windBudget, type WindBudget } from "./winds.ts";
+import { windBudget, type WindBudget, type WindPrescription } from "./winds.ts";
 import { bubbleCeiling } from "./bubble.ts";
 import { hiiBudget, hiiTrapped, type HiiBudget } from "./photoionization.ts";
 import { radiationBudget, type RadiationBudget, F_TRAP_FIDUCIAL } from "./radiation.ts";
@@ -48,8 +48,29 @@ const YR_S = 3.156e7;
  * a free parameter of order a few, fiducial 2).
  */
 export interface LeakageKnobs {
-  /** Wind cooling/venting fraction [0,1]. */
+  /**
+   * Wind COOLING fraction [0,1]: hot gas radiating its thermal energy away.
+   * Removes energy and kills the eta boost, but the mass stays in the bubble.
+   */
   windLeak: number;
+  /**
+   * Wind VENTING fraction [0,1]: shocked gas physically escaping the cloud
+   * through low-density channels.
+   *
+   * Tracked SEPARATELY from cooling because the two are different processes.
+   * Cooling radiates energy while the mass remains; venting removes the mass
+   * AND carries its momentum out of the cloud, so it attenuates the injected
+   * momentum itself rather than only the boost on top of it. Sharing one knob
+   * would have asserted that gas cannot escape without cooling, and that a
+   * fully-cooled bubble still delivers 100% of its momentum to the cloud —
+   * neither of which is true.
+   *
+   *   p_ret = eta (1 - f_vent) p_inj
+   *
+   * Note this can take the coupled momentum BELOW the momentum-conserving
+   * limit, which is correct: that limit assumes the wind is contained.
+   */
+  windVent: number;
   /** H II confinement loss (champagne flow) [0,1]. */
   hiiLeak: number;
   /** Radiation trapping factor; KM09 fiducial 2. */
@@ -62,6 +83,10 @@ export const DEFAULT_LEAKAGE: LeakageKnobs = {
   // rather than energy-driven. So the default sits near the leaky end rather
   // than at a neutral 0.5, and it is a sourced default, not a chosen one.
   windLeak: 0.9,
+  // No sourced value yet — 0 is the deliberately CONSERVATIVE default (nothing
+  // escapes), so the shipped budget never claims more disruption-suppression
+  // than it can defend. Raising it is an explicit act by the reader.
+  windVent: 0.0,
   hiiLeak: 0.5,
   fTrap: F_TRAP_FIDUCIAL,
 };
@@ -126,6 +151,8 @@ export interface LedgerInput {
   effGamma: number;
   effAPc: number;
   vEscCloud: number;
+  /** Mass-loss prescription; Björklund (2022) by default, Vink (2001) optional. */
+  prescription?: WindPrescription;
   /** Which channels are switched on. */
   enabled?: { winds?: boolean; photoionization?: boolean; radiation?: boolean };
   leakage?: Partial<LeakageKnobs>;
@@ -155,7 +182,7 @@ export function computeLedger(input: LedgerInput): Ledger {
   const windowMyr = preSNWindowMyr(input.mass);
 
   /* ── winds ─────────────────────────────────────────────────────────── */
-  const wb = windBudget(input.mass, input.teff, input.radius, lum);
+  const wb = windBudget(input.mass, input.teff, input.radius, lum, undefined, input.prescription ?? "bjorklund");
   // Use windBudget's own eDot and pDot rather than reconstructing them from a
   // mean terminal velocity: L_w is sum(1/2 mdot_i v_i^2), and rebuilding it as
   // 1/2 sum(mdot) <v>^2 UNDERSTATES it, since <v^2> >= <v>^2 whenever the wind
@@ -177,7 +204,7 @@ export function computeLedger(input: LedgerInput): Ledger {
   const winds: ChannelEntry = {
     name: "winds",
     energy: on.winds ? (1 - knobs.windLeak) * windEInj : 0,
-    momentum: on.winds ? windEta * windPInj : 0,
+    momentum: on.winds ? windEta * (1 - knobs.windVent) * windPInj : 0,
     eta: windEta,
   };
 
