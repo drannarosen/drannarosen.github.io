@@ -15,6 +15,7 @@ const css = (c: readonly [number, number, number]): string => {
   const [r, g, b] = linearToSrgbRGB(c).map((v) => Math.round(v * 255));
   return `rgb(${r} ${g} ${b})`;
 };
+const BANDS = ["bolometric", "U", "B", "V", "R", "I", "J", "H", "K"];
 const schemeRows = COLOR_SCHEMES.map((s) => ({
   id: s.id,
   label: s.label,
@@ -33,10 +34,29 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   <PageHeader
     eyebrow="Prototype · not linked"
     title="Star-render lab"
-    lede="A testbed for the photographic star renderer: apparent flux from each star's own luminosity, robust asinh exposure, a bounded unresolved core with a Moffat PSF, and restrained HDR glare. The physics lives in pure, dependency-free novascope modules; this page is the Three.js harness around them. Currently showing a backend smoke test — instanced quads through WebGPU, or WebGL 2 with ?forceWebGL — not yet the cluster."
+    lede="A testbed for the photographic star renderer on the real gravoturb cluster: apparent flux through a chosen filter, a robust asinh exposure calibrated once against the population, a bounded unresolved core with a Moffat PSF, and a broad faint aureole on the brighter stars. The physics lives in pure, dependency-free novascope modules; this page is the Three.js harness around them. Drag to orbit, scroll to zoom. Add ?forceWebGL to exercise the WebGL 2 fallback."
   />
 
   <div class="srl wrap-wide">
+    <div class="srl__controls">
+      <label class="srl__ctl">Colour scheme
+        <select data-scheme>
+          {COLOR_SCHEMES.map((s) => <option value={s.id}>{s.label} — {s.kind}</option>)}
+        </select>
+      </label>
+      <label class="srl__ctl">Brightness band
+        <select data-band>
+          {BANDS.map((b) => <option value={b} selected={b === "V"}>{b === "bolometric" ? "bolometric (total)" : b}</option>)}
+        </select>
+      </label>
+      <label class="srl__ctl">Faint detail
+        <input type="range" min="2" max="6" step="0.25" value="4" data-log-soft />
+      </label>
+      <label class="srl__ctl">Exposure
+        <input type="range" min="0.25" max="4" step="0.05" value="1" data-exposure />
+      </label>
+    </div>
+
     <div class="srl__stage">
       <canvas class="srl__canvas" data-stage aria-label="A star cluster rendered in observed mode."></canvas>
       <p class="srl__status" data-status aria-live="polite">Loading…</p>
@@ -95,13 +115,40 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   // ~5% of visitors get that backend, so it needs to be checkable on demand.
   const forceWebGL = new URLSearchParams(location.search).has("forceWebGL");
 
+  const read = () => ({
+    scheme: document.querySelector<HTMLSelectElement>("[data-scheme]")?.value ?? "true",
+    band: document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V",
+    softening: 10 ** Number(document.querySelector<HTMLInputElement>("[data-log-soft]")?.value ?? 4),
+    exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
+  });
+
   if (canvas) {
-    initStarLab(canvas, { forceWebGL })
+    initStarLab(canvas, { forceWebGL, ...read() })
       .then((lab) => {
         const label = lab.backend === "webgpu" ? "WebGPU" : "WebGL 2";
-        setStatus(`${label}${forceWebGL ? " (forced)" : ""} · ${lab.starCount} test quads`);
-        // Expose the live backend for verification without a screenshot.
-        (window as unknown as { starlab?: unknown }).starlab = { backend: lab.backend };
+        const show = (s: { visible: number; clipping: number }) => {
+          const pct = ((100 * s.visible) / lab.starCount).toFixed(1);
+          setStatus(
+            `${label}${forceWebGL ? " (forced)" : ""} · ${lab.starCount.toLocaleString()} stars · ` +
+              `${s.visible.toLocaleString()} visible (${pct}%) · ${s.clipping} clipping`,
+          );
+        };
+        show(lab.stats);
+        for (const el of document.querySelectorAll<HTMLElement>(
+          "[data-scheme],[data-band],[data-log-soft],[data-exposure]",
+        )) {
+          el.addEventListener("input", () => show(lab.update(read())));
+        }
+        // Expose live state for verification without relying on a screenshot.
+        (window as unknown as { starlab?: unknown }).starlab = {
+          backend: lab.backend,
+          get stats() {
+            return lab.stats;
+          },
+          get info() {
+            return lab.info;
+          },
+        };
       })
       .catch((err: unknown) => {
         setStatus(`Failed: ${String(err)}`);
@@ -115,6 +162,9 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   .srl__canvas { inline-size: 100%; block-size: 100%; display: block; }
   .srl__status { position: absolute; inset-block-end: 0.5rem; inset-inline-start: 0.6rem; margin: 0; font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: overlay status */
 
+  .srl__controls { display: flex; flex-wrap: wrap; gap: var(--space-s) var(--space-m); align-items: end; }
+  .srl__ctl { display: grid; gap: 0.2rem; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
+  .srl__ctl select, .srl__ctl input { font-family: inherit; font-size: var(--step--2); accent-color: var(--spec-teal-bright, #4fd6c4); }
   .srl__schemes { display: grid; gap: var(--space-m); padding: var(--space-m); border: 1px solid var(--border); border-radius: 10px; }
   .srl__h { margin: 0; font-size: var(--step-1); }
   .srl__intro { margin: 0; max-inline-size: var(--width-prose); color: var(--ink-dim); font-size: var(--step--1); }

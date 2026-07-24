@@ -27,6 +27,7 @@ import { PASSBANDS, bandFlux, bandIntegral, colorIndex, bandResponse, VEGA_TEFF_
 import { moffat, aureole, DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
 import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../src/novascope/core/imaging/index.ts";
 import { coreRadiusPx, computeTiers, DEFAULT_CORE } from "../src/novascope/viz/starfield/sizing.ts";
+import { prepareStarField } from "../src/novascope/viz/starfield/prepare.ts";
 import { effectiveTemperature } from "../src/novascope/core/stellar/index.ts";
 
 let failures = 0;
@@ -417,4 +418,46 @@ ok(
 );
 ok(rev.tier[0] === 3, "…and the brightest star is Tier 3 wherever it sits in the array");
 ok(computeTiers([], { t2: 0.9, t3: 0.995 }).tier.length === 0, "empty population is safe");
+
+
+/* ── the prepared field: the whole CPU path, end to end ──
+ * Everything a star needs is constant across its billboard, so it is computed
+ * here and not in a shader. That is what keeps the GPU-side surface down to the
+ * PSF profile alone — and it means the pipeline is testable in node. */
+const fake = new Float32Array(300 * 6);
+for (let i = 0; i < 300; i++) {
+  const o = i * 6;
+  fake[o] = (i % 10) - 5;
+  fake[o + 1] = ((i / 10) % 10) - 5;
+  fake[o + 2] = 0;
+  fake[o + 3] = 0.1 + i * 0.3;                 // mass
+  fake[o + 4] = 2500 + i * 120;                // teff: M through O
+  fake[o + 5] = 0.2 + i * 0.02;                // radius
+}
+const fld = prepareStarField(fake, { band: "V", scheme: "true" });
+ok(fld.count === 300, "one entry per star");
+ok(fld.position.length === 900 && fld.color.length === 900, "positions and colours are vec3 arrays");
+ok(fld.signal.every((v) => v >= 0 && Number.isFinite(v)), "signals are finite and non-negative");
+ok(fld.sizePx.every((v) => v >= DEFAULT_CORE.coreMin && v <= DEFAULT_CORE.coreMax), "every core is bounded");
+ok(fld.tier.every((t) => t >= 1 && t <= 3), "every star lands in a valid tier");
+ok(fld.stats.whiteFlux > 0, "a positive white point is derived");
+ok(fld.stats.clipping < fld.count * 0.02, "only a small fraction clips");
+// Determinism: the same input must give the same GPU buffers.
+const again = prepareStarField(fake, { band: "V", scheme: "true" });
+ok(
+  fld.signal.every((v, i) => v === again.signal[i]) && fld.color.every((v, i) => v === again.color[i]),
+  "preparation is deterministic",
+);
+// The band genuinely changes what is visible — the physical inversion that makes
+// an infrared view worth having, asserted rather than assumed.
+const inV = prepareStarField(fake, { band: "V" }).stats.visible;
+const inK = prepareStarField(fake, { band: "K" }).stats.visible;
+ok(inK > inV, "more stars are visible in K than in V (cool stars dominate the IR)");
+// Exposure and softening move visibility in the expected direction.
+ok(prepareStarField(fake, { band: "V", exposure: 4 }).stats.visible >= inV, "more exposure reveals more");
+ok(
+  prepareStarField(fake, { band: "V", softening: 1e6 }).stats.visible >= inV,
+  "more softening reveals more faint detail",
+);
+
 process.exit(failures ? 1 : 0);
