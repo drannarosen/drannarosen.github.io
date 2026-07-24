@@ -44,6 +44,42 @@ const K_B = 1.380649e-16;
 export const F_TRAP_FIDUCIAL = 2.0;
 
 /**
+ * Rosseland-mean dust opacity to reprocessed IR, per gram of GAS
+ * [cm^2/g] — i.e. it already folds in a Milky Way dust-to-gas ratio.
+ */
+export const KAPPA_IR = 5.0;
+
+/**
+ * Trapping factor from the cloud's own column: f_trap = 1 + tau_IR, with
+ * tau_IR = kappa_IR * Sigma.
+ *
+ * PREFER THIS over the constant fiducial. KM09 adopt f_trap = 2 as a
+ * representative value for the massive protoclusters they study, where tau_IR
+ * happens to be of order a few. Carrying that constant across a set spanning
+ * three decades in Sigma imports their regime as a universal and FLATTENS the
+ * very trend that makes radiation pressure a high-Sigma phenomenon:
+ *
+ *   Sigma = 0.013 g/cm^2  ->  tau_IR = 0.07  ->  f_trap = 1.07  (optically THIN:
+ *                             photons barely interact once, so a constant 2
+ *                             asserts two interactions each)
+ *   Sigma = 1.6  g/cm^2   ->  tau_IR = 7.9   ->  f_trap = 8.9   (a constant 2
+ *                             understates the boost 4.5-fold)
+ *
+ * The 1 g/cm^2 scale where tau_IR reaches ~5 is the same threshold Fall,
+ * Krumholz & Matzner (2010) identify for radiation-pressure dominance, so this
+ * form reproduces their regime boundary instead of asserting it.
+ *
+ * The single-scattering floor is 1: every photon deposits its momentum once
+ * before escaping, even when the cloud is transparent to the reprocessed IR.
+ */
+export function fTrapFromColumn(sigmaMsunPc2: number): number {
+  const MSUN_G = 1.989e33;
+  const PC_CM_ = 3.086e18;
+  const sigmaCgs = (sigmaMsunPc2 * MSUN_G) / PC_CM_ ** 2; // g/cm^2
+  return 1 + KAPPA_IR * sigmaCgs;
+}
+
+/**
  * Radiation-pressure force [dyn] on a shell at radius r, from KM09 eq (1):
  * F = f_trap L / (4 pi r^2 c) integrated over the shell area gives f_trap L/c,
  * so the total force on the swept shell is simply f_trap L / c.

@@ -12,7 +12,7 @@
 import { windBudget, type WindBudget, type WindPrescription } from "./winds.ts";
 import { bubbleCeiling } from "./bubble.ts";
 import { hiiBudget, hiiTrapped, type HiiBudget } from "./photoionization.ts";
-import { radiationBudget, type RadiationBudget, F_TRAP_FIDUCIAL } from "./radiation.ts";
+import { radiationBudget, type RadiationBudget, fTrapFromColumn } from "./radiation.ts";
 import { cloudBinding, type CloudBinding } from "./binding.ts";
 import { starLuminosity, ionizingRate, preSNWindowMyr } from "./sources.ts";
 
@@ -73,8 +73,8 @@ export interface LeakageKnobs {
   windVent: number;
   /** H II confinement loss (champagne flow) [0,1]. */
   hiiLeak: number;
-  /** Radiation trapping factor; KM09 fiducial 2. */
-  fTrap: number;
+  /** Radiation trapping factor; null = derive from the cloud column. */
+  fTrap: number | null;
 }
 
 export const DEFAULT_LEAKAGE: LeakageKnobs = {
@@ -88,7 +88,9 @@ export const DEFAULT_LEAKAGE: LeakageKnobs = {
   // than it can defend. Raising it is an explicit act by the reader.
   windVent: 0.0,
   hiiLeak: 0.5,
-  fTrap: F_TRAP_FIDUCIAL,
+  // Sentinel: derive f_trap from the cloud's own column (1 + tau_IR) rather
+  // than pinning KM09's regime-specific constant across three decades of Sigma.
+  fTrap: null,
 };
 
 export interface ChannelEntry {
@@ -226,7 +228,9 @@ export function computeLedger(input: LedgerInput): Ledger {
   };
 
   /* ── radiation pressure ────────────────────────────────────────────── */
-  const rad = radiationBudget(lTotal, sTotal, windowMyr, input.rCloudPc, knobs.fTrap);
+  const sigmaCloud = input.mCloud / (Math.PI * input.rCloudPc ** 2);
+  const fTrap = knobs.fTrap ?? fTrapFromColumn(sigmaCloud);
+  const rad = radiationBudget(lTotal, sTotal, windowMyr, input.rCloudPc, fTrap);
   const radiation: ChannelEntry = {
     name: "radiation",
     // Radiation deposits momentum, not thermal energy, into the cloud.
