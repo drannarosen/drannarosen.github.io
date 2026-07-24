@@ -22,10 +22,15 @@ import PageHeader from "../components/PageHeader.astro";
     </div>
 
     <div class="srl__panel" data-panel>
-      <p class="srl__grp">Size (pixels, clamped)</p>
-      <label class="srl__rng">min ★ <input type="range" min="1" max="6" step="0.25" value="2.5" data-f="pxMin" /> <span data-v="pxMin">2.5</span></label>
-      <label class="srl__rng">max ★ <input type="range" min="6" max="40" step="1" value="14" data-f="pxMax" /> <span data-v="pxMax">14</span></label>
-      <label class="srl__rng">contrast γ <input type="range" min="0.2" max="1.5" step="0.05" value="0.5" data-f="sizeGamma" /> <span data-v="sizeGamma">0.5</span></label>
+      <p class="srl__grp">Size law (per-star, no rank)</p>
+      <div class="srl__modes" role="group" aria-label="Size law">
+        <button type="button" class="srl__pill" data-mode="0">A · magnitude</button>
+        <button type="button" class="srl__pill is-on" data-mode="1">C · photographic</button>
+      </div>
+      <label class="srl__rng">A: contrast γ <input type="range" min="0.2" max="1.5" step="0.05" value="0.6" data-f="sizeGamma" /> <span data-v="sizeGamma">0.6</span></label>
+      <label class="srl__rng">C: compression k <input type="range" min="2" max="200" step="2" value="60" data-f="photoK" /> <span data-v="photoK">60</span></label>
+      <label class="srl__rng">min ★ <input type="range" min="1" max="6" step="0.25" value="2.0" data-f="pxMin" /> <span data-v="pxMin">2.0</span></label>
+      <label class="srl__rng">max ★ <input type="range" min="6" max="40" step="1" value="10" data-f="pxMax" /> <span data-v="pxMax">10</span></label>
 
       <p class="srl__grp">Star profile</p>
       <label class="srl__chk"><input type="checkbox" checked data-f="aureole" /> aureole (soft outer wing)</label>
@@ -62,6 +67,14 @@ import PageHeader from "../components/PageHeader.astro";
           el.addEventListener("input", () => push(el));
           push(el); // apply initial
         }
+        // A/C size-law mode buttons (set the numeric sizeMode directly)
+        for (const btn of panel!.querySelectorAll<HTMLButtonElement>("[data-mode]")) {
+          btn.addEventListener("click", () => {
+            for (const b of panel!.querySelectorAll<HTMLButtonElement>("[data-mode]"))
+              b.classList.toggle("is-on", b === btn);
+            lab.setFlags({ sizeMode: +btn.dataset.mode! });
+          });
+        }
       })
       .catch((err) => {
         if (status) status.textContent = `Failed: ${String(err)}`;
@@ -78,6 +91,9 @@ import PageHeader from "../components/PageHeader.astro";
   .srl__panel { display: grid; gap: 0.45rem; align-content: start; padding: var(--space-s); border: 1px solid var(--border); border-radius: 8px; }
   .srl__grp { margin: 0.4rem 0 0.1rem; font-family: var(--font-mono); font-size: var(--step--2); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); }
   .srl__grp:first-child { margin-block-start: 0; }
+  .srl__modes { display: flex; gap: 0.4rem; }
+  .srl__pill { font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.7rem; cursor: pointer; }
+  .srl__pill.is-on { color: #0a0b0e; background: var(--spec-teal-bright, #4fd6c4); border-color: var(--spec-teal-bright, #4fd6c4); }
   .srl__chk, .srl__rng { display: flex; gap: 0.5em; align-items: center; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
   .srl__rng input[type="range"] { flex: 1; accent-color: var(--spec-teal-bright, #4fd6c4); }
   .srl__chk input { accent-color: var(--spec-teal-bright, #4fd6c4); }

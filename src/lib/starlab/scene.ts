@@ -30,7 +30,9 @@ export interface StarLabFlags {
   exposure: number;
   pxMin: number;        // smallest star half-size [px]
   pxMax: number;        // largest star half-size [px]
-  sizeGamma: number;    // <1 compresses the magnitude->size mapping
+  sizeGamma: number;    // mode A exponent on magnitude
+  sizeMode: number;     // 0 = A (magnitude), 1 = C (photographic)
+  photoK: number;       // mode C compression strength
 }
 
 export interface StarLab {
@@ -84,19 +86,27 @@ attribute float iBright;     // 0..1 magnitude
 uniform vec2 uViewport;      // drawing-buffer size [px]
 uniform float uPxMin;        // firm minimum half-size [px] — smallest star stays readable
 uniform float uPxMax;        // firm maximum half-size [px] — largest star never dwarfs the field
-uniform float uSizeGamma;    // <1 compresses: brightness barely grows the marker
+uniform float uSizeGamma;    // mode A exponent on magnitude
+uniform float uSizeMode;     // 0 = A (magnitude), 1 = C (photographic)
+uniform float uPhotoK;       // mode C compression strength
 varying vec2 vUv;
 varying float vTempT;
-varying float vBright;
+varying float vBright;        // the star's own normalized magnitude (for the bloom kick)
+varying float vDrive;         // the mode-mapped size/brightness driver [0,1]
 void main() {
   vUv = aCorner;
   vTempT = iTempT;
   vBright = iBright;
-  // SCREEN-SPACE size in pixels, clamped to [uPxMin, uPxMax]. World-space sizing
-  // let distant dwarfs fall below a pixel (invisible) and blew the near massive
-  // stars up; pixel-space with a floor+ceiling and a compressive gamma keeps the
-  // whole population in a readable band. Depth is carried by extinction, not size.
-  float halfPx = clamp(uPxMin + (uPxMax - uPxMin) * pow(iBright, uSizeGamma), uPxMin, uPxMax);
+  // Two per-star size laws to compare (NO population rank):
+  //   A (magnitude):    driver = magnitude^gamma      — literal, bottom-heavy
+  //   C (photographic): driver = log(1+k m)/log(1+k)  — log-compresses each star's
+  //                     OWN magnitude, lifting the faint majority into a visible
+  //                     band while staying a function of that star alone.
+  float driveA = pow(iBright, uSizeGamma);
+  float driveC = log(1.0 + uPhotoK * iBright) / log(1.0 + uPhotoK);
+  float drive = mix(driveA, driveC, uSizeMode);
+  vDrive = drive;
+  float halfPx = clamp(uPxMin + (uPxMax - uPxMin) * drive, uPxMin, uPxMax);
   vec4 clip = projectionMatrix * modelViewMatrix * vec4(iPos, 1.0);
   clip.xy += aCorner * (halfPx / uViewport) * 2.0 * clip.w; // px -> clip (perspective-safe)
   gl_Position = clip;
@@ -110,7 +120,8 @@ uniform float uAureole;      // 0/1
 uniform float uDiffraction;  // 0/1
 varying vec2 vUv;
 varying float vTempT;
-varying float vBright;
+varying float vBright;   // physical magnitude (bloom kick)
+varying float vDrive;    // mode-mapped driver (carpet brightness)
 void main() {
   float r = length(vUv);
   if (r > 1.0) discard;
@@ -119,23 +130,23 @@ void main() {
   float lum = dot(col, vec3(0.30, 0.59, 0.11));
   col = clamp(mix(vec3(lum), col, uSaturation), 0.0, 1.0);
 
-  // super-Gaussian core (p=4): bright, near-saturated nucleus with a crisp edge
-  float core = exp(-pow(r / 0.16, 4.0));
-  // wider Gaussian halo, carries the hue
-  float halo = exp(-(r*r) / (2.0 * 0.30 * 0.30));
-  // faint power-law aureole so bright stars don't read as LEDs
-  float aureole = uAureole * pow(1.0 + (r*r) / (0.10*0.10), -1.8);
-  // restrained 4-fold diffraction, only meaningful on the brightest
+  // CRISP star: a tight super-Gaussian core is most of the light (like the sharp
+  // coloured pinpoints in a real cluster image), with only a small hued halo.
+  float core = exp(-pow(r / 0.13, 4.0));
+  float halo = exp(-(r*r) / (2.0 * 0.22 * 0.22));
+  float aureole = uAureole * pow(1.0 + (r*r) / (0.12*0.12), -2.0) * 0.35;
+  // restrained 4-fold diffraction, only on the physically brightest handful
   float ang = atan(vUv.y, vUv.x);
-  float spikes = uDiffraction * smoothstep(0.55, 1.0, vBright)
-               * pow(max(0.0, abs(cos(2.0*ang))), 6.0) * exp(-r*3.0) * 0.6;
+  float spikes = uDiffraction * smoothstep(0.45, 0.75, vBright)
+               * pow(max(0.0, abs(cos(2.0*ang))), 8.0) * exp(-r*3.5) * 0.5;
 
-  // brightness scales the whole source. Only the rare luminous stars should
-  // punch past 1 into the bloom; the low-mass field stays a quiet granular
-  // population, so the exponent makes brightness selective rather than linear.
-  float energy = 0.18 + 1.5 * pow(vBright, 1.6);
-  vec3 outc = col * (core*0.8 + halo*0.4 + aureole*0.45 + spikes)
-            + vec3(core*core * 0.35); // tiny white-hot centre
+  // Carpet brightness follows the (mode-mapped) driver so the field reads
+  // consistently with the size law; the bloom kick keys on the star's PHYSICAL
+  // magnitude, so only genuinely luminous stars punch past 1 into bloom
+  // regardless of size mode.
+  float energy = 0.45 + 0.55 * vDrive + 1.4 * smoothstep(0.5, 0.85, vBright);
+  vec3 outc = col * (core*0.95 + halo*0.22 + aureole + spikes)
+            + vec3(core*core*core * 0.3); // tiny white-hot pip only at the very centre
   outc *= energy;
   gl_FragColor = vec4(outc, 1.0);
 }`;
@@ -182,14 +193,17 @@ export async function initStarLab(canvas: HTMLCanvasElement): Promise<StarLab> {
 
   const iPos = new Float32Array(n * 3);
   const iTempT = new Float32Array(n);
+  // iBright = each star's OWN normalized bolometric magnitude in [0,1] (fixed
+  // anchors spanning the IMF). Purely per-star, no population rank: the same
+  // physical star is the same size in any cluster. The shader chooses how to map
+  // it to a size — mode A (magnitude) or mode C (photographic) — for comparison.
   const iBright = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const o = i * 6;
     iPos[i * 3] = stars[o]!; iPos[i * 3 + 1] = stars[o + 1]!; iPos[i * 3 + 2] = stars[o + 2]!;
     const teff = stars[o + 4]!, R = Math.min(30, Math.max(0.05, stars[o + 5]!));
     const logL = 2 * Math.log10(R) + 4 * Math.log10(teff / T_SUN);
-    const mag = Math.min(1, Math.max(0, (logL - LOGL_LO) / (LOGL_HI - LOGL_LO)));
-    iBright[i] = mag;
+    iBright[i] = Math.min(1, Math.max(0, (logL - LOGL_LO) / (LOGL_HI - LOGL_LO)));
     iTempT[i] = Math.min(1, Math.max(0, (teff - 2000) / 48000));
   }
   geo.setAttribute("iPos", new THREE.InstancedBufferAttribute(iPos, 3));
@@ -203,9 +217,11 @@ export async function initStarLab(canvas: HTMLCanvasElement): Promise<StarLab> {
     uAureole: { value: 1 },
     uDiffraction: { value: 1 },
     uViewport: { value: new THREE.Vector2(1, 1) },
-    uPxMin: { value: 2.5 },
-    uPxMax: { value: 14 },
-    uSizeGamma: { value: 0.5 },
+    uPxMin: { value: 2.0 },
+    uPxMax: { value: 10 },
+    uSizeGamma: { value: 0.6 }, // mode A exponent
+    uSizeMode: { value: 1 },    // start on C (photographic)
+    uPhotoK: { value: 60 },
   };
   const mat = new THREE.ShaderMaterial({
     vertexShader: STAR_VERT,
@@ -223,7 +239,7 @@ export async function initStarLab(canvas: HTMLCanvasElement): Promise<StarLab> {
   // ── composer: render + selective bloom ──
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.5, 1.25);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.15, 0.6, 1.5);
   composer.addPass(bloom);
   let bloomOn = true;
 
@@ -252,6 +268,8 @@ export async function initStarLab(canvas: HTMLCanvasElement): Promise<StarLab> {
       if (f.pxMin !== undefined) uniforms.uPxMin.value = f.pxMin;
       if (f.pxMax !== undefined) uniforms.uPxMax.value = f.pxMax;
       if (f.sizeGamma !== undefined) uniforms.uSizeGamma.value = f.sizeGamma;
+      if (f.sizeMode !== undefined) uniforms.uSizeMode.value = f.sizeMode;
+      if (f.photoK !== undefined) uniforms.uPhotoK.value = f.photoK;
     },
     dispose() {
       cancelAnimationFrame(raf);
