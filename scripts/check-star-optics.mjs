@@ -9,7 +9,15 @@
  * The GLSL in the Three.js lab harness (src/lib/starlab/shaders.ts) MIRRORS
  * these functions; the constants live here, once, verified here.
  */
-import { deriveLogL, apparentFlux, D0_PC, blackbodyLinearRGB } from "../src/novascope/viz/starOptics.ts";
+import {
+  deriveLogL,
+  apparentFlux,
+  D0_PC,
+  blackbodyLinearRGB,
+  robustWhiteFlux,
+  asinhResponse,
+  DEFAULT_SOFTENING,
+} from "../src/novascope/viz/starOptics.ts";
 import { effectiveTemperature } from "../src/novascope/core/stellar/index.ts";
 
 let failures = 0;
@@ -78,5 +86,70 @@ ok(
 // Guards: the LUT is sampled at arbitrary Teff, so it must not blow up at the ends.
 ok(blackbodyLinearRGB(1000).every(Number.isFinite), "finite below the fit range");
 ok(blackbodyLinearRGB(60000).every(Number.isFinite), "finite above the fit range");
+
+/* ── robust exposure: a percentile, NEVER the max ──
+ * This is the fix for the giant central blob. Normalizing by the single
+ * brightest star lets one O star set the scale for 10,301 stars, so everything
+ * else collapses to black while that star's core saturates. */
+const bulk = Array.from({ length: 1000 }, (_, i) => i); // 0..999
+const withRunaway = [...bulk, 1e9]; // one pathologically bright star
+const w = robustWhiteFlux(withRunaway, 0.995);
+ok(w < 1000, "whiteFlux ignores the single runaway (it is not the max)");
+ok(w > 980, "whiteFlux sits at the ~P99.5 of the bulk");
+// Robustness is the point: adding an extreme outlier must barely move it.
+ok(
+  Math.abs(robustWhiteFlux(withRunaway, 0.995) - robustWhiteFlux(bulk, 0.995)) <= 2,
+  "one runaway star barely moves the exposure",
+);
+ok(robustWhiteFlux([5], 0.995) === 5, "single-star population is well-defined");
+ok(robustWhiteFlux([], 0.995) > 0, "empty population yields a safe positive white point");
+// Unsorted input must give the same answer as sorted (no reliance on order).
+ok(
+  robustWhiteFlux([9, 1, 7, 3, 5], 0.5) === robustWhiteFlux([1, 3, 5, 7, 9], 0.5),
+  "percentile is order-independent",
+);
+
+/* ── asinh photographic response ── */
+const white = 100;
+const K = DEFAULT_SOFTENING;
+ok(Math.abs(asinhResponse(white, 1, K, white) - 1) < 1e-12, "signal = 1 at whiteFlux");
+ok(asinhResponse(0, 1, K, white) === 0, "zero flux -> zero signal");
+const half = asinhResponse(white / 2, 1, K, white);
+const full = asinhResponse(white, 1, K, white);
+ok(full > half && full < 2 * half, "monotone and compressive (asinh, not linear)");
+// The acceptance criterion: faint stars must be VISIBLE, so cluster structure reads.
+ok(asinhResponse(white * 0.01, 1, K, white) > 0.05, "a 1%-flux star is lifted into visibility");
+ok(asinhResponse(white * 0.001, 1, K, white) > 0.01, "…and a 0.1%-flux star is still non-zero");
+// Only genuinely brighter-than-white sources exceed 1 and clip into bloom.
+ok(asinhResponse(white * 10, 1, K, white) > 1, "a 10x-white star exceeds 1 (clips, feeds bloom)");
+ok(
+  asinhResponse(white * 10, 1, K, white) < 2,
+  "…but compressively — 10x the flux is far less than 10x the signal",
+);
+ok(asinhResponse(white, 2, K, white) > 1, "exposure raises the signal");
+
+/* SCALE INVARIANCE — the regression test for a real bug.
+ * k must be dimensionless, so scaling every flux by a constant (a different
+ * D0_PC, or different luminosity units) must not change a single display value.
+ * The obvious form asinh(k*F)/asinh(k*white) FAILS this: k then carries units of
+ * 1/flux, which silently put the linear-regime threshold above white and left 98%
+ * of the real cluster invisible. */
+const SCALE = 1e-7;
+ok(
+  [0.001, 0.01, 0.5, 1, 10].every(
+    (r) => Math.abs(asinhResponse(r * white, 1, K, white) - asinhResponse(r * white * SCALE, 1, K, white * SCALE)) < 1e-12,
+  ),
+  "response is scale-invariant (D0 and flux units cancel exactly)",
+);
+// Softening does what it claims: more k reveals more of the faint field...
+ok(
+  asinhResponse(white * 1e-4, 1, 1e5, white) > asinhResponse(white * 1e-4, 1, 1e2, white),
+  "larger k lifts more faint stars into view",
+);
+// ...without changing what clips. Clipping is the exposure percentile's job alone.
+ok(
+  asinhResponse(white, 1, 1e5, white) === 1 && asinhResponse(white, 1, 1e2, white) === 1,
+  "…while the white point stays fixed, so k and exposure stay orthogonal",
+);
 
 process.exit(failures ? 1 : 0);

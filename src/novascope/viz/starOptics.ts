@@ -123,3 +123,77 @@ export function blackbodyLinearRGB(teffK: number): [number, number, number] {
   const peak = Math.max(rgb[0], rgb[1], rgb[2]) || 1;
   return [rgb[0] / peak, rgb[1] / peak, rgb[2] / peak];
 }
+
+/* ──────────────────────────── exposure & dynamic range ─────────────────────── */
+
+/** Fallback white point for an empty population, so exposure is never 0 or NaN. */
+const WHITE_FLUX_FALLBACK = 1;
+
+/**
+ * The flux that maps to display white: a robust high percentile of the
+ * population's apparent fluxes.
+ *
+ * **Never the maximum.** A young cluster's luminosity function spans ~6 dex, so
+ * normalizing by the single brightest star hands the entire scale to one O star:
+ * its core saturates and all 10,000 others collapse toward black. That — not
+ * bloom — is the mechanism behind the giant central blob in the legacy renderer.
+ * A percentile lets the brightest few clip (which is what a real exposure does)
+ * while the bulk of the population keeps the range.
+ *
+ * `p` is a fraction in [0,1]; 0.995 means "the top 0.5% may clip".
+ */
+export function robustWhiteFlux(fluxes: ArrayLike<number>, p: number): number {
+  const n = fluxes.length;
+  if (n === 0) return WHITE_FLUX_FALLBACK;
+  const sorted = Array.from(fluxes).sort((a, b) => a - b);
+  const frac = Math.min(1, Math.max(0, p));
+  const idx = Math.min(n - 1, Math.max(0, Math.round(frac * (n - 1))));
+  const value = sorted[idx] ?? WHITE_FLUX_FALLBACK;
+  return value > 0 ? value : WHITE_FLUX_FALLBACK;
+}
+
+/**
+ * Default softening `k` — how many dex of faint structure the stretch reveals.
+ *
+ * Measured on the real gravoturb cluster (10,301 stars spanning 9.6 dex of
+ * luminosity): k = 1e4 renders ~14% of the population above a visible threshold,
+ * versus 2.8% at k = 8 and 0.5% when normalizing by the brightest star. Raising
+ * it reveals more of the faint field (k = 1e5 → ~34%) WITHOUT changing what
+ * clips — clipping is set by the exposure percentile alone.
+ */
+export const DEFAULT_SOFTENING = 1e4;
+
+/**
+ * Photographic (asinh) transfer from apparent flux to display signal:
+ *
+ *     signal = asinh(k · exposure · F/whiteFlux) / asinh(k)
+ *
+ * asinh is linear near zero and logarithmic far from it, which is exactly the
+ * behaviour wanted here: faint stars keep their relative differences (so cluster
+ * structure stays legible) while the luminous tail compresses instead of blowing
+ * out. Same reason Lupton et al. (1999) adopted asinh magnitudes for SDSS — and
+ * unlike a log stretch it is well-defined at F = 0, so empty sky needs no epsilon.
+ *
+ * **Flux is normalized by `whiteFlux` INSIDE the asinh**, which makes `k`
+ * dimensionless and the whole response scale-invariant. Writing it the obvious
+ * way — `asinh(k·F)/asinh(k·white)` — gives `k` units of 1/flux, so its meaning
+ * silently depends on `D0_PC` and the luminosity units. Measured against the real
+ * cluster that form put the linear-regime threshold (F < 1/k) ABOVE white, making
+ * the response effectively linear and leaving 98% of stars invisible: the faint
+ * end was crushed even though the exposure percentile was correct. In this form
+ * `D0_PC` cancels exactly (it scales F and whiteFlux alike), and `k` means one
+ * thing only: roughly `log10(k)` dex of faint detail lifted into view.
+ *
+ * `signal = 1` is display white by construction. Values above 1 are genuine HDR
+ * overflow and are what should feed bloom — glare is then earned by flux rather
+ * than applied to everything.
+ *
+ * Note the denominator omits `exposure`: raising exposure must brighten the
+ * image, so it may not appear on both sides and cancel.
+ */
+export function asinhResponse(flux: number, exposure: number, k: number, whiteFlux: number): number {
+  const white = whiteFlux > 0 ? whiteFlux : WHITE_FLUX_FALLBACK;
+  const denom = Math.asinh(k);
+  if (denom <= 0) return 0;
+  return Math.asinh((k * exposure * Math.max(0, flux)) / white) / denom;
+}
