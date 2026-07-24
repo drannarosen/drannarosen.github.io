@@ -47,12 +47,12 @@ import PageHeader from "../components/PageHeader.astro";
 </BaseLayout>
 
 <script>
-  import { initStarLab, type StarLabFlags } from "../lib/starlab/scene";
+  import { initStarLabLegacy, type StarLabFlags } from "../lib/starlab/scene-legacy";
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-stage]");
   const status = document.querySelector<HTMLElement>("[data-status]");
   if (canvas) {
-    initStarLab(canvas)
+    initStarLabLegacy(canvas)
       .then((lab) => {
         if (status) status.textContent = `${lab.starCount.toLocaleString()} stars · Three.js + HDR`;
         const panel = document.querySelector<HTMLElement>("[data-panel]");

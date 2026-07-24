@@ -151,7 +151,7 @@ void main() {
   gl_FragColor = vec4(outc, 1.0);
 }`;
 
-export async function initStarLab(canvas: HTMLCanvasElement): Promise<StarLab> {
+export async function initStarLabLegacy(canvas: HTMLCanvasElement): Promise<StarLab> {
   const base = "/data/gravoturb";
   const [meta, starBuf] = await Promise.all([
     fetch(`${base}/meta.json`).then((r) => r.json() as Promise<Record<string, number>>),
