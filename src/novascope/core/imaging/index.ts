@@ -44,12 +44,14 @@ export function robustWhiteFlux(fluxes: ArrayLike<number>, p: number): number {
  * Default softening `k` — roughly how many dex of faint structure the stretch
  * lifts into view (log10(k) of them).
  *
- * Measured on the shipped realization (10,301 stars, 9.6 dex): k = 1e4 renders
- * ~14% of the population above a visible threshold, against 2.8% at k = 8 and
- * 0.5% when normalizing by the brightest star. Raising it reveals more faint
- * field (k = 1e5 -> ~34%) WITHOUT changing what clips.
+ * Must be matched to the population's DYNAMIC RANGE, which is the mistake worth
+ * recording: the shipped realization spans 9.6 dex, and at k = 1e4 the median
+ * star came out at a display signal of 3.6e-4 — black — leaving 81% of the
+ * cluster invisible. k has to reach roughly the flux ratio being compressed, so
+ * ~1e8 for 9.6 dex. Raising it reveals more of the faint field WITHOUT changing
+ * what clips, which stays set by the exposure percentile alone.
  */
-export const DEFAULT_SOFTENING = 1e4;
+export const DEFAULT_SOFTENING = 1e8;
 
 /**
  * Photographic (asinh) transfer from flux to display signal:

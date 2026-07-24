@@ -50,7 +50,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         </select>
       </label>
       <label class="srl__ctl">Faint detail
-        <input type="range" min="2" max="6" step="0.25" value="4" data-log-soft />
+        <input type="range" min="3" max="11" step="0.25" value="8" data-log-soft />
       </label>
       <label class="srl__ctl">Exposure
         <input type="range" min="0.25" max="4" step="0.05" value="1" data-exposure />
@@ -118,7 +118,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   const read = () => ({
     scheme: document.querySelector<HTMLSelectElement>("[data-scheme]")?.value ?? "true",
     band: document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V",
-    softening: 10 ** Number(document.querySelector<HTMLInputElement>("[data-log-soft]")?.value ?? 4),
+    softening: 10 ** Number(document.querySelector<HTMLInputElement>("[data-log-soft]")?.value ?? 8),
     exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
   });
 

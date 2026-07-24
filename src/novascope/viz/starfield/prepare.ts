@@ -136,9 +136,8 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     signal[i] = s;
     if (s > 0.02) visible++;
     if (s > 1) clipping++;
-    // Core size is driven by flux RELATIVE to white, so the pixel defaults stay
-    // meaningful whatever the absolute flux scale is.
-    const px = coreRadiusPx((flux[i] ?? 0) / whiteFlux, core);
+    // Size follows the DISPLAY SIGNAL, not raw flux — see coreRadiusPx.
+    const px = coreRadiusPx(s, core);
     sizePx[i] = px;
     if (px > maxSizePx) maxSizePx = px;
     const t = tier[i] ?? 1;

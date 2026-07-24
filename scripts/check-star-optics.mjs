@@ -356,46 +356,43 @@ ok(
 
 
 
-/* ── core radius: BOUNDED, and decoupled from the brightness law ──
- * The legacy renderer mapped luminosity to billboard DIAMETER, so the brightest
- * stars were also the largest quads — maximum overlap area exactly where the
- * cluster is densest. Size must be a weak, bounded function of flux; luminosity
- * drives RADIANCE instead. */
-for (const F of [0, 1e-6, 1e-3, 1, 1e3, 1e6, 1e9]) {
-  const rpx = coreRadiusPx(F, DEFAULT_CORE);
+/* ── core radius: BOUNDED, and driven by the display signal ──
+ * Size follows the asinh-compressed SIGNAL rather than raw flux. Raw flux spans
+ * ~9.6 dex in a real cluster, so any direct function of it saturates: the faint
+ * 90% pile onto the floor and the bright tail hits the ceiling, which is exactly
+ * what a measured run showed (90% at 3.20 px, top 1% jumping to 14 px). */
+const core2 = scaleCoreParams(DEFAULT_CORE, 2);
+for (const sig of [0, 0.001, 0.05, 0.25, 0.9, 1, 4, 1e6]) {
+  const rpx = coreRadiusPx(sig, DEFAULT_CORE);
   ok(
     rpx >= DEFAULT_CORE.coreMin - 1e-9 && rpx <= DEFAULT_CORE.coreMax + 1e-9,
-    `core radius bounded at F=${F} (${rpx.toFixed(2)} px)`,
+    `core radius bounded at signal=${sig} (${rpx.toFixed(2)} px)`,
   );
 }
-/* Core sizes are authored in CSS PIXELS and scaled by devicePixelRatio at
- * preparation. Treating them as device px (the literal reading of a "0.7-1.6 px
- * crisp core" brief) puts a core below half a device pixel at DPR 2, where the
- * profile falls between sample points and the field renders empty. What the
- * brief actually protects — size being a WEAK, BOUNDED function of flux, so
- * brightness lives in radiance and the dense core cannot bloom — is asserted
- * directly below instead of via a specific pixel ceiling. */
-ok(DEFAULT_CORE.coreMax <= 10, "the brightest core stays a few CSS px, not a disk");
-ok(DEFAULT_CORE.coreMin >= 1, "…and the faintest still spans a device pixel at DPR 1");
+ok(coreRadiusPx(0, DEFAULT_CORE) === DEFAULT_CORE.coreMin, "a zero-signal star sits at the floor");
+ok(coreRadiusPx(1, DEFAULT_CORE) === DEFAULT_CORE.coreMax, "a star at display white sits at the ceiling");
 ok(
-  scaleCoreParams(DEFAULT_CORE, 2).coreMax === DEFAULT_CORE.coreMax * 2,
-  "core params scale linearly with devicePixelRatio",
+  coreRadiusPx(4, DEFAULT_CORE) === DEFAULT_CORE.coreMax,
+  "…and an over-white star cannot exceed it — no runaway disks",
 );
+ok(coreRadiusPx(0.6, DEFAULT_CORE) > coreRadiusPx(0.2, DEFAULT_CORE), "core grows with signal (monotone)");
+// gamma > 1 keeps the faint BULK small: the population is overwhelmingly faint,
+// so a linear ramp would make almost every star mid-sized.
+ok(DEFAULT_CORE.gamma > 1, "the size curve is biased toward the faint majority staying small");
+const span = DEFAULT_CORE.coreMax - DEFAULT_CORE.coreMin;
+ok(
+  coreRadiusPx(0.25, DEFAULT_CORE) - DEFAULT_CORE.coreMin < span * 0.25,
+  "…so a quarter-white star uses well under a quarter of the size range",
+);
+ok(DEFAULT_CORE.coreMax <= 10, "the brightest core stays a few CSS px, not a disk");
+ok(core2.coreMax === DEFAULT_CORE.coreMax * 2, "core params scale linearly with devicePixelRatio");
+// Sub-pixel cores are dimmed to preserve energy rather than vanishing or being faked bigger.
 ok(subpixelGain(2) === 1, "a core wider than a pixel needs no compensation");
 ok(subpixelGain(0.5) < 1 && subpixelGain(0.5) > 0, "…and a sub-pixel core is dimmed, not brightened");
-// A zero-flux star sits at r0. coreMin is a defensive clamp below it, so it does
-// not bind at the defaults — assert the real property, not r0 === coreMin.
-ok(coreRadiusPx(0, DEFAULT_CORE) === DEFAULT_CORE.r0, "a zero-flux star sits at r0");
-ok(coreRadiusPx(0, DEFAULT_CORE) >= DEFAULT_CORE.coreMin, "…and never below the floor");
 ok(
-  coreRadiusPx(0, { ...DEFAULT_CORE, r0: 0.1 }) === DEFAULT_CORE.coreMin,
-  "the floor does bind when r0 is pushed below it",
+  Math.abs(subpixelGain(0.5) - 0.25) < 1e-12,
+  "…by the area ratio, so total energy is conserved",
 );
-// Weak growth: 6 dex of flux must not span the whole size range linearly.
-const rFaint = coreRadiusPx(1, DEFAULT_CORE);
-const rBright = coreRadiusPx(1e6, DEFAULT_CORE);
-ok(rBright > rFaint, "core grows with flux (monotone)");
-ok(rBright / rFaint < 4, "…but only weakly — size is not the brightness law");
 
 /* ── Moffat PSF ── */
 ok(Math.abs(moffat(0, 1, 3.2) - 1) < 1e-12, "Moffat peaks at 1 on axis");
@@ -469,14 +466,23 @@ ok(
 );
 // The band genuinely changes what is visible — the physical inversion that makes
 // an infrared view worth having, asserted rather than assumed.
-const inV = prepareStarField(fake, { band: "V" }).stats.visible;
-const inK = prepareStarField(fake, { band: "K" }).stats.visible;
+// Measured at a LOW softening: the default lifts the whole field to visible, so
+// there would be no headroom left to detect a difference.
+const LOW = 1e3;
+const inV = prepareStarField(fake, { band: "V", softening: LOW }).stats.visible;
+const inK = prepareStarField(fake, { band: "K", softening: LOW }).stats.visible;
 ok(inK > inV, "more stars are visible in K than in V (cool stars dominate the IR)");
-// Exposure and softening move visibility in the expected direction.
-ok(prepareStarField(fake, { band: "V", exposure: 4 }).stats.visible >= inV, "more exposure reveals more");
 ok(
-  prepareStarField(fake, { band: "V", softening: 1e6 }).stats.visible >= inV,
+  prepareStarField(fake, { band: "V", softening: LOW, exposure: 8 }).stats.visible > inV,
+  "more exposure reveals more",
+);
+ok(
+  prepareStarField(fake, { band: "V", softening: 1e8 }).stats.visible > inV,
   "more softening reveals more faint detail",
 );
+// The default must actually suit the data it ships with: a 9.6-dex population
+// should be essentially all visible, which is the bug this replaced.
+const shipped = prepareStarField(fake, { band: "V" });
+ok(shipped.stats.visible > fake.length / 6 * 0.9, "the DEFAULT softening leaves the field visible, not black");
 
 process.exit(failures ? 1 : 0);
