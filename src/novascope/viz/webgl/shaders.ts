@@ -89,6 +89,7 @@ in vec3 aColor;  // 0..1
 in float aSize;  // sqrt(radius) scale
 uniform float uYaw, uPitch, uBox, uPix, uZoom;
 uniform float uAspect;   // canvas width/height — the volume normalizes uv by height
+uniform float uStarGlow; // 0 = flat point (legacy), 1 = enlarge the quad for a halo
 uniform vec2 uPan;
 out vec3 vColor;
 mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.,c); }
@@ -101,7 +102,9 @@ void main(){
   // + uPan to match the volume FS (which subtracts uPan from uv); *2 => clip space.
   // x is divided by uAspect because uv spans +-aspect/2 horizontally but clip spans +-1.
   gl_Position = vec4((clipx + uPan.x)*2.0/uAspect, (clipy + uPan.y)*2.0, 0.0, 1.0);
-  gl_PointSize = clamp(aSize * uPix / (denom*uZoom), 1.8, 44.0);
+  // Enlarge the point quad when glowing so the halo has room; uStarGlow=0 keeps
+  // the legacy size exactly.
+  gl_PointSize = clamp(aSize * uPix * (1.0 + uStarGlow*0.9) / (denom*uZoom), 1.8, 64.0);
   vColor = aColor;
 }`;
 
@@ -109,12 +112,25 @@ export const STAR_FS = `#version 300 es
 precision highp float;
 in vec3 vColor;
 uniform float uStarAlpha;   // 0..1 global star fade (scrollytelling ignition)
+uniform float uStarGlow;    // 0 = legacy soft disk, 1 = tight core + luminous halo
 out vec4 outColor;
 void main(){
   float r = length(gl_PointCoord - 0.5);
-  float a = smoothstep(0.5, 0.0, r);       // soft round point
-  float core = smoothstep(0.30, 0.0, r);   // bright center
-  vec3 c = vColor * (a + core * 0.9);      // brighten center IN the star's hue
-  c += vec3(core*core*0.5);                // small white-hot pip only at the very center
+
+  // Legacy look (uStarGlow = 0): a soft disk filling the quad + a hued core.
+  float disk = smoothstep(0.5, 0.0, r);
+  float coreLegacy = smoothstep(0.30, 0.0, r);
+  vec3 base = vColor * (disk + coreLegacy * 0.9) + vec3(coreLegacy*coreLegacy*0.5);
+
+  // Glow look (uStarGlow = 1), matching the canvas cluster art: a TIGHT bright
+  // core, a broad Gaussian halo in the star's own hue (additive, so it reads as
+  // luminosity), and a white-hot pip at the very centre.
+  float halo = exp(-r*r*13.0);
+  float core = smoothstep(0.16, 0.0, r);
+  float pip  = smoothstep(0.06, 0.0, r);
+  vec3 glow = vColor * (core + halo*0.55) + vec3(pip*0.7);
+
+  vec3 c = mix(base, glow, uStarGlow);
+  float a = mix(disk, halo, uStarGlow);
   outColor = vec4(c, a) * uStarAlpha;      // additive blend => multiply to fade
 }`;

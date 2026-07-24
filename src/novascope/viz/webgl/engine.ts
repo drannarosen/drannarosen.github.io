@@ -26,6 +26,8 @@ export interface EngineOptions {
   autoExpel?: boolean;
   /** Enlarge hot O/B stars so massive-star structure (e.g. segregation) reads clearly. */
   emphasizeHot?: boolean;
+  /** 0 = legacy flat points; 1 = tight core + luminous halo (canvas-art look). */
+  starGlow?: number;
   /** Seconds for one full expulsion loop (embedded → expel → bare → re-form). */
   expelPeriodSec?: number;
 }
@@ -194,6 +196,10 @@ export function createEngine(canvas: HTMLCanvasElement, scene: Scene, opts: Engi
   gl.useProgram(starProg);
   gl.uniform1f(gl.getUniformLocation(starProg, "uBox"), scene.box);
   gl.uniform1f(uStarAlpha, 1.0);
+  // Constant per engine: the glow is a look, not an animated quantity. One
+  // location serves both stages (uniforms are per-program). Unset => 0 => the
+  // legacy point look, so existing consumers are untouched.
+  gl.uniform1f(gl.getUniformLocation(starProg, "uStarGlow"), opts.starGlow ?? 0);
 
   // ── view state (camera), shared with interaction.ts via setView/getView ──
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");

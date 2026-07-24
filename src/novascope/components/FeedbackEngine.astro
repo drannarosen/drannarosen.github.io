@@ -185,7 +185,7 @@ import RatioBar from "./RatioBar.astro";
         loadFeedbackRealization(name, { enabled: enabled() }),
       ]);
       engine?.cleanup();
-      engine = createEngine(canvas, scene, { emphasizeHot: true });
+      engine = createEngine(canvas, scene, { emphasizeHot: true, starGlow: 1 });
       attachInteraction(canvas, engine);
       fb = budget;
       renderBudget();
