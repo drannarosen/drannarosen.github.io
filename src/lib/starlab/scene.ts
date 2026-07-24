@@ -28,6 +28,9 @@ export interface StarLabFlags {
   bloomThreshold: number;
   bloomStrength: number;
   exposure: number;
+  pxMin: number;        // smallest star half-size [px]
+  pxMax: number;        // largest star half-size [px]
+  sizeGamma: number;    // <1 compresses the magnitude->size mapping
 }
 
 export interface StarLab {
@@ -76,9 +79,12 @@ const STAR_VERT = /* glsl */ `
 precision highp float;
 attribute vec2 aCorner;      // quad corner in [-1,1]
 attribute vec3 iPos;         // star position [pc]
-attribute float iSize;       // world-space billboard half-size [pc]
 attribute float iTempT;      // 0..1 LUT coordinate (temperature)
-attribute float iBright;     // 0..1 magnitude (drives bloom weight in FS)
+attribute float iBright;     // 0..1 magnitude
+uniform vec2 uViewport;      // drawing-buffer size [px]
+uniform float uPxMin;        // firm minimum half-size [px] — smallest star stays readable
+uniform float uPxMax;        // firm maximum half-size [px] — largest star never dwarfs the field
+uniform float uSizeGamma;    // <1 compresses: brightness barely grows the marker
 varying vec2 vUv;
 varying float vTempT;
 varying float vBright;
@@ -86,9 +92,14 @@ void main() {
   vUv = aCorner;
   vTempT = iTempT;
   vBright = iBright;
-  vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
-  mv.xy += aCorner * iSize;          // camera-facing billboard (view space)
-  gl_Position = projectionMatrix * mv;
+  // SCREEN-SPACE size in pixels, clamped to [uPxMin, uPxMax]. World-space sizing
+  // let distant dwarfs fall below a pixel (invisible) and blew the near massive
+  // stars up; pixel-space with a floor+ceiling and a compressive gamma keeps the
+  // whole population in a readable band. Depth is carried by extinction, not size.
+  float halfPx = clamp(uPxMin + (uPxMax - uPxMin) * pow(iBright, uSizeGamma), uPxMin, uPxMax);
+  vec4 clip = projectionMatrix * modelViewMatrix * vec4(iPos, 1.0);
+  clip.xy += aCorner * (halfPx / uViewport) * 2.0 * clip.w; // px -> clip (perspective-safe)
+  gl_Position = clip;
 }`;
 
 const STAR_FRAG = /* glsl */ `
@@ -150,6 +161,9 @@ export async function initStarLab(canvas: HTMLCanvasElement): Promise<StarLab> {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     composer.setSize(w, h);
+    const buf = new THREE.Vector2();
+    renderer.getDrawingBufferSize(buf);
+    uniforms.uViewport.value.set(buf.x, buf.y);
   };
 
   const scene = new THREE.Scene();
@@ -167,21 +181,18 @@ export async function initStarLab(canvas: HTMLCanvasElement): Promise<StarLab> {
   geo.setIndex([0, 1, 2, 0, 2, 3]);
 
   const iPos = new Float32Array(n * 3);
-  const iSize = new Float32Array(n);
   const iTempT = new Float32Array(n);
   const iBright = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const o = i * 6;
-    iPos[i * 3] = stars[o] - 0; iPos[i * 3 + 1] = stars[o + 1]; iPos[i * 3 + 2] = stars[o + 2];
+    iPos[i * 3] = stars[o]!; iPos[i * 3 + 1] = stars[o + 1]!; iPos[i * 3 + 2] = stars[o + 2]!;
     const teff = stars[o + 4]!, R = Math.min(30, Math.max(0.05, stars[o + 5]!));
     const logL = 2 * Math.log10(R) + 4 * Math.log10(teff / T_SUN);
     const mag = Math.min(1, Math.max(0, (logL - LOGL_LO) / (LOGL_HI - LOGL_LO)));
     iBright[i] = mag;
-    iSize[i] = 0.03 + 0.14 * mag;         // world half-size [pc], magnitude-scaled
     iTempT[i] = Math.min(1, Math.max(0, (teff - 2000) / 48000));
   }
   geo.setAttribute("iPos", new THREE.InstancedBufferAttribute(iPos, 3));
-  geo.setAttribute("iSize", new THREE.InstancedBufferAttribute(iSize, 1));
   geo.setAttribute("iTempT", new THREE.InstancedBufferAttribute(iTempT, 1));
   geo.setAttribute("iBright", new THREE.InstancedBufferAttribute(iBright, 1));
   geo.instanceCount = n;
@@ -191,6 +202,10 @@ export async function initStarLab(canvas: HTMLCanvasElement): Promise<StarLab> {
     uSaturation: { value: 2.4 },
     uAureole: { value: 1 },
     uDiffraction: { value: 1 },
+    uViewport: { value: new THREE.Vector2(1, 1) },
+    uPxMin: { value: 2.5 },
+    uPxMax: { value: 14 },
+    uSizeGamma: { value: 0.5 },
   };
   const mat = new THREE.ShaderMaterial({
     vertexShader: STAR_VERT,
@@ -234,6 +249,9 @@ export async function initStarLab(canvas: HTMLCanvasElement): Promise<StarLab> {
       if (f.bloomThreshold !== undefined) bloom.threshold = f.bloomThreshold;
       if (f.bloomStrength !== undefined) bloom.strength = f.bloomStrength;
       if (f.exposure !== undefined) renderer.toneMappingExposure = f.exposure;
+      if (f.pxMin !== undefined) uniforms.uPxMin.value = f.pxMin;
+      if (f.pxMax !== undefined) uniforms.uPxMax.value = f.pxMax;
+      if (f.sizeGamma !== undefined) uniforms.uSizeGamma.value = f.sizeGamma;
     },
     dispose() {
       cancelAnimationFrame(raf);

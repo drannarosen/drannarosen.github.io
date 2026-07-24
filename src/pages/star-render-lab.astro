@@ -22,6 +22,11 @@ import PageHeader from "../components/PageHeader.astro";
     </div>
 
     <div class="srl__panel" data-panel>
+      <p class="srl__grp">Size (pixels, clamped)</p>
+      <label class="srl__rng">min ★ <input type="range" min="1" max="6" step="0.25" value="2.5" data-f="pxMin" /> <span data-v="pxMin">2.5</span></label>
+      <label class="srl__rng">max ★ <input type="range" min="6" max="40" step="1" value="14" data-f="pxMax" /> <span data-v="pxMax">14</span></label>
+      <label class="srl__rng">contrast γ <input type="range" min="0.2" max="1.5" step="0.05" value="0.5" data-f="sizeGamma" /> <span data-v="sizeGamma">0.5</span></label>
+
       <p class="srl__grp">Star profile</p>
       <label class="srl__chk"><input type="checkbox" checked data-f="aureole" /> aureole (soft outer wing)</label>
       <label class="srl__chk"><input type="checkbox" checked data-f="diffraction" /> diffraction spikes (brightest only)</label>
