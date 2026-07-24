@@ -11,7 +11,7 @@
  * context so the A/B switch is wired end-to-end and we confirm, early, that the
  * context and the @novascope seam both work.
  */
-import { STAROPTICS_OK } from "@novascope/viz/starOptics";
+import { D0_PC } from "@novascope/viz/starOptics";
 
 export interface StarLabV2 {
   dispose(): void;
@@ -20,7 +20,7 @@ export interface StarLabV2 {
 
 export async function initStarLabV2(canvas: HTMLCanvasElement): Promise<StarLabV2> {
   // Prove the seam: the harness can reach the pure novascope math.
-  if (!STAROPTICS_OK) throw new Error("starOptics module not reachable through @novascope alias");
+  if (!(D0_PC > 0)) throw new Error("starOptics module not reachable through @novascope alias");
 
   const gl = canvas.getContext("webgl2");
   if (!gl) throw new Error("WebGL2 unavailable — the v2 renderer requires it");
