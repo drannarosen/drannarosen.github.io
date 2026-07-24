@@ -113,6 +113,27 @@ check("q=1.5 does NOT survive", gv(2e5, 1.5).clusterSurvives, false, 0);
 // the survives/dissolves line is exactly q=1 (sign of total energy)
 check("survival boundary is q=1", gv(2e5, 0.999).clusterSurvives && !gv(2e5, 1.001).clusterSurvives, true, 0);
 
+/* 7. Momentum trajectory: must end exactly at the static ledger total (the time
+ *    axis is the same budget, resolved), and accumulate monotonically. Uses a
+ *    synthetic single massive star so it needs no data files. */
+console.log("feedback: momentum trajectory");
+const { momentumTrajectory } = await import("../src/novascope/core/feedback/trajectory.ts");
+const { computeLedger } = await import("../src/novascope/core/feedback/ledger.ts");
+const synth = {
+  mass: [40], teff: [40000], radius: [10], localDensity: [1e5],
+  mCloud: 2e4, rCloudPc: 2.5, effGamma: 4.2, effAPc: 0.8, vEscCloud: 8.4,
+  sfe: 0.2, tCrossMyr: 1.64, qVirialStarsOnly: 0.03,
+};
+const traj = momentumTrajectory(synth, 40);
+const staticTotal = computeLedger(synth).totalMomentum;
+check("trajectory ends at the static ledger total", traj.totalMomentum.at(-1), staticTotal, 1e-9);
+// Winds and radiation start at zero; H II starts at the initial Stromgren-sphere
+// shell momentum, a negligible seed (~1e-7 of the total), not exactly zero.
+check("trajectory starts negligibly small", traj.totalMomentum[0] / staticTotal < 1e-4, true, 0);
+const mono = traj.totalMomentum.every((v, i, a) => i === 0 || v >= a[i - 1] - 1e-9);
+check("trajectory accumulates monotonically", mono, true, 0);
+check("cleared fraction is capped at 1", Math.max(...traj.clearedFraction) <= 1, true, 0);
+
 if (failures) {
   console.error(`\nfeedback: ${failures} check(s) failed`);
   process.exit(1);
