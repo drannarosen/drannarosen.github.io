@@ -56,6 +56,18 @@ function layerOf(absPath) {
   return rel.split("/")[0];
 }
 
+/**
+ * Blank out block and line comments, preserving offsets so reported matches
+ * still line up with the source. Strings are left alone: a DOM access hidden in
+ * a string literal is not a real access either, but leaving them in keeps this
+ * conservative — it can only over-report, never miss a genuine one.
+ */
+function stripComments(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+    .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
+}
+
 /** Pull every import/export-from/dynamic-import specifier out of source. */
 function specifiers(src) {
   const specs = [];
@@ -124,10 +136,17 @@ for (const file of files) {
   }
 
   // 5. Core must not touch the DOM. Flag member access on window/document/globalThis.
+  //
+  // Scan CODE only — comments cannot touch the DOM, and scanning them produced
+  // false positives on ordinary scientific prose: "over the pre-SN window." and
+  // "this document." both match /\b(window|document)\s*[.[]/. A gate that fails
+  // on a correct comment trains people to reword physics explanations around a
+  // regex, so strip comments first rather than asking prose to dodge it.
   if (layer === "core") {
+    const code = stripComments(src);
     const domRe = /\b(window|document|globalThis)\s*[.[]/g;
     let m;
-    while ((m = domRe.exec(src))) {
+    while ((m = domRe.exec(code))) {
       violations.push(`${rel}: core touches the DOM ("${m[0].trim()}") — core must be environment-free`);
     }
   }
