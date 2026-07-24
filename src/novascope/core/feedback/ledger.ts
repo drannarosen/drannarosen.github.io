@@ -117,6 +117,50 @@ export interface ChannelEntry {
 
 export type Verdict = "blow-out" | "bound" | "marginal";
 
+/**
+ * The two-stage gas-expulsion outcome — the question the engine actually
+ * answers, in the order the physics happens.
+ *
+ * Stage 1 (gas): does the retained feedback momentum exceed what it takes to
+ * lift the RESIDUAL GAS out of the cloud potential? The threshold is
+ * M_gas v_esc, not M_cloud v_esc -- the stars are the sources, not the payload,
+ * so only the gas mass has to be moved.
+ *
+ * Stage 2 (stars): IF the gas goes, do the stars stay bound once its share of
+ * the potential vanishes? This is a first-principles ENERGY criterion, not a
+ * fitted one: the stars keep their kinetic energy T while |W| drops to their
+ * own self-gravity, so the system is bound iff T < |W_stars|, i.e. the
+ * post-expulsion virial ratio q = T/|W_stars| < 1 (virialised at 0.5, positive
+ * energy at 1). Hills (1980); Baumgardt & Kroupa (2007) refine the bound
+ * FRACTION with N-body, but the survives/dissolves line is the sign of E.
+ * q_virial_stars_only is computed once in the export and read here.
+ */
+export interface GasExpulsion {
+  /** Residual gas mass [Msun] = M_cloud (1 - SFE). */
+  mGas: number;
+  /** Momentum to lift the gas out: M_gas v_esc [Msun km/s]. */
+  gasMomentumNeeded: number;
+  /** Retained feedback momentum / gas threshold. >1 clears the gas. */
+  gasMomentumRatio: number;
+  /** Stage 1 verdict: is the gas expelled within the pre-SN window? */
+  gasExpelled: boolean;
+  /** Rough time to accumulate the threshold momentum [Myr]. */
+  tRemoveMyr: number;
+  /**
+   * Removal speed relative to a stellar crossing time. Impulsive removal
+   * (t_remove < t_cross) is the hardest case for survival; adiabatic removal
+   * (t_remove > t_cross) lets the stars re-adjust as the gas leaves. Reported
+   * because it sets how MANY stars are shed, though not the bound/unbound line.
+   */
+  removalRegime: "impulsive" | "adiabatic";
+  /** Post-expulsion virial ratio T/|W_stars| (from the export). */
+  qVirialPost: number;
+  /** Stage 2 verdict: are the stars still bound after the gas is gone? */
+  clusterSurvives: boolean;
+  /** Three-way label: bound and cold / bound but super-virial / unbound. */
+  survivalLabel: "survives" | "expands" | "dissolves";
+}
+
 export interface Ledger {
   /** Integration window: time to the first supernova [Myr]. */
   windowMyr: number;
@@ -130,6 +174,8 @@ export interface Ledger {
   /** Retained momentum / M v_esc. >1 clears the momentum threshold. */
   momentumRatio: number;
   verdict: Verdict;
+  /** The two-stage gas-expulsion outcome (gas expelled? cluster survives?). */
+  gasExpulsion: GasExpulsion;
   /**
    * Energy ratio across the OBSERVED spread in cluster concentration (EFF
    * gamma_3D 3.2-4.2), as [low, high]. The MOMENTUM threshold M v_esc depends
@@ -161,6 +207,12 @@ export interface LedgerInput {
   effGamma: number;
   effAPc: number;
   vEscCloud: number;
+  /** Star-formation efficiency of the IC; sets the residual gas mass. */
+  sfe: number;
+  /** Stellar crossing time [Myr] (from the export) — sets the removal regime. */
+  tCrossMyr: number;
+  /** Post-expulsion virial ratio T/|W_stars| (from the export) — sets survival. */
+  qVirialStarsOnly: number;
   /** Mass-loss prescription; Björklund (2022) by default, Vink (2001) optional. */
   prescription?: WindPrescription;
   /** Which channels are switched on. */
@@ -177,6 +229,48 @@ export interface LedgerInput {
  * the uncertainty for a natal profile.
  */
 const GAMMA_RANGE: [number, number] = [3.2, 4.2];
+
+/**
+ * The two-stage gas-expulsion verdict. `totalMomentum` is the RETAINED feedback
+ * momentum (after leakage and venting), the same quantity the momentum bar
+ * shows.
+ */
+export function gasExpulsionVerdict(
+  totalMomentum: number,
+  mCloud: number,
+  sfe: number,
+  vEsc: number,
+  windowMyr: number,
+  tCrossMyr: number,
+  qVirialStarsOnly: number,
+): GasExpulsion {
+  const mGas = mCloud * (1 - sfe);
+  const gasMomentumNeeded = mGas * vEsc;
+  const gasMomentumRatio = gasMomentumNeeded > 0 ? totalMomentum / gasMomentumNeeded : 0;
+  const gasExpelled = gasMomentumRatio >= 1;
+  // Momentum accumulates ~linearly (rate x time), so the threshold is reached at
+  // t ~ window / ratio; if the ratio never reaches 1 the gas is not cleared
+  // within the window, and the removal timescale is unbounded.
+  const tRemoveMyr =
+    gasMomentumRatio >= 1 ? windowMyr / gasMomentumRatio : Infinity;
+  const removalRegime = tRemoveMyr < tCrossMyr ? "impulsive" : "adiabatic";
+  // Stage 2: energy criterion, bound iff the post-expulsion virial ratio < 1.
+  const qVirialPost = qVirialStarsOnly;
+  const clusterSurvives = qVirialPost < 1;
+  const survivalLabel =
+    qVirialPost < 0.5 ? "survives" : qVirialPost < 1 ? "expands" : "dissolves";
+  return {
+    mGas,
+    gasMomentumNeeded,
+    gasMomentumRatio,
+    gasExpelled,
+    tRemoveMyr,
+    removalRegime,
+    qVirialPost,
+    clusterSurvives,
+    survivalLabel,
+  };
+}
 
 export function computeLedger(input: LedgerInput): Ledger {
   const knobs = { ...DEFAULT_LEAKAGE, ...(input.leakage ?? {}) };
@@ -285,6 +379,16 @@ export function computeLedger(input: LedgerInput): Ledger {
   else if (momentumRatio <= 0.8) verdict = "bound";
   else verdict = "marginal";
 
+  const gasExpulsion = gasExpulsionVerdict(
+    totalMomentum,
+    input.mCloud,
+    input.sfe,
+    binding.vEsc,
+    windowMyr,
+    input.tCrossMyr,
+    input.qVirialStarsOnly,
+  );
+
   return {
     windowMyr,
     channels,
@@ -294,6 +398,7 @@ export function computeLedger(input: LedgerInput): Ledger {
     energyRatio,
     momentumRatio,
     verdict,
+    gasExpulsion,
     energyRatioRange,
     diagnostics: {
       windBudget: wb,

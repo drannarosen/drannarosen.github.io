@@ -405,7 +405,16 @@ def _diagnostics(xyz, mass, vel, gas_menc_frac, r_grid, sfe, G) -> dict:
     m_gas_ic = m_star_total * (1.0 - sfe) / sfe
     m_gas_enc = np.interp(r[order], r_grid, gas_menc_frac) * m_gas_ic
     m_enc = m_cum + m_gas_enc
-    w_energy = -G * float(np.sum(mass[order] * m_enc / np.maximum(r[order], 1e-6)))
+    inv_r = 1.0 / np.maximum(r[order], 1e-6)
+    w_energy = -G * float(np.sum(mass[order] * m_enc * inv_r))
+    # Stellar self-gravity ALONE: the same sum with the gas term dropped. This is
+    # the potential the stars fall back into once feedback has expelled the gas,
+    # so T/|W_stars| is the virial ratio AFTER gas removal -- the first-principles
+    # cluster-survival criterion (bound while < 1; Hills 1980, Baumgardt & Kroupa
+    # 2007 refine the bound FRACTION, but the survives/dissolves line is the sign
+    # of the total energy). Reported so the ledger reads it rather than recomputing
+    # from data it is not passed.
+    w_stars = -G * float(np.sum(mass[order] * m_cum * inv_r))
     t_energy = 0.5 * float((mass * (vel**2).sum(axis=1)).sum())
     return {
         "m_star_total_msun": m_star_total,
@@ -413,6 +422,8 @@ def _diagnostics(xyz, mass, vel, gas_menc_frac, r_grid, sfe, G) -> dict:
         "sigma_3d_pc_myr": sigma_3d,
         "t_cross_myr": t_cross,
         "q_virial_at_sfe_ic": t_energy / abs(w_energy),
+        # T/|W| in the stars' OWN potential = virial ratio after gas expulsion.
+        "q_virial_stars_only": t_energy / abs(w_stars),
     }
 
 

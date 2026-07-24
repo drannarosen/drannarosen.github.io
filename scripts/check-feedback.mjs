@@ -95,6 +95,24 @@ if (fOurs >= F_TRAP_FIDUCIAL) {
   console.error(`  FAIL f_trap reached the wind-inclusive fiducial (${fOurs}) — winds would be double-counted`);
 }
 
+/* 6. Two-stage gas-expulsion verdict. Stage 1 measures against the GAS mass, not
+ *    the whole cloud; stage 2 is the first-principles energy criterion q<1. */
+console.log("feedback: two-stage gas-expulsion verdict");
+const { gasExpulsionVerdict } = await import("../src/novascope/core/feedback/ledger.ts");
+// M_cloud=2e4, SFE=0.2 -> M_gas=1.6e4; v_esc=8.4 -> threshold=1.344e5 Msun km/s
+const gv = (p, q) => gasExpulsionVerdict(p, 2e4, 0.2, 8.4, 0.3, 1.64, q);
+check("threshold uses M_gas = M_cloud(1-SFE)", gv(1e5, 0.02).gasMomentumNeeded, 1.6e4 * 8.4, 1e-9);
+check("gas expelled when p exceeds M_gas v_esc", gv(2e5, 0.02).gasExpelled, true, 0);
+check("gas retained when p below threshold", gv(5e4, 0.02).gasExpelled, false, 0);
+// stage 2 is the energy criterion, independent of stage 1
+check("cold cluster (q=0.03) survives", gv(2e5, 0.03).survivalLabel === "survives", true, 0);
+check("super-virial (q=0.7) expands but bound", gv(2e5, 0.7).survivalLabel === "expands", true, 0);
+check("q=0.7 still counts as surviving (bound)", gv(2e5, 0.7).clusterSurvives, true, 0);
+check("unbound (q=1.5) dissolves", gv(2e5, 1.5).survivalLabel === "dissolves", true, 0);
+check("q=1.5 does NOT survive", gv(2e5, 1.5).clusterSurvives, false, 0);
+// the survives/dissolves line is exactly q=1 (sign of total energy)
+check("survival boundary is q=1", gv(2e5, 0.999).clusterSurvives && !gv(2e5, 1.001).clusterSurvives, true, 0);
+
 if (failures) {
   console.error(`\nfeedback: ${failures} check(s) failed`);
   process.exit(1);

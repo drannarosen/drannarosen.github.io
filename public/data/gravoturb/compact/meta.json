@@ -51,6 +51,7 @@
   "sigma_3d_pc_myr": 0.8269147803510372,
   "t_cross_myr": 1.3052874128955083,
   "q_virial_at_sfe_ic": 0.001511291473190578,
+  "q_virial_stars_only": 0.004353783230187652,
   "gas_menc_n": 1024,
   "gas_menc_r_max_pc": 4.156921938165305,
   "gas_menc_encoding": "float32 M_gas(<r)/M_gas on a uniform radial grid r = linspace(0, gas_menc_r_max_pc, gas_menc_n); truncated-EFF profile integrated as rho(r) 4 pi r^2 dr, saturates at 1 by r_t",
