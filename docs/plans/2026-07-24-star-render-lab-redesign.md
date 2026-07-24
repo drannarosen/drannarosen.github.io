@@ -39,7 +39,7 @@ check-script tests (no vitest in repo) · gravoturb data
 | --- | --- | --- |
 | Flux, exposure, PSF, aureole, tiers, chromaticity, transfer registry | `src/novascope/viz/starOptics.ts`, `starTransfer.ts` | pure; no `three`/DOM/`astro`; `check:novascope` + `check:star-optics` green; node-testable |
 | Three.js scene, HDR pipeline, passes, controls glue | `src/lib/starlab/scene.ts`, `shaders.ts` | disposable harness; imports math via `@novascope/viz/starOptics` |
-| Legacy renderer (A/B reference) | `src/lib/starlab/scene-legacy.ts` | untouched after Task 0.1 |
+| ~~Legacy renderer~~ | *deleted 2026-07-24* | cut over, not preserved — see Cutover below |
 | Page + controls | `src/pages/star-render-lab.astro` | `noindex`, unlinked |
 
 `starOptics.ts` is **viz-layer**: it may import *downward* (core/state) relatively
@@ -84,25 +84,41 @@ or duplicate it, and reference it in a header comment so the two stay distinct.
   sub-pixel cores (no conspicuous 2 px clamp); all per-star randomness = `hash(id)`
   where `id` = array index, never frame-dependent.
 
-## A/B strategy (spec: preserve easy comparison with the original)
+## Cutover — no legacy lane (Anna, 2026-07-24, supersedes the A/B strategy)
 
-Rename current `scene.ts` → `scene-legacy.ts` (`initStarLabLegacy`), add a page
-switch **Renderer: Legacy · Observed-v2** that dynamically imports either module.
-Both load the same data. This is the DELIVERABLE's required A/B.
+The original spec asked for an A/B against the old renderer. **Anna cut that
+over instead:** no stale code, no rejected designs kept alive. `scene-legacy.ts`,
+the Renderer switch, and the legacy control panel (A/C pills, `sizeGamma`,
+`photoK`, `pxMin/pxMax`, `saturation`, the old bloom knobs) are **deleted**.
+There is one lane: observed mode.
+
+**The comparison reference survives as evidence, not as code.** A baseline
+screenshot of the legacy renderer was captured first (2026-07-24, cluster-wide
+view, 1440×900) and it exhibits, simultaneously, every failure the spec names:
+a single giant orange-white central blob, a whole-cluster orange bias, only tens
+of the 10,301 stars visible, and no blue-white hot stars. That image is the
+"before" for the Stage 7 acceptance sweep; git history holds the code if it is
+ever needed again.
+
+**What was deliberately NOT cut over yet:** the star path in
+`src/novascope/viz/webgl/` (`STAR_FS`'s `uStarGlow` dual-path) and
+`viz/clusterArt.ts`. Those serve already-shipped `/explore/*` pages, are reached
+by different entry points, and neither imports nor is imported by `starOptics.ts`,
+so they cannot contaminate this work. Cutting them over is the post-validation
+port (see Out of scope) — deleting them before the replacement is proven would
+break shipped pages.
 
 ---
 
 ## Stage 0 — Scaffold, test harness, A/B switch
 
-### Task 0.1 — Preserve the legacy renderer
+### Task 0.1 — ~~Preserve the legacy renderer~~ → **cut it over** ✅ done
 
-**Files:** Rename `src/lib/starlab/scene.ts` → `src/lib/starlab/scene-legacy.ts`.
-
-**Step 1:** `git mv src/lib/starlab/scene.ts src/lib/starlab/scene-legacy.ts`.
-**Step 2:** rename export `initStarLab` → `initStarLabLegacy` (nothing else changes).
-**Step 3:** `pnpm check` → expect FAIL (page still imports `initStarLab`).
-**Step 4:** point the page import at `initStarLabLegacy`; `pnpm check` → PASS.
-**Step 5:** Commit `refactor(starlab): preserve legacy renderer as scene-legacy`.
+Superseded by Anna's cutover call (see Cutover above). Baseline screenshot
+captured as the "before" evidence, then `scene-legacy.ts`, the Renderer switch and
+the legacy control panel were deleted. The lab page now mounts `initStarLabV2`
+only, and the page carries no controls until Stage 6 builds the real grouped panel
+— a control that drives nothing is stale by definition.
 
 ### Task 0.2 — Pure novascope module stub + node gate (in prebuild)
 
@@ -130,15 +146,13 @@ with `export const STAROPTICS_OK = true;`. **Step 5:** `pnpm check:star-optics` 
 `pnpm check:novascope` → PASS (boundary clean). **Step 6:** Commit
 `test(novascope): pure star-optics module + prebuild gate`.
 
-### Task 0.3 — Renderer A/B switch in the page
+### Task 0.3 — ~~Renderer A/B switch~~ → **single observed lane** ✅ done
 
-**Files:** Modify `src/pages/star-render-lab.astro`.
-
-**Step 1:** add a `Renderer` button group (`Legacy`/`Observed-v2`) above the stage.
-**Step 2:** dynamic import keyed to the switch; default `Observed-v2` → stub
-`initStarLabV2` (filled in Stage 4). **Step 3:** `pnpm check` → PASS. **Step 4:**
-browser 1440×900 (record `innerWidth`): both buttons present, Legacy renders as
-before. **Step 5:** Commit `feat(starlab): renderer A/B switch`.
+Superseded by the cutover. The page mounts `initStarLabV2` directly; the stub
+holds a WebGL2 context and proves the `@novascope/viz/starOptics` seam until
+Stage 4 draws stars. **The stage is intentionally dark between here and Stage 4**
+— Stages 1–3 are pure math with no visual output, so nothing is lost by showing
+an honest empty stage instead of a rejected design.
 
 ---
 
