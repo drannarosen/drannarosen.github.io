@@ -100,6 +100,22 @@ export function shellEffectiveTemperature(lSun: number, rPc: number): number {
  * Note also that Sigma_sh is the SHELL column M_sh/(4 pi r_II^2), not the
  * cloud's mean surface density M/(pi R^2). They differ by both geometry and by
  * how much of the cloud has actually been swept.
+ *
+ * WHY THIS IS A FIT AND NOT AN OPACITY. The coefficients 132, 72, -3, -1.92 and
+ * -2/3 encode WD01's kappa(T); substituting a different dust model's opacity
+ * into them would be meaningless. Using another model means redoing KM09's
+ * eq (33) integral, F(P) = integral dP'/kappa_R(T'), with that model's
+ * tabulated kappa_R and kappa_P — not editing these numbers.
+ *
+ * Cross-checked against Hensley & Draine (2023) Astrodust+PAH Rosseland means
+ * (M_d/M_H = 0.00708): per gram of GAS those give 0.013 cm^2/g at 11 K, 0.165
+ * at 45 K and 1.37 at 132 K. Two things follow, and both matter. A constant
+ * opacity cannot represent this — it moves by 100x across the shell
+ * temperatures in play, which is exactly why trapping tracks COMPACTNESS rather
+ * than column alone. And an earlier version of this file used a constant
+ * kappa_IR = 5 cm^2/g of gas, which the same table puts ~30x too high at our
+ * shell temperatures. That constant appeared in no source; it was invented to
+ * complete a formula.
  */
 export function trapIR(sigmaShellCgs: number, teffShellK: number): number {
   if (!(sigmaShellCgs > 0) || !(teffShellK > 0)) return 0;
