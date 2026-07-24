@@ -28,55 +28,101 @@ const KMS_CM_S = 1e5;
 const K_B = 1.380649e-16;
 
 /**
- * Trapping factor: the factor by which radiation-pressure force is enhanced by
- * photons interacting with the shell more than once.
+ * KM09's fiducial trapping factor, eq (22):
  *
- * KM09 enumerate three routes -- line-driven winds off stellar surfaces
- * colliding with the shell, dust-reprocessed IR trapped in an optically thick
- * shell, and Lyman-alpha resonant scattering -- conclude it is "always likely to
- * be of order a few", and DELIBERATELY leave it a free parameter of constant
- * value, adopting 2 for numerical evaluation.
+ *   f_trap = 1 + f_trap,w + f_trap,IR + f_trap,Lyalpha
  *
- * So this knob and its default are the paper's own choice, not ours. Limits:
- * f_trap = 0 is optically thin (every photon escapes, no momentum deposited);
- * f_trap = 1 is one absorption per photon.
+ * where the 1 is absorption of the DIRECT radiation and the other three are
+ * trapping by stellar winds, reprocessed infrared, and Lyman-alpha.
+ *
+ * DO NOT USE THIS AS OUR DEFAULT. It is the right number for KM09 and the wrong
+ * number for us, for a structural reason: they have ONE shell equation, so the
+ * hot shocked wind pushing the shell has to enter as f_trap,w (~1, their
+ * eq 23 analysis giving 0.22/(1 - C_f)). We model winds as a SEPARATE ledger
+ * channel, so adopting 2 would count the wind bubble twice — once in the wind
+ * entry, once inside the radiation entry.
+ *
+ * Kept exported because it is the number the paper evaluates with, and the UI
+ * should be able to show where the published fiducial sits.
  */
 export const F_TRAP_FIDUCIAL = 2.0;
 
 /**
- * Rosseland-mean dust opacity to reprocessed IR, per gram of GAS
- * [cm^2/g] — i.e. it already folds in a Milky Way dust-to-gas ratio.
+ * Direct-absorption floor: every photon deposits its momentum once before
+ * escaping. The `1` of KM09 eq (22).
  */
-export const KAPPA_IR = 5.0;
+export const F_TRAP_DIRECT = 1.0;
 
 /**
- * Trapping factor from the cloud's own column: f_trap = 1 + tau_IR, with
- * tau_IR = kappa_IR * Sigma.
- *
- * PREFER THIS over the constant fiducial. KM09 adopt f_trap = 2 as a
- * representative value for the massive protoclusters they study, where tau_IR
- * happens to be of order a few. Carrying that constant across a set spanning
- * three decades in Sigma imports their regime as a universal and FLATTENS the
- * very trend that makes radiation pressure a high-Sigma phenomenon:
- *
- *   Sigma = 0.013 g/cm^2  ->  tau_IR = 0.07  ->  f_trap = 1.07  (optically THIN:
- *                             photons barely interact once, so a constant 2
- *                             asserts two interactions each)
- *   Sigma = 1.6  g/cm^2   ->  tau_IR = 7.9   ->  f_trap = 8.9   (a constant 2
- *                             understates the boost 4.5-fold)
- *
- * The 1 g/cm^2 scale where tau_IR reaches ~5 is the same threshold Fall,
- * Krumholz & Matzner (2010) identify for radiation-pressure dominance, so this
- * form reproduces their regime boundary instead of asserting it.
- *
- * The single-scattering floor is 1: every photon deposits its momentum once
- * before escaping, even when the cloud is transparent to the reprocessed IR.
+ * Lyman-alpha trapping contribution. KM09 sec 3.3 find the pressure of trapped
+ * Ly-alpha saturates once dust destroys the photons, and conclude one may
+ * "simply set f_trap,Lyalpha ~ 0 without making a significant error" for
+ * ionization parameters x_II < 1. Named rather than dropped, so the term is
+ * visibly accounted for instead of silently missing.
  */
-export function fTrapFromColumn(sigmaMsunPc2: number): number {
-  const MSUN_G = 1.989e33;
-  const PC_CM_ = 3.086e18;
-  const sigmaCgs = (sigmaMsunPc2 * MSUN_G) / PC_CM_ ** 2; // g/cm^2
-  return 1 + KAPPA_IR * sigmaCgs;
+export const F_TRAP_LYA = 0.0;
+
+/** Stefan-Boltzmann constant [erg cm^-2 s^-1 K^-4]. */
+const SIGMA_SB = 5.670374419e-5;
+
+/**
+ * Effective temperature of the shell's photosphere [K], from KM09's
+ * 4 pi r_II^2 sigma_SB T_eff,sh^4 = L.
+ *
+ * This is what sets whether IR trapping matters at all, and it is why trapping
+ * is a property of COMPACTNESS rather than of mass: T_eff,sh ~ (L/r^2)^(1/4).
+ */
+export function shellEffectiveTemperature(lSun: number, rPc: number): number {
+  if (!(lSun > 0) || !(rPc > 0)) return 0;
+  const rCm = rPc * PC_CM;
+  return Math.pow((lSun * LSUN_ERG_S) / (4 * Math.PI * rCm ** 2 * SIGMA_SB), 0.25);
+}
+
+/**
+ * Infrared trapping contribution f_trap,IR — KM09 eq (34), their fit to a
+ * diffusion calculation through the Weingartner & Draine (2001) standard dust
+ * model "A" at R_V = 5.5:
+ *
+ *   f_trap,IR = [ Sigma_sh^-3 (132/T_eff,sh)^6
+ *               + Sigma_sh^-1.92 (72/T_eff,sh)^1.71 ]^(-2/3)
+ *
+ * with Sigma_sh in g/cm^2. KM09 use the temperature-dependent Planck and
+ * Rosseland means, NOT a constant opacity — there is no kappa_IR in the paper,
+ * and a `1 + kappa_IR Sigma` form is not theirs.
+ *
+ * IMPORTANT: this is the NON-POROUS (C_f = 1) UPPER LIMIT, which KM09
+ * immediately call "unrealistically high when radiation can leak away". Their
+ * leaky result is eq (37), f_trap,IR = (4/3) C_f/(1 - C_f), and for realistic
+ * C_f <~ 1/2 they conclude f_trap,IR <~ 1 — radiation-driven Rayleigh-Taylor
+ * punches holes that keep C_f well below 1, "so that f_trap,IR is no more than
+ * a few". Use this as a ceiling, not as the answer.
+ *
+ * Note also that Sigma_sh is the SHELL column M_sh/(4 pi r_II^2), not the
+ * cloud's mean surface density M/(pi R^2). They differ by both geometry and by
+ * how much of the cloud has actually been swept.
+ */
+export function trapIR(sigmaShellCgs: number, teffShellK: number): number {
+  if (!(sigmaShellCgs > 0) || !(teffShellK > 0)) return 0;
+  const a = sigmaShellCgs ** -3 * (132 / teffShellK) ** 6;
+  const b = sigmaShellCgs ** -1.92 * (72 / teffShellK) ** 1.71;
+  return (a + b) ** (-2 / 3);
+}
+
+/**
+ * The trapping factor appropriate to OUR ledger: KM09 eq (22) with the wind
+ * term omitted, because winds are their own channel here.
+ *
+ *   f_trap = 1 + f_trap,IR + f_trap,Lyalpha
+ *
+ * For every environment in the shipped set this evaluates to ~1: the shells sit
+ * at T_eff,sh = 11-45 K and Sigma_sh = 0.003-0.4 g/cm^2, far below the
+ * Sigma_sh >~ 1, T_eff,sh > 60 K regime where KM09 note trapping becomes
+ * significant. That is a RESULT, not an assumption — it is computed per
+ * environment and will rise on its own for a more compact, more luminous one.
+ */
+export function fTrapKM09(lSun: number, rPc: number, sigmaShellCgs: number): number {
+  const teff = shellEffectiveTemperature(lSun, rPc);
+  return F_TRAP_DIRECT + trapIR(sigmaShellCgs, teff) + F_TRAP_LYA;
 }
 
 /**

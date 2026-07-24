@@ -13,6 +13,10 @@ import {
   characteristicRadius,
   radiationPressure,
   pressureComparison,
+  trapIR,
+  shellEffectiveTemperature,
+  fTrapKM09,
+  F_TRAP_FIDUCIAL,
 } from "../src/novascope/core/feedback/radiation.ts";
 import { hiiPressure } from "../src/novascope/core/feedback/photoionization.ts";
 
@@ -67,6 +71,29 @@ check("P_HII ~ r^-3/2", hiiPressure(1e49, 1) / hiiPressure(1e49, 4), 8, 1e-12);
 check("P_HII ~ S^1/2", hiiPressure(4e49, 1) / hiiPressure(1e49, 1), 2, 1e-12);
 check("r_ch ~ f_trap^2", characteristicRadius(1e49, 1, 4) / characteristicRadius(1e49, 1, 2), 4, 1e-12);
 check("r_ch ~ psi^2", characteristicRadius(1e49, 2, 2) / characteristicRadius(1e49, 1, 2), 4, 1e-12);
+
+/* 4. KM09 eq (34) IR trapping. Checked against the paper's own qualitative
+ *    statement -- trapping "can be quite significant" for Sigma_sh >~ 1 with a
+ *    warm shell, and is negligible for the cold, low-column shells we ship --
+ *    plus the monotonicity that makes it a compactness diagnostic at all. */
+console.log("feedback: KM09 eq (34) IR trapping");
+check("f_trap,IR cold thin shell (0.4 g/cm2, 45 K) is negligible", trapIR(0.4, 44.8) < 0.01, true, 0);
+check("f_trap,IR warm thick shell (3 g/cm2, 100 K) is order unity+", trapIR(3, 100) > 1, true, 0);
+// rises with BOTH column and shell temperature
+check("f_trap,IR increases with Sigma_sh", trapIR(3, 100) > trapIR(1, 100), true, 0);
+check("f_trap,IR increases with T_eff,sh", trapIR(3, 100) > trapIR(3, 60), true, 0);
+// T_eff,sh ~ (L/r^2)^(1/4): quadrupling r at fixed L halves it
+check("T_eff,sh ~ r^-1/2", shellEffectiveTemperature(1e6, 1) / shellEffectiveTemperature(1e6, 4), 2, 1e-12);
+
+/* 5. Our f_trap must NOT reproduce KM09's fiducial 2, because that includes
+ *    f_trap,w and winds are a separate channel here. A future edit that
+ *    "restores" 2 would silently double-count the wind bubble. */
+const fOurs = fTrapKM09(28.55e6, 2, 0.396); // the shipped `compact` environment
+check("f_trap for compact is ~1, not the fiducial 2", fOurs, 1, 0.05);
+if (fOurs >= F_TRAP_FIDUCIAL) {
+  failures++;
+  console.error(`  FAIL f_trap reached the wind-inclusive fiducial (${fOurs}) — winds would be double-counted`);
+}
 
 if (failures) {
   console.error(`\nfeedback: ${failures} check(s) failed`);

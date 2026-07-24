@@ -12,7 +12,7 @@
 import { windBudget, type WindBudget, type WindPrescription } from "./winds.ts";
 import { bubbleCeiling } from "./bubble.ts";
 import { hiiBudget, hiiTrapped, type HiiBudget } from "./photoionization.ts";
-import { radiationBudget, type RadiationBudget, fTrapFromColumn } from "./radiation.ts";
+import { radiationBudget, type RadiationBudget, fTrapKM09 } from "./radiation.ts";
 import { cloudBinding, type CloudBinding } from "./binding.ts";
 import { starLuminosity, ionizingRate, preSNWindowMyr } from "./sources.ts";
 
@@ -21,6 +21,7 @@ import { starLuminosity, ionizingRate, preSNWindowMyr } from "./sources.ts";
 const MSUN_G = 1.989e33;
 const KMS_CM = 1e5;
 const YR_S = 3.156e7;
+const PC_CM = 3.086e18;
 
 /**
  * Per-channel leakage. One knob per channel, because the three fail for
@@ -44,8 +45,11 @@ const YR_S = 3.156e7;
  * is a parameterization and must be labelled as such wherever it is shown.
  *
  * Radiation pressure is different by construction: it has no hot phase, so it
- * never obeys the f_leak/eta lock. Its boost is f_trap (Krumholz & Matzner 2009,
- * a free parameter of order a few, fiducial 2).
+ * never obeys the f_leak/eta lock. Its boost is f_trap (Krumholz & Matzner 2009
+ * eq 22), computed per environment as 1 + f_trap,IR + f_trap,Lyalpha. Their
+ * published fiducial of 2 is NOT used: it includes f_trap,w, the hot shocked
+ * wind pushing the shell, which they must fold in because they have a single
+ * shell equation and we must not because that is our wind channel.
  */
 export interface LeakageKnobs {
   /**
@@ -73,7 +77,10 @@ export interface LeakageKnobs {
   windVent: number;
   /** H II confinement loss (champagne flow) [0,1]. */
   hiiLeak: number;
-  /** Radiation trapping factor; null = derive from the cloud column. */
+  /**
+   * Radiation trapping factor; null = compute it from KM09 eq (22), omitting
+   * their wind term because winds are a separate channel here.
+   */
   fTrap: number | null;
 }
 
@@ -88,8 +95,9 @@ export const DEFAULT_LEAKAGE: LeakageKnobs = {
   // than it can defend. Raising it is an explicit act by the reader.
   windVent: 0.0,
   hiiLeak: 0.5,
-  // Sentinel: derive f_trap from the cloud's own column (1 + tau_IR) rather
-  // than pinning KM09's regime-specific constant across three decades of Sigma.
+  // Sentinel: compute f_trap per environment from KM09 eq (22) as
+  // 1 + f_trap,IR + f_trap,Lyalpha. NOT their fiducial 2 — that includes
+  // f_trap,w, and our wind channel already carries it.
   fTrap: null,
 };
 
@@ -228,8 +236,13 @@ export function computeLedger(input: LedgerInput): Ledger {
   };
 
   /* ── radiation pressure ────────────────────────────────────────────── */
-  const sigmaCloud = input.mCloud / (Math.PI * input.rCloudPc ** 2);
-  const fTrap = knobs.fTrap ?? fTrapFromColumn(sigmaCloud);
+  // Shell column Sigma_sh = M_sh/(4 pi r^2) in g/cm^2, for KM09 eq (34). Taking
+  // M_sh as the whole cloud mass at the cloud radius is the GENEROUS bound —
+  // the real shell has swept only part of the cloud — so the trapping this
+  // yields is an over-estimate of an already-upper-limit expression.
+  const rShellCm = input.rCloudPc * PC_CM;
+  const sigmaShellCgs = (input.mCloud * MSUN_G) / (4 * Math.PI * rShellCm ** 2);
+  const fTrap = knobs.fTrap ?? fTrapKM09(lTotal, input.rCloudPc, sigmaShellCgs);
   const rad = radiationBudget(lTotal, sTotal, windowMyr, input.rCloudPc, fTrap);
   const radiation: ChannelEntry = {
     name: "radiation",
