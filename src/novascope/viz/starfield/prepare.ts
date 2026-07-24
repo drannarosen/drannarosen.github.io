@@ -16,7 +16,13 @@ import { deriveLogL, apparentFlux, D0_PC } from "../../core/photometry/index.ts"
 import { PASSBANDS, bandFlux, type Passband } from "../../core/photometry/passbands.ts";
 import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../../core/imaging/index.ts";
 import { getScheme } from "../../core/colorimetry/schemes.ts";
-import { coreRadiusPx, computeTiers, DEFAULT_CORE, type TierBoundaries } from "./sizing.ts";
+import {
+  coreRadiusPx,
+  computeTiers,
+  scaleCoreParams,
+  DEFAULT_CORE,
+  type TierBoundaries,
+} from "./sizing.ts";
 
 /** Fields of one star in the gravoturb export, in order. */
 export const STAR_STRIDE = 6;
@@ -41,6 +47,8 @@ export interface PrepareOptions {
   exposure?: number;
   /** Tier percentile boundaries. */
   tiers?: TierBoundaries;
+  /** Device pixel ratio — core sizes are authored in CSS px and scaled by it. */
+  pixelRatio?: number;
 }
 
 export interface StarField {
@@ -86,6 +94,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const softening = opts.softening ?? DEFAULT_SOFTENING;
   const exposure = opts.exposure ?? 1;
   const percentile = opts.whitePercentile ?? 0.995;
+  const core = scaleCoreParams(DEFAULT_CORE, opts.pixelRatio ?? 1);
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
@@ -129,7 +138,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     if (s > 1) clipping++;
     // Core size is driven by flux RELATIVE to white, so the pixel defaults stay
     // meaningful whatever the absolute flux scale is.
-    const px = coreRadiusPx((flux[i] ?? 0) / whiteFlux, DEFAULT_CORE);
+    const px = coreRadiusPx((flux[i] ?? 0) / whiteFlux, core);
     sizePx[i] = px;
     if (px > maxSizePx) maxSizePx = px;
     const t = tier[i] ?? 1;

@@ -14,7 +14,7 @@ import * as THREE from "three";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import {
   Fn,
-  attribute,
+  instancedBufferAttribute,
   cameraProjectionMatrix,
   modelViewMatrix,
   positionLocal,
@@ -38,6 +38,13 @@ import type { StarField } from "@novascope/viz/starfield/prepare";
  * 1e-3 of its peak.
  */
 const QUAD_RADII = 8;
+
+/**
+ * Quad extent for Tier 1, in core radii. The faint majority has no visible wing,
+ * so giving it the full 8-radius quad costs fill rate on 90% of the population
+ * for pixels that round to nothing.
+ */
+const QUAD_RADII_FAINT = 3;
 
 export interface StarGraphUniforms {
   beta: { value: number };
@@ -70,14 +77,38 @@ export function createStarGraph(field: StarField): StarGraph {
   geometry.setAttribute("uv", plane.getAttribute("uv"));
   geometry.instanceCount = field.count;
 
-  geometry.setAttribute("iPos", new THREE.InstancedBufferAttribute(field.position, 3));
-  geometry.setAttribute("iColor", new THREE.InstancedBufferAttribute(field.color, 3));
-  geometry.setAttribute("iSignal", new THREE.InstancedBufferAttribute(field.signal, 1));
-  geometry.setAttribute("iSizePx", new THREE.InstancedBufferAttribute(field.sizePx, 1));
-  geometry.setAttribute(
-    "iTier",
-    new THREE.InstancedBufferAttribute(Float32Array.from(field.tier), 1),
-  );
+  /*
+   * Per-instance data is registered on the geometry AND bound in TSL, and both
+   * halves are load-bearing.
+   *
+   * The geometry registration is what tells three there are instances at all —
+   * with no instanced attribute it derives an instance count of zero and issues
+   * no draw call. The TSL binding must use `instancedBufferAttribute`, NOT
+   * `attribute(name)`: the latter resolves PER-VERTEX attributes, so reading an
+   * instanced buffer through it silently yields zero and every one of the 10,301
+   * quads lands on the origin, stacking into a single small square. Instancing
+   * was working the whole time (20,603 triangles drew); only the per-instance
+   * values were missing — a failure that looks like a maths bug and is not.
+   *
+   * The same BufferAttribute objects are handed to both, so the data is uploaded
+   * once.
+   */
+  const aPos = new THREE.InstancedBufferAttribute(field.position, 3);
+  const aColor = new THREE.InstancedBufferAttribute(field.color, 3);
+  const aSignal = new THREE.InstancedBufferAttribute(field.signal, 1);
+  const aSizePx = new THREE.InstancedBufferAttribute(field.sizePx, 1);
+  const aTier = new THREE.InstancedBufferAttribute(Float32Array.from(field.tier), 1);
+  geometry.setAttribute("iPos", aPos);
+  geometry.setAttribute("iColor", aColor);
+  geometry.setAttribute("iSignal", aSignal);
+  geometry.setAttribute("iSizePx", aSizePx);
+  geometry.setAttribute("iTier", aTier);
+
+  const iPos = instancedBufferAttribute<"vec3">(aPos, "vec3");
+  const iColor = instancedBufferAttribute<"vec3">(aColor, "vec3");
+  const iSignal = instancedBufferAttribute<"float">(aSignal, "float");
+  const iSizePx = instancedBufferAttribute<"float">(aSizePx, "float");
+  const iTier = instancedBufferAttribute<"float">(aTier, "float");
 
   const uniforms: StarGraphUniforms = {
     beta: { value: 3.2 },
@@ -103,10 +134,10 @@ export function createStarGraph(field: StarField): StarGraph {
 
   // ── vertex: project the instance centre, then offset by the quad corner in px
   material.vertexNode = Fn(() => {
-    const iPos = attribute<"vec3">("iPos", "vec3");
-    const sizePx = attribute<"float">("iSizePx", "float");
+    const sizePx = iSizePx;
     const clip = cameraProjectionMatrix.mul(modelViewMatrix.mul(vec4(iPos, 1)));
-    const halfPx = sizePx.mul(QUAD_RADII);
+    const extent = iTier.greaterThan(float(1.5)).select(float(QUAD_RADII), float(QUAD_RADII_FAINT));
+    const halfPx = sizePx.mul(extent);
     // positionLocal.xy spans -0.5..0.5 for a unit plane; x2 gives -1..1.
     // A pixel is 2/screenSize in NDC (which spans -1..1), and clip = NDC * w.
     const offset = positionLocal.xy.mul(2).mul(halfPx).mul(2).div(screenSize).mul(clip.w);
@@ -124,13 +155,13 @@ export function createStarGraph(field: StarField): StarGraph {
     // Broad faint aureole, mirroring core/optics.aureole. Tier 1 (the faint
     // majority) skips it: it is invisible there and costs fill rate on 90% of
     // the population.
-    const tier = attribute<"float">("iTier", "float");
+    const tier = iTier;
     const wing = uAurAmp.div(float(1).add(rho.div(uAurScale)).pow(uAurP));
     const aureole = wing.mul(tier.greaterThan(float(1.5)).select(float(1), float(0)));
 
     const profile = psf.add(aureole);
-    const color = attribute<"vec3">("iColor", "vec3");
-    const signal = attribute<"float">("iSignal", "float");
+    const color = iColor;
+    const signal = iSignal;
 
     // Linear HDR radiance: chromaticity x display signal x profile. Nothing is
     // clamped here — values above 1 are real overflow and are what a bloom pass

@@ -24,11 +24,55 @@ export interface CoreParams {
 }
 
 /**
- * Defaults sized to the target look: ordinary stars land near 0.7-1.6 px radius
- * and the very brightest core never exceeds 3 px. `F0` is in units of the white
- * flux, so callers pass `F/whiteFlux` and these stay meaningful for any cluster.
+ * Defaults in CSS PIXELS — callers scale by devicePixelRatio (see
+ * `prepareStarField`), because these are authored against what a reader sees,
+ * not against the backing store.
+ *
+ * An earlier version used 0.7-1.6 px as DEVICE pixels, taken literally from a
+ * "crisp unresolved core" brief. On a 1980 px buffer at DPR 2 that is half a
+ * device pixel: the profile falls entirely between sample points and the field
+ * renders essentially empty, even though the exposure correctly reports ~19% of
+ * stars visible. A core has to span a few device pixels before a rasteriser can
+ * show it at all, and real stars in real images do too — seeing and optics spread
+ * a point source over several pixels.
+ *
+ * What matters for the original brief is preserved: size stays a WEAK, BOUNDED
+ * function of flux (about 4x across 6 dex), so brightness still lives in
+ * radiance and the dense core cannot bloom into one saturated blob.
  */
-export const DEFAULT_CORE: CoreParams = { r0: 0.75, a: 0.35, coreMin: 0.7, coreMax: 3.0, F0: 0.05 };
+export const DEFAULT_CORE: CoreParams = { r0: 1.6, a: 0.85, coreMin: 1.4, coreMax: 7, F0: 0.05 };
+
+/**
+ * Smallest core, in pixels, that a rasteriser can render without aliasing away.
+ *
+ * A profile narrower than a pixel is sampled at whatever radius the pixel centre
+ * happens to sit at, so most stars land far out on the Moffat wing and simply
+ * vanish — the field looked nearly empty at a 0.75 px core even though the
+ * exposure said 19% of stars were visible. Sub-pixel sources must instead be
+ * WIDENED to about a pixel and DIMMED in proportion to the area they gained, so
+ * their total energy is preserved rather than their peak.
+ */
+export const MIN_RENDERABLE_PX = 1.0;
+
+/** Scale a core-parameter set from CSS pixels into device pixels. */
+export function scaleCoreParams(p: CoreParams, pixelRatio: number): CoreParams {
+  const k = pixelRatio > 0 ? pixelRatio : 1;
+  return { r0: p.r0 * k, a: p.a * k, coreMin: p.coreMin * k, coreMax: p.coreMax * k, F0: p.F0 };
+}
+
+/**
+ * Brightness compensation for a core that had to be widened to
+ * `MIN_RENDERABLE_PX`: energy goes as area, so a core spread from r to r_min
+ * keeps its integral by scaling its peak by (r/r_min)^2.
+ *
+ * Returns 1 for cores that are already at least a pixel — most of the field is
+ * unaffected, and nothing is brightened, only correctly dimmed.
+ */
+export function subpixelGain(coreRadiusPx: number): number {
+  if (!(coreRadiusPx > 0) || coreRadiusPx >= MIN_RENDERABLE_PX) return 1;
+  const ratio = coreRadiusPx / MIN_RENDERABLE_PX;
+  return ratio * ratio;
+}
 
 /**
  * Screen radius of a star's unresolved core [px]:

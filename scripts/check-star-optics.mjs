@@ -26,7 +26,13 @@ import { COLOR_SCHEMES, getScheme, stretchChroma } from "../src/novascope/core/c
 import { PASSBANDS, bandFlux, bandIntegral, colorIndex, bandResponse, VEGA_TEFF_K, BAND_COMPOSITES } from "../src/novascope/core/photometry/passbands.ts";
 import { moffat, aureole, DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
 import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../src/novascope/core/imaging/index.ts";
-import { coreRadiusPx, computeTiers, DEFAULT_CORE } from "../src/novascope/viz/starfield/sizing.ts";
+import {
+  coreRadiusPx,
+  computeTiers,
+  scaleCoreParams,
+  subpixelGain,
+  DEFAULT_CORE,
+} from "../src/novascope/viz/starfield/sizing.ts";
 import { prepareStarField } from "../src/novascope/viz/starfield/prepare.ts";
 import { effectiveTemperature } from "../src/novascope/core/stellar/index.ts";
 
@@ -362,8 +368,21 @@ for (const F of [0, 1e-6, 1e-3, 1, 1e3, 1e6, 1e9]) {
     `core radius bounded at F=${F} (${rpx.toFixed(2)} px)`,
   );
 }
-// Spec: normal stars ~0.7-1.6 px, brightest cores no more than a few px.
-ok(DEFAULT_CORE.coreMax <= 3.5, "the brightest unresolved core is at most a few px");
+/* Core sizes are authored in CSS PIXELS and scaled by devicePixelRatio at
+ * preparation. Treating them as device px (the literal reading of a "0.7-1.6 px
+ * crisp core" brief) puts a core below half a device pixel at DPR 2, where the
+ * profile falls between sample points and the field renders empty. What the
+ * brief actually protects — size being a WEAK, BOUNDED function of flux, so
+ * brightness lives in radiance and the dense core cannot bloom — is asserted
+ * directly below instead of via a specific pixel ceiling. */
+ok(DEFAULT_CORE.coreMax <= 10, "the brightest core stays a few CSS px, not a disk");
+ok(DEFAULT_CORE.coreMin >= 1, "…and the faintest still spans a device pixel at DPR 1");
+ok(
+  scaleCoreParams(DEFAULT_CORE, 2).coreMax === DEFAULT_CORE.coreMax * 2,
+  "core params scale linearly with devicePixelRatio",
+);
+ok(subpixelGain(2) === 1, "a core wider than a pixel needs no compensation");
+ok(subpixelGain(0.5) < 1 && subpixelGain(0.5) > 0, "…and a sub-pixel core is dimmed, not brightened");
 // A zero-flux star sits at r0. coreMin is a defensive clamp below it, so it does
 // not bind at the defaults — assert the real property, not r0 === coreMin.
 ok(coreRadiusPx(0, DEFAULT_CORE) === DEFAULT_CORE.r0, "a zero-flux star sits at r0");

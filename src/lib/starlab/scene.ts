@@ -62,7 +62,13 @@ export async function initStarLab(
     fetch(`${base}/stars.f32`).then((r) => r.arrayBuffer()),
   ]);
   const stars = new Float32Array(starBuf);
-  const boxPc = (meta.box_pc as number) ?? 6;
+  /*
+   * Frame on the cluster, not on the simulation box. r_half is ~0.67 pc inside a
+   * 6 pc box, so framing the box leaves the cluster a small blob in the middle —
+   * the box is a property of the export, not of the object being shown.
+   */
+  const rHalfPc = (meta.r_half_pc as number) ?? 0.7;
+  const framePc = rHalfPc * 6;
 
   const renderer = new WebGPURenderer({
     canvas,
@@ -79,7 +85,7 @@ export async function initStarLab(
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 1000);
-  camera.position.set(0, 0, boxPc * 1.5);
+  camera.position.set(0, 0, framePc);
 
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -94,7 +100,8 @@ export async function initStarLab(
       scene.remove(graph.mesh);
       graph.dispose();
     }
-    const field = prepareStarField(stars, o);
+    // Core sizes are authored in CSS px; the GPU works in device px.
+    const field = prepareStarField(stars, { pixelRatio: renderer.getPixelRatio(), ...o });
     graph = createStarGraph(field);
     scene.add(graph.mesh);
     stats = {

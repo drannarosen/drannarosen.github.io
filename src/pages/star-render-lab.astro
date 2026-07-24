@@ -158,7 +158,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 
 <style>
   .srl { padding-block: var(--space-l) var(--space-3xl); display: grid; gap: var(--space-m); }
-  .srl__stage { position: relative; aspect-ratio: 1 / 1; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #05060a; }
+  .srl__stage { position: relative; aspect-ratio: 16 / 10; max-block-size: min(70vh, 620px); margin-inline: auto; inline-size: 100%; max-inline-size: calc(min(70vh, 620px) * 1.6); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #05060a; }
   .srl__canvas { inline-size: 100%; block-size: 100%; display: block; }
   .srl__status { position: absolute; inset-block-end: 0.5rem; inset-inline-start: 0.6rem; margin: 0; font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: overlay status */
 
