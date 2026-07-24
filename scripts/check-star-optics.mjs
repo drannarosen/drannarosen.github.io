@@ -15,7 +15,13 @@
  * value and cannot be asserted on here.
  */
 import { deriveLogL, apparentFlux, D0_PC, distanceModulus, apparentMagnitude, absoluteMagnitude } from "../src/novascope/core/photometry/index.ts";
-import { blackbodyLinearRGB, linearToSrgbRGB } from "../src/novascope/core/colorimetry/index.ts";
+import {
+  blackbodyLinearRGB,
+  linearToSrgbRGB,
+  spectrumToXYZ,
+  spectrumLinearRGB,
+} from "../src/novascope/core/colorimetry/index.ts";
+import { planckNm, wienPeakLambda, NM_TO_CM } from "../src/novascope/core/blackbody/index.ts";
 import { moffat, aureole, DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
 import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../src/novascope/core/imaging/index.ts";
 import { coreRadiusPx, computeTiers, DEFAULT_CORE } from "../src/novascope/viz/starfield/sizing.ts";
@@ -56,6 +62,71 @@ ok(Math.abs(apparentMagnitude(0, 100) - 5) < 1e-12, "apparent magnitude adds the
 ok(
   Math.abs(absoluteMagnitude(apparentMagnitude(-3.2, 750), 750) - -3.2) < 1e-12,
   "apparent/absolute magnitude round-trip exactly",
+);
+
+/* ── the Planck function ── */
+// Wien: the peak shifts as 1/T. The Sun peaks in the visible (~500 nm).
+ok(Math.abs(wienPeakLambda(5772) / NM_TO_CM - 502) < 2, "Sun's Planck peak is ~502 nm (Wien)");
+ok(
+  Math.abs(wienPeakLambda(2886) / wienPeakLambda(5772) - 2) < 1e-9,
+  "peak wavelength scales as 1/T",
+);
+// The peak really is a maximum of the sampled function, not just a formula.
+const peakNm = wienPeakLambda(5772) / NM_TO_CM;
+ok(
+  planckNm(peakNm, 5772) > planckNm(peakNm * 0.8, 5772) &&
+    planckNm(peakNm, 5772) > planckNm(peakNm * 1.2, 5772),
+  "…and B_lambda is genuinely maximal there",
+);
+// A hotter body is brighter at EVERY wavelength (Planck curves never cross).
+ok(
+  [200, 500, 2000].every((l) => planckNm(l, 8000) > planckNm(l, 4000)),
+  "Planck curves never cross — hotter is brighter at every wavelength",
+);
+ok(planckNm(500, 0) === 0 && planckNm(0, 5772) === 0, "degenerate inputs return 0, not NaN");
+
+/* ── the CIE observer fit, validated two independent ways ──
+ * The colour-matching functions are the Wyman, Sloan & Shirley (2013) analytic
+ * fit rather than the tabulated 243 numbers, so they need real verification:
+ * one mistyped coefficient would shift every colour on the site while still
+ * looking plausible. */
+const [Xe, Ye, Ze] = spectrumToXYZ(() => 1);
+const sumE = Xe + Ye + Ze;
+// 1. An equal-energy spectrum (illuminant E) sits at x = y = 1/3 BY DEFINITION.
+ok(Math.abs(Xe / sumE - 1 / 3) < 2e-3, "equal-energy spectrum lands on the white point x = 1/3");
+ok(Math.abs(Ye / sumE - 1 / 3) < 2e-3, "…and y = 1/3");
+// 2. Integrated blackbody chromaticity agrees with the Kim et al. (2002)
+//    Planckian locus, which was fitted to the real table by a different route.
+const kimLocus = (T) => {
+  const Tc = Math.min(25000, Math.max(1667, T));
+  const t = 1 / Tc;
+  const x =
+    Tc < 4000
+      ? -0.2661239e9 * t ** 3 - 0.2343589e6 * t ** 2 + 0.8776956e3 * t + 0.17991
+      : -3.0258469e9 * t ** 3 + 2.1070379e6 * t ** 2 + 0.2226347e3 * t + 0.24039;
+  const y =
+    Tc < 2222
+      ? -1.1063814 * x ** 3 - 1.3481102 * x ** 2 + 2.18555832 * x - 0.20219683
+      : Tc < 4000
+        ? -0.9549476 * x ** 3 - 1.37418593 * x ** 2 + 2.09137015 * x - 0.16748867
+        : 3.081758 * x ** 3 - 5.8733867 * x ** 2 + 3.75112997 * x - 0.37001483;
+  return [x, y];
+};
+for (const T of [3000, 4000, 5772, 10000, 20000]) {
+  const [X, Y, Z] = spectrumToXYZ((l) => planckNm(l, T));
+  const sum = X + Y + Z;
+  const [xk, yk] = kimLocus(T);
+  ok(
+    Math.abs(X / sum - xk) < 2e-3 && Math.abs(Y / sum - yk) < 2e-3,
+    `integrated blackbody colour at ${T} K matches the Planckian locus`,
+  );
+}
+// The general path and the blackbody convenience must be the SAME computation.
+const viaGeneral = spectrumLinearRGB((l) => planckNm(l, 9000));
+const viaBlackbody = blackbodyLinearRGB(9000);
+ok(
+  viaGeneral.every((v, i) => Math.abs(v - viaBlackbody[i]) < 1e-12),
+  "blackbodyLinearRGB is the general spectrum path, not a second formula",
 );
 
 /* ── chromaticity: linear-light, max-normalized, INDEPENDENT of flux ── */

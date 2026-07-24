@@ -10,6 +10,7 @@
  * computed directly. The channel's inefficiency is confinement (champagne flow
  * out of the cloud), which is what its f_leak parameterizes.
  */
+import { K_B_CGS } from "../constants/index.ts";
 
 /* ── constants, all Krumholz & Matzner (2009) ─────────────────────────────
  * Their fiducial set travels together: alpha_B, phi and T_II were chosen
@@ -130,7 +131,7 @@ export function ionizedDensity(sPerS: number, rPc: number): number {
  * silently drift.
  */
 export function hiiPressure(sPerS: number, rPc: number): number {
-  return ionizedDensity(sPerS, rPc) * 1.380649e-16 * T_II;
+  return ionizedDensity(sPerS, rPc) * K_B_CGS * T_II;
 }
 
 export interface HiiRegion {
@@ -174,7 +175,7 @@ export function hiiRegion(
   const shellMass = (4 / 3) * Math.PI * r ** 3 * rhoLocalMsunPc3;
   // Ionized-gas thermal energy: (3/2) N k T over the ionized volume. Expressed
   // in Msun (km/s)^2 so it shares units with the momentum/energy ledger.
-  const kT_over_mu = (1.380649e-16 * T_II) / (MU * MH_G); // cm^2/s^2
+  const kT_over_mu = (K_B_CGS * T_II) / (MU * MH_G); // cm^2/s^2
   const eThermal =
     1.5 * ((4 / 3) * Math.PI * r ** 3 * rhoLocalMsunPc3) * (kT_over_mu / 1e10);
   return {

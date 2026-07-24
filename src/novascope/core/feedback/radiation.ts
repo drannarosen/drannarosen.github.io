@@ -16,11 +16,11 @@
  * work by a hot bubble, f_trap from a photon interacting more than once.
  */
 import { ALPHA_B, PHI_DUST, T_II, EPS_0_ERG, hiiPressure } from "./photoionization.ts";
-import { L_SUN_ERG_S, SIGMA_SB_CGS } from "../constants/index.ts";
+import { L_SUN_ERG_S, SIGMA_SB_CGS, C_CM_S as C_CM_S_CONST, K_B_CGS } from "../constants/index.ts";
 
 /* ── constants ────────────────────────────────────────────────────────────
- * Speed of light [cm/s] — exact by SI definition. */
-const C_CM_S = 2.99792458e10;
+ * Speed of light [cm/s] — exact by SI definition, see @novascope/core/constants. */
+const C_CM_S = C_CM_S_CONST;
 /** Solar luminosity [erg/s]. IAU 2015 nominal — see @novascope/core/constants. */
 const LSUN_ERG_S = L_SUN_ERG_S;
 /* Parsec [cm]. NOTE: the rounded 3.086e18 shared by bubble/ledger/photoionization,
@@ -31,7 +31,7 @@ const PC_CM = 3.086e18;
 
 const MSUN_G = 1.989e33;
 const KMS_CM_S = 1e5;
-const K_B = 1.380649e-16;
+const K_B = K_B_CGS; // exact by SI definition — see @novascope/core/constants
 
 /**
  * KM09's fiducial trapping factor, eq (22):
