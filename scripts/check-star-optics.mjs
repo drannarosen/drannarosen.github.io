@@ -1,29 +1,24 @@
 /*
- * check-star-optics.mjs — build gate for the pure star-optics module
- * (src/novascope/viz/starOptics.ts). This is the physics→pixel MATH for the
- * photographic star renderer: apparent flux, robust asinh exposure, Moffat PSF,
- * aureole, flux tiers, and linear blackbody chromaticity. It is dependency-free
- * (no three, no DOM) so node can type-strip and run it, and so it ports cleanly
- * to the raw-WebGL2 production renderer and later to TSL/WebGPU.
+ * check-star-optics.mjs — build gate for the physics→pixel path of the
+ * photographic star renderer (ADR 0015).
  *
- * The GLSL in the Three.js lab harness (src/lib/starlab/shaders.ts) MIRRORS
- * these functions; the constants live here, once, verified here.
+ * ONE gate over the modules that compose it, rather than four near-empty ones:
+ *   core/photometry   apparent flux, distance modulus
+ *   core/colorimetry  linear blackbody chromaticity, sRGB transfer
+ *   core/optics       Moffat PSF, scattered-light aureole
+ *   core/imaging      robust white point, asinh stretch
+ *   viz/starfield     pixel core radius, render tiers
+ *
+ * Everything under core/ is dependency-free (no three, no DOM), so node can
+ * type-strip and run it — which is precisely why the maths stays in TypeScript
+ * while the GPU path mirrors it in TSL: a TSL node is a graph object with no CPU
+ * value and cannot be asserted on here.
  */
-import {
-  deriveLogL,
-  apparentFlux,
-  D0_PC,
-  blackbodyLinearRGB,
-  robustWhiteFlux,
-  asinhResponse,
-  DEFAULT_SOFTENING,
-  coreRadiusPx,
-  moffat,
-  aureole,
-  computeTiers,
-  DEFAULT_CORE,
-  DEFAULT_AUREOLE,
-} from "../src/novascope/viz/starOptics.ts";
+import { deriveLogL, apparentFlux, D0_PC, distanceModulus, apparentMagnitude, absoluteMagnitude } from "../src/novascope/core/photometry/index.ts";
+import { blackbodyLinearRGB, linearToSrgbRGB } from "../src/novascope/core/colorimetry/index.ts";
+import { moffat, aureole, DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
+import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../src/novascope/core/imaging/index.ts";
+import { coreRadiusPx, computeTiers, DEFAULT_CORE } from "../src/novascope/viz/starfield/sizing.ts";
 import { effectiveTemperature } from "../src/novascope/core/stellar/index.ts";
 
 let failures = 0;
@@ -32,7 +27,7 @@ const ok = (cond, msg) => {
   if (!cond) failures++;
 };
 
-console.log("star-optics (novascope/viz):");
+console.log("star-render physics (core/photometry · colorimetry · optics · imaging + viz/starfield):");
 
 /* ── luminosity: derived from the CORE Stefan-Boltzmann relation, not a copy ── */
 // Exact round-trip against core: the star with L=1,R=1 has logL exactly 0. This
@@ -53,6 +48,16 @@ ok(Math.abs(apparentFlux(1, D0_PC) / F1 - 10) < 1e-9, "flux is linear in luminos
 ok(F1 > 0 && Number.isFinite(F1), "flux is finite and positive");
 ok(D0_PC > 0, "the common cluster distance is positive");
 
+/* ── distance modulus / magnitudes ── */
+ok(Math.abs(distanceModulus(10)) < 1e-12, "distance modulus is 0 at 10 pc, by definition");
+ok(Math.abs(distanceModulus(100) - 5) < 1e-12, "…and 5 mag per decade of distance");
+// A source 10x further is 5 mag fainter; the two conversions must invert exactly.
+ok(Math.abs(apparentMagnitude(0, 100) - 5) < 1e-12, "apparent magnitude adds the modulus");
+ok(
+  Math.abs(absoluteMagnitude(apparentMagnitude(-3.2, 750), 750) - -3.2) < 1e-12,
+  "apparent/absolute magnitude round-trip exactly",
+);
+
 /* ── chromaticity: linear-light, max-normalized, INDEPENDENT of flux ── */
 const hot = blackbodyLinearRGB(30000);
 const sun = blackbodyLinearRGB(5772);
@@ -71,7 +76,7 @@ for (const [name, c] of [["30 kK", hot], ["5772 K", sun], ["3.2 kK", cool]]) {
 // 0.648: pale blue-white on screen. Asserting whiteness on linear light would
 // wrongly condemn a correct colour (and is how a linear pipeline gets "fixed"
 // into a gamma-encoded one).
-const srgb = (c) => c.map((v) => (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055));
+const srgb = linearToSrgbRGB;
 ok(hot[2] >= hot[0], "30 kK star is blue-white (blue >= red)");
 ok(srgb(hot)[0] > 0.5, "…and reads white-ish on screen, not a saturated blue");
 ok(cool[0] > cool[2], "3.2 kK star is warm (red > blue)");

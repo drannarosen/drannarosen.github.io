@@ -2,16 +2,17 @@
  * scene.ts — Observed-mode v2 renderer (the Three.js LAB HARNESS).
  *
  * This is the disposable prototype harness for the photographic star renderer.
- * All physics→pixel MATH lives in the pure, three-free novascope module
- * (@novascope/viz/starOptics); this file is only the Three.js glue (buffers,
- * uniforms, HDR passes, controls) and its GLSL mirrors that math.
+ * All physics lives in the pure, three-free novascope core, filed by domain:
+ * @novascope/core/photometry (apparent flux), /colorimetry (blackbody colour),
+ * /optics (PSF, aureole), /imaging (white point, asinh stretch), with
+ * @novascope/viz/starfield holding the pixel-space policy. This file is only the
+ * Three.js glue, and its TSL graph mirrors that maths.
  *
  * STUB (Stage 0): the real renderer is built in Stage 4 of
- * docs/plans/2026-07-24-star-render-lab-redesign.md. For now it clears a WebGL2
- * context so the A/B switch is wired end-to-end and we confirm, early, that the
- * context and the @novascope seam both work.
+ * docs/plans/2026-07-24-star-render-lab-redesign.md. For now it holds a WebGL2
+ * context so the @novascope seam is proven end-to-end.
  */
-import { D0_PC } from "@novascope/viz/starOptics";
+import { D0_PC } from "@novascope/core/photometry";
 
 export interface StarLabV2 {
   dispose(): void;
@@ -20,7 +21,7 @@ export interface StarLabV2 {
 
 export async function initStarLabV2(canvas: HTMLCanvasElement): Promise<StarLabV2> {
   // Prove the seam: the harness can reach the pure novascope math.
-  if (!(D0_PC > 0)) throw new Error("starOptics module not reachable through @novascope alias");
+  if (!(D0_PC > 0)) throw new Error("novascope physics not reachable through the @novascope alias");
 
   const gl = canvas.getContext("webgl2");
   if (!gl) throw new Error("WebGL2 unavailable — the v2 renderer requires it");
