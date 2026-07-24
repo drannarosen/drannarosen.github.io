@@ -1,0 +1,79 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+---
+
+<BaseLayout
+  title="Star-render lab — Anna Rosen"
+  description="Prototype: Three.js + HDR analytic star billboards vs the production GL points, on the real gravoturb cluster."
+  path="/star-render-lab"
+  noindex
+>
+  <PageHeader
+    eyebrow="Prototype · not linked"
+    title="Star-render lab"
+    lede="A Three.js + HDR testbed for the SOTA star-rendering ideas — analytic billboards (core + halo + aureole + diffraction), physical blackbody colour through a LUT, magnitude sizing, and selective bloom. Every feature is a live toggle so we can compare against the production renderer and keep only what earns its place. Real gravoturb cluster; drag to orbit, scroll to zoom."
+  />
+
+  <div class="srl wrap-wide">
+    <div class="srl__stage">
+      <canvas class="srl__canvas" data-stage aria-label="A Three.js star cluster testbed."></canvas>
+      <p class="srl__status" data-status aria-live="polite">Loading…</p>
+    </div>
+
+    <div class="srl__panel" data-panel>
+      <p class="srl__grp">Star profile</p>
+      <label class="srl__chk"><input type="checkbox" checked data-f="aureole" /> aureole (soft outer wing)</label>
+      <label class="srl__chk"><input type="checkbox" checked data-f="diffraction" /> diffraction spikes (brightest only)</label>
+      <label class="srl__rng">saturation <input type="range" min="1" max="3" step="0.05" value="2.4" data-f="saturation" /> <span data-v="saturation">2.4</span></label>
+
+      <p class="srl__grp">HDR bloom</p>
+      <label class="srl__chk"><input type="checkbox" checked data-f="bloom" /> selective bloom</label>
+      <label class="srl__rng">threshold <input type="range" min="0" max="2" step="0.05" value="1.25" data-f="bloomThreshold" /> <span data-v="bloomThreshold">1.25</span></label>
+      <label class="srl__rng">strength <input type="range" min="0" max="1.5" step="0.05" value="0.3" data-f="bloomStrength" /> <span data-v="bloomStrength">0.3</span></label>
+      <label class="srl__rng">exposure <input type="range" min="0.4" max="2" step="0.05" value="1.0" data-f="exposure" /> <span data-v="exposure">1.0</span></label>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { initStarLab, type StarLabFlags } from "../lib/starlab/scene";
+
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-stage]");
+  const status = document.querySelector<HTMLElement>("[data-status]");
+  if (canvas) {
+    initStarLab(canvas)
+      .then((lab) => {
+        if (status) status.textContent = `${lab.starCount.toLocaleString()} stars · Three.js + HDR`;
+        const panel = document.querySelector<HTMLElement>("[data-panel]");
+        const push = (el: HTMLInputElement) => {
+          const key = el.dataset.f as keyof StarLabFlags;
+          const val: number | boolean = el.type === "checkbox" ? el.checked : +el.value;
+          lab.setFlags({ [key]: val } as Partial<StarLabFlags>);
+          const out = panel?.querySelector<HTMLElement>(`[data-v="${key}"]`);
+          if (out) out.textContent = String(val);
+        };
+        for (const el of panel!.querySelectorAll<HTMLInputElement>("[data-f]")) {
+          el.addEventListener("input", () => push(el));
+          push(el); // apply initial
+        }
+      })
+      .catch((err) => {
+        if (status) status.textContent = `Failed: ${String(err)}`;
+      });
+  }
+</script>
+
+<style>
+  .srl { padding-block: var(--space-l) var(--space-3xl); display: grid; gap: var(--space-m); }
+  @media (min-width: 60rem) { .srl { grid-template-columns: minmax(0, 1fr) 18rem; align-items: start; } }
+  .srl__stage { position: relative; aspect-ratio: 1 / 1; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #05060a; }
+  .srl__canvas { inline-size: 100%; block-size: 100%; display: block; }
+  .srl__status { position: absolute; inset-block-end: 0.5rem; inset-inline-start: 0.6rem; margin: 0; font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: overlay status */
+  .srl__panel { display: grid; gap: 0.45rem; align-content: start; padding: var(--space-s); border: 1px solid var(--border); border-radius: 8px; }
+  .srl__grp { margin: 0.4rem 0 0.1rem; font-family: var(--font-mono); font-size: var(--step--2); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); }
+  .srl__grp:first-child { margin-block-start: 0; }
+  .srl__chk, .srl__rng { display: flex; gap: 0.5em; align-items: center; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
+  .srl__rng input[type="range"] { flex: 1; accent-color: var(--spec-teal-bright, #4fd6c4); }
+  .srl__chk input { accent-color: var(--spec-teal-bright, #4fd6c4); }
+</style>
