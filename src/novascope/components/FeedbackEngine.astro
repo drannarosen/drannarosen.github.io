@@ -30,23 +30,27 @@ import RatioBar from "./RatioBar.astro";
     <canvas slot="stage" data-cluster aria-label="A young star cluster embedded in its natal gas."></canvas>
 
     <div slot="controls" class="fbe__controls">
-      <div class="fbe__row fbe__pickers" data-realizations role="group" aria-label="Choose an environment">
-        <!-- realization buttons injected from the manifest -->
+      <div class="fbe__toolbar">
+        <div class="fbe__pills" data-realizations role="group" aria-label="Choose an environment">
+          <!-- realization pills injected from the manifest -->
+        </div>
+        <button type="button" class="fbe__action is-active" data-play aria-pressed="true">❙❙ pause</button>
       </div>
 
       <label class="fbe__scrub">
         <span class="fbe__scrub-head">
-          Expulsion <span class="fbe__cleared" data-cleared>embedded</span>
-          <span class="fbe__endpts">embedded → gas cleared</span>
+          <span class="fbe__scrub-name">Expulsion</span>
+          <span class="fbe__cleared" data-cleared>embedded</span>
+          <span class="fbe__endpts">embedded → cleared</span>
         </span>
         <input type="range" min="0" max="1" step="0.005" value="0" autocomplete="off" data-scrub />
       </label>
 
-      <div class="fbe__row fbe__toggles" role="group" aria-label="Feedback channels">
-        <label class="fbe__chk"><input type="checkbox" checked data-ch="winds" /> winds</label>
-        <label class="fbe__chk"><input type="checkbox" checked data-ch="photoionization" /> H II</label>
-        <label class="fbe__chk"><input type="checkbox" checked data-ch="radiation" /> radiation</label>
-        <label class="fbe__chk fbe__play"><input type="checkbox" checked data-play /> play</label>
+      <div class="fbe__channels" role="group" aria-label="Feedback channels — turn off to see each contribution">
+        <span class="fbe__channels-lead">channels</span>
+        <button type="button" class="fbe__chip is-active" data-ch="winds" aria-pressed="true">winds</button>
+        <button type="button" class="fbe__chip is-active" data-ch="photoionization" aria-pressed="true">H II</button>
+        <button type="button" class="fbe__chip is-active" data-ch="radiation" aria-pressed="true">radiation</button>
       </div>
 
       <p class="fbe__status" data-status aria-live="polite">Loading cluster…</p>
@@ -116,13 +120,22 @@ import RatioBar from "./RatioBar.astro";
     const canvas = el.querySelector<HTMLCanvasElement>("[data-cluster]")!;
     const status = el.querySelector<HTMLElement>("[data-status]")!;
     const scrub = el.querySelector<HTMLInputElement>("[data-scrub]")!;
-    const play = el.querySelector<HTMLInputElement>("[data-play]")!;
+    const play = el.querySelector<HTMLButtonElement>("[data-play]")!;
     const clearedOut = el.querySelector<HTMLElement>("[data-cleared]")!;
     const frame = el.querySelector<HTMLElement>("[data-present]");
 
     let engine: ReturnType<typeof createEngine> | null = null;
     let fb: FeedbackRealization | null = null;
     let raf = 0;
+    let playing = true;
+
+    const setPlaying = (on: boolean) => {
+      playing = on;
+      play.classList.toggle("is-active", on);
+      play.setAttribute("aria-pressed", String(on));
+      play.textContent = on ? "❙❙ pause" : "▸ play";
+    };
+    play.addEventListener("click", () => setPlaying(!playing));
 
     // ── realization picker from the manifest (labels never retyped) ──
     const manifest = await fetch("/data/gravoturb/manifest.json").then((r) => r.json());
@@ -130,23 +143,27 @@ import RatioBar from "./RatioBar.astro";
     for (const r of manifest.realizations as { label: string; path: string }[]) {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "fbe__pick";
+      b.className = "fbe__pill";
       b.textContent = r.label;
       b.dataset.path = r.path;
+      b.setAttribute("aria-pressed", "false");
       b.addEventListener("click", () => void select(r.path));
       picker.appendChild(b);
     }
 
     const enabled = (): Record<Ch, boolean> => {
       const on = {} as Record<Ch, boolean>;
-      for (const c of el.querySelectorAll<HTMLInputElement>("[data-ch]"))
-        on[c.dataset.ch as Ch] = c.checked;
+      for (const c of el.querySelectorAll<HTMLButtonElement>("[data-ch]"))
+        on[c.dataset.ch as Ch] = c.classList.contains("is-active");
       return on;
     };
 
     async function select(path: string) {
-      for (const b of picker.querySelectorAll<HTMLButtonElement>(".fbe__pick"))
-        b.setAttribute("aria-pressed", String(b.dataset.path === path));
+      for (const b of picker.querySelectorAll<HTMLButtonElement>(".fbe__pill")) {
+        const on = b.dataset.path === path;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-pressed", String(on));
+      }
       status.textContent = "Loading…";
       const name = path === "/data/gravoturb" ? undefined : path.split("/").pop();
       const [scene, budget] = await Promise.all([
@@ -159,7 +176,7 @@ import RatioBar from "./RatioBar.astro";
       fb = budget;
       renderBudget();
       applyScrub(+scrub.value);
-      if (engine.reducedMotion) { play.checked = false; play.disabled = true; }
+      if (engine.reducedMotion) { setPlaying(false); play.disabled = true; }
       status.textContent =
         `${fmt(budget.meta.n_stars as number, 0)} stars · budget is an accounting tool, not a hydro sim`;
     }
@@ -199,19 +216,21 @@ import RatioBar from "./RatioBar.astro";
     }
 
     // ── controls ──
-    scrub.addEventListener("input", () => { play.checked = false; applyScrub(+scrub.value); });
-    for (const c of el.querySelectorAll<HTMLInputElement>("[data-ch]"))
-      c.addEventListener("change", () => {
+    scrub.addEventListener("input", () => { setPlaying(false); applyScrub(+scrub.value); });
+    for (const c of el.querySelectorAll<HTMLButtonElement>("[data-ch]"))
+      c.addEventListener("click", () => {
+        const on = !c.classList.contains("is-active");
+        c.classList.toggle("is-active", on);
+        c.setAttribute("aria-pressed", String(on));
         if (!fb) return;
         fb = recomputeFeedback(fb, { enabled: enabled() });
         renderBudget();
-        applyScrub(+scrub.value);
       });
     frame?.addEventListener("present:next", () => {
-      play.checked = false; scrub.value = String(Math.min(1, +scrub.value + 0.04)); applyScrub(+scrub.value);
+      setPlaying(false); scrub.value = String(Math.min(1, +scrub.value + 0.04)); applyScrub(+scrub.value);
     });
     frame?.addEventListener("present:prev", () => {
-      play.checked = false; scrub.value = String(Math.max(0, +scrub.value - 0.04)); applyScrub(+scrub.value);
+      setPlaying(false); scrub.value = String(Math.max(0, +scrub.value - 0.04)); applyScrub(+scrub.value);
     });
     frame?.addEventListener("present:reset", () => { scrub.value = "0"; applyScrub(0); });
 
@@ -219,7 +238,7 @@ import RatioBar from "./RatioBar.astro";
     let last = 0;
     function tick(ts: number) {
       raf = requestAnimationFrame(tick);
-      if (!play.checked) { last = ts; return; }
+      if (!playing) { last = ts; return; }
       const dt = last ? (ts - last) / 1000 : 0; last = ts;
       let v = +scrub.value + dt / 6; // ~6 s sweep
       if (v >= 1) v = 0;
@@ -295,8 +314,19 @@ import RatioBar from "./RatioBar.astro";
   }
 </script>
 
-<style>
+<style is:global>
+  /* GLOBAL, not scoped: the realization pills are created client-side (Astro's
+   * data-astro-cid is not stamped on runtime nodes, so scoped rules would miss
+   * them — the same trap Census documents). Every selector is .fbe*-prefixed, so
+   * nothing leaks. Shared visual language with Census: --xpl-* tokens, pill
+   * controls (999px, teal-active), and the radial-gradient panel. */
   .fbe {
+    --xpl-ink: var(--ink, #e8e8ea);
+    --xpl-dim: var(--ink-dim, #9aa0aa);
+    --xpl-teal: var(--spec-teal-bright, #4fd1c5);
+    --xpl-rose: var(--spec-rose-bright, #f472b6);
+    --xpl-border: var(--border, #2a2c31);
+    --xpl-panel: var(--surface-1, #14151a);
     display: grid;
     gap: var(--space-l);
     grid-template-columns: 1fr;
@@ -304,49 +334,69 @@ import RatioBar from "./RatioBar.astro";
   @media (min-width: 60rem) {
     .fbe { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; }
   }
-  .fbe__controls { display: grid; gap: 0.55rem; }
-  .fbe__row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  .fbe__pick {
-    font-family: var(--font-mono); font-size: var(--step--2);
-    padding: 0.25em 0.6em; border-radius: 5px;
-    background: var(--bg-surface); color: var(--ink-dim);
-    border: 1px solid var(--border); cursor: pointer;
+  .fbe__controls { display: grid; gap: 0.7rem; }
+  .fbe__toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-s); flex-wrap: wrap; }
+  .fbe__pills { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+  /* pills + chips share the Census chip recipe */
+  .fbe__pill, .fbe__chip, .fbe__action {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--step--2);
+    color: var(--xpl-dim);
+    background: transparent;
+    border: 1px solid var(--xpl-border);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
   }
-  .fbe__pick[aria-pressed="true"] { color: var(--ink); border-color: var(--spec-teal-bright, #4fd6c4); background: color-mix(in oklab, var(--spec-teal-bright, #4fd6c4) 12%, var(--bg-surface)); }
-  .fbe__scrub { display: grid; gap: 0.2rem; }
-  .fbe__scrub-head { display: flex; gap: 0.6em; align-items: baseline; flex-wrap: wrap; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink); }
-  .fbe__t { color: var(--spec-teal-bright, #4fd6c4); }
-  .fbe__cleared { color: var(--ink-dim); }
-  .fbe__scrub input[type="range"] { inline-size: 100%; accent-color: var(--spec-teal-bright, #4fd6c4); }
-  .fbe__chk { display: inline-flex; gap: 0.35em; align-items: center; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); cursor: pointer; }
-  .fbe__chk input { accent-color: var(--spec-teal-bright, #4fd6c4); }
-  .fbe__play { margin-inline-start: auto; }
+  .fbe__pill:hover, .fbe__chip:hover, .fbe__action:hover { color: var(--xpl-ink); border-color: var(--xpl-teal); }
+  .fbe__pill.is-active, .fbe__chip.is-active { color: #0a0b0e; background: var(--xpl-teal); border-color: var(--xpl-teal); }
+  .fbe__action { color: var(--xpl-ink); white-space: nowrap; }
+  .fbe__action.is-active { border-color: var(--xpl-teal); }
+  .fbe__action:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .fbe__scrub { display: grid; gap: 0.3rem; }
+  .fbe__scrub-head { display: flex; gap: 0.6em; align-items: baseline; flex-wrap: wrap; font-family: var(--font-mono); font-size: var(--step--2); }
+  .fbe__scrub-name { color: var(--xpl-dim); }
+  .fbe__cleared { color: var(--xpl-teal); }
+  .fbe__endpts { color: var(--xpl-dim); opacity: 0.7; margin-inline-start: auto; }
+  .fbe__scrub input[type="range"] { inline-size: 100%; accent-color: var(--xpl-rose); }
+
+  .fbe__channels { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .fbe__channels-lead { font-family: var(--font-mono); font-size: var(--step--2); color: var(--xpl-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-inline-end: 0.1rem; }
   .fbe__status { font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: dense status line */
 
-  .fbe__panel { display: grid; gap: var(--space-l); align-content: start; }
+  .fbe__panel {
+    display: grid; gap: var(--space-l); align-content: start;
+    padding: var(--space-m);
+    border: 1px solid var(--xpl-border);
+    border-radius: var(--radius, 10px);
+    background: radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--xpl-panel) 92%, black), #0a0b0e);
+  }
 
   /* verdict is the hero: the answer, in plain language, first */
   .fbe__verdict { display: grid; gap: 0.5rem; }
   .fbe__stage { margin: 0; }
-  .fbe__stage--1 { font-size: var(--step-1); line-height: 1.3; color: var(--ink); }
-  .fbe__stage--2 { font-size: var(--step--1); line-height: 1.4; color: var(--ink-dim); }
+  .fbe__stage--1 { font-size: var(--step-1); line-height: 1.3; color: var(--xpl-ink); }
+  .fbe__stage--2 { font-size: var(--step--1); line-height: 1.4; color: var(--xpl-dim); }
   .fbe__stage--2[data-fate="dissolves"] { color: var(--spec-amber, #e8a33d); }
 
   .fbe__bars { display: grid; gap: var(--space-m); }
 
   /* everything quantitative-but-secondary folds away */
-  .fbe__more { border-block-start: 1px solid var(--border); padding-block-start: var(--space-s); }
+  .fbe__more { border-block-start: 1px solid var(--xpl-border); padding-block-start: var(--space-s); }
   .fbe__more > summary {
     cursor: pointer; font-family: var(--font-mono); font-size: var(--step--2);
-    color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--xpl-dim); text-transform: uppercase; letter-spacing: 0.05em;
     list-style: none;
   }
   .fbe__more > summary::-webkit-details-marker { display: none; }
   .fbe__more > summary::before { content: "› "; display: inline-block; transition: transform 0.15s; }
   .fbe__more[open] > summary::before { transform: rotate(90deg); }
   .fbe__plot { margin: var(--space-s) 0 0; display: grid; gap: 0.3rem; }
-  .fbe__plot svg { inline-size: 100%; block-size: auto; color: var(--ink-dim); }
-  .fbe__legend { display: flex; flex-wrap: wrap; gap: 0.8em; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
+  .fbe__plot svg { inline-size: 100%; block-size: auto; color: var(--xpl-dim); }
+  .fbe__legend { display: flex; flex-wrap: wrap; gap: 0.8em; font-family: var(--font-mono); font-size: var(--step--2); color: var(--xpl-dim); }
   .fbe__legend span { display: inline-flex; align-items: center; gap: 0.35em; }
   .fbe__legend span::before { content: ""; inline-size: 10px; block-size: 2px; background: var(--c); border-radius: 2px; }
   .fbe__nums { display: flex; flex-wrap: wrap; gap: 0.6rem 1.1rem; margin: var(--space-s) 0 0; }
