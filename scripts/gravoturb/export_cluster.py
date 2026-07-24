@@ -137,10 +137,25 @@ class Realization:
     # brightness, and Abel deprojection gives gamma_3D = gamma_surface + 1
     # (check: Plummer projects to Sigma ~ (1+R^2/a^2)^-2, i.e. 4 = 5 - 1).
     # Their 10 young LMC clusters have median gamma_surface = 2.6 over
-    # 2.2 <= gamma <= 3.2, so the young-cluster median in THIS convention is
-    # 3.6, spanning 3.2-4.2. The previous default of 3.0 corresponds to a
-    # surface slope of 2.0 — shallower than any cluster in that sample.
-    eff_gamma: float = 3.6
+    # 2.2 <= gamma <= 3.2, i.e. gamma_3D 3.6 spanning 3.2-4.2.
+    #
+    # We use the CONCENTRATED end, gamma_3D = 4.2, as the default. The physical
+    # reason is epoch: EFF's clusters are gas-free and >~10 Myr old, already past
+    # first expansion, whereas we model the EMBEDDED, gas-rich, pre-SN phase
+    # (<~3 Myr) that precedes it. A more centrally concentrated natal profile is
+    # what later relaxes toward the shallow EFF slope -- and the expansion is
+    # driven partly by the gas expulsion this engine computes. 4.2 is still the
+    # top of EFF's OWN observed range, so the value is citable rather than
+    # invented; the epoch argument only justifies choosing the concentrated end
+    # of it. (Motivated by Pfalzner 2009; Banerjee & Kroupa 2017 on post-gas-
+    # expulsion expansion -- a modeling choice for the natal phase, not a settled
+    # claim that EFF's slopes are purely evolutionary.)
+    #
+    # Concentrating the cloud concentrates its densest gas, so the density-keyed
+    # segregation (lambda_corr) places the massive stars more centrally -- which
+    # is the point: it makes the feedback sources less distributed, so the
+    # single-effective-source analytic budget is representative of the cluster.
+    eff_gamma: float = 4.2
     # sampling
     box_override: Optional[float] = None  # None -> derived from radius
     ngrid: int = 128  # gas-field grid resolution
@@ -216,20 +231,19 @@ REALIZATIONS: list[Realization] = [
     Realization(
         name="orion-compressive", label="Orion-like · compressive", m_cloud=2.0e4, radius=2.5, b=1.0
     ),
-    # concentration axis at the Orion-like environment: the EFF young-cluster
-    # range, gamma_3D 3.2-4.2 (= surface 2.2-3.2, Elson, Fall & Freeman 1987),
-    # bracketing the 3.6 median the other realizations use. Changes how centrally
-    # the SAME mass is arranged, so it moves the binding energy (+/-10%) and the
-    # local densities the H II regions expand into, at fixed M, R and Mach.
+    # concentration contrast at the Orion-like environment: gamma_3D = 3.2, the
+    # shallow (more evolved / expanded) end of EFF's observed range, against the
+    # 4.2 natal default. At fixed M, R and Mach this changes how centrally the
+    # SAME mass is arranged, moving the binding energy and the local densities
+    # the H II regions expand into. (A gamma_3D = 5.0 Plummer variant was tried
+    # and dropped: at Mach ~13 the turbulence-dominated field places the massive
+    # stars in scattered dense clumps regardless of the envelope slope, so a
+    # steeper profile does not centralize the feedback sources -- it only raises
+    # the binding energy, which the shallow contrast already spans.)
     Realization(
         name="orion-shallow",
-        label="Orion-like · shallow profile",
+        label="Orion-like · shallow (evolved) profile",
         m_cloud=2.0e4, radius=2.5, eff_gamma=3.2,
-    ),
-    Realization(
-        name="orion-concentrated",
-        label="Orion-like · concentrated profile",
-        m_cloud=2.0e4, radius=2.5, eff_gamma=4.2,
     ),
 ]
 

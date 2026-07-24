@@ -168,7 +168,14 @@ export interface LedgerInput {
   leakage?: Partial<LeakageKnobs>;
 }
 
-/** Observed EFF young-cluster concentration range (3-D convention). */
+/**
+ * Observed EFF young-cluster concentration range (3-D convention). The shipped
+ * realizations sit at the CONCENTRATED end (gamma_3D = 4.2, the natal default),
+ * so this band reports how the energy comparison would move if the cloud were
+ * LESS concentrated (more like an evolved, expanded EFF cluster) — a one-sided
+ * robustness statement toward the shallow end, which is the honest direction of
+ * the uncertainty for a natal profile.
+ */
 const GAMMA_RANGE: [number, number] = [3.2, 4.2];
 
 export function computeLedger(input: LedgerInput): Ledger {

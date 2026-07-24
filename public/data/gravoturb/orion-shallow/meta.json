@@ -2,7 +2,7 @@
   "provenance": "progenax gravoturb build_cluster_ic (EFF truncated cloud)",
   "cloud_profile": "EFF (Elson-Fall-Freeman 1987), truncated at r_t",
   "realization": "orion-shallow",
-  "label": "Orion-like \u00b7 shallow profile",
+  "label": "Orion-like \u00b7 shallow (evolved) profile",
   "eff_a_pc": 0.8,
   "eff_gamma": 3.2,
   "eff_r_t_pc": 2.5,
