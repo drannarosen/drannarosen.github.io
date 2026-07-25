@@ -23,9 +23,10 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { prepareStarField, STAR_STRIDE, type PrepareOptions, type StarField } from "./prepare.ts";
 import { clusterStarTable } from "./source.ts";
 import { createStarGraph, type StarGraph } from "./starGraph.ts";
-import { createLuptonNode, createStretchNode } from "./luptonNode.ts";
-import type { StretchId } from "../../core/imaging/stretch.ts";
-import { whitePixelIntensity, floorForDepth } from "./calibrate.ts";
+import { createTransferNode, type Transfer } from "./transferNode.ts";
+import type { TransferId } from "../../core/imaging/transfers.ts";
+import { whitePixelIntensity } from "./calibrate.ts";
+import { transferFloor } from "../../core/imaging/transfers.ts";
 import { DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
 
 export type RenderBackend = "webgpu" | "webgl2";
@@ -117,11 +118,20 @@ export async function initStarLab(
   });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   /*
-   * NO TONE MAPPING HERE. Lupton IS the tone mapping — an asinh stretch whose output is
-   * display-referred — so leaving AgX in place would apply two curves in series and wash the
-   * image out. The transfer now lives in the output node (`./luptonNode`), for the same reason
-   * it had to move out of the renderer when bloom arrived: a pass that reads the scene must read
-   * it in LINEAR HDR, and here the scene's channels are three BANDS' linear flux.
+   * NO TONE MAPPING ON THE RENDERER — and now that AgX is back as a selectable transfer, this
+   * line needs the reason restating, because it is no longer "we do not tone map".
+   *
+   * `renderer.toneMapping` is a SECOND mechanism for something the output node already does.
+   * Three's operators are plain TSL functions; `renderer.toneMapping` + `renderOutput()` is a
+   * wrapper that calls one of them and then applies the output colour transform. Driving the
+   * choice from here as well as from `./transferNode` would mean two places decide the display
+   * convention, and they would eventually disagree — with the failure showing up as a
+   * double-compressed image that looks like a taste decision.
+   *
+   * It must also stay off for the reason bloom introduced: a pass that reads the scene must read
+   * it in LINEAR HDR, and tone-mapping at the renderer happens before the pipeline's passes, so
+   * it would clip the very overflow bloom keys on. Here the scene's channels are three BANDS'
+   * linear flux, so there is nothing to tone map at this stage anyway.
    */
   renderer.toneMapping = THREE.NoToneMapping;
   await renderer.init();
@@ -192,18 +202,21 @@ export async function initStarLab(
    */
   const uBloom = uniform(0.35);
   const litScene = scenePass.add(bloom(scenePass, 0.35, 0.6, 1.0).mul(uBloom.div(float(0.35)))).rgb;
-  type Transfer = {
-    node: unknown;
-    setDepth(depthMag: number, white: number): void;
-    setSky(fraction: number, white: number): void;
-  };
-  let transfer: Transfer = createLuptonNode(litScene);
-  let transferId: "lupton" | StretchId = "lupton";
-  const setTransfer = (id: "lupton" | StretchId): void => {
+  /*
+   * ONE FACTORY, TWELVE TRANSFERS. `createTransferNode` dispatches on the Layer 0 registry — the
+   * astronomical curves build a display-referred node, the photographic ones build an operator
+   * followed by the sRGB encode they are owed — so nothing here knows or cares which family is
+   * selected. That is the point: the mechanism difference was the reason the control could only
+   * ever offer half the options.
+   */
+  let transfer: Transfer = createTransferNode(litScene, "lupton");
+  let transferId: TransferId = "lupton";
+  const setTransfer = (id: TransferId): void => {
     if (id === transferId) return;
     transferId = id;
-    transfer = id === "lupton" ? createLuptonNode(litScene) : createStretchNode(litScene, id);
-    // Alpha is 1: the canvas is opaque (`alpha: false`) and neither transfer composites.
+    transfer = createTransferNode(litScene, id);
+    // Alpha is 1: the canvas is opaque (`alpha: false`) and no transfer composites. The cast is
+    // the one place TSL's JSDoc-derived types fall short — see `Transfer.node`.
     pipeline.outputNode = vec4(transfer.node as never, 1);
     pipeline.needsUpdate = true;
   };
@@ -269,9 +282,28 @@ export async function initStarLab(
      * the pre-Lupton path did too. Feeding it the photometric estimate applied a calibration for a
      * different quantity — measured as a 1.43 mag spread against 0.41 where it belongs.
      */
+    /*
+     * THE FLOOR MUST BE THE SELECTED TRANSFER'S, not Lupton's.
+     *
+     * `floor` sets how far each star's quad is integrated, and `prepare` sizes the billboards
+     * actually drawn from the same number — so passing Lupton's floor while drawing AgX-sized
+     * quads estimates the mean of an image that is not on screen. It was already inconsistent
+     * for the five astropy curves; making the transfer selectable put it on the one comparison
+     * this page exists for.
+     *
+     * IT COSTS ALMOST NO EXPOSURE, which is the part worth having measured rather than argued.
+     * The twelve floors span 850x, and the white point moves 0.0080 mag across all of them
+     * (1.45%) — because the Moffat core and the aureole both have CONVERGENT area integrals, so
+     * a wider quad adds area and almost no energy. The calibration constant's own spread across
+     * seventeen configurations is 0.41 mag, fifty times larger. So switching transfer changes the
+     * curve and not the exposure, and an A/B stays a comparison of curves. Gated in
+     * `check:transfers`, because that is a claim that could quietly stop being true.
+     */
     const white =
       lastField.stats.colorMode === "photometric"
-        ? whitePixelIntensity(lastField, w, h, { floor: floorForDepth(lastDepthMag) })
+        ? whitePixelIntensity(lastField, w, h, {
+            floor: transferFloor(lastField.stats.scaling, lastDepthMag),
+          })
         : 1;
     transfer.setDepth(lastDepthMag, white);
     transfer.setSky(lastSkyLevel, white);

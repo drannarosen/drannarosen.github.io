@@ -12,7 +12,7 @@ import {
 import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/passbands";
 import { SURVEYS } from "@novascope/core/photometry/surveys";
 import { INSTRUMENTS } from "@novascope/core/photometry/instruments";
-import { STRETCH_IDS, STRETCH_NOTES } from "@novascope/core/imaging/stretch";
+import { TRANSFERS, type TransferFamily } from "@novascope/core/imaging/transfers";
 import { clusterStarTable } from "@novascope/viz/starfield/source";
 import { prepareStarField } from "@novascope/viz/starfield/prepare";
 
@@ -112,6 +112,24 @@ const DEPTH_DEFAULTS = {
   population: snap(DEFAULT_POPULATION_DEPTH_MAG),
 };
 const depthStart = DEPTH_DEFAULTS.population;
+/*
+ * The transfer control's option groups, PARTITIONED from the registry rather than listed.
+ *
+ * The group labels state the one difference that is real and that a reader cannot see: what the
+ * output of each family already is. An astronomical curve's output IS the pixel — astropy writes
+ * `make_lupton_rgb` straight to a PNG — so it gets no sRGB encode. A photographic operator returns
+ * display-LINEAR values and is still owed one. Both mistakes render a plausible image, so the
+ * distinction has to be said out loud somewhere, and the control is where the choice is made.
+ */
+const FAMILY_LABEL: Record<TransferFamily, string> = {
+  astronomical: "Astronomical — display-referred, no encode after",
+  photographic: "Photographic — scene-referred, sRGB encode after",
+};
+const TRANSFER_GROUPS = (["astronomical", "photographic"] as const).map((family) => ({
+  label: FAMILY_LABEL[family],
+  items: TRANSFERS.filter((t) => t.family === family),
+}));
+
 const schemeRows = COLOR_SCHEMES.map((s) => ({
   id: s.id,
   label: s.label,
@@ -193,16 +211,31 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         <input type="range" min={DEPTH_MIN} max={DEPTH_MAX} step={DEPTH_STEP} value={depthStart} data-depth />
       </label>
       <!--
-        SCALING is the per-pixel display transfer, and its default follows the mode rather than being
-        remembered: photometric wants Lupton (its input is linear and uncompressed), population wants
-        linear (its per-star signal is already asinh-compressed, so a second curve would compress
-        twice). "Follow mode" says that out loud instead of hiding it behind a preselected option.
+        THE DISPLAY TRANSFER — one control, twelve conventions, and no longer two mechanisms.
+        Three's tone mappers used to be applied by `renderer.toneMapping` + `renderOutput()` while
+        the astropy curves were TSL output nodes, so this control could only ever offer half the
+        answer and AgX survived a refactor as a comment. They are all TSL functions; `transferNode`
+        builds whichever is named and the page never learns the difference.
+
+        GROUPED BY FAMILY, because the families genuinely disagree about whose job the sRGB encode
+        is — astronomical curves are display-referred and get none, photographic operators are
+        scene-referred and are owed one — and that is the honest answer to "why does astronomy not
+        just use AgX". The groups are derived from the registry, not listed here.
+
+        The default follows the MODE rather than being remembered: photometric wants Lupton (its
+        input is linear and uncompressed), population wants linear (its per-star signal is already
+        asinh-compressed, so a second curve would compress twice).
       -->
-      <label class="srl__ctl">Scaling
+      <label class="srl__ctl">Display transfer
         <select data-scaling>
           <option value="" selected>Follow mode (Lupton / linear)</option>
-          <option value="lupton">Lupton — hue-preserving, 3-channel</option>
-          {STRETCH_IDS.map((id) => <option value={id} title={STRETCH_NOTES[id]}>{id}</option>)}
+          {TRANSFER_GROUPS.map((g) => (
+            <optgroup label={g.label}>
+              {g.items.map((t) => (
+                <option value={t.id} title={t.note}>{t.label}</option>
+              ))}
+            </optgroup>
+          ))}
         </select>
       </label>
       <!--
@@ -506,6 +539,13 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 
 <script>
   import { initStarLab } from "@novascope/viz/starfield/scene";
+  import { TRANSFER_IDS, type TransferId } from "@novascope/core/imaging/transfers";
+
+  /*
+   * The valid transfer ids, from the same registry that generated the control's options — so the
+   * page validates against the list rather than against a copy of it.
+   */
+  const TRANSFER_ID_SET: ReadonlySet<string> = new Set(TRANSFER_IDS);
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-stage]");
   const status = document.querySelector<HTMLElement>("[data-status]");
@@ -588,9 +628,19 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     const depth = document.querySelector<HTMLInputElement>("[data-depth]")?.value;
     const minMass = Number(document.querySelector<HTMLInputElement>("[data-min-mass]")?.value ?? 0);
     const instrumentId = document.querySelector<HTMLSelectElement>("[data-instrument]")?.value ?? "population";
-    // Empty means "follow mode", so it is OMITTED rather than defaulted here — `prepare` owns the
-    // per-mode default and a second copy of it would be a second thing to keep true.
-    const scaling = document.querySelector<HTMLSelectElement>("[data-scaling]")?.value ?? "";
+    /*
+     * Empty means "follow mode", so it is OMITTED rather than defaulted here — `prepare` owns the
+     * per-mode default and a second copy of it would be a second thing to keep true.
+     *
+     * VALIDATED against the registry rather than cast. The select is generated from `TRANSFERS`,
+     * so a bad value can only arise from a stale cached page or a hand-edited DOM — and in that
+     * case falling back to "follow mode" is right, while `as never` would have handed `prepare` an
+     * id it has no node for.
+     */
+    const rawScaling = document.querySelector<HTMLSelectElement>("[data-scaling]")?.value ?? "";
+    const scaling: TransferId | "" = (TRANSFER_ID_SET.has(rawScaling) ? rawScaling : "") as
+      | TransferId
+      | "";
     const inst = INSTRUMENT_TABLE[instrumentId];
     /*
      * An instrument supplies BOTH the composite and the brightness band; "population" supplies
@@ -603,7 +653,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       band: inst ? inst.brightnessBand : (document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V"),
       ...(inst ? { bandTriple: inst.composite } : {}),
       colorMode: inst ? ("photometric" as const) : ("population" as const),
-      ...(scaling ? { scaling: scaling as never } : {}),
+      ...(scaling === "" ? {} : { scaling }),
       skyLevel: Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0),
       bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
       ...(depth === undefined ? {} : { depthMag: Number(depth) }),
@@ -619,22 +669,37 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         const depthVal = document.querySelector<HTMLElement>("[data-depth-val]");
         const massVal = document.querySelector<HTMLElement>("[data-minmass-val]");
         const selection = document.querySelector<HTMLElement>("[data-selection]");
-        const show = (s: typeof lab.stats) => {
-          const pct = ((100 * s.visible) / lab.starCount).toFixed(1);
-          const minMass = read().minMass;
-          if (depthVal) depthVal.textContent = s.depthMag.toFixed(2);
+        /*
+         * THE CHEAP HALF OF THE READOUT — everything derivable from the controls themselves.
+         *
+         * Split out from `show` so a slider's own number tracks the thumb immediately while the
+         * expensive rebuild is coalesced (see `scheduleUpdate`). Reading these from the DOM
+         * rather than from `stats` is correct here precisely BECAUSE they are the control's
+         * value, not a result: they are what was asked for, and they should update the moment it
+         * is asked.
+         */
+        const showInputs = () => {
+          const minMass = Number(
+            document.querySelector<HTMLInputElement>("[data-min-mass]")?.value ?? 0,
+          );
           const bloomEl = document.querySelector<HTMLInputElement>("[data-bloom]");
           const bloomVal = document.querySelector<HTMLElement>("[data-bloom-val]");
           if (bloomVal && bloomEl) bloomVal.textContent = Number(bloomEl.value).toFixed(2);
+          if (massVal) massVal.textContent = minMass > 0 ? `${minMass.toFixed(2)} M☉` : "all";
+          // The filtered-population warning is driven by the CUT, not by the star
+          // count, so it cannot fall out of step with what is actually drawn.
+          if (selection) selection.hidden = minMass <= 0;
+        };
+
+        const show = (s: typeof lab.stats) => {
+          const pct = ((100 * s.visible) / lab.starCount).toFixed(1);
+          showInputs();
+          if (depthVal) depthVal.textContent = s.depthMag.toFixed(2);
           const skyVal = document.querySelector<HTMLElement>("[data-sky-val]");
           if (skyVal) {
             skyVal.textContent =
               s.skyLevel > 0 ? `${(100 * s.skyLevel).toFixed(2)}% of white` : "none";
           }
-          if (massVal) massVal.textContent = minMass > 0 ? `${minMass.toFixed(2)} M☉` : "all";
-          // The filtered-population warning is driven by the CUT, not by the star
-          // count, so it cannot fall out of step with what is actually drawn.
-          if (selection) selection.hidden = minMass <= 0;
           // "above threshold", not "visible": the count is a property of each
           // star's display signal, and says nothing about whether it is inside
           // the frame. A Plummer sphere has a long tail, so some of these stars
@@ -660,14 +725,48 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           );
         };
         show(lab.stats);
+
+        /*
+         * ONE REBUILD PER FRAME, COALESCED — and this is a hang fix, not a polish item.
+         *
+         * `lab.update` re-runs `prepareStarField`, which is 180-425 ms for 10,000 stars (413 ms
+         * through a three-band Rubin triple, because it integrates a Planck function through a
+         * real filter curve per star per band — roughly 40,000 numerical integrals). That cost is
+         * the physics and is not going away.
+         *
+         * A range input fires `input` CONTINUOUSLY while dragged. Calling `update` straight from
+         * the handler therefore queued ~25 seconds of blocking main-thread work per second of
+         * dragging, and the backlog grew without bound — the renderer stops responding while
+         * holding a live WebGPU context, which is how the tab gets killed rather than merely
+         * being slow.
+         *
+         * Coalescing to a single rAF bounds it: however many events arrive, at most one rebuild
+         * runs per frame and the backlog cannot grow. The controls' own numbers still update
+         * synchronously via `showInputs`, so the slider stays responsive to the hand while the
+         * image catches up — which is the honest split, since those numbers are the REQUEST and
+         * the rest of the readout is the RESULT.
+         *
+         * The right long-term fix is narrower: sky and bloom are pure display uniforms and need
+         * no re-prepare at all. That is a change to `StarLab`'s surface rather than to this page,
+         * so it is left for the renderer work rather than smuggled in here.
+         */
+        let pendingUpdate = 0;
+        const scheduleUpdate = () => {
+          if (pendingUpdate !== 0) return;
+          pendingUpdate = requestAnimationFrame(() => {
+            pendingUpdate = 0;
+            show(lab.update(read()));
+          });
+        };
+
         for (const el of document.querySelectorAll<HTMLElement>(
           "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-bloom],[data-depth],[data-exposure],[data-min-mass]",
         )) {
           el.addEventListener("input", () => {
             syncDepthForMode();
-            syncDepthForMode();
-        syncBandControl();
-            show(lab.update(read()));
+            syncBandControl();
+            showInputs(); // instant: the control's own value
+            scheduleUpdate(); // coalesced: the image and the derived readout
           });
         }
         syncDepthForMode();

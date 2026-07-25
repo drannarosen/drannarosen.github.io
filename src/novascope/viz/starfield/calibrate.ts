@@ -51,12 +51,7 @@ import {
   type AureoleParams,
   type DiffractionParams,
 } from "../../core/optics/index.ts";
-import {
-  luptonQForDepth,
-  luptonStretchForWhite,
-  luptonIntensityForOutput,
-  ONE_DISPLAY_LEVEL,
-} from "../../core/imaging/lupton.ts";
+import { transferFloor } from "../../core/imaging/transfers.ts";
 import type { StarField } from "./prepare.ts";
 
 /**
@@ -157,15 +152,16 @@ export function profileIntegral(
 }
 
 /**
- * One display level's worth of intensity, for a requested depth in magnitudes.
+ * One display level's worth of intensity, for a requested depth in magnitudes — on the LUPTON
+ * curve specifically.
  *
- * Lives here rather than at each call site because the generator, the gate and the renderer
- * all need the same number and it is three lines of Lupton plumbing — the kind of thing that
- * gets copied with one argument different.
+ * DELEGATES to `transferFloor`, which is the general form now that the transfer is selectable.
+ * The name survives because every caller here is about the Lupton exposure calibration and
+ * `transferFloor("lupton", d)` at six call sites would say less, not more — but the arithmetic
+ * has one home, so the two cannot drift.
  */
 export function floorForDepth(depthMag: number): number {
-  const q = luptonQForDepth(depthMag);
-  return luptonIntensityForOutput(ONE_DISPLAY_LEVEL, luptonStretchForWhite(q), q);
+  return transferFloor("lupton", depthMag);
 }
 
 /**

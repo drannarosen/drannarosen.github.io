@@ -50,13 +50,11 @@ import {
   diffractionExtentRadii,
   type TierBoundaries,
 } from "./sizing.ts";
-import { floorForDepth } from "./calibrate.ts";
 import {
   DEFAULT_LUPTON_DEPTH_MAG,
   DEFAULT_POPULATION_DEPTH_MAG,
-  ONE_DISPLAY_LEVEL,
 } from "../../core/imaging/lupton.ts";
-import { stretchInverse, type StretchId } from "../../core/imaging/stretch.ts";
+import { transferFloor, type TransferId } from "../../core/imaging/transfers.ts";
 
 /**
  * Floats per star in the packed table this module reads, in the order
@@ -180,7 +178,7 @@ export interface PrepareOptions {
    * per-star signal is ALREADY asinh-compressed and a second curve on top would compress twice —
    * the same double-compression this whole restructuring removed from the overlap case.
    */
-  scaling?: "lupton" | StretchId;
+  scaling?: TransferId;
   /**
    * Sky level subtracted before the display transfer, as a FRACTION of the white point.
    *
@@ -311,7 +309,7 @@ export interface StarField {
     /** Which claim this field makes, RESOLVED — the defaults depend on whether a triple was given. */
     colorMode: "photometric" | "population";
     /** The per-pixel transfer this field expects, resolved the same way. */
-    scaling: "lupton" | StretchId;
+    scaling: TransferId;
     /** Sky fraction subtracted before that transfer; 0 means none. */
     skyLevel: number;
     /**
@@ -419,22 +417,25 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const colorMode = opts.colorMode ?? (opts.bandTriple ? "photometric" : "population");
   const scaling = opts.scaling ?? (colorMode === "photometric" ? "lupton" : "linear");
   /*
-   * The faintest amplitude the chosen curve can still show, which is what decides how far a star's
-   * billboard has to reach. It CANNOT be a constant: across the five scalar curves the input
-   * corresponding to one display level spans 850x (1.5e-5 for sqrt against 1.3e-2 for sinh), so a
-   * fixed floor would either clip the faint stars under sqrt or waste enormous quads under sinh.
-   */
-  /*
    * The depth default is PER MODE, because `depthMag` drives a different parameter in each: Lupton's
    * Q per pixel, or the per-star asinh softening. One shared default put population mode's median
    * star at a signal of 1e-4 against a 0.02 threshold — see `DEFAULT_POPULATION_DEPTH_MAG`.
    */
   const defaultDepthMag =
     colorMode === "photometric" ? DEFAULT_LUPTON_DEPTH_MAG : DEFAULT_POPULATION_DEPTH_MAG;
-  const displayFloor =
-    scaling === "lupton"
-      ? floorForDepth(opts.depthMag ?? defaultDepthMag)
-      : stretchInverse(ONE_DISPLAY_LEVEL, scaling);
+  /*
+   * The faintest amplitude the chosen transfer can still show, which is what decides how far a
+   * star's billboard has to reach. It CANNOT be a constant: across the twelve transfers the input
+   * corresponding to one display level spans 850x — 1.5e-5 for sqrt against 1.3e-2 for sinh, with
+   * the photographic operators strewn between (AgX 2.0e-3, Cineon 7.2e-3) — so a fixed floor
+   * would clip the faint wings under one curve into visible square edges and waste twenty times
+   * the fill rate under another.
+   *
+   * ONE CALL, no per-family branch. `transferFloor` owns the dispatch, including the fact that
+   * only Lupton's floor moves with `depthMag`; a branch here would be a second place that
+   * asymmetry is written, and it is exactly the asymmetry that produced the depth bug.
+   */
+  const displayFloor = transferFloor(scaling, opts.depthMag ?? defaultDepthMag);
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
