@@ -22,7 +22,6 @@ import {
 import {
   LAB_SCHEMA,
   PASSTHROUGH_KEYS,
-  TRANSFER_AUTO,
   POPULATION_ID,
 } from "../src/novascope/viz/starfield/labParams.ts";
 import { TRANSFER_IDS } from "../src/novascope/core/imaging/transfers.ts";
@@ -101,7 +100,14 @@ console.log("\n  the lab schema is derived, not listed:");
 {
   const s = decode(LAB_SCHEMA, "");
   ok(s.instrument === POPULATION_ID, `instrument defaults to "${POPULATION_ID}"`);
-  ok(s.transfer === TRANSFER_AUTO, `transfer defaults to "${TRANSFER_AUTO}" (follow the mode)`);
+  /* Defaults changed 2026-07-25 on Anna's judgement of the rendered images — asserted so the
+   * change is deliberate and a future edit has to mean it. */
+  ok(s.transfer === "asinh", 'transfer defaults to "asinh" in both modes');
+  ok(s.band === "bolometric", 'band defaults to "bolometric" — total light, not an instrument');
+  ok(
+    s.depth === DEPTH_MAG_RANGE.max,
+    `depth defaults to the maximum (${DEPTH_MAG_RANGE.max} mag) so every star clears the floor`,
+  );
   /*
    * MOTION IS TRI-STATE, and this is the assertion that keeps it that way. A boolean here
    * conflated "unset" with "off", so the URL writer recorded whatever the renderer happened to be

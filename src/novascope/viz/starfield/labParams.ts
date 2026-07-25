@@ -37,10 +37,7 @@ import { TRANSFER_IDS } from "../../core/imaging/transfers.ts";
 import { INSTRUMENTS } from "../../core/photometry/instruments.ts";
 import { COLOR_SCHEMES } from "../../core/colorimetry/schemes.ts";
 import { PASSBANDS } from "../../core/photometry/passbands.ts";
-import {
-  DEPTH_MAG_RANGE,
-  DEFAULT_POPULATION_DEPTH_MAG,
-} from "../../core/imaging/lupton.ts";
+import { DEPTH_MAG_RANGE } from "../../core/imaging/lupton.ts";
 
 /**
  * "Follow the mode" — the transfer control's empty option, spelled for a URL.
@@ -75,15 +72,32 @@ const BAND_IDS = ["bolometric", ...Object.keys(PASSBANDS)];
 export const LAB_SCHEMA = {
   instrument: enumField(INSTRUMENT_IDS, POPULATION_ID),
   scheme: enumField(SCHEME_IDS, SCHEME_IDS[0] ?? "true"),
-  band: enumField(BAND_IDS, "V"),
-  transfer: enumField([TRANSFER_AUTO, ...TRANSFER_IDS], TRANSFER_AUTO),
+  /*
+   * BOLOMETRIC by default — total light, no filter, which is the physical quantity rather than an
+   * instrument's view of it. It pairs with the population default: both say "the stars", not "a
+   * camera". Choosing an instrument still overrides it, because an instrument drives its own band.
+   */
+  band: enumField(BAND_IDS, "bolometric"),
+  /*
+   * ASINH, not "follow the mode". `auto` remains selectable and now resolves to asinh in both
+   * modes, so it is no longer a fork — see `prepare` for what that costs in population mode.
+   */
+  transfer: enumField([TRANSFER_AUTO, ...TRANSFER_IDS], "asinh"),
   /*
    * ALWAYS WRITTEN — see `alwaysWrite`. Omitting it at the schema default is not merely verbose
    * here, it is wrong: a photometric link sitting at 16 (population's default) omitted `depth`
    * and REOPENED AT 8, because the page forces the mode's own default when the URL is silent.
    * Measured, not theorised — the sender's picture and the recipient's differed, silently.
    */
-  depth: numberField(DEPTH_MAG_RANGE.min, DEPTH_MAG_RANGE.max, DEFAULT_POPULATION_DEPTH_MAG, 2, true),
+  depth: numberField(
+    DEPTH_MAG_RANGE.min,
+    DEPTH_MAG_RANGE.max,
+    // THE MAXIMUM, so every star clears the display floor by default — Anna's call. See the page's
+    // DEPTH_DEFAULTS for what the measurements say this costs in colour separation.
+    DEPTH_MAG_RANGE.max,
+    2,
+    true,
+  ),
   sky: numberField(0, 0.05, 0, 4),
   /*
    * MEASURE the sky from the rendered frame rather than using the slider.

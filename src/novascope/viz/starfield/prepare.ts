@@ -423,7 +423,20 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
    * one control still drives the depth, but through the transfer that is actually applied.
    */
   const colorMode = opts.colorMode ?? (opts.bandTriple ? "photometric" : "population");
-  const scaling = opts.scaling ?? (colorMode === "photometric" ? "lupton" : "linear");
+  /*
+   * ASINH IS THE DEFAULT IN BOTH MODES — Anna's call, made by looking at the three side by side
+   * on the real cluster (2026-07-25), against the previous per-mode defaults of `lupton` for
+   * photometric and `linear` for population.
+   *
+   * WHAT IT COSTS IN POPULATION MODE, recorded because it is a real property and not an oversight:
+   * that mode's per-star signal has ALREADY been through `asinhResponse`, so a second asinh here
+   * compresses twice. `linear` was the default precisely to avoid that. Double compression is not
+   * a bug, though — it is a flatter tone curve — and which one reads better on a projector is a
+   * judgement about the image rather than about the physics. The physics is unchanged either way:
+   * the per-star signal, the hue and the flux ratios are identical, and only the display curve
+   * differs.
+   */
+  const scaling = opts.scaling ?? "asinh";
   /*
    * The depth default is PER MODE, because `depthMag` drives a different parameter in each: Lupton's
    * Q per pixel, or the per-star asinh softening. One shared default put population mode's median

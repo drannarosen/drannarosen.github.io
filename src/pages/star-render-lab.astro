@@ -4,11 +4,7 @@ import PageHeader from "../components/PageHeader.astro";
 import { COLOR_SCHEMES } from "@novascope/core/colorimetry/schemes";
 import { linearToSrgbRGB } from "@novascope/core/colorimetry";
 import { spectralType } from "@novascope/core/stellar";
-import {
-  DEFAULT_LUPTON_DEPTH_MAG,
-  DEFAULT_POPULATION_DEPTH_MAG,
-  DEPTH_MAG_RANGE,
-} from "@novascope/core/imaging/lupton";
+import { DEPTH_MAG_RANGE } from "@novascope/core/imaging/lupton";
 import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/passbands";
 import { SURVEYS } from "@novascope/core/photometry/surveys";
 import { INSTRUMENTS } from "@novascope/core/photometry/instruments";
@@ -107,9 +103,34 @@ const snap = (v: number): number => Math.round(v / DEPTH_STEP) * DEPTH_STEP;
  * different parameter in each mode — see `DEFAULT_POPULATION_DEPTH_MAG`. The page starts in
  * population mode, so that is the starting position.
  */
+/*
+ * BOTH MODES NOW DEFAULT TO THE MAXIMUM DEPTH, so every star clears the display floor. Anna's
+ * call (2026-07-25), against the two measured per-mode defaults that preceded it.
+ *
+ * WHAT THE MEASUREMENTS SAY IT COSTS, recorded rather than argued. On the shipped population under
+ * `vivid`, hue spread against depth runs:
+ *
+ *     depth   median signal   blue fraction   hue spread
+ *       8         0.0001          0.738          0.179
+ *      12         0.0035          0.449          0.349   <- peak colour separation
+ *      16         0.1009          0.210          0.326   <- the previous default
+ *      19.78      0.2845          0.147          0.281
+ *
+ * Separation peaks near 12 and falls away past 20 as everything lifts far enough that the hues
+ * wash back together. So "every star visible" and "maximum colour separation" are different
+ * optima and this now targets the first. `DEFAULT_POPULATION_DEPTH_MAG` and
+ * `DEFAULT_LUPTON_DEPTH_MAG` still hold the measured figures in Layer 0 — they are what the
+ * renderer falls back to when no depth is supplied at all — so nothing was overwritten to make
+ * this change, and reverting it is a one-line edit here.
+ *
+ * The two entries are now equal, which makes `syncDepthForMode` inert. It is left in place
+ * deliberately: it is the mechanism that keeps the modes honest if the defaults ever diverge
+ * again, and deleting working machinery as a side effect of a defaults change is how the depth
+ * bug got in the first time.
+ */
 const DEPTH_DEFAULTS = {
-  photometric: snap(DEFAULT_LUPTON_DEPTH_MAG),
-  population: snap(DEFAULT_POPULATION_DEPTH_MAG),
+  photometric: snap(DEPTH_MAG_RANGE.max),
+  population: snap(DEPTH_MAG_RANGE.max),
 };
 const depthStart = DEPTH_DEFAULTS.population;
 /*
@@ -196,7 +217,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           {BAND_GROUPS.map((g) => (
             <optgroup label={g.label}>
               {g.ids.map((b) => (
-                <option value={b} selected={b === "V"}>{bandLabel(b)}</option>
+                <option value={b} selected={b === "bolometric"}>{bandLabel(b)}</option>
               ))}
             </optgroup>
           ))}
