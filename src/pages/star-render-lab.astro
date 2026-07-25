@@ -6,6 +6,8 @@ import { linearToSrgbRGB } from "@novascope/core/colorimetry";
 import { spectralType } from "@novascope/core/stellar";
 import { DEFAULT_SOFTENING, limitingFluxRatio } from "@novascope/core/imaging";
 import { magnitudeDifference } from "@novascope/core/photometry";
+import { PASSBANDS } from "@novascope/core/photometry/passbands";
+import { SURVEYS } from "@novascope/core/photometry/surveys";
 
 /*
  * Colour-scheme comparison, rendered at BUILD time. Every swatch is computed by
@@ -17,7 +19,20 @@ const css = (c: readonly [number, number, number]): string => {
   const [r, g, b] = linearToSrgbRGB(c).map((v) => Math.round(v * 255));
   return `rgb(${r} ${g} ${b})`;
 };
-const BANDS = ["bolometric", "U", "B", "V", "R", "I", "J", "H", "K"];
+/*
+ * Bands, GROUPED BY WHAT KIND OF FILTER MODEL THEY ARE, because that is the honest
+ * distinction: Johnson-Cousins and 2MASS are Gaussian models, Rubin and Gaia are
+ * real measured curves. The group labels say so in the control itself rather than
+ * only in a docstring nobody opens.
+ */
+const BAND_GROUPS: Array<{ label: string; ids: string[] }> = [
+  { label: "Bolometric (total)", ids: ["bolometric"] },
+  { label: "Johnson–Cousins / 2MASS — Gaussian model", ids: ["U", "B", "V", "R", "I", "J", "H", "K"] },
+  { label: "Rubin / LSST — measured curve", ids: ["LSST_u", "LSST_g", "LSST_r", "LSST_i", "LSST_z", "LSST_y"] },
+  { label: "Gaia DR3 — measured curve", ids: ["Gaia_G", "Gaia_BP", "Gaia_RP"] },
+];
+const bandLabel = (id: string): string =>
+  id === "bolometric" ? "bolometric (total)" : (PASSBANDS[id]?.label ?? id);
 
 /*
  * The depth slider is in MAGNITUDES below the display white point, which is the
@@ -62,7 +77,13 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       </label>
       <label class="srl__ctl">Brightness band
         <select data-band>
-          {BANDS.map((b) => <option value={b} selected={b === "V"}>{b === "bolometric" ? "bolometric (total)" : b}</option>)}
+          {BAND_GROUPS.map((g) => (
+            <optgroup label={g.label}>
+              {g.ids.map((b) => (
+                <option value={b} selected={b === "V"}>{bandLabel(b)}</option>
+              ))}
+            </optgroup>
+          ))}
         </select>
       </label>
       <label class="srl__ctl">Depth <span data-depth-val>{depthStart.toFixed(2)}</span> mag below white
@@ -104,9 +125,11 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         One physics, several presentations. True colour is faithful and
         deliberately subtle — stellar blackbody colours trace only a short arc of
         colour space, so a real cluster reads mostly white with restrained tints.
-        The vivid schemes keep each star's physical <em>hue</em> and exaggerate
-        only its saturation; the schematic one encodes classification instead of
-        appearance.
+        The stretched scheme keeps each star's physical <em>hue</em> and exaggerates
+        only its saturation. Two earlier schemes (a 5× chroma stretch, and one
+        saturated colour per MK class) were <strong>removed</strong>: rendered on the
+        real cluster they asserted colour differences far larger than the physics
+        supports, which costs more credibility than the legibility it buys.
       </p>
 
       {schemeRows.map((row) => (
@@ -133,6 +156,160 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         <span>cooler ← Teff → hotter</span>
         <span>40,000 K · O</span>
       </div>
+    </section>
+
+    {/*
+      DESIGN RECORD. This page is noindex and unlinked — a development surface — so
+      it carries its own reasoning instead of leaving it in commit messages. The
+      point is that every visible feature can be traced to either a cited relation
+      or an explicitly-labelled choice, and that the two are never mixed up.
+    */}
+    <section class="srl__doc" aria-labelledby="doc-h">
+      <h2 id="doc-h" class="srl__h">Design record</h2>
+      <p class="srl__intro">
+        What is <strong>derived</strong> and what is <strong>chosen</strong>, kept
+        separate on purpose. Anything in the second column is a judgement that could
+        reasonably be made differently; anything in the first is not up for taste.
+      </p>
+
+      <h3 class="srl__h3">Derived from physics</h3>
+      <dl class="srl__dl">
+        <dt>Population</dt>
+        <dd>
+          Masses from a Maschberger IMF, positions from a continuous Plummer profile,
+          Teff and radius per star from its ZAMS state. Same novascope core as the
+          homepage hero. Deterministic in one seed. The half-mass radius used for
+          framing is <em>measured from the stars actually drawn</em>, not declared.
+        </dd>
+        <dt>Brightness</dt>
+        <dd>
+          Apparent flux through the chosen filter, with each star at its own distance
+          so the inverse-square law applies <em>within</em> the cluster. Depth is the
+          star's own z in the cluster frame — never the live camera's axis, because a
+          cluster 400 pc away cannot be orbited, and keying off the camera would make
+          brightness pump as the view rotates.
+        </dd>
+        <dt>Colour</dt>
+        <dd>
+          Blackbody spectrum integrated against the CIE 1931 observer, then rescaled
+          to <em>unit luminance</em> so the display signal alone sets how bright a
+          star reads. Left peak-normalised, luminance ran 0.49 at 2500 K against 0.90
+          at 5772 K — a Sun-like star rendered 1.86× more luminous than an O star at
+          the same signal, and measured peak brightness came out non-monotonic in
+          luminosity.
+        </dd>
+        <dt>Point-spread function</dt>
+        <dd>
+          One Moffat profile, <strong>the same width for every star</strong> — a PSF
+          belongs to the atmosphere and optics, not the source. Brightness changes
+          peak intensity only; a bright star looks larger because more of its wing
+          clears the display threshold. Apparent size therefore goes as
+          signal<sup>1/2β</sup>.
+        </dd>
+        <dt>Halo and spikes</dt>
+        <dd>
+          Both driven by <em>linear</em> flux, not the compressed display signal,
+          because scattered light and diffraction are fixed fractions of what entered
+          the aperture and know nothing about display. Spikes are Tier 3 only (~0.5%
+          of stars) and fixed to the instrument, so they do not rotate with the sky.
+        </dd>
+        <dt>Filters</dt>
+        <dd>
+          Rubin ugrizy and Gaia G/BP/RP use <strong>real measured curves</strong>;
+          Johnson–Cousins and 2MASS are Gaussian models. Gaia G spans ~730 nm, so a
+          Gaussian there is not an approximation but a different filter. Effective
+          wavelengths are derived from the curves and reproduce published values
+          (Rubin r: 622.1 nm vs 622.0).
+        </dd>
+      </dl>
+
+      <h3 class="srl__h3">Chosen, and revisable</h3>
+      <dl class="srl__dl">
+        <dt>Depth (default 19.8 mag below white)</dt>
+        <dd>
+          An <em>exposure</em>, not a fact. At the default, sub-solar stars — 88.5% of
+          the cluster, emitting 0.05% of its V-band light — own ~74% of the summed
+          display signal. That is a ~1500× over-representation, and it is a choice:
+          the alternative hides most of the cluster. A 0.1 M<sub>☉</sub> star here is
+          m<sub>bol</sub> ≈ 20.3 at 400 pc.
+        </dd>
+        <dt>White percentile (0.995)</dt>
+        <dd>
+          Kept high <em>against intuition</em>. Lowering it brightens the image but
+          <strong>flattens</strong> it: max/median signal moves 3.1 → 1.9 as the
+          percentile drops 0.995 → 0.90, because asinh compresses harder at larger
+          argument.
+        </dd>
+        <dt>PSF width 2.2 px, β 3.2, aureole and spike amplitudes</dt>
+        <dd>
+          Tuned by looking at rendered output. Each has exactly one home in the code
+          and the shader imports it, so they cannot drift apart — but they are taste,
+          not measurement.
+        </dd>
+        <dt>Bloom threshold 1.0</dt>
+        <dd>
+          Display white, so only genuine HDR overflow glares (~50 of 10,000 stars).
+          Anything lower would bloom the ordinary field and double-count the halo and
+          spikes, which already model why bright stars spread.
+        </dd>
+        <dt>Mass cut</dt>
+        <dd>
+          A <em>modelling selection</em>, not an observation. The white point stays
+          calibrated on the full population so the views stay comparable, and the page
+          says so whenever the cut is active.
+        </dd>
+      </dl>
+
+      <h3 class="srl__h3">Known limits</h3>
+      <ul class="srl__limits">
+        <li>
+          <strong>No absolute zero point.</strong> Band fluxes are in arbitrary
+          self-consistent units, so colour indices work and apparent AB magnitudes do
+          not. The depth control reads in magnitudes below <em>this image's</em> white
+          point, which is exact but is not a survey limit.
+        </li>
+        <li>
+          <strong>Blackbody spectra.</strong> No line blanketing, no Balmer jump, no
+          molecular bands — worst for the cool stars that dominate by number. A real
+          filter curve removes one approximation, not this one.
+        </li>
+        <li><strong>No gas, no extinction, no binaries, no stellar evolution</strong> (t = 0 ZAMS throughout).</li>
+        <li>
+          <strong>Survey depths below are reference data, not calibration.</strong>
+          They are published apparent AB magnitudes; the render is not tied to them.
+        </li>
+      </ul>
+
+      <h3 class="srl__h3">Survey reference depths</h3>
+      {SURVEYS.map((s) => (
+        <div class="srl__survey">
+          <p class="srl__surveyHead"><strong>{s.label}</strong> — <span class="srl__cite">{s.source}</span></p>
+          <table class="srl__table">
+            <thead>
+              <tr><th>Band</th><th>Single visit</th><th>Coadd</th></tr>
+            </thead>
+            <tbody>
+              {s.depths.map((d) => (
+                <tr>
+                  <td>{PASSBANDS[d.band]?.label ?? d.band}</td>
+                  <td>{d.singleVisit.toFixed(1)}</td>
+                  <td>{d.coadd.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p class="srl__note">
+            {s.keyNumbers.map(([k, v]) => `${k}: ${v}`).join(" · ")}
+          </p>
+        </div>
+      ))}
+      <p class="srl__note">
+        Rubin's depths here follow the observatory's own Key Numbers page. fluxax
+        carries different values (citing Ivezić et al. 2019 and the LSST Science
+        Book) — up to 0.6 mag apart, with the coadds differing systematically. Both
+        are recorded in <code>core/photometry/surveys.ts</code>; neither is treated as
+        wrong.
+      </p>
     </section>
   </div>
 </BaseLayout>
@@ -293,4 +470,20 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   .srl__sw { flex: 1; }
   .srl__note { margin: 0; max-inline-size: var(--width-prose); color: var(--ink-dim); font-size: var(--step--2); }
   .srl__axis { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-faint); }
+
+  /* The design record. Internal page, so it is allowed to be long — but it still
+     caps its measure, because unbounded body text is unreadable at 1440px. */
+  .srl__doc { display: grid; gap: var(--space-m); padding: var(--space-m); border: 1px solid var(--border); border-radius: 10px; }
+  .srl__h3 { margin: 0; font-size: var(--step-0); color: var(--spec-teal-bright, #4fd6c4); }
+  .srl__dl { margin: 0; display: grid; gap: var(--space-s); max-inline-size: var(--width-prose); }
+  .srl__dl dt { font-weight: 600; font-size: var(--step--1); }
+  .srl__dl dd { margin: 0.15rem 0 0; font-size: var(--step--1); color: var(--ink-dim); }
+  .srl__limits { margin: 0; padding-inline-start: 1.1rem; display: grid; gap: 0.4rem; max-inline-size: var(--width-prose); font-size: var(--step--1); color: var(--ink-dim); }
+  .srl__survey { display: grid; gap: 0.3rem; }
+  .srl__surveyHead { margin: 0; font-size: var(--step--1); }
+  .srl__cite { color: var(--ink-faint); font-size: var(--step--2); }
+  /* Wide content scrolls in its own container rather than the page body. */
+  .srl__table { display: block; overflow-x: auto; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--step--2); }
+  .srl__table th, .srl__table td { padding: 0.15rem 0.8rem 0.15rem 0; text-align: start; }
+  .srl__table th { color: var(--ink-faint); font-weight: 500; }
 </style>

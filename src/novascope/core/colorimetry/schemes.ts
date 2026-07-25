@@ -14,14 +14,14 @@
  * That label travels with the scheme so a page can caption it honestly rather
  * than implying a designed palette is a measurement.
  *
- * Note what is NOT here: nothing invents a colour. The schematic palettes are
- * DERIVED from the blackbody colour at each spectral class's anchor temperature
- * and then pushed toward the gamut edge, so even the vivid presentations trace
- * back to physics rather than to taste.
+ * Note what is NOT here: nothing invents a colour. Every scheme is DERIVED — the
+ * physical ones by integrating a blackbody against the CIE observer, the stretched
+ * one by pushing that same colour away from its own grey, the schematic ones by
+ * assigning real band fluxes to channels. There is no hand-picked palette, and the
+ * two schemes that came closest to being one were removed (see below).
  */
 
 import { blackbodyLinearRGB, normalizeChroma } from "./index.ts";
-import { spectralType } from "../stellar/index.ts";
 import { BAND_COMPOSITES, bandIntegral, type BandComposite } from "../photometry/passbands.ts";
 import { planckNm } from "../blackbody/index.ts";
 
@@ -63,35 +63,6 @@ export function stretchChroma(
   ]);
 }
 
-/**
- * The MK classes, hot to cool, each with the anchor temperature `core/stellar`
- * already uses for classification. Colours are DERIVED from these temperatures,
- * never chosen by eye.
- */
-const CLASS_ANCHORS: Array<[cls: string, teffK: number]> = [
-  ["O", 40000],
-  ["B", 20000],
-  ["A", 8800],
-  ["F", 6800],
-  ["G", 5800],
-  ["K", 4500],
-  ["M", 3200],
-];
-
-/** First letter of the MK type for a temperature, via core/stellar. */
-function classOf(teffK: number): string {
-  return spectralType(teffK).charAt(0);
-}
-
-/**
- * Fully-saturated colour for each MK class: the class anchor's blackbody colour
- * pushed to the gamut edge. Derived once, at module load.
- */
-const CLASS_COLORS = new Map<string, [number, number, number]>(
-  CLASS_ANCHORS.map(([cls, T]) => [cls, stretchChroma(blackbodyLinearRGB(T), 6)]),
-);
-
-const FALLBACK: [number, number, number] = [1, 1, 1];
 
 export const COLOR_SCHEMES: ColorScheme[] = [
   {
@@ -108,21 +79,24 @@ export const COLOR_SCHEMES: ColorScheme[] = [
     note: "True hue, chroma boosted 2.4x — the look of a stretched multi-band cluster image. Hue is physical; saturation is a choice.",
     color: (T) => stretchChroma(blackbodyLinearRGB(T), 2.4),
   },
-  {
-    id: "vivid",
-    label: "Vivid",
-    kind: "stretched",
-    note: "True hue, chroma boosted 5x. Maximum separation between stars while every hue still traces to its blackbody colour.",
-    color: (T) => stretchChroma(blackbodyLinearRGB(T), 5),
-  },
-  {
-    id: "class",
-    label: "Spectral class",
-    kind: "schematic",
-    note: "One saturated colour per MK class (O B A F G K M), derived from each class's anchor temperature. False colour: it encodes classification, not appearance.",
-    color: (T) => CLASS_COLORS.get(classOf(T)) ?? FALLBACK,
-  },
 ];
+
+/*
+ * REMOVED: `vivid` (chroma x5) and `class` (one saturated colour per MK class).
+ *
+ * Both were dropped deliberately, not lost. Rendered on the real cluster they read
+ * as decoration rather than as measurement: x5 chroma pushes every star to the
+ * gamut edge, so the image asserts a colour difference far larger than the physics
+ * supports, and a per-class palette replaces a continuous physical quantity with
+ * seven arbitrary buckets. On a page whose whole claim is that what you see traces
+ * to a cited relation, a presentation that overstates its own evidence costs more
+ * credibility than it buys legibility.
+ *
+ * `stretchChroma` itself is KEPT — `stretched` uses it at 2.4x, and it is the honest
+ * middle: hue stays physical and only saturation is a choice. If a schematic
+ * classification view is ever wanted again it belongs in a diagram, labelled as
+ * schematic, not in the photometric renderer.
+ */
 
 /**
  * Colour from a three-band composite: each channel is the star's flux through

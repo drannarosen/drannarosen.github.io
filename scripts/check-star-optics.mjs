@@ -228,7 +228,21 @@ ok(blackbodyLinearRGB(60000).every(Number.isFinite), "finite above the fit range
 /* ── passbands: what a FILTER sees, not the bolometric total ── */
 const bU = PASSBANDS.U, bB = PASSBANDS.B, bV = PASSBANDS.V, bR = PASSBANDS.R;
 const bI = PASSBANDS.I, bJ = PASSBANDS.J, bH = PASSBANDS.H, bK = PASSBANDS.K;
-ok(Object.values(PASSBANDS).every((b) => b.lambdaEffNm > 0 && b.fwhmNm > 0), "every band is well-formed");
+/* A band is well-formed if it has a positive effective wavelength AND exactly one
+ * description of its shape: a positive FWHM (Gaussian model) or a tabulated curve.
+ * The old form demanded `fwhmNm > 0` for everything, which the measured Rubin/Gaia
+ * curves correctly broke — they carry `fwhmNm: 0` because a nominal width beside a
+ * real curve would be a second, disagreeing description of the same filter. */
+ok(
+  Object.values(PASSBANDS).every(
+    (b) => b.lambdaEffNm > 0 && ((b.fwhmNm > 0) !== (b.curve !== undefined)),
+  ),
+  "every band has a positive lambda_eff and exactly one shape description",
+);
+ok(
+  Object.values(PASSBANDS).some((b) => b.curve) && Object.values(PASSBANDS).some((b) => !b.curve),
+  "…and both kinds are present (measured curves and Gaussian models)",
+);
 ok(bU.lambdaEffNm < bB.lambdaEffNm && bB.lambdaEffNm < bV.lambdaEffNm, "UBV are ordered in wavelength");
 ok(bV.lambdaEffNm < bR.lambdaEffNm && bR.lambdaEffNm < bI.lambdaEffNm, "VRI are ordered");
 ok(bI.lambdaEffNm < bJ.lambdaEffNm && bJ.lambdaEffNm < bH.lambdaEffNm && bH.lambdaEffNm < bK.lambdaEffNm, "IJHK are ordered");
@@ -312,11 +326,23 @@ ok(
   getScheme("true").color(9000).every((v, i) => Math.abs(v - blackbodyLinearRGB(9000)[i]) < 1e-12),
   "the 'true' scheme is exactly blackbodyLinearRGB",
 );
-// Stretching is monotone in chroma: true < stretched < vivid, at a fixed Teff.
+// Stretching is monotone in chroma at a fixed Teff. Asserted against
+// `stretchChroma` directly rather than against a third scheme, so removing a
+// presentation cannot silently remove the check on the mechanism behind it.
 const chromaAt = (id) => chromaDistance(getScheme(id).color(3200));
 ok(
-  chromaAt("true") < chromaAt("stretched") && chromaAt("stretched") < chromaAt("vivid"),
-  "chroma increases true -> stretched -> vivid",
+  chromaAt("true") < chromaAt("stretched"),
+  "chroma increases true -> stretched",
+);
+ok(
+  chromaDistance(stretchChroma(blackbodyLinearRGB(3200), 5)) > chromaAt("stretched"),
+  "…and keeps increasing with the stretch amount",
+);
+// The removed presentations must STAY removed: `vivid` at 5x and `class` were
+// dropped as overstating the evidence, and a scheme list is easy to re-grow.
+ok(
+  !COLOR_SCHEMES.some((s) => s.id === "vivid" || s.id === "class"),
+  "the decorative schemes (vivid, class) are not in the list",
 );
 // …and stretching must preserve HUE ORDER: hot stays bluer than cool everywhere.
 for (const s of COLOR_SCHEMES) {

@@ -11,27 +11,54 @@
  * It is also what makes an infrared view meaningful: the same M dwarfs that are
  * faint in V are dominant in K, because that is where their light actually is.
  *
- * APPROXIMATION, stated plainly: each filter is modelled as a Gaussian in
- * wavelength with the band's published effective wavelength and FWHM. Real
- * filter curves have shoulders and structure that this does not reproduce, and
- * the source spectrum here is a blackbody, which a real star is not (line
- * blanketing, the Balmer jump, and molecular bands in cool stars all matter).
- * Colours from this module are therefore blackbody-derived estimates suitable
- * for rendering, not synthetic photometry for science.
+ * TWO KINDS OF FILTER LIVE HERE, and the difference is stated rather than blurred:
+ *
+ *   - Johnson-Cousins UBVRI and 2MASS JHKs are GAUSSIAN models, from each band's
+ *     published effective wavelength and FWHM. A defensible approximation of a
+ *     classical broadband filter, and no bulk data to ship.
+ *   - Rubin/LSST ugrizy and Gaia DR3 G/BP/RP are REAL MEASURED CURVES (see
+ *     `./passbandCurves`), because for those a Gaussian is not an approximation but
+ *     a different filter — Gaia's G spans ~330-1050 nm and has no bell shape at all.
+ *
+ * APPROXIMATION THAT REMAINS, for every band: the source spectrum is a BLACKBODY,
+ * and a real star is not one. Line blanketing, the Balmer jump and the molecular
+ * bands of cool stars all matter, and none is modelled. So fluxes and colours here
+ * are blackbody-derived estimates suitable for RENDERING, not synthetic photometry
+ * for science — a real filter curve does not change that, it only removes one of
+ * the two approximations.
+ *
+ * NO ABSOLUTE ZERO POINT. Fluxes are in arbitrary but self-consistent units, so
+ * ratios and colour indices are meaningful and apparent AB magnitudes are NOT
+ * available. That is why survey depths (`./surveys`) are carried as reference data
+ * a page can quote, not as a limit this module can test a star against.
  */
 
 import { planckNm } from "../blackbody/index.ts";
 import { R_SUN_CM, PC_CM } from "../constants/index.ts";
+import { TABULATED_CURVES, type TabulatedCurve } from "./passbandCurves.ts";
 
 export interface Passband {
   /** Short standard name. */
   id: string;
   /** Effective wavelength [nm]. */
   lambdaEffNm: number;
-  /** Full width at half maximum [nm]. */
+  /** Full width at half maximum [nm]. Unused when `curve` is present. */
   fwhmNm: number;
   /** Which regime it samples — for grouping in a UI. */
   regime: "uv" | "visible" | "nir";
+  /**
+   * A REAL measured response curve, when one is available. Present for Rubin and
+   * Gaia; absent for Johnson-Cousins and 2MASS, which stay Gaussian.
+   *
+   * The split is deliberate rather than half-finished. A Gaussian is a defensible
+   * model of a classical broadband filter — the header's caveat covers it — but it
+   * is not a model of Gaia's G band, which runs ~330-1050 nm and is nothing like a
+   * bell. Where an instrument's real curve is available and its shape matters, the
+   * curve wins; where a Gaussian is honest and the data would be bulk, it stays.
+   */
+  curve?: TabulatedCurve;
+  /** Human label, when the id is not self-explanatory. */
+  label?: string;
 }
 
 /**
@@ -50,12 +77,59 @@ export const PASSBANDS: Record<string, Passband> = {
   J: { id: "J", lambdaEffNm: 1235, fwhmNm: 162, regime: "nir" },
   H: { id: "H", lambdaEffNm: 1662, fwhmNm: 251, regime: "nir" },
   K: { id: "K", lambdaEffNm: 2159, fwhmNm: 262, regime: "nir" },
+  /*
+   * Rubin/LSST ugrizy and Gaia DR3 G/BP/RP, from REAL tabulated curves — see
+   * `./passbandCurves`. `fwhmNm: 0` because these do not use it: the shape comes
+   * from the data, and a nominal width here would be a second, disagreeing
+   * description of the same filter.
+   *
+   * Effective wavelengths are the curves' own transmission-weighted means, which
+   * reproduce the published values closely — Rubin r derives to 622.1 nm against a
+   * published 622.0, Gaia G to 639.0 against ~639. Rubin u derives to 372.4 against
+   * a tabulated 367.0; that ~1.5% gap is a convention difference (photon- vs
+   * energy-weighted mean), not an error, and it is why the value is derived here
+   * rather than copied.
+   */
+  ...Object.fromEntries(
+    Object.values(TABULATED_CURVES).map((c) => [
+      c.id,
+      {
+        id: c.id,
+        label: c.label,
+        lambdaEffNm: c.lambdaEffNm,
+        fwhmNm: 0,
+        regime: c.regime,
+        curve: c,
+      } satisfies Passband,
+    ]),
+  ),
 };
 
 const FWHM_TO_SIGMA = 1 / (2 * Math.sqrt(2 * Math.LN2));
 
-/** Gaussian filter response at `lambdaNm`, peaking at 1. */
+/** Linear interpolation into a tabulated curve; 0 outside its grid. */
+function curveResponse(lambdaNm: number, c: TabulatedCurve): number {
+  const x = (lambdaNm - c.startNm) / c.stepNm;
+  if (x < 0 || x > c.values.length - 1) return 0;
+  const i = Math.floor(x);
+  const f = x - i;
+  const a = c.values[i] ?? 0;
+  const b = c.values[i + 1] ?? a;
+  return a + f * (b - a);
+}
+
+/**
+ * Filter response at `lambdaNm`.
+ *
+ * Tabulated where a real curve exists, Gaussian otherwise. NOT normalized to a
+ * peak of 1 in the tabulated case: those curves carry the instrument's own
+ * throughput (Rubin's include atmosphere, optics and detector, so they peak well
+ * below 1), and rescaling them would discard real information about how much light
+ * each band actually collects. Only ratios are used downstream, so the absolute
+ * level is free — but it must be CONSISTENT within a band, which it is.
+ */
 export function bandResponse(lambdaNm: number, band: Passband): number {
+  if (band.curve) return curveResponse(lambdaNm, band.curve);
   const sigma = band.fwhmNm * FWHM_TO_SIGMA;
   const t = (lambdaNm - band.lambdaEffNm) / sigma;
   return Math.exp(-0.5 * t * t);
@@ -64,13 +138,26 @@ export function bandResponse(lambdaNm: number, band: Passband): number {
 /**
  * Integrate a spectral radiance against a band response.
  *
- * Integration spans +/- 3.5 sigma, where the Gaussian has fallen below 2e-3 —
+ * The Gaussian path spans +/- 3.5 sigma, where the response has fallen below 2e-3 —
  * far enough that the tails cannot matter, near enough to stay cheap.
+ *
+ * The tabulated path integrates over the curve's OWN grid, one sample per stored
+ * point. Using a fixed step count instead would undersample a wide band and
+ * oversample a narrow one, and for Gaia G (147 points over 730 nm) a 64-step
+ * integration would miss structure the curve was imported to capture.
  */
 export function bandIntegral(
   spectralRadiance: (lambdaNm: number) => number,
   band: Passband,
 ): number {
+  const c = band.curve;
+  if (c) {
+    let sum = 0;
+    for (let i = 0; i < c.values.length; i++) {
+      sum += spectralRadiance(c.startNm + i * c.stepNm) * (c.values[i] ?? 0);
+    }
+    return sum * c.stepNm;
+  }
   const sigma = band.fwhmNm * FWHM_TO_SIGMA;
   const lo = Math.max(1, band.lambdaEffNm - 3.5 * sigma);
   const hi = band.lambdaEffNm + 3.5 * sigma;
