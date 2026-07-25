@@ -149,15 +149,27 @@ function createToneMapNode(radiance: Vec3Node, id: ToneMapId): Transfer {
 /**
  * Build the display transfer named by `id`.
  *
- * The single entry point. Dispatch is on the REGISTRY's `family`/`encoding`, not on a list of
- * ids repeated here — so a new curve in Layer 0 reaches the renderer without this file being
- * edited, and cannot arrive with the wrong encode.
+ * The single entry point, and the only place in the renderer that knows the families exist.
+ * Dispatch uses Layer 0's own `isToneMapId` predicate rather than a list of ids repeated here, so
+ * a new curve reaches the renderer by joining the registry — and joins the correct branch, with
+ * the sRGB encode its family requires, without this file being edited.
+ *
+ * `getTransfer` is called for its VALIDATION: it throws on an id the registry does not know,
+ * rather than letting it fall through to `createStretchNode` and render a plausible image under
+ * the wrong convention. The record is returned as well, and asserting the two agree costs one
+ * line and catches a registry whose `family` has drifted from its id lists.
  */
 export function createTransferNode(radiance: Vec3Node, id: TransferId): Transfer {
-  // Throws on an unknown id rather than silently falling through to a scalar curve, which would
-  // render a plausible image under the wrong convention.
-  getTransfer(id);
+  const record = getTransfer(id);
   if (id === "lupton") return createLuptonNode(radiance);
-  if (isToneMapId(id)) return createToneMapNode(radiance, id);
+  if (isToneMapId(id)) {
+    if (record.encoding !== "scene-linear") {
+      throw new Error(`${id} is photographic but recorded as ${record.encoding}`);
+    }
+    return createToneMapNode(radiance, id);
+  }
+  if (record.encoding !== "display-referred") {
+    throw new Error(`${id} is astronomical but recorded as ${record.encoding}`);
+  }
   return createStretchNode(radiance, id);
 }
