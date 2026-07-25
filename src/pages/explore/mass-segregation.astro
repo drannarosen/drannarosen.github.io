@@ -39,9 +39,22 @@ import Math from "../../components/Math.astro";
         fixed; <Math tex={String.raw`\lcorr`} /> only changes <em>which</em> star lands in each
         position, via the same rank-coupling (McLuster Eq. A1) that
         <code>progenax</code> uses to build segregated initial conditions. At
-        <Math tex={String.raw`\lcorr = 1`} /> the most massive star
-        takes the single densest cell; at <Math tex="0" /> the pairing is random.
+        <Math tex={String.raw`\lcorr = 1`} /> the most massive stars take the
+        densest gas; at <Math tex="0" /> the pairing is random.
         The {starCount()} stars re-pair in your browser as you drag.
+      </p>
+      <p class="ms__caveat">
+        <strong>One caveat about this realization.</strong> Its star positions come
+        from the gas grid rather than from a continuous profile: the
+        {starCount()} stars occupy only 139 distinct cells of 0.047 pc, and the
+        densest single cell holds 7,973 of them. So the density each star couples to
+        takes only 139 distinct values, and the maximum is shared by more than
+        three-quarters of the cluster — the coupling is real and so is the
+        re-pairing you are driving, but it is sorting stars among 139 density levels,
+        not a continuous field, and “the densest cell” is not a single star's prize.
+        The clumps you can see are those cells. Fixing it means changing how
+        <code>progenax</code> places stars within a cell, which is upstream of this
+        page.
       </p>
     </div>
   </div>
@@ -128,4 +141,7 @@ import Math from "../../components/Math.astro";
     opacity: 0.75;
   }
   .ms__note { margin-block-start: var(--space-2xl); }
+  /* The caveat is set quieter than the explanation but not hidden: it qualifies a
+     claim the page makes, so it has to be readable by anyone who read the claim. */
+  .ms__caveat { font-size: var(--step--1); color: var(--ink-dim); }
 </style>
