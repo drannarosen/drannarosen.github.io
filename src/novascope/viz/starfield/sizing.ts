@@ -44,6 +44,17 @@ export function quadExtentPx(signal: number, hasAureole: boolean): number {
  * Smallest core, in device pixels, a rasteriser can render without aliasing it
  * away. A profile narrower than a pixel is sampled wherever the pixel centre
  * happens to fall, so most stars land far out on the wing and vanish.
+ *
+ * UNREACHABLE AT PRESENT, and deliberately kept. Once the PSF became one fixed
+ * width for every star, the only width in play is `PSF_WIDTH_PX` (2.2), which is
+ * always above this floor — so `subpixelGain` below can no longer return anything
+ * but 1, and nothing in the pipeline calls it. It is retained because it is the
+ * correct guard the moment a per-star or resolution-dependent width returns
+ * (a coarser device pixel ratio, or a physically resolved disc), and because
+ * deleting a tested relation is easy while rediscovering it is not.
+ *
+ * Read the two assertions on it in `check:star-optics` accordingly: they verify a
+ * relation that is currently dormant, not a live safeguard.
  */
 export const MIN_RENDERABLE_PX = 1.0;
 

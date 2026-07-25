@@ -40,10 +40,18 @@ export interface AureoleParams {
 }
 
 /**
- * Default aureole: 6% of the core peak, broad and slow.
+ * Default aureole: ~1% of the core peak, broad and fast-falling.
  * Dim and wide is the whole point — see `aureole`.
+ *
+ * These are the values chosen by rendering the real cluster to a PNG and looking
+ * at it, and they are the ONLY home for them: the shader imports this object
+ * rather than restating the numbers, because for a while it did restate them and
+ * the two disagreed. `amp: 0.06` lived here while the shader used `0.012`, so the
+ * CPU reference renderer and the GPU were computing different instruments — which
+ * makes "does the GPU match the reference?" unanswerable by construction. At 0.06
+ * the aureole stops being a wing and merges with the core into one soft ball.
  */
-export const DEFAULT_AUREOLE: AureoleParams = { amp: 0.06, scale: 2.5, p: 2.5 };
+export const DEFAULT_AUREOLE: AureoleParams = { amp: 0.012, scale: 2.0, p: 3.0 };
 
 /**
  * Broad faint aureole — scattered light in the atmosphere and optics:

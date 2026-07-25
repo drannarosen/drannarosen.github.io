@@ -4,6 +4,7 @@ import PageHeader from "../components/PageHeader.astro";
 import { COLOR_SCHEMES } from "@novascope/core/colorimetry/schemes";
 import { linearToSrgbRGB } from "@novascope/core/colorimetry";
 import { spectralType } from "@novascope/core/stellar";
+import { DEFAULT_SOFTENING } from "@novascope/core/imaging";
 
 /*
  * Colour-scheme comparison, rendered at BUILD time. Every swatch is computed by
@@ -16,6 +17,15 @@ const css = (c: readonly [number, number, number]): string => {
   return `rgb(${r} ${g} ${b})`;
 };
 const BANDS = ["bolometric", "U", "B", "V", "R", "I", "J", "H", "K"];
+
+/*
+ * The faint-detail slider is in dex of softening, and its starting position is
+ * DERIVED from the tuned default rather than typed in. It used to read `value="8"`
+ * while `DEFAULT_SOFTENING` was 3e7 (10^7.48), so the tuned value was never the
+ * one on screen — the slider always overrode it on the first render.
+ */
+const SOFT_STEP = 0.25;
+const softStart = Math.round(Math.log10(DEFAULT_SOFTENING) / SOFT_STEP) * SOFT_STEP;
 const schemeRows = COLOR_SCHEMES.map((s) => ({
   id: s.id,
   label: s.label,
@@ -50,7 +60,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         </select>
       </label>
       <label class="srl__ctl">Faint detail
-        <input type="range" min="3" max="11" step="0.25" value="8" data-log-soft />
+        <input type="range" min="3" max="11" step={SOFT_STEP} value={softStart} data-log-soft />
       </label>
       <label class="srl__ctl">Exposure
         <input type="range" min="0.25" max="4" step="0.05" value="1" data-exposure />
@@ -115,12 +125,18 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   // ~5% of visitors get that backend, so it needs to be checkable on demand.
   const forceWebGL = new URLSearchParams(location.search).has("forceWebGL");
 
-  const read = () => ({
-    scheme: document.querySelector<HTMLSelectElement>("[data-scheme]")?.value ?? "true",
-    band: document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V",
-    softening: 10 ** Number(document.querySelector<HTMLInputElement>("[data-log-soft]")?.value ?? 8),
-    exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
-  });
+  const read = () => {
+    // Softening is OMITTED when its control is missing, so core/imaging's tuned
+    // default applies. A fallback number here would be a third place the same
+    // fact lives, and the previous one (8) silently disagreed with it.
+    const soft = document.querySelector<HTMLInputElement>("[data-log-soft]")?.value;
+    return {
+      scheme: document.querySelector<HTMLSelectElement>("[data-scheme]")?.value ?? "true",
+      band: document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V",
+      ...(soft === undefined ? {} : { softening: 10 ** Number(soft) }),
+      exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
+    };
+  };
 
   if (canvas) {
     initStarLab(canvas, { forceWebGL, ...read() })
@@ -128,9 +144,13 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         const label = lab.backend === "webgpu" ? "WebGPU" : "WebGL 2";
         const show = (s: { visible: number; clipping: number }) => {
           const pct = ((100 * s.visible) / lab.starCount).toFixed(1);
+          // "above threshold", not "visible": the count is a property of each
+          // star's display signal, and says nothing about whether it is inside
+          // the frame. A Plummer sphere has a long tail, so some of these stars
+          // are off-screen, and calling them visible would overstate the readout.
           setStatus(
             `${label}${forceWebGL ? " (forced)" : ""} · ${lab.starCount.toLocaleString()} stars · ` +
-              `${s.visible.toLocaleString()} visible (${pct}%) · ${s.clipping} clipping`,
+              `${s.visible.toLocaleString()} above threshold (${pct}%) · ${s.clipping} clipping`,
           );
         };
         show(lab.stats);

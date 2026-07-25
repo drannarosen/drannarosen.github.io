@@ -30,25 +30,24 @@ import {
   float,
   screenSize,
 } from "three/tsl";
-import { PSF_WIDTH_PX, PSF_BETA } from "./sizing.ts";
+import { DEFAULT_AUREOLE } from "../../core/optics/index.ts";
+import { PSF_BETA } from "./sizing.ts";
 import type { StarField } from "./prepare.ts";
 
 /**
- * How far the quad extends past the core radius, in core radii.
- *
- * The Moffat wings and the aureole reach well beyond the core, so the billboard
- * has to be bigger than the core or the profile is cropped into a visible
- * square. 8 puts the quad edge where the profile has fallen to a few times
- * 1e-3 of its peak.
+ * A live TSL uniform. Three stores a uniform's value ON the node (`InputNode`),
+ * so assigning `.value` reaches the GPU next frame without rebuilding the graph
+ * — which is what makes the optics adjustable while the CPU preparation, and
+ * therefore the exposure calibration, stays put.
  */
-
+type LiveUniform = ReturnType<typeof uniform>;
 
 export interface StarGraphUniforms {
-  beta: { value: number };
-  aureoleAmp: { value: number };
-  aureoleScale: { value: number };
-  aureoleP: { value: number };
-  gain: { value: number };
+  beta: LiveUniform;
+  aureoleAmp: LiveUniform;
+  aureoleScale: LiveUniform;
+  aureoleP: LiveUniform;
+  gain: LiveUniform;
 }
 
 export interface StarGraph {
@@ -107,19 +106,25 @@ export function createStarGraph(field: StarField): StarGraph {
   const iSizePx = instancedBufferAttribute<"float">(aSizePx, "float");
   const iTier = instancedBufferAttribute<"float">(aTier, "float");
 
+  /*
+   * The instrument's parameters. Every number is imported, never restated: the
+   * Moffat exponent from `./sizing`, the aureole from `core/optics`, the PSF width
+   * from the field that was just prepared (already in DEVICE px, so the shader
+   * does no unit conversion of its own).
+   */
+  const uBeta = uniform(PSF_BETA);
+  const uAurAmp = uniform(DEFAULT_AUREOLE.amp);
+  const uAurScale = uniform(DEFAULT_AUREOLE.scale);
+  const uAurP = uniform(DEFAULT_AUREOLE.p);
+  const uGain = uniform(1);
+  const uPsfWidth = uniform(field.stats.psfWidthPx);
   const uniforms: StarGraphUniforms = {
-    beta: { value: PSF_BETA },
-    aureoleAmp: { value: 0.012 },
-    aureoleScale: { value: 2.0 },
-    aureoleP: { value: 3.0 },
-    gain: { value: 1 },
+    beta: uBeta,
+    aureoleAmp: uAurAmp,
+    aureoleScale: uAurScale,
+    aureoleP: uAurP,
+    gain: uGain,
   };
-  const uBeta = uniform(uniforms.beta.value);
-  const uAurAmp = uniform(uniforms.aureoleAmp.value);
-  const uAurScale = uniform(uniforms.aureoleScale.value);
-  const uAurP = uniform(uniforms.aureoleP.value);
-  const uGain = uniform(uniforms.gain.value);
-  const uPsfWidth = uniform(PSF_WIDTH_PX * (field.stats.psfWidthPx / PSF_WIDTH_PX));
 
   const material = new MeshBasicNodeMaterial({
     transparent: true,
@@ -181,23 +186,7 @@ export function createStarGraph(field: StarField): StarGraph {
 
   return {
     mesh,
-    uniforms: {
-      get beta() {
-        return uBeta;
-      },
-      get aureoleAmp() {
-        return uAurAmp;
-      },
-      get aureoleScale() {
-        return uAurScale;
-      },
-      get aureoleP() {
-        return uAurP;
-      },
-      get gain() {
-        return uGain;
-      },
-    } as unknown as StarGraphUniforms,
+    uniforms,
     dispose() {
       geometry.dispose();
       plane.dispose();

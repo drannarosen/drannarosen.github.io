@@ -45,11 +45,23 @@ export function robustWhiteFlux(fluxes: ArrayLike<number>, p: number): number {
  * lifts into view (log10(k) of them).
  *
  * Must be matched to the population's DYNAMIC RANGE, which is the mistake worth
- * recording: the shipped realization spans 9.6 dex, and at k = 1e4 the median
- * star came out at a display signal of 3.6e-4 — black — leaving 81% of the
- * cluster invisible. k has to reach roughly the flux ratio being compressed, so
- * ~1e8 for 9.6 dex. Raising it reveals more of the faint field WITHOUT changing
- * what clips, which stays set by the exposure percentile alone.
+ * recording: at k = 1e4 the median star came out at a display signal of 3.6e-4 —
+ * black — leaving 81% of the cluster invisible. k has to reach roughly the flux
+ * ratio being compressed. Raising it reveals more of the faint field WITHOUT
+ * changing what clips, which stays set by the exposure percentile alone.
+ *
+ * The value is chosen by looking at renders, not by a formula, because the target
+ * is contrast rather than coverage — and past the point where everything is
+ * visible, more k only flattens the image. Measured on a 10,000-star sampled
+ * cluster in V: every star is already above threshold by k = 3e6, and the display
+ * signal then spreads (p10, p50, p90) as
+ *
+ *     k = 3e7   0.145  0.284  0.611     <- this default: midtones with contrast
+ *     k = 1e8   0.198  0.329  0.636     <- faint end lifted, range compressed
+ *
+ * so raising it further trades separation for brightness. Anything that wants a
+ * different default must import THIS constant and not restate a number: the lab
+ * page derives its slider position from it for exactly that reason.
  */
 export const DEFAULT_SOFTENING = 3e7;
 

@@ -67,6 +67,13 @@ export interface StarField {
   /** Diagnostics worth showing in a lab readout. */
   stats: {
     whiteFlux: number;
+    /**
+     * Stars whose display signal clears the visibility threshold.
+     *
+     * A property of the TRANSFER, not of the frame: a star far out in the
+     * profile's tail counts here while being off-screen, so this is "above
+     * threshold" and must not be reported as "visible on screen".
+     */
     visible: number;
     clipping: number;
     tierCounts: [number, number, number];
