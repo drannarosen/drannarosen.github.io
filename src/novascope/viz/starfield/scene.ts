@@ -16,7 +16,9 @@
  * than the mature WebGLRenderer, so it is exercised rather than assumed.
  */
 import * as THREE from "three";
-import { WebGPURenderer } from "three/webgpu";
+import { WebGPURenderer, RenderPipeline } from "three/webgpu";
+import { pass } from "three/tsl";
+import { bloom } from "three/examples/jsm/tsl/display/BloomNode.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { prepareStarField, STAR_STRIDE, type PrepareOptions, type StarField } from "./prepare.ts";
 import { clusterStarTable } from "./source.ts";
@@ -114,6 +116,34 @@ export async function initStarLab(
   controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   controls.autoRotateSpeed = 0.3;
 
+  /*
+   * BLOOM, and it is EARNED rather than applied.
+   *
+   * The threshold is 1.0 — display white — so only genuine HDR overflow blooms. That
+   * is the whole point: the asinh transfer defines 1 as white and anything above it
+   * as real overflow, so a star has to be bright enough to clip before it glares. On
+   * this population ~50 of 10,000 stars qualify. A threshold below 1 would bloom the
+   * ordinary field, which is the "more bloom instead of real optics" failure ADR 0015
+   * set out to avoid — and it would double-count, because the scattered-light halo
+   * and the diffraction spikes already model the physical reasons a bright star
+   * spreads.
+   *
+   * Strength is deliberately low. Bloom here is the sensor's and eye's response to a
+   * saturated source, not the optics; the optics are in `core/optics` and are
+   * measured against a CPU reference. Anything strong enough to notice on a
+   * non-clipping star means the threshold is wrong.
+   *
+   * The tone mapping and output transform move to the post-processing chain, because
+   * a pass that reads the scene must read it in LINEAR HDR — tone-mapping before the
+   * bloom would clip the very overflow it keys on.
+   */
+  const scenePass = pass(scene, camera);
+  const pipeline = new RenderPipeline(renderer);
+  pipeline.outputColorTransform = false;
+  pipeline.outputNode = scenePass
+    .add(bloom(scenePass, 0.35, 0.6, 1.0))
+    .renderOutput();
+
   let graph: StarGraph | null = null;
   /*
    * Seeded by an actual preparation of an empty field rather than a hand-written
@@ -168,7 +198,15 @@ export async function initStarLab(
     raf = requestAnimationFrame(tick);
     syncSize();
     controls.update();
-    renderer.render(scene, camera);
+    /*
+     * Through the PIPELINE, not renderer.render — otherwise the bloom pass is built
+     * and never used, which looks exactly like a bloom that does nothing.
+     *
+     * Synchronous `render()`, not `renderAsync()`: three deprecated the latter and
+     * warns that the correct pattern is `await renderer.init()` at construction
+     * followed by a sync render, which is what this does.
+     */
+    pipeline.render();
   };
   raf = requestAnimationFrame(tick);
 
