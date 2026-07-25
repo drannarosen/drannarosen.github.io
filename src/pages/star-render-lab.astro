@@ -184,13 +184,55 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 
   <div class="srl wrap-wide">
     <!--
-      GROUPED BY WHAT THE CONTROL DECIDES, because a flat row of seven gave no clue which ones
-      interact. "What is shown" is a claim about the cluster; "How it is displayed" is a choice about
-      pixels. That split is the same one `colorMode` makes in `prepare`, so the UI now says out loud
-      what the code already distinguished.
+      GROUPED BY THE THEORY-TO-OBSERVATION LADDER, which is the structure the physics already has
+      and the UI previously hid. Each group is a contiguous run of rungs from the vision roadmap:
+      light leaves the stars, an instrument records it, a display shows it. The old grouping
+      ("what is shown" / "how it is displayed" / "which stars are counted") split on a different
+      axis and left the reader to infer the theory-observation boundary from which dropdown they
+      happened to touch.
+
+      The boundary is DISTANCE, rung 4, and it sits at the end of group one on purpose: before it
+      every star is at a common distance and you are looking at a population; after it the
+      inverse-square law applies within the cluster and you are looking at an image.
     -->
+    <script id="srl-depth-defaults" type="application/json" is:inline set:html={JSON.stringify(DEPTH_DEFAULTS)} />
+    <script id="srl-instruments" type="application/json" is:inline set:html={JSON.stringify(
+      Object.fromEntries(INSTRUMENTS.map((i) => [i.id, {
+        label: i.label, composite: i.composite, brightnessBand: i.brightnessBand,
+      }])),
+    )} />
+
     <div class="srl__group">
-      <h2 class="srl__grouph">What is shown <span>a claim about the cluster</span></h2>
+      <h2 class="srl__grouph"><b>1</b> The cluster <span>rungs 1–4 · what light leaves the stars</span></h2>
+      <div class="srl__controls">
+      <label class="srl__ctl">Colour scheme
+        <select data-scheme>
+          {COLOR_SCHEMES.map((s) => <option value={s.id}>{s.label} — {s.kind}</option>)}
+        </select>
+      </label>
+      <!--
+        DISTANCE — rung 4, where theory becomes observation.
+        It deliberately does not change the exposure: the white point is a percentile of the
+        resulting fluxes, so moving the whole cluster rescales every flux identically and cancels.
+        What moves is the MEANING — apparent magnitude slides while absolute magnitude does not —
+        which is why the status line reports both, and why this control is worth having even
+        though the picture barely changes.
+      -->
+      <label class="srl__ctl">Distance <span data-dist-val></span>
+        <input type="range" min={DIST_LOG_MIN} max={DIST_LOG_MAX} step="any" value={Math.log10(D0_PC)} data-dist />
+      </label>
+      <!--
+        A MODELLING SELECTION, not an observation — which is why it lives with the cluster rather
+        than with the instrument, and why the page says so below whenever it is active.
+      -->
+      <label class="srl__ctl">Lowest mass shown <span data-minmass-val>all</span>
+        <input type="range" min="0" max="2" step="0.05" value="0" data-min-mass />
+      </label>
+      </div>
+    </div>
+
+    <div class="srl__group">
+      <h2 class="srl__grouph"><b>2</b> The instrument <span>rungs 6–8 · what records it</span></h2>
       <div class="srl__controls">
       <!--
         INSTRUMENT FIRST, because it drives two other controls.
@@ -205,33 +247,11 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         10,000 stars carry 92% of the light and they are all hot. It must not be described as what a
         telescope sees.
       -->
-      <script id="srl-depth-defaults" type="application/json" is:inline set:html={JSON.stringify(DEPTH_DEFAULTS)} />
-      <script id="srl-instruments" type="application/json" is:inline set:html={JSON.stringify(
-        Object.fromEntries(INSTRUMENTS.map((i) => [i.id, {
-          label: i.label, composite: i.composite, brightnessBand: i.brightnessBand,
-        }])),
-      )} />
       <label class="srl__ctl">Instrument
         <select data-instrument>
-          <option value="population" selected>Population — temperature, not a camera</option>
+          <option value="population" selected>None — the population itself</option>
           {INSTRUMENTS.map((i) => <option value={i.id}>{i.label}</option>)}
         </select>
-      </label>
-      <label class="srl__ctl">Colour scheme
-        <select data-scheme>
-          {COLOR_SCHEMES.map((s) => <option value={s.id}>{s.label} — {s.kind}</option>)}
-        </select>
-      </label>
-      <!--
-        DISTANCE — rung 4 of the ladder, and the rung where theory becomes observation.
-        It deliberately does not change the exposure: the white point is a percentile of the
-        resulting fluxes, so moving the whole cluster rescales every flux identically and cancels.
-        What moves is the MEANING — apparent magnitude slides while absolute magnitude does not —
-        which is why the status line reports both, and why this control is worth having even
-        though the picture barely changes.
-      -->
-      <label class="srl__ctl">Distance <span data-dist-val></span>
-        <input type="range" min={DIST_LOG_MIN} max={DIST_LOG_MAX} step="any" value={Math.log10(D0_PC)} data-dist />
       </label>
       <label class="srl__ctl">Brightness band <span data-band-note></span>
         <select data-band>
@@ -244,20 +264,57 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           ))}
         </select>
       </label>
+      <label class="srl__ctl">Exposure <span data-exposure-val></span>
+        <input type="range" min="0.25" max="4" step="0.05" value="1" data-exposure />
+      </label>
+      <!--
+        BLOOM is rung 8 — the DETECTOR's response to a saturated source, not the optics. It keys on
+        display white, the stars that overflow in a young cluster are the hot blue ones, and their
+        glow spreads across the frame, so the background takes their hue. Turn it to 0 to see the
+        difference: the CPU reference, which has no bloom pass, measures a blue fraction of 0.15
+        where the live pipeline measured 0.75. The sky probe measures the same thing from the other
+        side — 25% of pixels at zero with bloom on, 82% with it off.
+      -->
+      <label class="srl__ctl">Bloom <span data-bloom-val>0.35</span>
+        <input type="range" min="0" max="1" step="0.01" value="0.35" data-bloom />
+      </label>
       </div>
     </div>
+
     <div class="srl__group">
-      <h2 class="srl__grouph">How it is displayed <span>choices about pixels, not about the stars</span></h2>
+      <h2 class="srl__grouph"><b>3</b> The display <span>rung 9 · how the pixels are made</span></h2>
       <div class="srl__controls">
+      <!--
+        THE DISPLAY TRANSFER — one control, twelve conventions, and no longer two mechanisms.
+        Three's tone mappers used to be applied by `renderer.toneMapping` + `renderOutput()` while
+        the astropy curves were TSL output nodes, so this control could only ever offer half the
+        answer and AgX survived a refactor as a comment. They are all TSL functions; `transferNode`
+        builds whichever is named and the page never learns the difference.
+
+        GROUPED BY FAMILY, because the families genuinely disagree about whose job the sRGB encode
+        is — astronomical curves are display-referred and get none, photographic operators are
+        scene-referred and are owed one — and that is the honest answer to "why does astronomy not
+        just use AgX". The groups are derived from the registry, not listed here.
+      -->
+      <label class="srl__ctl">Display transfer
+        <select data-scaling>
+          <option value="">Follow mode (asinh)</option>
+          {TRANSFER_GROUPS.map((g) => (
+            <optgroup label={g.label}>
+              {g.items.map((t) => (
+                <option value={t.id} title={t.note} selected={t.id === "asinh"}>{t.label}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
       <!--
         TWO DEPTHS, because they were always two parameters wearing one name.
 
         "Star reach" is the PER-STAR asinh curve: how far down the population it lifts, and so
-        whether the faint majority renders at all. It is the population path's control.
-
-        "Transfer span" is the PER-PIXEL curve's dynamic range — Lupton's Q. Only `lupton` varies
-        with it; every other transfer has a fixed shape and ignores it, which is why it is disabled
-        unless Lupton is selected rather than silently doing nothing.
+        whether the faint majority renders at all. "Transfer span" is the PER-PIXEL curve's dynamic
+        range — Lupton's Q — and only `lupton` varies with it, which is why it is disabled under
+        any other transfer rather than silently doing nothing.
 
         Sharing one control made the default mode-dependent, and that produced two separate bugs:
         the median star at a display signal of 1e-4 against a 0.02 threshold (778a91b), and a
@@ -270,81 +327,19 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         <input type="range" min={DEPTH_MIN} max={DEPTH_MAX} step={DEPTH_STEP} value={LUPTON_DEPTH_START} data-curve />
       </label>
       <!--
-        THE DISPLAY TRANSFER — one control, twelve conventions, and no longer two mechanisms.
-        Three's tone mappers used to be applied by `renderer.toneMapping` + `renderOutput()` while
-        the astropy curves were TSL output nodes, so this control could only ever offer half the
-        answer and AgX survived a refactor as a comment. They are all TSL functions; `transferNode`
-        builds whichever is named and the page never learns the difference.
+        SKY is the lever that produces a black background, and depth cannot substitute for it: depth
+        lifts stars and sky together, because the background here is the summed PSF wings of every
+        star rather than noise. Measured at star reach 20, subtracting 0.5% took the frame from 0%
+        black to 76.4% black AND gave the highest faint-peak count of any setting tried.
 
-        GROUPED BY FAMILY, because the families genuinely disagree about whose job the sRGB encode
-        is — astronomical curves are display-referred and get none, photographic operators are
-        scene-referred and are owed one — and that is the honest answer to "why does astronomy not
-        just use AgX". The groups are derived from the registry, not listed here.
-
-        The default follows the MODE rather than being remembered: photometric wants Lupton (its
-        input is linear and uncompressed), population wants linear (its per-star signal is already
-        asinh-compressed, so a second curve would compress twice).
-      -->
-      <label class="srl__ctl">Display transfer
-        <select data-scaling>
-          <option value="" selected>Follow mode (Lupton / linear)</option>
-          {TRANSFER_GROUPS.map((g) => (
-            <optgroup label={g.label}>
-              {g.items.map((t) => (
-                <option value={t.id} title={t.note}>{t.label}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-      <!--
-        SKY defaults to 0 and cannot be derived — the right level is a percentile of the rendered
-        pixels, and unlike the white point it is not a stable fraction of anything computable without
-        them (97x spread across configurations, against 1.45x). So it is a knob with an honest
-        default rather than a fabricated one. Raising it is what makes the background go black
-        instead of glowing blue: the glow is the summed wings of ten thousand stars, and it is blue
-        because the light is dominated by hot ones.
-      -->
-      <!--
-        SKY, with a MEASURED option — the lever that actually produces a black background.
-        Depth cannot: it lifts stars and sky together, because the background here is the summed
-        PSF wings of every star rather than noise. Measured at depth 20, subtracting 0.5% took the
-        frame from 0% black to 76.4% black AND gave the highest faint-peak count of any setting
-        tried. "Auto" measures the real frame (see `viz/starfield/skyProbe`) instead of guessing.
+        NO "measure it" CHECKBOX YET, deliberately. The probe (`viz/starfield/skyProbe`) works and
+        is reachable as `?skyauto`, but its answer is not yet repeatable — at identical settings it
+        returned 1.17e-5, 5.91e-5 and once 0, and a silent zero reads as "there is no background to
+        subtract", the opposite of the truth. Cause understood (bloom is screen-space; its internal
+        targets do not crop with `setViewOffset`); see the roadmap.
       -->
       <label class="srl__ctl">Sky subtracted <span data-sky-val>none</span>
         <input type="range" min="0" max="0.05" step="0.0005" value="0" data-sky />
-      </label>
-      <!--
-        NO "measure it" CHECKBOX YET, deliberately.
-        The probe (`viz/starfield/skyProbe`) works and is reachable as `?skyauto`, but its answer
-        is NOT YET REPEATABLE: at identical settings it returned 1.17e-5, 5.91e-5 and once 0 — a
-        5x spread with an occasional silent zero, which reads as "there is no background to
-        subtract" and is the opposite of the truth. Offering that as a control would be the same
-        confident-and-wrong readout this page has just finished removing twice.
-        Cause is understood (bloom is screen-space; its internal targets do not crop with
-        `setViewOffset`), so this is a known gap rather than a mystery. See the roadmap.
-      -->
-      <!--
-        BLOOM was the actual cause of the blue wash, not the stretch. It keys on display white, the
-        stars that overflow in a young cluster are the hot blue ones, and their glow is spread across
-        the frame — so the background takes their hue. Turn it to 0 to see the difference; the CPU
-        reference, which has no bloom pass, measures a blue fraction of 0.15 where the live pipeline
-        measured 0.75.
-      -->
-      <label class="srl__ctl">Bloom <span data-bloom-val>0.35</span>
-        <input type="range" min="0" max="1" step="0.01" value="0.35" data-bloom />
-      </label>
-      <label class="srl__ctl">Exposure
-        <input type="range" min="0.25" max="4" step="0.05" value="1" data-exposure />
-      </label>
-      </div>
-    </div>
-    <div class="srl__group">
-      <h2 class="srl__grouph">Which stars are counted <span>a selection, and the page says so below</span></h2>
-      <div class="srl__controls">
-      <label class="srl__ctl">Lowest mass shown <span data-minmass-val>all</span>
-        <input type="range" min="0" max="2" step="0.05" value="0" data-min-mass />
       </label>
       </div>
     </div>
@@ -355,6 +350,15 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       contribute. The exposure is unchanged: the white point is still calibrated on
       the full population, so the remaining stars keep the brightness they had.
     </p>
+
+    <!--
+      WHAT YOU ARE LOOKING AT, generated from the live state rather than written.
+      A projected frame has to explain itself: nobody at the back of a lecture theatre can read a
+      control panel, and a screenshot in a talk carries no controls at all. Every clause is derived,
+      so it cannot describe a configuration the renderer is not in — which is the failure mode of
+      every hand-written caption.
+    -->
+    <p class="srl__claim" data-claim></p>
 
     <div class="srl__stage">
       <canvas class="srl__canvas" data-stage aria-label="A star cluster rendered in observed mode."></canvas>
@@ -926,6 +930,15 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           const bloomVal = document.querySelector<HTMLElement>("[data-bloom-val]");
           if (bloomVal && bloomEl) bloomVal.textContent = Number(bloomEl.value).toFixed(2);
           if (massVal) massVal.textContent = minMass > 0 ? `${minMass.toFixed(2)} M☉` : "all";
+          const expEl = document.querySelector<HTMLInputElement>("[data-exposure]");
+          const expVal = document.querySelector<HTMLElement>("[data-exposure-val]");
+          if (expEl && expVal) {
+            const e = Number(expEl.value);
+            // In stops, because that is how an exposure is actually discussed.
+            const stops = Math.log2(e);
+            expVal.textContent =
+              e === 1 ? "1x" : `${e.toFixed(2)}x — ${stops > 0 ? "+" : ""}${stops.toFixed(1)} stops`;
+          }
           /*
            * Distance reads in pc or kpc, with a familiar cluster named nearby. A number alone is
            * not a scale to anyone who does not already know the answer, and this control exists to
@@ -1046,6 +1059,33 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           const r = lab.reach;
           const reachPct = ((100 * r.count) / lab.starCount).toFixed(1);
           const skyNote = ` · mean frame level ${(100 * r.meanLevel).toFixed(0)}%`;
+          /*
+           * THE CLAIM SENTENCE. Ordered along the ladder — population, then distance, then
+           * instrument, then display — so it reads as the path the light took.
+           *
+           * The mode clause is the one that matters most and is stated most carefully: population
+           * mode discards how much light each star emits, so it must never be described as what a
+           * telescope sees. That is a site-claims obligation, not a stylistic preference.
+           */
+          const claim = document.querySelector<HTMLElement>("[data-claim]");
+          if (claim) {
+            const instId =
+              document.querySelector<HTMLSelectElement>("[data-instrument]")?.value ?? "population";
+            const inst = INSTRUMENT_TABLE[instId];
+            const minMass = Number(
+              document.querySelector<HTMLInputElement>("[data-min-mass]")?.value ?? 0,
+            );
+            const pc = s.distancePc;
+            const dist = pc >= 1000 ? `${(pc / 1000).toFixed(1)} kpc` : `${Math.round(pc)} pc`;
+            const shown = s.shown.toLocaleString();
+            const what = inst
+              ? `as ${inst.label} records it through ${bandLabelFor(inst.brightnessBand)}`
+              : "by temperature at unit luminance — the population itself, not what a telescope sees";
+            const cut = minMass > 0 ? ` above ${minMass.toFixed(2)} M☉` : "";
+            claim.textContent =
+              `${shown} stars${cut} at ${dist}, ${what}. ` +
+              `Shown with ${s.scaling}, reaching ${s.depthMag.toFixed(0)} magnitudes below white.`;
+          }
           setStatus(
             `${label}${forceWebGL ? " (forced)" : ""} · ${s.shown.toLocaleString()} of ` +
               `${lab.starCount.toLocaleString()} drawn · ${r.count.toLocaleString()} reach the ` +
@@ -1244,10 +1284,29 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   }
   .srl__selection[hidden] { display: none; }
 
+  /* The derived claim. Sized up deliberately: it is the one line that has to survive being
+     projected, and it is the only text on the page a screenshot carries with it. */
+  .srl__claim {
+    margin: 0 auto;
+    max-inline-size: calc(min(70vh, 620px) * 1.6);
+    inline-size: 100%;
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    border-inline-start: 3px solid var(--spec-teal-bright, #4fd6c4);
+    padding-inline-start: var(--space-2xs);
+  }
   .srl__group { margin-block-start: var(--space-s); }
   .srl__grouph {
     font-family: var(--font-mono); font-size: var(--step--2); font-weight: 500;
     color: var(--ink); margin-block-end: 0.35rem;
+  }
+  .srl__grouph b {
+    display: inline-grid; place-items: center;
+    inline-size: 1.35em; block-size: 1.35em; margin-inline-end: 0.4em;
+    border: 1px solid var(--spec-teal-bright, #4fd6c4);
+    border-radius: 999px;
+    color: var(--spec-teal-bright, #4fd6c4);
+    font-weight: 500;
   }
   .srl__grouph span { color: var(--ink-faint); font-weight: 400; }
   .srl__grouph span::before { content: "— "; }

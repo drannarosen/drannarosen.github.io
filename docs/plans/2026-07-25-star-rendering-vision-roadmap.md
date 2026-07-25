@@ -206,5 +206,11 @@ expensive later.
   photographic shoulder. Measured motivation: hue spread from faint to near-white pixels rises
   1.60× under Lupton and falls to 0.36× under AgX. Lupton's weak point is its *ending* — a hard
   `rgb / max(peak, 1)` clip where a film shoulder would roll off — not its curve.
+- **Lupton still looks wrong, and the sky slider cannot reach far enough** (Anna, 2026-07-25,
+  deferred). `?transfer=lupton&curve=20` reads "bad and weird", and the sky-subtraction range
+  (0 to 0.05 of white) tops out below what that image needs. Both point the same way: the measured
+  background at high depth is bloom-dominated (25% of pixels at zero with bloom on, 82% with it
+  off), so a subtraction bounded at 5% of white cannot clear it. Likely wants the range widened
+  AND the sky probe finished, since a hand-set value at that magnitude is guesswork.
 - **Sky and bloom re-prepare needlessly.** Both are pure display uniforms; making them skip
   `prepareStarField` would make those sliders instant. A change to `StarLab`'s surface.
