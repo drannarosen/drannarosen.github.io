@@ -1,5 +1,19 @@
 # Star-render redesign — photographic cluster optics (novascope) + Three.js lab harness
 
+> **⚠️ SUPERSEDED (2026-07-25).** Executed, and the architecture then moved well past it. Kept
+> for the reasoning, not as guidance — **do not follow the file paths or the tech stack below.**
+> Every structural claim in it is now false:
+>
+> | this plan says | what is actually true |
+> | --- | --- |
+> | `src/novascope/viz/starOptics.ts`, `starTransfer.ts` | never existed under those names; the physics is filed by DOMAIN — `core/imaging`, `core/optics`, `core/photometry`, `core/colorimetry` (ADR 0015) |
+> | harness at `src/lib/starlab/` | `src/novascope/viz/starfield/` — the harness moved INTO the package, because a renderer is what novascope is for |
+> | `WebGLRenderer` + hand-written GLSL, "no WebGPU yet" | `WebGPURenderer` + TSL, with WebGL 2 as a verified fallback (ADR 0015) |
+> | gravoturb `stars.f32` data file | the population is SAMPLED analytically in `viz/starfield/source.ts` — no data file |
+> | asinh transfer, `k` default 8 | twelve selectable transfers behind `core/imaging/transfers`; depth is in magnitudes |
+>
+> Current direction: `docs/plans/2026-07-25-star-rendering-vision-roadmap.md`.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to
 > implement this plan task-by-task. Honor the project skills: **site-verify**
 > (browser-verify at 1440×900, record `innerWidth`; confirm the green deploy),
