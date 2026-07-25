@@ -112,7 +112,11 @@ for (const run of CALIBRATION_RUNS) {
   const hi = Math.max(...ratios);
   const geo = Math.exp(ratios.reduce((a, b) => a + Math.log(b), 0) / ratios.length);
   ok(
-    Math.abs(geo - WHITE_FROM_ANALYTIC_MEAN) / WHITE_FROM_ANALYTIC_MEAN < 0.02,
+    /* 0.2%, not 2%. The looser bound let the constant sit at 33.70 while the fixture's own
+     * geometric mean had moved to 33.91 — a 0.62% drift, absorbed silently, which is precisely the
+     * two-homes-for-one-fact failure the fixture exists to prevent. The constant IS the fixture's
+     * geometric mean, so the tolerance only has to cover rounding to two decimals. */
+    Math.abs(geo - WHITE_FROM_ANALYTIC_MEAN) / WHITE_FROM_ANALYTIC_MEAN < 0.002,
     `the constant is the geometric mean of all ${ratios.length} (${geo.toFixed(2)} vs ${WHITE_FROM_ANALYTIC_MEAN})`,
   );
   const spreadMag = 2.5 * Math.log10(hi / lo);

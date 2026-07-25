@@ -63,22 +63,28 @@ import type { StarField } from "./prepare.ts";
  * Ratio between the pixel intensity that should map to display white (the 99.5th
  * percentile of a rendered frame) and `analyticMeanIntensity`.
  *
- * MEASURED, not chosen: 34.92 is the geometric mean over seventeen configurations — seven
- * colour composites, a 16x range of exposure, three frame sizes, two device pixel ratios,
- * three fields of view, a mass cut and three depths. The full spread is 28.13 to 40.88, a
- * factor of 1.45, which is 0.41 magnitudes.
+ * MEASURED, not chosen: the geometric mean over seventeen configurations — seven colour
+ * composites, a 16x range of exposure, three frame sizes, two device pixel ratios, three
+ * fields of view, a mass cut and three depths.
  *
- * 0.41 mag of white-point uncertainty against an 8 magnitude stretch is about 5% of the
- * dynamic range, which is why one constant is enough here and a histogram pass is not
- * worth its cost. `check:calibrate` re-measures the spread and fails if it widens, so this
- * is a bounded approximation rather than a lucky fit.
+ * THE PER-CONFIGURATION EXTREMES ARE NOT RESTATED HERE. They live in
+ * `scripts/reference/calibrate-whitepoint.json`, which is their one home, and `check:calibrate`
+ * re-derives this constant from that fixture on every build at a 0.2% tolerance. An earlier
+ * version of this comment carried them as prose and they went stale the moment the fixture was
+ * regenerated: it claimed a spread of 28.13-40.88 against an actual 27.12-39.40, and the constant
+ * itself sat at 33.70 against the fixture's 33.91 — a drift the old 2% tolerance absorbed in
+ * silence. Prose is a second home for a fact, and it drifts like any other.
  *
- * WHERE THE SPREAD COMES FROM, stated because it bounds what this can ever do: most of it
- * is FIELD OF VIEW (29.70 at 20 degrees against 40.88 at 70). The analytic mean counts a
- * star's total light and divides by the pixel count, so it does not know how widely the
- * projection spreads that light across the frame — the two fov cases return an identical
- * mean while their true white points differ by a factor of 1.38. Nothing else contributes
- * more than about 15%.
+ * The one number worth stating, because the gate checks it and it is what bounds the method, is
+ * the SPREAD IN MAGNITUDES: 0.41. Against an 8 magnitude stretch that is about 5% of the dynamic
+ * range, which is why one constant is enough here and a per-frame histogram pass is not worth its
+ * cost.
+ *
+ * WHERE THE SPREAD COMES FROM, because it bounds what this can ever do: most of it is FIELD OF
+ * VIEW. The analytic mean counts a star's total light and divides by the pixel count, so it does
+ * not know how widely the projection spreads that light across the frame — the 20 and 70 degree
+ * cases return an IDENTICAL mean while their true white points differ by about 1.4x. Nothing else
+ * contributes more than roughly 15%.
  *
  * An earlier version of this constant was 22.06, measured against a quadrature that
  * evaluated diffraction spikes at theta = 0 — their angular peak — and then integrated as
@@ -87,7 +93,7 @@ import type { StarField } from "./prepare.ts";
  * constant absorbs any stable systematic, and what has to be gated is the stability, not
  * the value.
  */
-export const WHITE_FROM_ANALYTIC_MEAN = 33.70;
+export const WHITE_FROM_ANALYTIC_MEAN = 33.91;
 
 /**
  * Bounds the per-configuration ratio must stay inside, at 1% either side of the recorded
