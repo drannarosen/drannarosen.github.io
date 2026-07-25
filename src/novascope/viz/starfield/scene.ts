@@ -23,7 +23,8 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { prepareStarField, STAR_STRIDE, type PrepareOptions, type StarField } from "./prepare.ts";
 import { clusterStarTable } from "./source.ts";
 import { createStarGraph, type StarGraph } from "./starGraph.ts";
-import { createLuptonNode } from "./luptonNode.ts";
+import { createLuptonNode, createStretchNode } from "./luptonNode.ts";
+import type { StretchId } from "../../core/imaging/stretch.ts";
 import { whitePixelIntensity, floorForDepth } from "./calibrate.ts";
 import { DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
 
@@ -172,9 +173,26 @@ export async function initStarLab(
    * `bandFlux` is normalized so intensity 1 is the white point, so the threshold has the same
    * meaning it did under the asinh path.
    */
-  const luptonOut = createLuptonNode(scenePass.add(bloom(scenePass, 0.35, 0.6, 1.0)).rgb);
-  // Alpha is 1: the canvas is opaque (`alpha: false`) and Lupton has no compositing role.
-  pipeline.outputNode = vec4(luptonOut.node, 1);
+  /*
+   * The transfer is REBUILT when the curve changes rather than selected by a uniform.
+   *
+   * A uniform-selected branch would keep all six curves in one shader and evaluate them all on
+   * every fragment, since a GPU takes both sides of a select. Reassigning `outputNode` makes three
+   * rebuild the graph — which costs a compile on a control change and nothing per frame.
+   */
+  const litScene = scenePass.add(bloom(scenePass, 0.35, 0.6, 1.0)).rgb;
+  type Transfer = { node: unknown; setDepth(depthMag: number, white: number): void };
+  let transfer: Transfer = createLuptonNode(litScene);
+  let transferId: "lupton" | StretchId = "lupton";
+  const setTransfer = (id: "lupton" | StretchId): void => {
+    if (id === transferId) return;
+    transferId = id;
+    transfer = id === "lupton" ? createLuptonNode(litScene) : createStretchNode(litScene, id);
+    // Alpha is 1: the canvas is opaque (`alpha: false`) and neither transfer composites.
+    pipeline.outputNode = vec4(transfer.node as never, 1);
+    pipeline.needsUpdate = true;
+  };
+  pipeline.outputNode = vec4(transfer.node as never, 1);
 
   /*
    * Declared BEFORE `build`, because the exposure calibration reads them and `build` runs during
@@ -217,10 +235,29 @@ export async function initStarLab(
     const w = bufW || canvas.clientWidth;
     const h = bufH || canvas.clientHeight;
     if (!(w > 0) || !(h > 0)) return; // before layout; guessing a size mis-exposes the frame
-    luptonOut.setDepth(
-      lastDepthMag,
-      whitePixelIntensity(lastField, w, h, { floor: floorForDepth(lastDepthMag) }),
-    );
+    /*
+     * The white point comes from the SAME analytic mean either way, but what it means differs: for
+     * Lupton it is the intensity mapped to display white, for a scalar curve it is the divisor
+     * applied before the curve. Both are "the radiance that should read as white", which is why one
+     * calibration serves both.
+     */
+    /*
+     * THE WHITE POINT MEANS DIFFERENT THINGS BY MODE, so it is derived differently.
+     *
+     * Photometric carries LINEAR flux, whose pixel sums bear no fixed relation to any per-star
+     * quantity — a background pixel lands three orders of magnitude above a median star's own peak —
+     * so it needs the analytic estimate.
+     *
+     * Population carries an already-normalised per-star signal, where 1 IS the white point by
+     * construction (the 99.5th-percentile star maps there). Its overlaps clip to white, which is what
+     * the pre-Lupton path did too. Feeding it the photometric estimate applied a calibration for a
+     * different quantity — measured as a 1.43 mag spread against 0.41 where it belongs.
+     */
+    const white =
+      lastField.stats.colorMode === "photometric"
+        ? whitePixelIntensity(lastField, w, h, { floor: floorForDepth(lastDepthMag) })
+        : 1;
+    transfer.setDepth(lastDepthMag, white);
   };
 
   const build = (o: PrepareOptions): StarLabStats => {
@@ -234,6 +271,9 @@ export async function initStarLab(
     scene.add(graph.mesh);
     lastField = field;
     lastDepthMag = o.depthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
+    // The field RESOLVED which transfer it expects (the default depends on the colour mode), so the
+    // pipeline follows the field rather than the caller — they cannot disagree.
+    setTransfer(field.stats.scaling);
     recalibrate();
     stats = field.stats;
     return stats;

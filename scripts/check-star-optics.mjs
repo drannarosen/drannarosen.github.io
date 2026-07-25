@@ -405,12 +405,33 @@ ok(
   chromaDistance(stretchChroma(blackbodyLinearRGB(3200), 5)) > chromaAt("stretched"),
   "…and keeps increasing with the stretch amount",
 );
-// The removed presentations must STAY removed: `vivid` at 5x and `class` were
-// dropped as overstating the evidence, and a scheme list is easy to re-grow.
-ok(
-  !COLOR_SCHEMES.some((s) => s.id === "vivid" || s.id === "class"),
-  "the decorative schemes (vivid, class) are not in the list",
-);
+/* `vivid` and `class` are BACK, and this assertion is the inverse of what it said.
+ *
+ * They were dropped once as overstating the evidence, and this gate held them out. They are wanted
+ * again for a reason that changed the argument: a photometric composite gives this cluster a hue
+ * spread of 0.021, so it reads as one colour, and the saturation-stretched ramps are the only way
+ * the population's temperature range is visible at all (0.150 for `stretched`, more for `vivid`).
+ *
+ * What matters is not that they exist but that they are LABELLED as what they are, so the gate now
+ * asserts that instead: neither may claim to be `physical`, and both must carry a note saying the
+ * saturation is a choice. A decorative scheme is only a problem when it is presented as a
+ * measurement. */
+{
+  const decorative = COLOR_SCHEMES.filter((s) => s.id === "vivid" || s.id === "class");
+  ok(decorative.length === 2, "the saturation-stretched schemes (vivid, class) are available");
+  ok(
+    decorative.every((s) => s.kind !== "physical"),
+    "…and neither claims to be physical",
+  );
+  ok(
+    COLOR_SCHEMES.find((s) => s.id === "vivid")?.note.includes("traces to its blackbody"),
+    "vivid's note says its hue is still physical even though its saturation is not",
+  );
+  ok(
+    /CLASSIFICATION|classification/.test(COLOR_SCHEMES.find((s) => s.id === "class")?.note ?? ""),
+    "class's note says it encodes classification, not appearance",
+  );
+}
 // …and stretching must preserve HUE ORDER: hot stays bluer than cool everywhere.
 for (const s of COLOR_SCHEMES) {
   const cool = s.color(3200);
@@ -636,10 +657,28 @@ ok(
   fld.sizePx.every((v) => v === 0 || v >= PSF_WIDTH_PX),
   "every DRAWN billboard holds its PSF, and an invisible star gets no quad",
 );
-ok(
-  [...fld.sizePx].some((v) => v === 0) && [...fld.sizePx].some((v) => v >= PSF_WIDTH_PX),
-  "…and both cases are actually present in this population, so neither branch is untested",
-);
+/* WHICH branch occurs depends on the MODE, and that difference is worth asserting rather than
+ * discovering. `fld` above is POPULATION mode (no band triple), where the per-star asinh lifts every
+ * star above the linear floor — so nothing is invisible and there are no zero quads. That is the
+ * point of that mode: you see all 10,000 stars. Photometric mode carries linear flux against a much
+ * lower floor, so the faintest genuinely vanish. Both branches are therefore exercised, but only by
+ * testing both modes; asserting them on one field is what failed here. */
+{
+  const pop = [...fld.sizePx];
+  ok(
+    pop.every((v) => v >= PSF_WIDTH_PX),
+    "population mode draws EVERY star — its per-star asinh lifts them all above the floor",
+  );
+  const phot = [...prepareStarField(fake, { bandTriple: ["R", "V", "B"], scheme: "true" }).sizePx];
+  ok(
+    phot.some((v) => v === 0),
+    `photometric mode drops the faintest instead (${phot.filter((v) => v === 0).length} of ${phot.length} get no quad)`,
+  );
+  ok(
+    phot.some((v) => v >= PSF_WIDTH_PX),
+    "…while still drawing the rest, so neither branch is untested",
+  );
+}
 ok(fld.tier.every((t) => t >= 1 && t <= 3), "every star lands in a valid tier");
 ok(fld.stats.whiteFlux > 0, "a positive white point is derived");
 ok(fld.stats.clipping < fld.count * 0.02, "only a small fraction clips");

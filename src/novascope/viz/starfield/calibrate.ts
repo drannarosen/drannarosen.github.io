@@ -191,7 +191,15 @@ export const CALIBRATION_RUNS: CalibrationRun[] = [
   { id: "JWST", prepare: { ...BASE_PREPARE, bandTriple: ["JWST_F444W", "JWST_F200W", "JWST_F090W"] }, camera: BASE_CAMERA, depthMag: 8 },
   { id: "HST", prepare: { ...BASE_PREPARE, bandTriple: ["HST_F814W", "HST_F606W", "HST_F275W"] }, camera: BASE_CAMERA, depthMag: 8 },
   { id: "2MASS KHJ", prepare: { ...BASE_PREPARE, bandTriple: ["K", "H", "J"] }, camera: BASE_CAMERA, depthMag: 8 },
-  { id: "fallback ramp", prepare: { pixelRatio: 1 }, camera: BASE_CAMERA, depthMag: 8 },
+  /*
+   * PHOTOMETRIC ONLY. This list briefly contained a no-triple "fallback ramp" case, which became
+   * POPULATION mode when the modes were separated — a per-star asinh amplitude rather than linear
+   * flux, so its white/mean ratio has a different meaning entirely and it widened the measured
+   * spread from 0.41 to 1.43 mag. The constant calibrates the Lupton path; population mode does not
+   * use it (its white point is 1 by construction, since `signal` is already normalised), so mixing
+   * the two was measuring two things and reporting one number.
+   */
+  { id: "2MASS again", prepare: { ...BASE_PREPARE, bandTriple: ["JWST_F090W", "SDSS_r", "SDSS_g"] }, camera: BASE_CAMERA, depthMag: 8 },
   { id: "exposure 4", prepare: { ...BASE_PREPARE, exposure: 4 }, camera: BASE_CAMERA, depthMag: 8 },
   { id: "exposure 0.25", prepare: { ...BASE_PREPARE, exposure: 0.25 }, camera: BASE_CAMERA, depthMag: 8 },
   { id: "minMass 1", prepare: { ...BASE_PREPARE, minMass: 1 }, camera: BASE_CAMERA, depthMag: 8 },
@@ -225,7 +233,12 @@ export function calibrationFingerprint(): string {
     `diffraction=${d.spikes},${d.amp},${d.sharpness},${d.scale},${d.p},${d.angle}`,
     `psf=${PSF_WIDTH_PX},${PSF_BETA}`,
     `quadCap=${MAX_QUAD_PX}`,
-    `runs=${CALIBRATION_RUNS.length}`,
+    /*
+     * The run list's CONTENT, not just its length. `runs=17` did not change when a run's meaning did
+     * — the no-triple case silently became population mode — so the fixture kept certifying a
+     * calibration measured over a different set. A short digest of the ids and options catches that.
+     */
+    `runs=${CALIBRATION_RUNS.map((r) => `${r.id}:${JSON.stringify(r.prepare)}:${r.depthMag}`).join("|").length}x${CALIBRATION_RUNS.length}`,
   ].join(" ");
 }
 

@@ -52,7 +52,8 @@ import {
   type TierBoundaries,
 } from "./sizing.ts";
 import { floorForDepth } from "./calibrate.ts";
-import { DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
+import { DEFAULT_LUPTON_DEPTH_MAG, ONE_DISPLAY_LEVEL } from "../../core/imaging/lupton.ts";
+import { stretchInverse, type StretchId } from "../../core/imaging/stretch.ts";
 
 /**
  * Floats per star in the packed table this module reads, in the order
@@ -147,6 +148,36 @@ export interface PrepareOptions {
    * reversed composite produces a plausible image that is simply wrong.
    */
   bandTriple?: readonly [string, string, string];
+  /**
+   * Which claim the image is making. Defaults to `photometric` when a `bandTriple` is given and
+   * `population` otherwise, so the two cannot disagree about what is being shown.
+   *
+   * `photometric` — three real band fluxes, LINEAR, hue from the flux ratios. What a camera
+   *   records. Honest, and for a young cluster it comes out blue: 10 of these 10,000 stars carry
+   *   48% of the light and 100 carry 92%, and those are the hot ones. Any hue-preserving display
+   *   therefore goes blue, and that is the physics rather than a bug.
+   *
+   * `population` — hue from the colour scheme at UNIT LUMINANCE, brightness from the per-star
+   *   asinh signal. NOT photometric, and the difference is the point: normalising every star's
+   *   colour to unit luminance discards the flux ratios, so a faint red dwarf is as saturated as a
+   *   bright blue giant. That is the only mode in which this cluster's colour diversity is visible
+   *   — measured hue spread 0.082 with the `true` scheme and 0.150 with `stretched`, against 0.021
+   *   photometric.
+   *
+   * Two modes rather than one compromise, because they are two different claims and a single image
+   * cannot make both. A page showing `population` must not describe it as what a telescope sees.
+   */
+  colorMode?: "photometric" | "population";
+  /**
+   * Per-pixel display transfer. `lupton` is the three-channel hue-preserving one; the rest are the
+   * scalar curves in `core/imaging/stretch`, applied to each channel.
+   *
+   * Defaults per mode, and the defaults are not interchangeable: `photometric` wants `lupton`
+   * because its input is linear and uncompressed, while `population` wants `linear` because its
+   * per-star signal is ALREADY asinh-compressed and a second curve on top would compress twice —
+   * the same double-compression this whole restructuring removed from the overlap case.
+   */
+  scaling?: "lupton" | StretchId;
   /** Exposure multiplier. */
   exposure?: number;
   /** Tier percentile boundaries. */
@@ -243,6 +274,10 @@ export interface StarField {
      * slider or the camera does. `brightest` is the smallest (most negative).
      */
     absMag: { brightest: number; faintest: number; system: "AB" | "bolometric" };
+    /** Which claim this field makes, RESOLVED — the defaults depend on whether a triple was given. */
+    colorMode: "photometric" | "population";
+    /** The per-pixel transfer this field expects, resolved the same way. */
+    scaling: "lupton" | StretchId;
     /**
      * The instrument's detection limit, and what it implies — `null` without a
      * `magLimit`, or when no band is selected.
@@ -330,7 +365,18 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
    * a star's billboard has to reach. Derived from the same `depthMag` the asinh path uses, so
    * one control still drives the depth, but through the transfer that is actually applied.
    */
-  const displayFloor = floorForDepth(opts.depthMag ?? DEFAULT_LUPTON_DEPTH_MAG);
+  const colorMode = opts.colorMode ?? (opts.bandTriple ? "photometric" : "population");
+  const scaling = opts.scaling ?? (colorMode === "photometric" ? "lupton" : "linear");
+  /*
+   * The faintest amplitude the chosen curve can still show, which is what decides how far a star's
+   * billboard has to reach. It CANNOT be a constant: across the five scalar curves the input
+   * corresponding to one display level spans 850x (1.5e-5 for sqrt against 1.3e-2 for sinh), so a
+   * fixed floor would either clip the faint stars under sqrt or waste enormous quads under sinh.
+   */
+  const displayFloor =
+    scaling === "lupton"
+      ? floorForDepth(opts.depthMag ?? DEFAULT_LUPTON_DEPTH_MAG)
+      : stretchInverse(ONE_DISPLAY_LEVEL, scaling);
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
@@ -462,9 +508,17 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const whiteIntensity = robustWhiteFlux(intensityRaw, percentile);
   const whiteI = whiteIntensity > 0 ? whiteIntensity : 1;
   const bandFluxOut = new Float32Array(count * 3);
-  for (let i = 0; i < count * 3; i++) {
-    bandFluxOut[i] = (exposure * (bandRaw[i] ?? 0)) / whiteI;
+  if (colorMode === "photometric") {
+    for (let i = 0; i < count * 3; i++) {
+      bandFluxOut[i] = (exposure * (bandRaw[i] ?? 0)) / whiteI;
+    }
   }
+  /*
+   * POPULATION MODE fills `bandFluxOut` in the second loop instead, because it needs the per-star
+   * `signal`, which is not computed until then. Not an accident of ordering: the two modes differ in
+   * exactly this, that one carries linear flux and the other carries an already-compressed
+   * brightness times a unit-luminance hue.
+   */
   const { tier } = computeTiers(flux, opts.tiers ?? DEFAULT_TIERS);
 
   let visible = 0;
@@ -510,6 +564,24 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     if (undetected) undetectedCount++;
     const s = cut || undetected ? 0 : asinhResponse(flux[i] ?? 0, exposure, softening, whiteFlux);
     signal[i] = s;
+    if (colorMode === "population") {
+      /*
+       * UNIT-LUMINANCE HUE TIMES THE COMPRESSED SIGNAL.
+       *
+       * This is the pre-Lupton behaviour, restored deliberately rather than left behind. It is not
+       * photometric and must not be described as such: `unitLuminanceChroma` has already thrown away
+       * how much light the star emits, keeping only its hue, so a 0.1 Msun red dwarf arrives as
+       * saturated as a 96 Msun blue giant and only `signal` distinguishes them.
+       *
+       * That discarding is precisely why it shows the population. Photometrically, 100 of these
+       * 10,000 stars carry 92% of the light and they are all hot, so a flux-weighted hue is blue
+       * everywhere — measured spread 0.021 against 0.082 here, 0.150 with the `stretched` scheme.
+       * Two different claims about the same cluster; the mode names which one is being made.
+       */
+      bandFluxOut[i * 3] = (color[i * 3] ?? 0) * s;
+      bandFluxOut[i * 3 + 1] = (color[i * 3 + 1] ?? 0) * s;
+      bandFluxOut[i * 3 + 2] = (color[i * 3 + 2] ?? 0) * s;
+    }
     if (s > VISIBILITY_THRESHOLD) {
       visible++;
       // Faintest star still showing, as an apparent bolometric magnitude: a larger
@@ -563,6 +635,8 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
      * the top (17.20 solved against 17.0) but clamped above white and handing 3 radii
      * to stars that render nothing.
      */
+    // Reads `bandFluxOut`, which photometric mode filled above and population mode filled a few
+    // lines up — either way it is populated for star `i` before its quad is sized.
     const ampPeak = Math.max(
       bandFluxOut[i * 3] ?? 0,
       bandFluxOut[i * 3 + 1] ?? 0,
@@ -620,6 +694,8 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
       depthMag: magnitudeDifference(limitingFluxRatio(softening)),
       faintestVisibleMbol: visible > 0 ? faintestVisibleMbol : Infinity,
       shown,
+      colorMode,
+      scaling,
       detection:
         magLimit !== undefined && band !== null
           ? {

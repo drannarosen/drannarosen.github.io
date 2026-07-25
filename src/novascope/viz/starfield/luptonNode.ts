@@ -22,6 +22,7 @@
  */
 import { float, vec3, asinh, uniform } from "three/tsl";
 import type { Node } from "three/webgpu";
+import { ASINH_A, SINH_A, type StretchId } from "../../core/imaging/stretch.ts";
 import {
   LUPTON_Q,
   luptonSlope,
@@ -115,6 +116,58 @@ export function createLuptonNode(radiance: Vec3Node) {
       uQ.value = luptonQForDepth(depthMag);
       uSlope.value = luptonSlope(uQ.value);
       uStretch.value = Math.max(Number.MIN_VALUE, whitePixel) * luptonStretchForWhite(uQ.value);
+    },
+  };
+}
+
+/**
+ * A SCALAR stretch applied per channel — the TSL mirror of `core/imaging/stretch`.
+ *
+ * The alternative to `createLuptonNode`, and the difference is not cosmetic. Lupton computes one
+ * intensity from all three channels and scales them in COMMON MODE, which is what preserves hue.
+ * These curves are applied to each channel independently, which does not: a bright star drifts
+ * toward white as its channels clip at different inputs. That is a real cost and it is why
+ * photometric mode uses Lupton.
+ *
+ * It exists because population mode's amplitude is ALREADY compressed per star — hue times an asinh
+ * signal — so a second hue-preserving compression on top would compress twice, the exact fault this
+ * pipeline was restructured to remove. Population mode wants `linear` here, which is the identity,
+ * leaving the per-star curve as the only transfer. The other four are for comparison: seeing what
+ * log does to a cluster is the answer to why nobody uses it.
+ *
+ * `whitePoint` divides before the curve because astropy's stretches are defined on [0, 1] with the
+ * interval applied separately, and keeping that split is what lets one exposure be compared across
+ * five curves.
+ */
+export function createStretchNode(radiance: Vec3Node, id: StretchId) {
+  const uWhite = uniform(1);
+  const x = vec3(radiance).div(uWhite).clamp(0, 1);
+
+  const curve = (() => {
+    switch (id) {
+      case "linear":
+        return x;
+      case "sqrt":
+        return x.sqrt();
+      case "asinh":
+        return asinh(x.div(float(ASINH_A))).div(float(Math.asinh(1 / ASINH_A)));
+      case "log":
+        // astropy's LogStretch(a=1000): log(a x + 1) / log(a + 1), finite at x = 0.
+        return x.mul(float(1000)).add(float(1)).log().div(float(Math.log(1001)));
+      case "sinh":
+        return x.div(float(SINH_A)).sinh().div(float(Math.sinh(1 / SINH_A)));
+    }
+  })();
+
+  return {
+    node: curve,
+    /** The radiance that maps to display white. Same role as Lupton's `stretch`. */
+    setWhitePoint(whitePoint: number): void {
+      uWhite.value = Math.max(Number.MIN_VALUE, whitePoint);
+    },
+    /** No-op, so a caller can drive either node through the same shape. */
+    setDepth(_depthMag: number, whitePoint: number): void {
+      uWhite.value = Math.max(Number.MIN_VALUE, whitePoint);
     },
   };
 }

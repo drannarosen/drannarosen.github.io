@@ -8,6 +8,7 @@ import { DEFAULT_LUPTON_DEPTH_MAG } from "@novascope/core/imaging/lupton";
 import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/passbands";
 import { SURVEYS } from "@novascope/core/photometry/surveys";
 import { INSTRUMENTS } from "@novascope/core/photometry/instruments";
+import { STRETCH_IDS, STRETCH_NOTES } from "@novascope/core/imaging/stretch";
 import { clusterStarTable } from "@novascope/viz/starfield/source";
 import { prepareStarField } from "@novascope/viz/starfield/prepare";
 
@@ -130,13 +131,13 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         Choosing one sets both the colour composite and the brightness band together, which is the
         whole reason the registry exists: picking a band and a composite independently made it
         possible to show Rubin r brightness through a 2MASS composite — an image of nothing.
-        "No instrument" takes its hue from the temperature ramp instead of from three filters. It
-        still goes through the SAME per-pixel transfer as the composites, so it is not yet a
-        different rendering mode — measured hue spread 0.031 against 0.030 for Johnson, which is no
-        real difference. Making it one means restoring the per-star normalisation the old path had,
-        where a faint red dwarf was as saturated as a bright blue giant (hue spread 0.082, or 0.150
-        with the stretched scheme). Until that exists this option changes the colour SOURCE and not
-        the character of the image, and the label says only that.
+        "Population" is a genuinely different claim, not just a different colour source. Its hue
+        comes from the scheme at UNIT LUMINANCE and its brightness from a per-star asinh signal, so a
+        faint red dwarf is as saturated as a bright blue giant — which discards how much light each
+        star actually emits. That discarding is exactly why the population is visible: measured hue
+        spread 0.082 (true) or 0.150 (stretched) against 0.021 photometric, because 100 of these
+        10,000 stars carry 92% of the light and they are all hot. It must not be described as what a
+        telescope sees.
       -->
       <script id="srl-instruments" type="application/json" is:inline set:html={JSON.stringify(
         Object.fromEntries(INSTRUMENTS.map((i) => [i.id, {
@@ -145,7 +146,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       )} />
       <label class="srl__ctl">Instrument
         <select data-instrument>
-          <option value="population" selected>No instrument — temperature ramp</option>
+          <option value="population" selected>Population — temperature, not a camera</option>
           {INSTRUMENTS.map((i) => <option value={i.id}>{i.label}</option>)}
         </select>
       </label>
@@ -167,6 +168,19 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       </label>
       <label class="srl__ctl">Depth <span data-depth-val>{depthStart.toFixed(2)}</span> mag below white
         <input type="range" min={DEPTH_MIN} max={DEPTH_MAX} step={DEPTH_STEP} value={depthStart} data-depth />
+      </label>
+      <!--
+        SCALING is the per-pixel display transfer, and its default follows the mode rather than being
+        remembered: photometric wants Lupton (its input is linear and uncompressed), population wants
+        linear (its per-star signal is already asinh-compressed, so a second curve would compress
+        twice). "Follow mode" says that out loud instead of hiding it behind a preselected option.
+      -->
+      <label class="srl__ctl">Scaling
+        <select data-scaling>
+          <option value="" selected>Follow mode (Lupton / linear)</option>
+          <option value="lupton">Lupton — hue-preserving, 3-channel</option>
+          {STRETCH_IDS.map((id) => <option value={id} title={STRETCH_NOTES[id]}>{id}</option>)}
+        </select>
       </label>
       <label class="srl__ctl">Exposure
         <input type="range" min="0.25" max="4" step="0.05" value="1" data-exposure />
@@ -492,6 +506,9 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     const depth = document.querySelector<HTMLInputElement>("[data-depth]")?.value;
     const minMass = Number(document.querySelector<HTMLInputElement>("[data-min-mass]")?.value ?? 0);
     const instrumentId = document.querySelector<HTMLSelectElement>("[data-instrument]")?.value ?? "population";
+    // Empty means "follow mode", so it is OMITTED rather than defaulted here — `prepare` owns the
+    // per-mode default and a second copy of it would be a second thing to keep true.
+    const scaling = document.querySelector<HTMLSelectElement>("[data-scaling]")?.value ?? "";
     const inst = INSTRUMENT_TABLE[instrumentId];
     /*
      * An instrument supplies BOTH the composite and the brightness band; "population" supplies
@@ -503,6 +520,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       scheme: document.querySelector<HTMLSelectElement>("[data-scheme]")?.value ?? "true",
       band: inst ? inst.brightnessBand : (document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V"),
       ...(inst ? { bandTriple: inst.composite } : {}),
+      colorMode: inst ? ("photometric" as const) : ("population" as const),
+      ...(scaling ? { scaling: scaling as never } : {}),
       ...(depth === undefined ? {} : { depthMag: Number(depth) }),
       exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
       minMass,
@@ -550,7 +569,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         };
         show(lab.stats);
         for (const el of document.querySelectorAll<HTMLElement>(
-          "[data-instrument],[data-scheme],[data-band],[data-depth],[data-exposure],[data-min-mass]",
+          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-depth],[data-exposure],[data-min-mass]",
         )) {
           el.addEventListener("input", () => {
             syncBandControl();

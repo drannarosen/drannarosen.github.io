@@ -24,6 +24,7 @@
 import { blackbodyLinearRGB, normalizeChroma } from "./index.ts";
 import { bandIntegral, type BandComposite } from "../photometry/passbands.ts";
 import { ALL_COMPOSITES } from "../photometry/instruments.ts";
+import { spectralType } from "../stellar/index.ts";
 import { planckNm } from "../blackbody/index.ts";
 
 export type SchemeKind = "physical" | "stretched" | "schematic";
@@ -65,6 +66,40 @@ export function stretchChroma(
 }
 
 
+/*
+ * MK class anchors, and the saturated colour each gets.
+ *
+ * Anchor temperatures are the midpoints `core/stellar`'s `spectralType` would assign, so the
+ * mapping is DERIVED from the classifier rather than chosen by eye — a class's colour and its
+ * name cannot disagree.
+ *
+ * These were briefly deleted along with `vivid` and then wanted back. Restored rather than
+ * reinvented: the point of `class` is that it is deliberately NOT photometric, and it is the
+ * clearest way to see that a spectral class is a bin, not a colour.
+ */
+const CLASS_ANCHORS: Array<[cls: string, teffK: number]> = [
+  ["O", 40000],
+  ["B", 20000],
+  ["A", 8800],
+  ["F", 6800],
+  ["G", 5800],
+  ["K", 4500],
+  ["M", 3200],
+];
+
+/** First letter of the MK type for a temperature, via core/stellar. */
+function classOf(teffK: number): string {
+  return spectralType(teffK).charAt(0);
+}
+
+/** Each class anchor's blackbody colour pushed to the gamut edge. Derived once, at module load. */
+const CLASS_COLORS = new Map<string, [number, number, number]>(
+  CLASS_ANCHORS.map(([cls, T]) => [cls, stretchChroma(blackbodyLinearRGB(T), 6)]),
+);
+
+/** White, for a temperature outside every anchor's reach. Never expected; not silently wrong. */
+const CLASS_FALLBACK: [number, number, number] = [1, 1, 1];
+
 export const COLOR_SCHEMES: ColorScheme[] = [
   {
     id: "true",
@@ -79,6 +114,20 @@ export const COLOR_SCHEMES: ColorScheme[] = [
     kind: "stretched",
     note: "True hue, chroma boosted 2.4x — the look of a stretched multi-band cluster image. Hue is physical; saturation is a choice.",
     color: (T) => stretchChroma(blackbodyLinearRGB(T), 2.4),
+  },
+  {
+    id: "vivid",
+    label: "Vivid",
+    kind: "stretched",
+    note: "True hue, chroma boosted 5x. Maximum separation between stars while every hue still traces to its blackbody colour — the most colour this cluster can be given without inventing any.",
+    color: (T) => stretchChroma(blackbodyLinearRGB(T), 5),
+  },
+  {
+    id: "class",
+    label: "Spectral class",
+    kind: "schematic",
+    note: "One saturated colour per MK class (O B A F G K M), derived from each class's anchor temperature. False colour: it encodes CLASSIFICATION, not appearance, so two stars 900 K apart can share a colour while two 100 K apart do not.",
+    color: (T) => CLASS_COLORS.get(classOf(T)) ?? CLASS_FALLBACK,
   },
 ];
 
