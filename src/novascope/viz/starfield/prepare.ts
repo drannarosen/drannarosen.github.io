@@ -21,7 +21,14 @@ import {
   magnitudeDifference,
   fluxRatioForMagnitudes,
 } from "../../core/photometry/index.ts";
-import { PASSBANDS, bandFlux, absoluteAbMagnitude, type Passband } from "../../core/photometry/passbands.ts";
+import {
+  PASSBANDS,
+  bandFlux,
+  absoluteAbMagnitude,
+  abMagnitude,
+  type Passband,
+} from "../../core/photometry/passbands.ts";
+import { massForMagnitudeLimit, MASS_SEARCH_MIN } from "../../core/photometry/completeness.ts";
 import {
   robustWhiteFlux,
   asinhResponse,
@@ -86,6 +93,35 @@ export interface PrepareOptions {
    * be nothing to compare.
    */
   minMass?: number;
+  /**
+   * DETECTION LIMIT: apparent AB magnitude in the selected band, beyond which a star
+   * is not detected at all. Ignored without a band, because a bolometric view is not
+   * something an instrument has a limiting magnitude for.
+   *
+   * THIS IS WHAT MAKES THE BAND CONTROL VISIBLE, and it is a different mechanism from
+   * `depthMag` on purpose.
+   *
+   * `depthMag` and `whitePercentile` are TONE MAPPING: they describe how the recorded
+   * flux is spread across the display, and the white point is a percentile of whatever
+   * band is showing. That is a legitimate and standard choice — an astronomical image
+   * is scaled to its own data — but it means switching band multiplies every flux by
+   * roughly the same factor, the white point follows, and the band cancels out of its
+   * own display. Measured: across 271 nm to 7.7 um the largest change in the normalised
+   * image was 3.3% RMS. The physics was never subtle (a 0.1 Msun star at 400 pc spans
+   * 11 magnitudes across these filters); the normalisation was hiding it.
+   *
+   * A detection limit is not tone mapping. It is an absolute statement about the
+   * instrument, so it does NOT rescale with the band, and a star either clears it or
+   * does not. Set it to Gaia's G = 20.7 and the low-mass majority genuinely disappears;
+   * set it to Rubin's coadd r = 26.9 and it all comes back. That is the real difference
+   * between those telescopes, and it is the thing the lab was failing to show.
+   *
+   * Like `minMass` this zeroes a star's signal rather than dropping it, so the white
+   * point stays computed over the full population and the stars that survive keep the
+   * brightness they had. Otherwise a shallow limit would re-expose the image and there
+   * would be nothing to compare between instruments.
+   */
+  magLimit?: number;
   /** Exposure multiplier. */
   exposure?: number;
   /** Tier percentile boundaries. */
@@ -159,6 +195,28 @@ export interface StarField {
      * slider or the camera does. `brightest` is the smallest (most negative).
      */
     absMag: { brightest: number; faintest: number; system: "AB" | "bolometric" };
+    /**
+     * The instrument's detection limit, and what it implies — `null` without a
+     * `magLimit`, or when no band is selected.
+     *
+     * `undetected` counts stars the limit removed, kept apart from the `minMass` cut
+     * because a telescope failing to see a star and a modeller choosing not to count it
+     * are different statements about the same image.
+     *
+     * `limitingMass` is the completeness limit DERIVED from that magnitude through
+     * `core/photometry/completeness`, whose inverse is gated — so this number and the
+     * "you need magnitude m to reach mass M" number on the page are the same relation
+     * read in two directions rather than two calculations that can disagree. It is
+     * quoted at the cluster's CENTRE distance, so it is a representative figure and not
+     * a per-star truth; the near side of the cluster is complete slightly deeper.
+     */
+    detection: {
+      magLimit: number;
+      undetected: number;
+      limitingMass: number;
+      /** True when the limit is deeper than the model's own lowest mass. */
+      complete: boolean;
+    } | null;
   };
 }
 
@@ -218,6 +276,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const percentile = opts.whitePercentile ?? DEFAULT_WHITE_PERCENTILE;
   const dpr = opts.pixelRatio ?? 1;
   const minMass = opts.minMass ?? 0;
+  const magLimit = opts.magLimit;
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
@@ -283,6 +342,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   let absBrightest = Infinity;
   let absFaintest = -Infinity;
   let faintestVisibleMbol = -Infinity;
+  let undetectedCount = 0;
   const tierCounts: [number, number, number] = [0, 0, 0];
   for (let i = 0; i < count; i++) {
     const o = i * STAR_STRIDE;
@@ -295,7 +355,28 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
      * acceptable trade in a lab, and worth compacting if this reaches production.
      */
     const cut = minMass > 0 && (stars[o + 3] ?? 0) < minMass;
-    const s = cut ? 0 : asinhResponse(flux[i] ?? 0, exposure, softening, whiteFlux);
+    /*
+     * Undetected: fainter than the instrument's limiting magnitude. Compared on the
+     * star's OWN apparent magnitude at its own distance, so the near side of the
+     * cluster survives a limit the far side does not — which is the real behaviour and
+     * costs nothing here, since the distance is already per-star.
+     *
+     * Kept separate from `cut` in the counters below because the two answer different
+     * questions: a mass cut is a decision about which stars to COUNT, a magnitude limit
+     * is a fact about which stars the telescope can SEE. Conflating them would make the
+     * lab unable to say which of the two removed a star.
+     */
+    const undetected =
+      magLimit !== undefined &&
+      band !== null &&
+      abMagnitude(
+        stars[o + 4] ?? 0,
+        stars[o + 5] ?? 0,
+        Math.max(MIN_DISTANCE_PC, D0_PC - (stars[o + 2] ?? 0)),
+        band,
+      ) > magLimit;
+    if (undetected) undetectedCount++;
+    const s = cut || undetected ? 0 : asinhResponse(flux[i] ?? 0, exposure, softening, whiteFlux);
     signal[i] = s;
     if (s > VISIBILITY_THRESHOLD) {
       visible++;
@@ -369,6 +450,15 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
       depthMag: magnitudeDifference(limitingFluxRatio(softening)),
       faintestVisibleMbol: visible > 0 ? faintestVisibleMbol : Infinity,
       shown,
+      detection:
+        magLimit !== undefined && band !== null
+          ? {
+              magLimit,
+              undetected: undetectedCount,
+              limitingMass: massForMagnitudeLimit(magLimit, band, D0_PC),
+              complete: massForMagnitudeLimit(magLimit, band, D0_PC) <= MASS_SEARCH_MIN,
+            }
+          : null,
       absMag: {
         brightest: absBrightest,
         faintest: absFaintest,

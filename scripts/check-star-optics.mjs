@@ -578,6 +578,56 @@ const LOW = 1e3;
 const inV = prepareStarField(fake, { band: "V", softening: LOW }).stats.visible;
 const inK = prepareStarField(fake, { band: "K", softening: LOW }).stats.visible;
 ok(inK > inV, "more stars are visible in K than in V (cool stars dominate the IR)");
+
+/* ── DETECTION LIMIT, and the hard limit on what it can do ──
+ *
+ * `magLimit` is an absolute statement about an instrument, so unlike `depthMag` it does
+ * NOT rescale with the band. It must remove stars, count them apart from a mass cut,
+ * and derive a limiting mass through the gated inverse in core/photometry/completeness.
+ */
+{
+  const deep = prepareStarField(fake, { band: "V", magLimit: 40 });
+  const shallow = prepareStarField(fake, { band: "V", magLimit: 12 });
+  ok(deep.stats.detection !== null && shallow.stats.detection !== null, "a magLimit produces a detection record");
+  ok(shallow.stats.detection.undetected > deep.stats.detection.undetected, "a shallower limit leaves more stars undetected");
+  ok(
+    shallow.stats.detection.limitingMass > deep.stats.detection.limitingMass,
+    `…and a higher limiting mass (${shallow.stats.detection.limitingMass.toFixed(2)} vs ${deep.stats.detection.limitingMass.toFixed(2)} Msun)`,
+  );
+  ok(prepareStarField(fake, { band: "V" }).stats.detection === null, "no magLimit means no detection record, not a fabricated one");
+  ok(prepareStarField(fake, { magLimit: 20 }).stats.detection === null, "…and bolometric has no limiting magnitude, so none is invented");
+  // The white point must NOT re-expose when a limit removes stars, or two instruments
+  // could never be compared — the same reason `minMass` leaves it alone.
+  ok(
+    Math.abs(shallow.stats.whiteFlux - deep.stats.whiteFlux) < 1e-12,
+    "the detection limit leaves the white point untouched, so instruments stay comparable",
+  );
+
+  /* THE STRUCTURAL LIMIT, asserted because it is the most surprising fact in this
+   * module and the answer to "why does changing band not change the picture".
+   *
+   * Every star here is on the ZAMS, so mass fixes both Teff and radius, and a more
+   * massive star is brighter in EVERY band — that is the monotonicity check:completeness
+   * verifies over all 30 of them. The consequence is that the brightness ORDERING of
+   * stars is identical in every band: Spearman rho = 1 exactly, from 271 nm to 7.7 um.
+   *
+   * So for a single-age ZAMS population no choice of filter can restructure the image;
+   * it can only change the overall level, the hue, and where a threshold falls on a
+   * fixed sequence. Anything that genuinely reorders stars between bands has to break
+   * the mass->(Teff, R) degeneracy — evolved stars, or differential extinction. Recorded
+   * as a gate so that when either arrives, this assertion FAILS and says so. */
+  const order = (band) => {
+    const f = prepareStarField(fake, { band });
+    return [...f.signal.keys()].sort((a, b) => f.signal[a] - f.signal[b]);
+  };
+  const oV = order("V");
+  for (const band of ["HST_F275W", "U", "K", "JWST_F770W"]) {
+    ok(
+      order(band).every((v, i) => v === oV[i]),
+      `${band}: the brightness ordering is identical to V — a ZAMS population cannot be reordered by a filter`,
+    );
+  }
+}
 ok(
   prepareStarField(fake, { band: "V", softening: LOW, exposure: 8 }).stats.visible > inV,
   "more exposure reveals more",
