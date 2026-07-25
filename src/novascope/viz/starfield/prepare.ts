@@ -29,6 +29,8 @@ import {
   type Passband,
 } from "../../core/photometry/passbands.ts";
 import { massForMagnitudeLimit, MASS_SEARCH_MIN } from "../../core/photometry/completeness.ts";
+import { bandIntegral, VEGA_TEFF_K } from "../../core/photometry/passbands.ts";
+import { planckNm } from "../../core/blackbody/index.ts";
 import {
   robustWhiteFlux,
   asinhResponse,
@@ -122,6 +124,19 @@ export interface PrepareOptions {
    * would be nothing to compare between instruments.
    */
   magLimit?: number;
+  /**
+   * Three band ids mapped to red, green and blue — an instrument's colour composite.
+   *
+   * When given, `bandFlux` carries three REAL band fluxes and the image's hue comes from
+   * the physics of those filters. When omitted it falls back to the selected colour
+   * scheme's hue times the single-band intensity, which is what the renderer does today
+   * and is the honest "no instrument chosen" answer rather than a fabricated triple.
+   *
+   * Longest to shortest wavelength, matching `BandComposite`, so red really is the red
+   * channel. Nothing here validates that ordering — `check:star-optics` does, because a
+   * reversed composite produces a plausible image that is simply wrong.
+   */
+  bandTriple?: readonly [string, string, string];
   /** Exposure multiplier. */
   exposure?: number;
   /** Tier percentile boundaries. */
@@ -138,6 +153,29 @@ export interface StarField {
   color: Float32Array;
   /** Display signal per star; 1 is white, above 1 is HDR overflow. */
   signal: Float32Array;
+  /**
+   * LINEAR flux in three bands per star, relative to the display white INTENSITY, times
+   * exposure. Unbounded, uncompressed, vec3.
+   *
+   * THE INPUT TO A LUPTON MAPPING, and the channel that replaces the `color` + `signal`
+   * pair. Those two decided hue and brightness separately, which is why a saturated star
+   * drifted toward white and why choosing a filter never changed the colour of anything.
+   * Here the three band fluxes carry both at once: their ratios are the hue, their mean
+   * is the intensity, and `core/imaging/lupton` turns that into a pixel with the hue
+   * preserved through saturation.
+   *
+   * DELIBERATELY UNCOMPRESSED, which also fixes a real bug rather than only enabling a
+   * feature. `signal` has already been through the asinh transfer per STAR, so where two
+   * stars overlap the renderer sums two already-compressed values — compressing twice and
+   * getting a result that is not the transfer of the summed flux. Accumulating linear
+   * radiance and compressing once per pixel at the end is both correct and what astropy
+   * does.
+   *
+   * Emitted ALONGSIDE `signal` rather than replacing it, so this commit changes nothing
+   * on screen and the two can be compared. The TSL graph switches over separately, once
+   * the CPU reference has been shown to agree.
+   */
+  bandFlux: Float32Array;
   /**
    * LINEAR flux relative to the display white point, times exposure. Unbounded.
    *
@@ -284,6 +322,44 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const halo = new Float32Array(count);
   const sizePx = new Float32Array(count);
   const flux = new Float64Array(count);
+  /*
+   * Raw three-band flux, before any normalization. Kept in float64 alongside `flux` for
+   * the same reason `flux` is: a band flux at 400 pc is ~1e-20 in CGS and the population
+   * spans eight decades, so accumulating a percentile in float32 would lose the faint end
+   * entirely.
+   */
+  const bandRaw = new Float64Array(count * 3);
+  const intensityRaw = new Float64Array(count);
+  const triple = opts.bandTriple?.map((id) => PASSBANDS[id] ?? null) ?? null;
+  const haveTriple = triple !== null && triple.every((b) => b !== null);
+  /*
+   * PER-CHANNEL GAIN, so a reference spectrum comes out NEUTRAL.
+   *
+   * Without this a composite is not a colour image, it is a plot of which band sits at the
+   * shortest wavelength. Raw F_lambda through the JWST triple gives an A0V-like star
+   * 0.026 / 0.207 / 0.767 — a thirtyfold bias to the blue channel — because F_lambda for a
+   * stellar blackbody falls steeply with wavelength, so the shortest band always wins
+   * whatever the star is. Every composite came out blue, and the differences between
+   * instruments were differences in how blue.
+   *
+   * The gain divides each channel by that band's flux for a 9550 K blackbody, which is
+   * the Vega convention this package already uses for colour indices (`VEGA_TEFF_K`). An
+   * A0V-like star is then grey by construction and everything else is coloured RELATIVE
+   * to it — hotter bluer, cooler redder — which is both the standard astronomical
+   * convention and the only one that makes a composite's hue mean something.
+   *
+   * Deliberately NOT a per-star normalization. `compositeColor` in core/colorimetry does
+   * normalize per star, which is right there because intensity arrives separately; here
+   * the triple carries intensity as well as hue, so a per-star normalization would discard
+   * exactly the brightness information Lupton needs.
+   */
+  const channelGain: [number, number, number] = [1, 1, 1];
+  if (haveTriple) {
+    for (let k = 0; k < 3; k++) {
+      const ref = bandIntegral((l) => planckNm(l, VEGA_TEFF_K), triple[k]!);
+      channelGain[k] = ref > 0 ? 1 / ref : 0;
+    }
+  }
 
   for (let i = 0; i < count; i++) {
     const o = i * STAR_STRIDE;
@@ -328,11 +404,51 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     color[i * 3] = r;
     color[i * 3 + 1] = g;
     color[i * 3 + 2] = b;
+
+    /*
+     * Three-band flux for the Lupton path. With an instrument's triple these are real
+     * band fluxes, so the hue is the physics of those filters; without one they fall back
+     * to the scheme's hue times the single-band flux, which reproduces exactly what the
+     * renderer shows today.
+     *
+     * The fallback is not a lesser version of the same thing — it is a different and
+     * honest claim. A triple says "this is what those three filters recorded"; the
+     * fallback says "this is a temperature ramp", and inventing a triple to make the code
+     * uniform would turn the second into a false version of the first.
+     */
+    if (haveTriple) {
+      for (let k = 0; k < 3; k++) {
+        bandRaw[i * 3 + k] = bandFlux(teff, radius, dPc, triple[k]!) * channelGain[k]!;
+      }
+    } else {
+      const f = flux[i] ?? 0;
+      bandRaw[i * 3] = r * f;
+      bandRaw[i * 3 + 1] = g * f;
+      bandRaw[i * 3 + 2] = b * f;
+    }
+    intensityRaw[i] =
+      ((bandRaw[i * 3] ?? 0) + (bandRaw[i * 3 + 1] ?? 0) + (bandRaw[i * 3 + 2] ?? 0)) / 3;
   }
 
   // Exposure is calibrated ONCE against the population and then held fixed, so
   // the image cannot pump as the camera moves.
   const whiteFlux = robustWhiteFlux(flux, percentile);
+  /*
+   * The Lupton channel gets its OWN white point, taken over the three-band INTENSITY
+   * rather than over the single band's flux.
+   *
+   * It has to: Lupton's intensity is the mean of the three channels, so normalizing by a
+   * percentile of one band would put display white at whatever ratio that band happens to
+   * bear to the mean — a factor that changes with the instrument, silently re-exposing the
+   * image every time the composite changes. Taking the percentile of the quantity the
+   * transfer actually consumes makes intensity 1 mean white for every composite.
+   */
+  const whiteIntensity = robustWhiteFlux(intensityRaw, percentile);
+  const whiteI = whiteIntensity > 0 ? whiteIntensity : 1;
+  const bandFluxOut = new Float32Array(count * 3);
+  for (let i = 0; i < count * 3; i++) {
+    bandFluxOut[i] = (exposure * (bandRaw[i] ?? 0)) / whiteI;
+  }
   const { tier } = computeTiers(flux, opts.tiers ?? DEFAULT_TIERS);
 
   let visible = 0;
@@ -436,6 +552,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     position,
     color,
     signal,
+    bandFlux: bandFluxOut,
     halo,
     sizePx,
     tier,

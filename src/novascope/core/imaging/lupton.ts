@@ -150,6 +150,30 @@ export function luptonDepthMag(q = LUPTON_Q, stretch = 5): number {
   return -2.5 * Math.log10(faint / white);
 }
 
+/**
+ * The `stretch` that maps intensity 1 to display white — the bridge between Lupton's
+ * convention and this renderer's.
+ *
+ *     f(1) = asinh(Q / stretch) * slope = 1   =>   stretch = Q / sinh(1 / slope)
+ *
+ * WHY THIS EXISTS. The two asinh conventions in this package anchor at opposite ends and
+ * neither is wrong. `asinhResponse` normalizes so the WHITE POINT maps to exactly 1,
+ * which is what makes depth reportable and nothing clip at white by construction.
+ * Lupton anchors at the TOE, so the curve is linear where the faint detail is and bright
+ * pixels exceed 1 and clamp in common mode — which is what preserves hue through
+ * saturation.
+ *
+ * Choosing between them would mean giving up either the magnitude readout or the hue.
+ * Deriving `stretch` this way keeps both: the renderer goes on normalizing flux against
+ * a robust white-point percentile, feeds Lupton intensities where 1 means white, and
+ * Lupton's own clamp handles the overflow. Q then still sets the depth, unchanged,
+ * because depth is independent of `stretch`.
+ */
+export function luptonStretchForWhite(q = LUPTON_Q): number {
+  const Q = luptonQ(q);
+  return Q / Math.sinh(1 / luptonSlope(q));
+}
+
 /** Bisection bracket for the inverse below. Q outside this is not a useful display. */
 const Q_SEARCH_MIN = 0.1;
 const Q_SEARCH_MAX = 1e10;

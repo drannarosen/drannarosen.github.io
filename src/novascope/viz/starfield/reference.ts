@@ -19,7 +19,21 @@
  */
 
 import { starProfile } from "./profile.ts";
-import { PSF_BETA, PSF_WIDTH_PX } from "./sizing.ts";
+import {
+  PSF_BETA,
+  PSF_WIDTH_PX,
+  MAX_QUAD_PX,
+  coreExtentRadii,
+  aureoleExtentRadii,
+  diffractionExtentRadii,
+} from "./sizing.ts";
+import {
+  luptonRGB,
+  luptonQForDepth,
+  luptonStretchForWhite,
+  luptonIntensityForOutput,
+  ONE_DISPLAY_LEVEL,
+} from "../../core/imaging/lupton.ts";
 import {
   DEFAULT_AUREOLE,
   DEFAULT_DIFFRACTION,
@@ -50,8 +64,15 @@ export interface ReferenceOptions {
 export interface ReferenceImage {
   width: number;
   height: number;
-  /** Linear RGB radiance, 3 floats per pixel. NOT tone-mapped, NOT encoded. */
+  /**
+   * 3 floats per pixel. From `renderReference` this is LINEAR radiance, not tone-mapped
+   * and not encoded. From `renderReferenceLupton` it is DISPLAY RGB in [0, 1].
+   */
   rgb: Float32Array;
+  /** Lupton only: the `stretch` calibrated from this image's own pixel distribution. */
+  stretch?: number;
+  /** Lupton only: the pixel intensity that was mapped to display white. */
+  whitePixel?: number;
 }
 
 /**
@@ -139,6 +160,163 @@ export function renderReference(
 
 /** The PSF width the reference uses when none is given, for callers that report it. */
 export const REFERENCE_PSF_WIDTH_PX = PSF_WIDTH_PX;
+
+/**
+ * Rasterise the LUPTON path: accumulate three bands' linear radiance, then map once per
+ * pixel.
+ *
+ * This is the target the TSL graph has to match, and it exists as a CPU reference first
+ * for the same reason the linear one does — the GPU half cannot be gated in node, so the
+ * only way to know the shader is right is to have something correct to compare it
+ * against. That order is not optional here: the previous renderer shipped a shader that
+ * squared the profile, and it survived because the reference beside it applied its own
+ * tone curve and could only be compared by eye.
+ *
+ * THREE DIFFERENCES FROM `renderReference`, each deliberate:
+ *
+ *   - The per-star amplitude is `bandFlux`, which is LINEAR. So compression happens once,
+ *     here, after the radiances have been summed — not per star before they are. Where
+ *     two stars overlap the old path compressed twice and produced something that was not
+ *     the transfer of the summed flux.
+ *   - `starProfile` is evaluated once PER CHANNEL, with that channel's own flux as both
+ *     the core amplitude and the aureole drive. Scattered light is a fixed fraction of the
+ *     light that entered the instrument at that wavelength, so a red star's halo is red;
+ *     driving all three channels from one scalar would make every halo grey.
+ *   - Quads are sized by `coreExtentRadii` from the brightest channel, solved against the
+ *     intensity one display level corresponds to, rather than by the interpolated
+ *     allowance in `quadExtentPx`.
+ *
+ * Returns DISPLAY RGB in [0, 1] — unlike `renderReference`, which returns linear
+ * radiance. That is the whole point of the pass, so it is named in the return type rather
+ * than left for a caller to assume.
+ */
+export function renderReferenceLupton(
+  field: StarField,
+  camera: ReferenceCamera,
+  opts: ReferenceOptions & { depthMag?: number; whitePercentile?: number } = {},
+): ReferenceImage {
+  const { width: W, height: H } = camera;
+  const aureole = opts.aureole ?? DEFAULT_AUREOLE;
+  const beta = opts.beta ?? PSF_BETA;
+  const spikeParams = opts.diffraction ?? DEFAULT_DIFFRACTION;
+  const psfWidthPx = opts.psfWidthPx ?? field.stats.psfWidthPx;
+
+  /*
+   * Q carries the depth. `stretch` is calibrated LATER, from the rendered image's own
+   * pixel distribution — not from the per-star white point, and this is the one thing
+   * about the Lupton path that is not obvious.
+   *
+   * The per-star normalization in `prepare` is correct on its own terms: the 99.5th
+   * percentile of per-star intensity is exactly 1 by construction. But a PIXEL sums the
+   * wings of thousands of stars, and that sum has a completely different distribution —
+   * measured on this cluster, the background sits at 3.3e-3 while a median star's own peak
+   * contribution is 2.3e-6, so the background is 1400x brighter than the thing the white
+   * point was calibrated against. Feeding per-star-normalized intensities to a 19.8 mag
+   * stretch put the entire frame above 64/255.
+   *
+   * This is why astropy's API takes IMAGES rather than a source list, and it is the real
+   * reason the deferred ZScale-style interval matters: once compression is per-pixel, the
+   * interval has to be per-pixel too. A provisional `stretch` is used for the quad sizing
+   * below, which only needs an order of magnitude to bound the geometry.
+   */
+  const q = luptonQForDepth(opts.depthMag ?? field.stats.depthMag);
+  const provisionalStretch = luptonStretchForWhite(q);
+  const floor = luptonIntensityForOutput(ONE_DISPLAY_LEVEL, provisionalStretch, q);
+
+  const accum = new Float64Array(W * H * 3);
+  const focal = H / 2 / Math.tan((camera.fovDeg * Math.PI) / 180 / 2);
+
+  for (let i = 0; i < field.count; i++) {
+    const f0 = field.bandFlux[i * 3] ?? 0;
+    const f1 = field.bandFlux[i * 3 + 1] ?? 0;
+    const f2 = field.bandFlux[i * 3 + 2] ?? 0;
+    const peak = Math.max(f0, f1, f2);
+    if (!(peak > 0)) continue;
+
+    const spikes = (field.tier[i] ?? 1) >= 3 ? spikeParams : undefined;
+    const halfPx = Math.min(
+      MAX_QUAD_PX,
+      psfWidthPx *
+        Math.max(
+          coreExtentRadii(peak, floor, beta),
+          aureoleExtentRadii(peak, aureole),
+          spikes ? diffractionExtentRadii(peak, spikes) : 0,
+        ),
+    );
+    if (!(halfPx > 0)) continue;
+
+    const z = field.position[i * 3 + 2] ?? 0;
+    const depth = camera.distancePc - z;
+    if (depth <= 1e-6) continue;
+    const sx = W / 2 + ((field.position[i * 3] ?? 0) * focal) / depth;
+    const sy = H / 2 - ((field.position[i * 3 + 1] ?? 0) * focal) / depth;
+    const edge = halfPx / psfWidthPx;
+
+    const x0 = Math.max(0, Math.floor(sx - halfPx));
+    const x1 = Math.min(W - 1, Math.ceil(sx + halfPx));
+    const y0 = Math.max(0, Math.floor(sy - halfPx));
+    const y1 = Math.min(H - 1, Math.ceil(sy + halfPx));
+
+    for (let py = y0; py <= y1; py++) {
+      for (let px = x0; px <= x1; px++) {
+        const dx = px + 0.5 - sx;
+        const dy = py + 0.5 - sy;
+        const rho = Math.hypot(dx, dy) / psfWidthPx;
+        const theta = Math.atan2(dy, dx);
+        const o = (py * W + px) * 3;
+        for (let k = 0; k < 3; k++) {
+          const amp = field.bandFlux[i * 3 + k] ?? 0;
+          if (amp <= 0) continue;
+          const p = starProfile({
+            rho,
+            edge,
+            signal: amp,
+            halo: amp,
+            aureole,
+            beta,
+            theta,
+            ...(spikes === undefined ? {} : { spikes }),
+          });
+          if (p > 0) accum[o + k] = (accum[o + k] ?? 0) + p;
+        }
+      }
+    }
+  }
+
+  /*
+   * CALIBRATE on the pixel intensities that were actually produced, then compress once.
+   *
+   * The percentile is taken over LIT pixels only. Including the empty sky would put the
+   * percentile in the background — most of a star field is sky, so a 99.5th percentile
+   * over every pixel is still measuring nothing much — and the quantity worth mapping to
+   * white is the bright end of the light that is there.
+   */
+  const lit: number[] = [];
+  for (let p = 0; p < W * H; p++) {
+    const o = p * 3;
+    const I = ((accum[o] ?? 0) + (accum[o + 1] ?? 0) + (accum[o + 2] ?? 0)) / 3;
+    if (I > 0) lit.push(I);
+  }
+  lit.sort((a, b) => a - b);
+  const whitePixel =
+    lit.length > 0 ? (lit[Math.floor((opts.whitePercentile ?? 0.995) * (lit.length - 1))] ?? 1) : 1;
+  // f(I) depends on I/stretch, so mapping intensity `whitePixel` to display white is just
+  // the unit-white stretch scaled by it.
+  const stretch = Math.max(Number.MIN_VALUE, whitePixel) * luptonStretchForWhite(q);
+
+  const rgb = new Float32Array(W * H * 3);
+  for (let p = 0; p < W * H; p++) {
+    const o = p * 3;
+    const [r, g, b] = luptonRGB(accum[o] ?? 0, accum[o + 1] ?? 0, accum[o + 2] ?? 0, {
+      stretch,
+      q,
+    });
+    rgb[o] = r;
+    rgb[o + 1] = g;
+    rgb[o + 2] = b;
+  }
+  return { width: W, height: H, rgb, stretch, whitePixel };
+}
 
 /*
  * ── HOW TO RUN THE PARITY CHECK, AND THE TWO TRAPS IN IT ─────────────────────

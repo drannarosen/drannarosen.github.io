@@ -56,6 +56,36 @@ export function aureoleExtentRadii(drive: number, a: AureoleParams, floor = 1e-4
 }
 
 /**
+ * How far the Moffat CORE reaches before it drops below a display threshold, in core
+ * radii — solved, not interpolated.
+ *
+ *     A (1 + rho^2)^-beta = floor   =>   rho = sqrt((A / floor)^(1/beta) - 1)
+ *
+ * REPLACES A HEURISTIC. `quadExtentPx` used to allow `3 + 14 * s` core radii, linear in
+ * the COMPRESSED display signal and saturating at s = 1. That worked only because the 17
+ * at the top had been tuned by eye against the real cluster — and it happens to be
+ * right: at the exposure the lab uses, the solve gives 17.20 core radii for a star at
+ * display white against the heuristic's 17.0.
+ *
+ * The difference is at the ends, where a heuristic cannot follow. Above white it clamped,
+ * so the brightest star in the field got the same core allowance as a median-bright one
+ * instead of the 28.6 radii it actually reaches. Below the threshold it still handed out
+ * 3 radii, so every invisible star shaded a 6.6 px quad to produce nothing.
+ *
+ * It also removes the last place the quad depended on the compressed signal, which is
+ * what allows compression to move out of the per-star stage and into a single per-pixel
+ * pass where it belongs.
+ *
+ * `amplitude` is LINEAR intensity relative to display white; `floor` is the intensity one
+ * display level corresponds to, which the caller gets from the display transfer rather
+ * than choosing.
+ */
+export function coreExtentRadii(amplitude: number, floor: number, beta = PSF_BETA): number {
+  if (!(amplitude > floor) || !(beta > 0) || !(floor > 0)) return 0;
+  return Math.sqrt((amplitude / floor) ** (1 / beta) - 1);
+}
+
+/**
  * Cap on a billboard's half-extent, in CSS pixels.
  *
  * Purely a COST bound, not physics: a scattered-light halo really does run to
