@@ -118,6 +118,30 @@ Ordered by dependency, not by appetite. One at a time.
    `(seed, params, t)` … Reproducible and URL-shareable". Presets are then just named URLs.
 2. **Black background.** Derive the sky per frame; add a black point/toe. Anna's actual complaint,
    and the thing that most changes how the image reads.
+
+   **Measured 2026-07-25, and it constrains the design.** Confirmed first that the sky is the
+   lever: photometric/Rubin at depth 20 with 0.5% subtracted went from 0% black to **76.4% black**
+   while giving the HIGHEST faint-peak count of any configuration tested (3625 peaks at 2 levels
+   over local background, against 3295 unsubtracted). Depth alone cannot do this — raising it
+   8 -> 14 -> 20 moves the median pixel 1 -> 75 -> 130 of 255, i.e. black -> 29% grey -> 51% grey,
+   and the count of stars standing clear by 24 levels FALLS 786 -> 706 on the way. Brighter fog,
+   not more stars.
+
+   The obstacle is that **the background is resolution-dependent**, because the PSF width is fixed
+   in PIXELS: at lower resolution each star's wings cover more of the frame and overlap more.
+   Measured, `median / analyticMeanIntensity` runs 0.0358 -> 0.0228 from 96x60 to 320x200, a 1.57x
+   monotonic drift. Across everything else it is stable to 4% (0.0300 / 0.0294 / 0.0306 for Rubin
+   depth-14, Rubin depth-8, JWST depth-14), so it is frame size specifically.
+
+   Consequences, both discovered by measuring rather than reading:
+
+   - **A single calibration constant is not good enough.** The white point tolerates its 0.41 mag
+     spread because it is an exposure; a subtraction operates near zero, where being 57% high
+     crushes the faint stars the subtraction exists to reveal.
+   - **A low-resolution probe is biased for the same reason**, so any GPU readback must sample at
+     the TRUE pixel scale — a full-resolution target read in crops, not a small target.
+   - **The CPU reference cannot do it**: measured at 608 ms for 64x40 and 4 s at 320x200, against
+     `prepareStarField`'s own 180-425 ms. Far too slow for a per-rebuild estimate.
 3. **Pixel-integrated PSF.** The visual ceiling, and better physics.
 4. **Motion.** Parallax default, spin optional.
 5. **Effect toggles.** Each optical term on/off, so the lab can answer "is this earning its place?"
