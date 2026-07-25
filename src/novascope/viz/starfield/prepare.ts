@@ -16,13 +16,7 @@ import { deriveLogL, apparentFlux, D0_PC } from "../../core/photometry/index.ts"
 import { PASSBANDS, bandFlux, type Passband } from "../../core/photometry/passbands.ts";
 import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../../core/imaging/index.ts";
 import { getScheme } from "../../core/colorimetry/schemes.ts";
-import {
-  coreRadiusPx,
-  computeTiers,
-  scaleCoreParams,
-  DEFAULT_CORE,
-  type TierBoundaries,
-} from "./sizing.ts";
+import { computeTiers, quadExtentPx, PSF_WIDTH_PX, type TierBoundaries } from "./sizing.ts";
 
 /** Fields of one star in the gravoturb export, in order. */
 export const STAR_STRIDE = 6;
@@ -59,7 +53,7 @@ export interface StarField {
   color: Float32Array;
   /** Display signal per star; 1 is white, above 1 is HDR overflow. */
   signal: Float32Array;
-  /** Core radius per star [px]. */
+  /** Billboard half-extent per star [device px]; the PSF width is fixed. */
   sizePx: Float32Array;
   /** Render tier per star (1, 2 or 3). */
   tier: Uint8Array;
@@ -70,6 +64,7 @@ export interface StarField {
     clipping: number;
     tierCounts: [number, number, number];
     maxSizePx: number;
+    psfWidthPx: number;
   };
 }
 
@@ -94,7 +89,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const softening = opts.softening ?? DEFAULT_SOFTENING;
   const exposure = opts.exposure ?? 1;
   const percentile = opts.whitePercentile ?? 0.995;
-  const core = scaleCoreParams(DEFAULT_CORE, opts.pixelRatio ?? 1);
+  const dpr = opts.pixelRatio ?? 1;
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
@@ -136,8 +131,8 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     signal[i] = s;
     if (s > 0.02) visible++;
     if (s > 1) clipping++;
-    // Size follows the DISPLAY SIGNAL, not raw flux — see coreRadiusPx.
-    const px = coreRadiusPx(s, core);
+    // Only the BILLBOARD grows with brightness; the PSF inside it is fixed.
+    const px = quadExtentPx(s, (tier[i] ?? 1) > 1) * dpr;
     sizePx[i] = px;
     if (px > maxSizePx) maxSizePx = px;
     const t = tier[i] ?? 1;
@@ -151,6 +146,6 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     signal,
     sizePx,
     tier,
-    stats: { whiteFlux, visible, clipping, tierCounts, maxSizePx },
+    stats: { whiteFlux, visible, clipping, tierCounts, maxSizePx, psfWidthPx: PSF_WIDTH_PX * dpr },
   };
 }

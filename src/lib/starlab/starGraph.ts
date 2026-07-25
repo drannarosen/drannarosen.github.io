@@ -27,6 +27,7 @@ import {
   screenSize,
 } from "three/tsl";
 import { DEFAULT_AUREOLE } from "@novascope/core/optics";
+import { PSF_WIDTH_PX, PSF_BETA } from "@novascope/viz/starfield/sizing";
 import type { StarField } from "@novascope/viz/starfield/prepare";
 
 /**
@@ -37,14 +38,7 @@ import type { StarField } from "@novascope/viz/starfield/prepare";
  * square. 8 puts the quad edge where the profile has fallen to a few times
  * 1e-3 of its peak.
  */
-const QUAD_RADII = 8;
 
-/**
- * Quad extent for Tier 1, in core radii. The faint majority has no visible wing,
- * so giving it the full 8-radius quad costs fill rate on 90% of the population
- * for pixels that round to nothing.
- */
-const QUAD_RADII_FAINT = 3;
 
 export interface StarGraphUniforms {
   beta: { value: number };
@@ -111,10 +105,10 @@ export function createStarGraph(field: StarField): StarGraph {
   const iTier = instancedBufferAttribute<"float">(aTier, "float");
 
   const uniforms: StarGraphUniforms = {
-    beta: { value: 3.2 },
-    aureoleAmp: { value: DEFAULT_AUREOLE.amp },
-    aureoleScale: { value: DEFAULT_AUREOLE.scale },
-    aureoleP: { value: DEFAULT_AUREOLE.p },
+    beta: { value: PSF_BETA },
+    aureoleAmp: { value: 0.012 },
+    aureoleScale: { value: 2.0 },
+    aureoleP: { value: 3.0 },
     gain: { value: 1 },
   };
   const uBeta = uniform(uniforms.beta.value);
@@ -122,6 +116,7 @@ export function createStarGraph(field: StarField): StarGraph {
   const uAurScale = uniform(uniforms.aureoleScale.value);
   const uAurP = uniform(uniforms.aureoleP.value);
   const uGain = uniform(uniforms.gain.value);
+  const uPsfWidth = uniform(PSF_WIDTH_PX * (field.stats.psfWidthPx / PSF_WIDTH_PX));
 
   const material = new MeshBasicNodeMaterial({
     transparent: true,
@@ -136,37 +131,45 @@ export function createStarGraph(field: StarField): StarGraph {
   material.vertexNode = Fn(() => {
     const sizePx = iSizePx;
     const clip = cameraProjectionMatrix.mul(modelViewMatrix.mul(vec4(iPos, 1)));
-    const extent = iTier.greaterThan(float(1.5)).select(float(QUAD_RADII), float(QUAD_RADII_FAINT));
-    const halfPx = sizePx.mul(extent);
+    const halfPx = sizePx;
     // positionLocal.xy spans -0.5..0.5 for a unit plane; x2 gives -1..1.
     // A pixel is 2/screenSize in NDC (which spans -1..1), and clip = NDC * w.
     const offset = positionLocal.xy.mul(2).mul(halfPx).mul(2).div(screenSize).mul(clip.w);
     return vec4(clip.xy.add(offset), clip.z, clip.w);
   })();
 
-  // ── fragment: the analytic profile, in core-radius units
+  // ── fragment: one instrument PSF, identical for every star
   material.colorNode = Fn(() => {
-    // rho: 0 at the centre, QUAD_RADII at the quad edge.
-    const rho = uv().sub(vec2(0.5)).length().mul(2).mul(QUAD_RADII);
+    const halfPx = iSizePx; // billboard half-extent [device px]
+    // Distance from centre in device px, then in PSF widths.
+    const rPx = uv().sub(vec2(0.5)).length().mul(2).mul(halfPx);
+    const rho = rPx.div(uPsfWidth);
+    const edge = halfPx.div(uPsfWidth); // quad edge, in PSF widths
 
-    // Moffat PSF, mirroring core/optics.moffat with alpha = 1 core radius.
-    const psf = float(1).add(rho.mul(rho)).pow(uBeta.negate());
+    const hasWing = iTier.greaterThan(float(1.5)).select(float(1), float(0));
+    // Moffat core + (Tier >= 2) scattered-light wing, evaluated at rho and again
+    // at the quad edge. Written out twice rather than via a helper because TSL's
+    // node types do not survive a generic callback parameter.
+    const atRho = float(1)
+      .add(rho.mul(rho))
+      .pow(uBeta.negate())
+      .add(uAurAmp.div(float(1).add(rho.div(uAurScale)).pow(uAurP)).mul(hasWing));
+    const atEdge = float(1)
+      .add(edge.mul(edge))
+      .pow(uBeta.negate())
+      .add(uAurAmp.div(float(1).add(edge.div(uAurScale)).pow(uAurP)).mul(hasWing));
 
-    // Broad faint aureole, mirroring core/optics.aureole. Tier 1 (the faint
-    // majority) skips it: it is invisible there and costs fill rate on 90% of
-    // the population.
-    const tier = iTier;
-    const wing = uAurAmp.div(float(1).add(rho.div(uAurScale)).pow(uAurP));
-    const aureole = wing.mul(tier.greaterThan(float(1.5)).select(float(1), float(0)));
-
-    const profile = psf.add(aureole);
-    const color = iColor;
-    const signal = iSignal;
+    /*
+     * PEDESTAL SUBTRACTION. The profile is still ~1e-3 at the quad edge, which
+     * survives the sRGB transfer against a black sky and crops every star into a
+     * visible SQUARE. Subtracting the edge value makes it reach exactly zero
+     * there, so the billboard boundary disappears without widening the quad.
+     */
+    const profile = atRho.sub(atEdge).max(float(0));
 
     // Linear HDR radiance: chromaticity x display signal x profile. Nothing is
-    // clamped here — values above 1 are real overflow and are what a bloom pass
-    // should key on.
-    const radiance = color.mul(signal).mul(profile).mul(uGain);
+    // clamped — above 1 is real overflow, which is what a bloom pass keys on.
+    const radiance = iColor.mul(iSignal).mul(profile).mul(uGain);
     return vec4(radiance, profile);
   })();
 
@@ -200,4 +203,3 @@ export function createStarGraph(field: StarField): StarGraph {
   };
 }
 
-export { QUAD_RADII };

@@ -51,7 +51,7 @@ export function robustWhiteFlux(fluxes: ArrayLike<number>, p: number): number {
  * ~1e8 for 9.6 dex. Raising it reveals more of the faint field WITHOUT changing
  * what clips, which stays set by the exposure percentile alone.
  */
-export const DEFAULT_SOFTENING = 1e8;
+export const DEFAULT_SOFTENING = 3e7;
 
 /**
  * Photographic (asinh) transfer from flux to display signal:

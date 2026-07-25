@@ -5,5 +5,11 @@
  * core/photometry (apparent flux), core/colorimetry (blackbody chromaticity),
  * core/optics (PSF, aureole) and core/imaging (white point, asinh stretch).
  */
-export type { CoreParams, TierBoundaries, TierAssignment } from "./sizing.ts";
-export { DEFAULT_CORE, coreRadiusPx, computeTiers } from "./sizing.ts";
+export type { TierBoundaries, TierAssignment } from "./sizing.ts";
+export {
+  PSF_WIDTH_PX,
+  PSF_BETA,
+  quadExtentPx,
+  subpixelGain,
+  computeTiers,
+} from "./sizing.ts";

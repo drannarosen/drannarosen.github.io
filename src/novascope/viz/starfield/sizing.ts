@@ -9,40 +9,35 @@
 
 import { robustWhiteFlux } from "../../core/imaging/index.ts";
 
-/** Parameters of the bounded unresolved core, in CSS pixels. */
-export interface CoreParams {
-  /** Radius of a just-visible star [px]. */
-  coreMin: number;
-  /** Radius of a star at display white and above [px]. */
-  coreMax: number;
-  /** Curve shape: <1 gives faint stars more of the size range. */
-  gamma: number;
-}
+/**
+ * The instrument's point-spread function width, in CSS pixels.
+ *
+ * THE SAME FOR EVERY STAR. This is the single most important correction in the
+ * renderer: a PSF is a property of the atmosphere and optics, not of the source,
+ * so brightness must change a star's PEAK INTENSITY and nothing else. A bright
+ * star then looks larger only because more of its wing rises above the display
+ * threshold — which is what actually happens in an image.
+ *
+ * Scaling the profile width with flux instead (an earlier version did) turns
+ * bright stars into soft inflated balls with no crisp core, and leaves faint ones
+ * as 1-2 px blocks. Verified by rendering the real cluster to a PNG rather than
+ * by inspecting percentiles: at 1.3 px a typical star reads as a square block, at
+ * 2.2 px it reads as a round point.
+ */
+export const PSF_WIDTH_PX = 2.2;
+
+/** Moffat beta — wing weight. Lower puts more light in the wings. */
+export const PSF_BETA = 3.2;
 
 /**
- * Defaults in CSS PIXELS — scaled by devicePixelRatio at preparation, because
- * they are authored against what a reader sees, not the backing store.
+ * Half-extent of a star's billboard, in CSS pixels.
  *
- * Sized from the real cluster rather than from a brief, and tuned against its
- * measured signal distribution: at DPR 2 this puts the faint majority near 1.9 px
- * radius (small, but comfortably above a pixel) and the brightest at 7 px —
- * prominent without becoming disks.
- *
- * Two earlier versions failed at opposite ends and are worth recording. Using
- * 0.7-1.6 DEVICE px took a "crisp core" brief literally; at DPR 2 that is under
- * one device pixel, so the profile falls between sample points and the field
- * renders empty. Driving size from log1p(F/F0) then collapsed 90% of stars onto
- * exactly the floor while the top 1% slammed into the ceiling — no gradation,
- * then a few unnatural blobs. `gamma` above 1 is what keeps the faint bulk small:
- * the population is overwhelmingly faint, so a linear ramp makes almost every
- * star mid-sized.
+ * Only the QUAD grows with brightness, so a bright star's wings have somewhere to
+ * live. The profile inside it is identical for every star.
  */
-export const DEFAULT_CORE: CoreParams = { coreMin: 0.8, coreMax: 3.5, gamma: 1.6 };
-
-/** Scale a core-parameter set from CSS pixels into device pixels. */
-export function scaleCoreParams(p: CoreParams, pixelRatio: number): CoreParams {
-  const k = pixelRatio > 0 ? pixelRatio : 1;
-  return { coreMin: p.coreMin * k, coreMax: p.coreMax * k, gamma: p.gamma };
+export function quadExtentPx(signal: number, hasAureole: boolean): number {
+  const s = Math.min(1, Math.max(0, signal));
+  return PSF_WIDTH_PX * (3 + 14 * s + (hasAureole ? 10 : 0));
 }
 
 /**
@@ -53,40 +48,14 @@ export function scaleCoreParams(p: CoreParams, pixelRatio: number): CoreParams {
 export const MIN_RENDERABLE_PX = 1.0;
 
 /**
- * Brightness compensation for a core widened to `MIN_RENDERABLE_PX`: energy goes
- * as area, so a core spread from r to r_min keeps its integral by scaling its
- * peak by (r/r_min)^2. Returns 1 for cores already at least a pixel — nothing is
- * brightened, only correctly dimmed.
+ * Brightness compensation for a profile narrower than a pixel: energy goes as
+ * area, so keeping the integral means scaling the peak by (r/r_min)^2. Returns 1
+ * at or above a pixel — nothing is brightened, only correctly dimmed.
  */
-export function subpixelGain(coreRadiusPx: number): number {
-  if (!(coreRadiusPx > 0) || coreRadiusPx >= MIN_RENDERABLE_PX) return 1;
-  const ratio = coreRadiusPx / MIN_RENDERABLE_PX;
+export function subpixelGain(widthPx: number): number {
+  if (!(widthPx > 0) || widthPx >= MIN_RENDERABLE_PX) return 1;
+  const ratio = widthPx / MIN_RENDERABLE_PX;
   return ratio * ratio;
-}
-
-/**
- * Screen radius of a star's unresolved core [px], from its DISPLAY SIGNAL:
- *
- *     r = coreMin + (coreMax - coreMin) * clamp(signal, 0, 1)^gamma
- *
- * Driven by the signal rather than by raw flux, for a physical reason and a
- * practical one. Physically, an unresolved star's apparent size is set by how
- * far its PSF wing rises above the noise floor — which is exactly what the
- * display signal measures; the star itself is a point at any brightness.
- * Practically, raw flux spans ~9.6 dex in a real cluster, so any direct function
- * of it saturates: the faint 90% pile onto the floor and the bright tail slams
- * into the ceiling, giving a field of identical dots plus a few disks.
- *
- * The signal is already asinh-compressed, so this spreads the population smoothly
- * across the size range while staying BOUNDED and, crucially, still per-star: the
- * signal is a function of that star's own flux, never of its rank.
- *
- * `gamma` below 1 hands more of the range to faint stars, which is where the
- * population actually is.
- */
-export function coreRadiusPx(signal: number, p: CoreParams): number {
-  const t = Math.min(1, Math.max(0, signal)) ** p.gamma;
-  return p.coreMin + (p.coreMax - p.coreMin) * t;
 }
 
 /** Percentile boundaries between render tiers. */

@@ -27,11 +27,12 @@ import { PASSBANDS, bandFlux, bandIntegral, colorIndex, bandResponse, VEGA_TEFF_
 import { moffat, aureole, DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
 import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../src/novascope/core/imaging/index.ts";
 import {
-  coreRadiusPx,
   computeTiers,
-  scaleCoreParams,
+  quadExtentPx,
   subpixelGain,
-  DEFAULT_CORE,
+  PSF_WIDTH_PX,
+  PSF_BETA,
+  MIN_RENDERABLE_PX,
 } from "../src/novascope/viz/starfield/sizing.ts";
 import { prepareStarField } from "../src/novascope/viz/starfield/prepare.ts";
 import { effectiveTemperature } from "../src/novascope/core/stellar/index.ts";
@@ -356,43 +357,29 @@ ok(
 
 
 
-/* ── core radius: BOUNDED, and driven by the display signal ──
- * Size follows the asinh-compressed SIGNAL rather than raw flux. Raw flux spans
- * ~9.6 dex in a real cluster, so any direct function of it saturates: the faint
- * 90% pile onto the floor and the bright tail hits the ceiling, which is exactly
- * what a measured run showed (90% at 3.20 px, top 1% jumping to 14 px). */
-const core2 = scaleCoreParams(DEFAULT_CORE, 2);
-for (const sig of [0, 0.001, 0.05, 0.25, 0.9, 1, 4, 1e6]) {
-  const rpx = coreRadiusPx(sig, DEFAULT_CORE);
-  ok(
-    rpx >= DEFAULT_CORE.coreMin - 1e-9 && rpx <= DEFAULT_CORE.coreMax + 1e-9,
-    `core radius bounded at signal=${sig} (${rpx.toFixed(2)} px)`,
-  );
-}
-ok(coreRadiusPx(0, DEFAULT_CORE) === DEFAULT_CORE.coreMin, "a zero-signal star sits at the floor");
-ok(coreRadiusPx(1, DEFAULT_CORE) === DEFAULT_CORE.coreMax, "a star at display white sits at the ceiling");
+/* ── the instrument PSF: ONE width for the whole image ──
+ * A PSF belongs to the atmosphere and optics, not to the source, so brightness
+ * changes a star's PEAK INTENSITY and nothing else; a bright star looks larger
+ * only because more of its wing clears the display threshold. Scaling the
+ * profile width with flux instead produced soft inflated balls with no crisp
+ * core, and faint stars as 1-2 px blocks — found by rendering the real cluster
+ * to a PNG, which no percentile of the size distribution would have revealed. */
+ok(PSF_WIDTH_PX >= MIN_RENDERABLE_PX, "the PSF spans at least one device pixel");
+ok(PSF_WIDTH_PX >= 2, "…and is wide enough to read as a round point, not a block");
+ok(PSF_BETA >= 2 && PSF_BETA <= 5, "Moffat beta is in the seeing-limited range");
+
+/* Only the BILLBOARD grows with brightness, so wings have room. The profile
+ * inside it is identical for every star. */
+ok(quadExtentPx(1, false) > quadExtentPx(0, false), "the quad grows with signal");
+ok(quadExtentPx(0.5, true) > quadExtentPx(0.5, false), "…and further when a star carries a wing");
+ok(quadExtentPx(0, false) >= PSF_WIDTH_PX * 2, "even the faintest quad holds the core");
 ok(
-  coreRadiusPx(4, DEFAULT_CORE) === DEFAULT_CORE.coreMax,
-  "…and an over-white star cannot exceed it — no runaway disks",
+  quadExtentPx(4, false) === quadExtentPx(1, false),
+  "an over-white star does not keep growing — the extent is clamped",
 );
-ok(coreRadiusPx(0.6, DEFAULT_CORE) > coreRadiusPx(0.2, DEFAULT_CORE), "core grows with signal (monotone)");
-// gamma > 1 keeps the faint BULK small: the population is overwhelmingly faint,
-// so a linear ramp would make almost every star mid-sized.
-ok(DEFAULT_CORE.gamma > 1, "the size curve is biased toward the faint majority staying small");
-const span = DEFAULT_CORE.coreMax - DEFAULT_CORE.coreMin;
-ok(
-  coreRadiusPx(0.25, DEFAULT_CORE) - DEFAULT_CORE.coreMin < span * 0.25,
-  "…so a quarter-white star uses well under a quarter of the size range",
-);
-ok(DEFAULT_CORE.coreMax <= 10, "the brightest core stays a few CSS px, not a disk");
-ok(core2.coreMax === DEFAULT_CORE.coreMax * 2, "core params scale linearly with devicePixelRatio");
-// Sub-pixel cores are dimmed to preserve energy rather than vanishing or being faked bigger.
-ok(subpixelGain(2) === 1, "a core wider than a pixel needs no compensation");
-ok(subpixelGain(0.5) < 1 && subpixelGain(0.5) > 0, "…and a sub-pixel core is dimmed, not brightened");
-ok(
-  Math.abs(subpixelGain(0.5) - 0.25) < 1e-12,
-  "…by the area ratio, so total energy is conserved",
-);
+// Sub-pixel profiles are dimmed to preserve energy, never faked wider.
+ok(subpixelGain(2) === 1, "a profile wider than a pixel needs no compensation");
+ok(Math.abs(subpixelGain(0.5) - 0.25) < 1e-12, "…and a sub-pixel one is dimmed by the area ratio");
 
 /* ── Moffat PSF ── */
 ok(Math.abs(moffat(0, 1, 3.2) - 1) < 1e-12, "Moffat peaks at 1 on axis");
@@ -454,7 +441,7 @@ const fld = prepareStarField(fake, { band: "V", scheme: "true" });
 ok(fld.count === 300, "one entry per star");
 ok(fld.position.length === 900 && fld.color.length === 900, "positions and colours are vec3 arrays");
 ok(fld.signal.every((v) => v >= 0 && Number.isFinite(v)), "signals are finite and non-negative");
-ok(fld.sizePx.every((v) => v >= DEFAULT_CORE.coreMin && v <= DEFAULT_CORE.coreMax), "every core is bounded");
+ok(fld.sizePx.every((v) => v >= PSF_WIDTH_PX && Number.isFinite(v)), "every billboard holds its PSF");
 ok(fld.tier.every((t) => t >= 1 && t <= 3), "every star lands in a valid tier");
 ok(fld.stats.whiteFlux > 0, "a positive white point is derived");
 ok(fld.stats.clipping < fld.count * 0.02, "only a small fraction clips");
