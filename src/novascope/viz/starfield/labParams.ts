@@ -27,6 +27,7 @@
  * states its depth is better than one that inherits a default which may move.
  */
 import {
+  boolField,
   enumField,
   numberField,
   type Schema,
@@ -84,6 +85,15 @@ export const LAB_SCHEMA = {
    */
   depth: numberField(DEPTH_MAG_RANGE.min, DEPTH_MAG_RANGE.max, DEFAULT_POPULATION_DEPTH_MAG, 2, true),
   sky: numberField(0, 0.05, 0, 4),
+  /*
+   * MEASURE the sky from the rendered frame rather than using the slider.
+   *
+   * A boolean is right here where it was wrong for motion: there is no viewer preference to defer
+   * to, so "absent" and "off" really are the same statement. Off by default because it costs an
+   * extra render pass and a readback per rebuild, and because a link should keep meaning what it
+   * meant when it was made.
+   */
+  skyauto: boolField(false),
   bloom: numberField(0, 1, 0.35, 2),
   exposure: numberField(0.25, 4, 1, 2),
   minmass: numberField(0, 2, 0, 2),

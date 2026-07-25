@@ -142,6 +142,39 @@ Ordered by dependency, not by appetite. One at a time.
      the TRUE pixel scale — a full-resolution target read in crops, not a small target.
    - **The CPU reference cannot do it**: measured at 608 ms for 64x40 and 4 s at 320x200, against
      `prepareStarField`'s own 180-425 ms. Far too slow for a per-rebuild estimate.
+
+   **Built, and NOT yet trustworthy — `viz/starfield/skyProbe`, reachable as `?skyauto`.** The
+   approach is right and the infrastructure works: `setViewOffset` renders true-pixel-scale tiles
+   of the full-resolution frame into a small target, five tiles are pooled (81,920 px), the
+   readback obeys the 256-byte row rule, and the percentile behaves (exactly 25% of samples land
+   at or below the p25).
+
+   It also settled a real question: **bloom dominates the background at high depth.** With bloom at
+   0.35 the probe finds 25% of pixels at zero and a mean of 1.9e-3; with bloom off, 82% at zero and
+   2.0e-4. So the grey fog at depth 20 is mostly the glare pass, not raw PSF wings — the same
+   effect as the recorded blue-fraction 0.75-against-0.15 discrepancy, seen in brightness instead
+   of colour.
+
+   **The blocker:** the measurement is not repeatable. At identical settings it returned 1.17e-5,
+   5.91e-5, and once exactly 0 — a 5x spread with an occasional silent zero, which reads as "no
+   background to subtract" and is unfalsifiable from the readout alone. A discarded warm-up render
+   reduced the zeros without fixing it.
+
+   **Cause, and it is architectural rather than a bug to poke at:** `bloom` is a SCREEN-SPACE
+   effect whose internal render targets and mip chain are sized to the renderer, not to the crop.
+   `setViewOffset` changes the projection, so the scene renders as a true-scale tile while bloom's
+   buffers do not crop coherently with it — the probe samples a glare texture that does not
+   correspond to the tile beneath it.
+
+   Two ways out, not yet chosen:
+
+   - **Measure the pre-bloom scene** (drop bloom from the probe's pipeline) and treat glare
+     separately. Cheap and repeatable, but then the estimate omits the term that dominates.
+   - **Probe at full frame size** rather than by cropping, so bloom is coherent. Correct, and costs
+     a full-resolution render plus a larger readback per rebuild.
+
+   The control is deliberately NOT exposed in the UI until this is settled — a flaky sky estimate
+   presented as a checkbox is the same confident-and-wrong readout that task #16 was.
 3. **Pixel-integrated PSF.** The visual ceiling, and better physics.
 4. **Motion.** Parallax default, spin optional.
 5. **Effect toggles.** Each optical term on/off, so the lab can answer "is this earning its place?"

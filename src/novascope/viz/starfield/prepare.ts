@@ -198,6 +198,14 @@ export interface PrepareOptions {
    */
   skyLevel?: number;
   /**
+   * Measure the sky from the rendered frame instead of using `skyLevel`.
+   *
+   * Carried here, like `bloom`, so one options object still describes the whole image — `prepare`
+   * itself does not consume it, because the measurement needs the frame and `prepare` runs before
+   * there is one.
+   */
+  skyAuto?: boolean;
+  /**
    * Bloom strength. 0 disables it.
    *
    * A control rather than a constant because it turned out to dominate a symptom I had blamed on the

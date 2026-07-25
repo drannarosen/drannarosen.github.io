@@ -246,9 +246,26 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         instead of glowing blue: the glow is the summed wings of ten thousand stars, and it is blue
         because the light is dominated by hot ones.
       -->
+      <!--
+        SKY, with a MEASURED option — the lever that actually produces a black background.
+        Depth cannot: it lifts stars and sky together, because the background here is the summed
+        PSF wings of every star rather than noise. Measured at depth 20, subtracting 0.5% took the
+        frame from 0% black to 76.4% black AND gave the highest faint-peak count of any setting
+        tried. "Auto" measures the real frame (see `viz/starfield/skyProbe`) instead of guessing.
+      -->
       <label class="srl__ctl">Sky subtracted <span data-sky-val>none</span>
         <input type="range" min="0" max="0.05" step="0.0005" value="0" data-sky />
       </label>
+      <!--
+        NO "measure it" CHECKBOX YET, deliberately.
+        The probe (`viz/starfield/skyProbe`) works and is reachable as `?skyauto`, but its answer
+        is NOT YET REPEATABLE: at identical settings it returned 1.17e-5, 5.91e-5 and once 0 — a
+        5x spread with an occasional silent zero, which reads as "there is no background to
+        subtract" and is the opposite of the truth. Offering that as a control would be the same
+        confident-and-wrong readout this page has just finished removing twice.
+        Cause is understood (bloom is screen-space; its internal targets do not crop with
+        `setViewOffset`), so this is a known gap rather than a mystery. See the roadmap.
+      -->
       <!--
         BLOOM was the actual cause of the blue wash, not the stretch. It keys on display white, the
         stars that overflow in a young cluster are the hot blue ones, and their glow is spread across
@@ -628,6 +645,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     setValue("[data-scaling]", s.transfer === TRANSFER_AUTO ? "" : s.transfer);
     setValue("[data-depth]", String(s.depth));
     setValue("[data-sky]", String(s.sky));
+    const skyAutoEl = document.querySelector<HTMLInputElement>("[data-sky-auto]");
+    if (skyAutoEl) skyAutoEl.checked = s.skyauto;
     setValue("[data-bloom]", String(s.bloom));
     setValue("[data-exposure]", String(s.exposure));
     setValue("[data-min-mass]", String(s.minmass));
@@ -651,6 +670,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     transfer: readValue("[data-scaling]", "") || TRANSFER_AUTO,
     depth: Number(readValue("[data-depth]", String(initialState.depth))),
     sky: Number(readValue("[data-sky]", "0")),
+    skyauto: document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? false,
     bloom: Number(readValue("[data-bloom]", "0.35")),
     exposure: Number(readValue("[data-exposure]", "1")),
     minmass: Number(readValue("[data-min-mass]", "0")),
@@ -787,6 +807,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       colorMode: inst ? ("photometric" as const) : ("population" as const),
       ...(scaling === "" ? {} : { scaling }),
       skyLevel: Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0),
+      skyAuto: document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? false,
       bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
       ...(depth === undefined ? {} : { depthMag: Number(depth) }),
       exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
@@ -795,8 +816,16 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   };
 
   if (canvas) {
+    /*
+     * `onSkyMeasured` re-runs the readout when the async probe lands. `lab` is not yet bound when
+     * this object is built, so the handler is installed through a mutable slot rather than
+     * capturing it — the alternative is a second `initStarLab` call signature just to pass a
+     * callback that needs the thing being constructed.
+     */
+    let onSkyLanded: () => void = () => {};
     initStarLab(canvas, {
       forceWebGL,
+      onSkyMeasured: () => onSkyLanded(),
       // Omitted unless asked for, so `initStarLab`'s own default stays the single home for it.
       ...(starCountOverride === undefined ? {} : { count: starCountOverride }),
       ...read(),
@@ -831,10 +860,38 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         const show = (s: typeof lab.stats) => {
           showInputs();
           if (depthVal) depthVal.textContent = s.depthMag.toFixed(2);
+          /*
+           * THE SKY READOUT SHOWS THE CONSEQUENCE, NOT THE SETTING.
+           *
+           * "0.5% of white" says nothing about whether the background went black — which is the
+           * only question being asked of this control. So when the sky is MEASURED the readout
+           * reports what came back and how much of the sampled frame sat at or below it, and the
+           * slider is disabled because it is no longer what decides.
+           *
+           * `lab.sky.pixels === 0` means the probe has not returned yet (it is async, a frame or
+           * two behind a rebuild), and that is shown as "measuring…" rather than as a zero — a
+           * zero would read as "the sky is black", which is the opposite of the truth.
+           */
           const skyVal = document.querySelector<HTMLElement>("[data-sky-val]");
+          const skyEl = document.querySelector<HTMLInputElement>("[data-sky]");
+          const autoOn = document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? false;
+          if (skyEl) skyEl.disabled = autoOn;
           if (skyVal) {
-            skyVal.textContent =
-              s.skyLevel > 0 ? `${(100 * s.skyLevel).toFixed(2)}% of white` : "none";
+            skyVal.textContent = autoOn
+              ? lab.sky.pixels > 0
+                ? `measured ${(100 * lab.sky.level).toFixed(3)}% of white`
+                : "measuring…"
+              : s.skyLevel > 0
+                ? `${(100 * s.skyLevel).toFixed(2)}% of white`
+                : "none";
+          }
+          const autoNote = document.querySelector<HTMLElement>("[data-sky-auto-note]");
+          if (autoNote) {
+            autoNote.textContent = autoOn
+              ? lab.sky.pixels > 0
+                ? `${(100 * lab.sky.sampled).toFixed(0)}% of ${lab.sky.pixels.toLocaleString()} px at or below · ${lab.reach.count.toLocaleString()} stars reach`
+                : ""
+              : "";
           }
           // "above threshold", not "visible": the count is a property of each
           // star's display signal, and says nothing about whether it is inside
@@ -884,6 +941,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           );
         };
         show(lab.stats);
+        onSkyLanded = () => show(lab.stats);
 
         /*
          * ONE REBUILD PER FRAME, COALESCED — and this is a hang fix, not a polish item.
@@ -928,7 +986,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         };
 
         for (const el of document.querySelectorAll<HTMLElement>(
-          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-bloom],[data-depth],[data-exposure],[data-min-mass]",
+          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-sky-auto],[data-bloom],[data-depth],[data-exposure],[data-min-mass]",
         )) {
           el.addEventListener("input", () => {
             syncDepthForMode();
@@ -977,6 +1035,9 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           },
           get reach() {
             return lab.reach;
+          },
+          get sky() {
+            return lab.sky;
           },
           get info() {
             return lab.info;
@@ -1043,6 +1104,12 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   .srl__controls { display: flex; flex-wrap: wrap; gap: var(--space-s) var(--space-m); align-items: end; }
   .srl__ctl { display: grid; gap: 0.2rem; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
   .srl__ctl select, .srl__ctl input { font-family: inherit; font-size: var(--step--2); accent-color: var(--spec-teal-bright, #4fd6c4); }
+  /* The measured-sky toggle sits with its slider, and its readout is the CONSEQUENCE (how much
+     of the frame went black) rather than the setting — the number worth watching while tuning. */
+  .srl__ctl--check span { display: flex; gap: 0.35rem; align-items: center; }
+  .srl__ctl--check input { inline-size: auto; }
+  .srl__hint { color: var(--ink-faint); font-size: var(--step--2); }
+  .srl__ctl input:disabled { opacity: 0.45; }
   .srl__schemes { display: grid; gap: var(--space-m); padding: var(--space-m); border: 1px solid var(--border); border-radius: 10px; }
   .srl__h { margin: 0; font-size: var(--step-1); }
   .srl__intro { margin: 0; max-inline-size: var(--width-prose); color: var(--ink-dim); font-size: var(--step--1); }

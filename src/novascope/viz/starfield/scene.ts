@@ -24,6 +24,7 @@ import { prepareStarField, STAR_STRIDE, type PrepareOptions, type StarField } fr
 import { clusterStarTable } from "./source.ts";
 import { createStarGraph, type StarGraph } from "./starGraph.ts";
 import { createTransferNode, type Transfer } from "./transferNode.ts";
+import { createSkyProbe, type SkyMeasurement } from "./skyProbe.ts";
 import type { TransferId } from "../../core/imaging/transfers.ts";
 import { whitePixelIntensity, analyticMeanIntensity } from "./calibrate.ts";
 import { transferFloor, transferDisplayGrey } from "../../core/imaging/transfers.ts";
@@ -101,6 +102,8 @@ export interface StarLab {
   stats: StarLabStats;
   /** Stars reaching the display through the transfer actually applied — see `StarReach`. */
   readonly reach: StarReach;
+  /** The measured background, when `skyAuto` is on. `pixels === 0` means it has not run. */
+  readonly sky: SkyMeasurement;
   /** Rebuild the field with new physics options (scheme, band, exposure…). */
   update(opts: PrepareOptions): StarLabStats;
   /**
@@ -119,6 +122,15 @@ export interface StarLabOptions extends PrepareOptions {
   count?: number;
   /** Cluster seed — the same seed always gives the same cluster. */
   seed?: number;
+  /**
+   * Called when a sky measurement lands, so a consumer can refresh a readout.
+   *
+   * The probe is ASYNC — a GPU readback resolves a frame or two after the rebuild that started
+   * it — so a page rendering its status line synchronously would show "measuring…" until the next
+   * unrelated control change. A callback is the smallest honest fix: without it the readout is
+   * not wrong so much as permanently one step behind, which is its own kind of lie.
+   */
+  onSkyMeasured?: (m: SkyMeasurement) => void;
 }
 
 export async function initStarLab(
@@ -265,6 +277,23 @@ export async function initStarLab(
   pipeline.outputNode = vec4(transfer.node as never, 1);
 
   /*
+   * A SECOND PIPELINE, whose output is the LINEAR scene with no transfer.
+   *
+   * This is what the sky probe reads. It has to be the linear stage: the sky is subtracted before
+   * the transfer and after bloom, so that is the only point at which a measurement of it means
+   * anything. Reading the framebuffer instead would measure a number already shaped by the very
+   * curve the subtraction is meant to feed — and would also be impossible, because a WebGPU
+   * drawing buffer is discarded after compositing (measured: canvas readback returns all zeros).
+   *
+   * It shares `litScene`, so it renders the same graph the visible pipeline does rather than a
+   * second approximation of it. It runs on a rebuild, never per frame.
+   */
+  const probePipeline = new RenderPipeline(renderer);
+  probePipeline.outputColorTransform = false;
+  probePipeline.outputNode = vec4(litScene as never, 1);
+  const skyProbe = createSkyProbe(renderer, probePipeline, camera);
+
+  /*
    * Declared BEFORE `build`, because the exposure calibration reads them and `build` runs during
    * setup. They were below it at first and the whole scene died with "Cannot access 'bufW'
    * before initialization" — a temporal-dead-zone error, so the renderer never started at all.
@@ -283,6 +312,15 @@ export async function initStarLab(
   let reach: StarReach = { count: 0, meanLevel: 0 };
   let lastDepthMag = DEFAULT_LUPTON_DEPTH_MAG;
   let lastSkyLevel = 0;
+  let skyAuto = false;
+  let sky: SkyMeasurement = { level: 0, sampled: 0, pixels: 0, min: 0, max: 0, mean: 0 };
+  /*
+   * Rebuilds race the probe: it is async, and a slider drag can start three before the first
+   * resolves. A token means only the newest result is ever applied — without it a stale
+   * measurement lands after a newer one and the sky flickers backwards, which reads as an
+   * unstable renderer rather than as a stale promise.
+   */
+  let probeToken = 0;
 
   /*
    * CALIBRATE THE DISPLAY TRANSFER for the current field at the current frame size.
@@ -349,7 +387,13 @@ export async function initStarLab(
           })
         : 1;
     transfer.setDepth(lastDepthMag, white);
-    transfer.setSky(lastSkyLevel, white);
+    /*
+     * A MEASURED sky overrides the manual one when auto is on. `setSky` takes a FRACTION of the
+     * white point and the probe returns an absolute radiance, so it is divided here — one
+     * conversion, at the boundary, rather than a probe that has to know about exposure.
+     */
+    const skyFraction = skyAuto && sky.pixels > 0 ? sky.level / white : lastSkyLevel;
+    transfer.setSky(skyFraction, white);
     reach = measureReach(lastField, white, w, h);
   };
 
@@ -400,6 +444,33 @@ export async function initStarLab(
     return { count, meanLevel };
   }
 
+  /*
+   * Measure the sky, then re-apply the calibration with it.
+   *
+   * Fire-and-forget on purpose: the frame that is already on screen is correct for the manual
+   * sky, and the measured one arrives a frame or two later. Blocking the rebuild on a GPU
+   * readback would add its latency to every slider tick, and the rebuild is already the
+   * expensive part.
+   */
+  const probeSky = (): void => {
+    if (!skyAuto) return;
+    const token = ++probeToken;
+    const w = bufW || canvas.clientWidth;
+    const h = bufH || canvas.clientHeight;
+    void skyProbe
+      .measure(w, h)
+      .then((m) => {
+        if (token !== probeToken) return; // a newer rebuild has already superseded this
+        sky = m;
+        recalibrate();
+        dirty = true;
+        opts.onSkyMeasured?.(m);
+      })
+      .catch(() => {
+        /* A lost device or a resize mid-readback. Keep the manual sky rather than a bad one. */
+      });
+  };
+
   const build = (o: PrepareOptions): StarLabStats => {
     if (graph) {
       scene.remove(graph.mesh);
@@ -412,11 +483,14 @@ export async function initStarLab(
     lastField = field;
     lastDepthMag = o.depthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
     lastSkyLevel = o.skyLevel ?? 0;
+    skyAuto = o.skyAuto ?? false;
+    if (!skyAuto) sky = { level: 0, sampled: 0, pixels: 0, min: 0, max: 0, mean: 0 };
     uBloom.value = o.bloom ?? 0.35;
     // The field RESOLVED which transfer it expects (the default depends on the colour mode), so the
     // pipeline follows the field rather than the caller — they cannot disagree.
     setTransfer(field.stats.scaling);
     recalibrate();
+    probeSky();
     stats = field.stats;
     return stats;
   };
@@ -515,6 +589,9 @@ export async function initStarLab(
     get reach() {
       return reach;
     },
+    get sky() {
+      return sky;
+    },
     update(next) {
       const s = build(next);
       dirty = true; // a rebuilt field must reach the screen even while paused
@@ -537,6 +614,7 @@ export async function initStarLab(
         scene.remove(graph.mesh);
         graph.dispose();
       }
+      skyProbe.dispose();
       void renderer.dispose();
     },
   };
