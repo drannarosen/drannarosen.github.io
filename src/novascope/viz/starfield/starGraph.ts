@@ -178,18 +178,17 @@ export function createStarGraph(field: StarField): StarGraph {
     const edge = halfPx.div(uPsfWidth); // quad edge, in PSF widths
 
     /*
-     * TWO TERMS ON TWO DIFFERENT DRIVES, and that is the physics.
+     * THE MIRROR OF `./profile`.`starProfile`. That function is the ONE piece of
+     * maths restated for the GPU (ADR 0015), and the CPU reference rasteriser uses
+     * it directly, so the two paths are comparable by construction rather than by
+     * inspection. Change one and you must change the other — the parity check in
+     * `check:star-optics` is what makes that fail loudly.
      *
-     * The Moffat core is scaled by the DISPLAY SIGNAL, which has been through the
-     * asinh transfer, because the core is what the exposure is choosing how to
-     * show. The scattered-light halo is scaled by the LINEAR flux (`iHalo`),
+     * TWO TERMS ON TWO DIFFERENT DRIVES, and that is the physics. The Moffat core
+     * is scaled by the DISPLAY SIGNAL, because the core is what the exposure is
+     * choosing how to show. The halo is scaled by the LINEAR flux (`iHalo`),
      * because scattered light is a fixed fraction of the flux that entered the
      * instrument and knows nothing about how the image will be displayed.
-     *
-     * Keeping them separate is what gives apparent size back its range. Both terms
-     * used to be multiplied by the compressed signal, so the halo inherited the
-     * compression and every star ended up the same size; on the shipped population
-     * `signal` spans 3.1x from median to brightest while `iHalo` spans 9.6e6.
      *
      * Written out twice rather than via a helper because TSL's node types do not
      * survive a generic callback parameter.

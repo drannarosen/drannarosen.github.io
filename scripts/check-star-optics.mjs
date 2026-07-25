@@ -57,6 +57,8 @@ import {
 } from "../src/novascope/viz/starfield/sizing.ts";
 import { prepareStarField, STAR_STRIDE } from "../src/novascope/viz/starfield/prepare.ts";
 import { clusterStarTable } from "../src/novascope/viz/starfield/source.ts";
+import { starProfile } from "../src/novascope/viz/starfield/profile.ts";
+import { renderReference } from "../src/novascope/viz/starfield/reference.ts";
 import { effectiveTemperature } from "../src/novascope/core/stellar/index.ts";
 
 let failures = 0;
@@ -95,6 +97,21 @@ ok(
   Math.abs(absoluteMagnitude(apparentMagnitude(-3.2, 750), 750) - -3.2) < 1e-12,
   "apparent/absolute magnitude round-trip exactly",
 );
+/* Bolometric magnitudes, on the IAU 2015 B2 scale whose zero point is exact by
+ * definition. The solar value is DERIVED from L_SUN_ERG_S and L_ZERO_BOL_ERG_S
+ * rather than typed as 4.74 — the same treatment T_SUN_K gets — so this asserts
+ * the derivation lands on the familiar number instead of trusting it. */
+ok(Math.abs(bolometricMagnitude(0) - 4.74) < 0.005, "the Sun's M_bol derives to 4.74");
+ok(Math.abs(bolometricMagnitude(1) - bolometricMagnitude(0) + 2.5) < 1e-12,
+  "…and one dex of luminosity is exactly 2.5 mag");
+ok(bolometricMagnitude(6) < bolometricMagnitude(0), "a more luminous star has a SMALLER magnitude");
+/* Flux ratios and magnitude differences must invert, since the depth control
+ * converts between them on every render. */
+ok(Math.abs(magnitudeDifference(fluxRatioForMagnitudes(7.3)) - 7.3) < 1e-12,
+  "magnitude difference and flux ratio invert exactly");
+ok(Math.abs(magnitudeDifference(1)) < 1e-12, "a ratio of 1 is a difference of 0 mag");
+ok(Math.abs(magnitudeDifference(0.01) - 5) < 1e-12, "…and a 100x ratio is 5 mag");
+ok(magnitudeDifference(0) === Infinity, "zero flux is infinitely faint, not NaN");
 
 /* ── the Planck function ── */
 // Wien: the peak shifts as 1/T. The Sun peaks in the visible (~500 nm).
@@ -595,6 +612,69 @@ ok(table.every((v, i) => v === again2[i]), "the cluster producer is deterministi
 // And the whole pipeline must survive it: a real population, all visible.
 const real = prepareStarField(table, { band: "V" });
 ok(real.stats.visible > nStars * 0.9, "the sampled cluster renders visible, not black");
+
+/* ── the CPU REFERENCE, and the profile the shader mirrors ──
+ *
+ * `starProfile` is the whole surface the TSL graph restates, and the reference
+ * rasteriser calls it directly — so "does the GPU match the reference?" reduces to
+ * one function rather than two renderers. The previous reference answered a
+ * different question: it chose its own beta (2.8 vs 3.2), PSF width (1.3 vs 2.2 px)
+ * and aureole, and tone-mapped with Reinhard, so it could look right while the
+ * shader squared the profile. */
+{
+  const P = { signal: 1, halo: 0, aureole: DEFAULT_AUREOLE, beta: PSF_BETA };
+  const edge = 20;
+  ok(Math.abs(starProfile({ ...P, rho: 0, edge }) - (1 - moffat(edge, 1, PSF_BETA))) < 1e-12,
+    "on axis the profile is the Moffat peak minus its own pedestal");
+  ok(starProfile({ ...P, rho: edge, edge }) === 0, "…and reaches EXACTLY zero at the quad edge");
+  ok(starProfile({ ...P, rho: edge * 1.5, edge }) === 0, "…and nothing outside the billboard");
+  ok(starProfile({ ...P, rho: 2, edge }) < starProfile({ ...P, rho: 1, edge }),
+    "the profile decreases with radius");
+  // The two drives are genuinely independent: halo alone still produces light.
+  ok(starProfile({ ...P, signal: 0, halo: 10, rho: 1, edge }) > 0,
+    "a star with no display signal still shows its scattered-light halo");
+  ok(starProfile({ ...P, signal: 1, halo: 0, rho: 1, edge }) > 0,
+    "…and a star with no halo still shows its core");
+  // Doubling the halo drive doubles the halo term, so the wing is LINEAR in flux —
+  // the property that gives apparent size its range.
+  const a = starProfile({ ...P, signal: 0, halo: 1, rho: 3, edge });
+  const b = starProfile({ ...P, signal: 0, halo: 2, rho: 3, edge });
+  ok(Math.abs(b / a - 2) < 1e-9, "the halo is linear in the flux that drives it");
+}
+
+/* The reference rasteriser must produce a real image of the real cluster, and one
+ * whose brightest pixel sits where the projection says it should. */
+{
+  const field = prepareStarField(table, { band: "V" });
+  const cam = { width: 200, height: 200, distancePc: 8, fovDeg: 45 };
+  const img = renderReference(field, cam);
+  ok(img.rgb.length === cam.width * cam.height * 3, "the reference image is the size requested");
+  let lit = 0;
+  let peak = 0;
+  let peakAt = -1;
+  for (let p = 0; p < cam.width * cam.height; p++) {
+    const v = img.rgb[p * 3] + img.rgb[p * 3 + 1] + img.rgb[p * 3 + 2];
+    if (v > 1e-6) lit++;
+    if (v > peak) { peak = v; peakAt = p; }
+  }
+  ok(lit > 0, "the reference renders something");
+  ok(lit < cam.width * cam.height, "…and not everything (there is sky)");
+  ok(Number.isFinite(peak) && peak > 0, "…with a finite positive peak");
+  ok(img.rgb.every((v) => v >= 0), "…and no negative radiance anywhere");
+  // A centrally concentrated cluster viewed down its own axis must peak near the
+  // middle. Catches a projection sign error, which otherwise renders a plausible
+  // image that is simply mirrored.
+  const cx = peakAt % cam.width;
+  const cy = Math.floor(peakAt / cam.width);
+  ok(Math.abs(cx - cam.width / 2) < cam.width * 0.25 && Math.abs(cy - cam.height / 2) < cam.height * 0.25,
+    `the reference peaks near frame centre (${cx}, ${cy})`);
+  // A mass cut must remove light from the reference too, not just from the GPU.
+  const cutImg = renderReference(prepareStarField(table, { band: "V", minMass: 1 }), cam);
+  let sumAll = 0;
+  let sumCut = 0;
+  for (let i = 0; i < img.rgb.length; i++) { sumAll += img.rgb[i]; sumCut += cutImg.rgb[i]; }
+  ok(sumCut < sumAll, "a mass cut removes light from the reference as well");
+}
 
 /* ── DEPTH is a statement, not a tuning number ──
  *
