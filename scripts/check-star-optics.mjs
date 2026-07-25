@@ -35,7 +35,9 @@ import {
 } from "../src/novascope/core/colorimetry/index.ts";
 import { planckNm, wienPeakLambda, NM_TO_CM } from "../src/novascope/core/blackbody/index.ts";
 import { COLOR_SCHEMES, getScheme, stretchChroma } from "../src/novascope/core/colorimetry/schemes.ts";
-import { PASSBANDS, bandFlux, bandIntegral, colorIndex, bandResponse, VEGA_TEFF_K, BAND_COMPOSITES } from "../src/novascope/core/photometry/passbands.ts";
+import { PASSBANDS, bandFlux, bandIntegral, colorIndex, bandResponse, VEGA_TEFF_K } from "../src/novascope/core/photometry/passbands.ts";
+import { INSTRUMENTS, INSTRUMENT_COMPOSITES, ALL_COMPOSITES, BASELINE_COMPOSITE, getInstrument } from "../src/novascope/core/photometry/instruments.ts";
+import { SURVEYS } from "../src/novascope/core/photometry/surveys.ts";
 import {
   moffat,
   aureole,
@@ -297,12 +299,70 @@ ok(bandFlux(5772, 1, 400, bV) > bandFlux(5772, 1, 800, bV), "band flux falls wit
 ok(bandFlux(0, 1, 400, bV) === 0 && bandFlux(5772, 0, 400, bV) === 0, "degenerate inputs give 0");
 ok(bandIntegral(() => 0, bV) === 0, "a null spectrum integrates to zero");
 ok(
-  BAND_COMPOSITES.every((c) => c.bands.length === 3 && c.note.length > 0),
+  ALL_COMPOSITES.every((c) => c.bands.length === 3 && c.note.length > 0),
   "every composite names three bands and carries a caption",
 );
 // A composite must be ordered red -> blue in wavelength, or the mapping lies.
+/* ── INSTRUMENTS ──
+ *
+ * An instrument binds a composite, a brightness band and (sometimes) a published depth. Before
+ * they were bound, a page could pair Rubin r brightness with a 2MASS composite and render an
+ * image of nothing, so the bindings themselves are what these assert. */
+{
+  ok(INSTRUMENTS.length >= 7, `${INSTRUMENTS.length} instruments are registered`);
+  for (const inst of INSTRUMENTS) {
+    ok(getInstrument(inst.id) === inst, `${inst.id}: is findable by its own id`);
+    ok(inst.note.length > 40, `${inst.id}: says what it shows that the others do not`);
+    // Every band it names must exist, or the composite silently falls back to undefined.
+    for (const b of [...inst.composite, inst.brightnessBand]) {
+      ok(PASSBANDS[b] !== undefined, `${inst.id}: band ${b} is a real passband`);
+    }
+    /* ORDERING, longest to shortest. This is the one entry a reversed list would break while
+     * still producing a plausible image — the colours would simply be wrong — so it is checked
+     * against the curves' OWN effective wavelengths rather than against the list's intent. */
+    const [r, g, b] = inst.composite.map((id) => PASSBANDS[id].lambdaEffNm);
+    ok(r > g && g > b, `${inst.id}: composite runs red to blue (${r.toFixed(0)} > ${g.toFixed(0)} > ${b.toFixed(0)} nm)`);
+    // The brightness band should be inside the composite's range, or the two disagree about
+    // what part of the spectrum this instrument is showing.
+    const bright = PASSBANDS[inst.brightnessBand].lambdaEffNm;
+    ok(bright <= r && bright >= b, `${inst.id}: the brightness band sits within its own composite`);
+  }
+  /* DEPTHS ARE OPTIONAL, and that asymmetry is the point: Rubin and Gaia publish 5-sigma limits,
+   * HST and JWST are pointed telescopes whose depth is whatever the observer integrated for.
+   * Inventing a number for them would be a fabricated claim, so a consumer must handle its
+   * absence — asserted so nobody "completes" the record later. */
+  const withSurvey = INSTRUMENTS.filter((i) => i.survey !== undefined);
+  const without = INSTRUMENTS.filter((i) => i.survey === undefined);
+  ok(withSurvey.length >= 2 && without.length >= 2, "some instruments publish a depth and some do not");
+  for (const i of withSurvey) {
+    ok(SURVEYS.some((s) => s.id === i.survey), `${i.id}: names a real survey record (${i.survey})`);
+  }
+  ok(
+    getInstrument("hst").survey === undefined && getInstrument("jwst").survey === undefined,
+    "the pointed telescopes carry NO invented survey depth",
+  );
+
+  // Composites are derived from the instruments, so the two lists cannot disagree.
+  ok(INSTRUMENT_COMPOSITES.length === INSTRUMENTS.length, "every instrument contributes exactly one composite");
+  ok(
+    INSTRUMENT_COMPOSITES.every((c, k) => c.id === INSTRUMENTS[k].id),
+    "…and each composite carries its instrument's id",
+  );
+  /* The one non-instrument composite is present, labelled, and says so — it mixes three systems,
+   * so offering it silently beside the real ones would imply a measurement nobody made. */
+  ok(ALL_COMPOSITES.includes(BASELINE_COMPOSITE), "the wide baseline composite is offered too");
+  ok(!INSTRUMENTS.some((i) => i.id === BASELINE_COMPOSITE.id), "…but is not an instrument");
+  ok(/NOT an instrument/.test(BASELINE_COMPOSITE.note), "…and its note says so");
+  // It must genuinely span more than any real instrument, or it has no reason to exist.
+  const span = (c) => c.bands[0].lambdaEffNm / c.bands[2].lambdaEffNm;
+  ok(
+    INSTRUMENT_COMPOSITES.every((c) => span(BASELINE_COMPOSITE) > span(c)),
+    `…and spans a wider baseline than any instrument (${span(BASELINE_COMPOSITE).toFixed(1)}x)`,
+  );
+}
+
 ok(
-  BAND_COMPOSITES.every((c) => c.bands[0].lambdaEffNm > c.bands[2].lambdaEffNm),
+  ALL_COMPOSITES.every((c) => c.bands[0].lambdaEffNm > c.bands[2].lambdaEffNm),
   "…and maps the longest wavelength to red, the shortest to blue",
 );
 

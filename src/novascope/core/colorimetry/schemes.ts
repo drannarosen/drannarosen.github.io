@@ -22,7 +22,8 @@
  */
 
 import { blackbodyLinearRGB, normalizeChroma } from "./index.ts";
-import { BAND_COMPOSITES, bandIntegral, type BandComposite } from "../photometry/passbands.ts";
+import { bandIntegral, type BandComposite } from "../photometry/passbands.ts";
+import { ALL_COMPOSITES } from "../photometry/instruments.ts";
 import { planckNm } from "../blackbody/index.ts";
 
 export type SchemeKind = "physical" | "stretched" | "schematic";
@@ -118,12 +119,15 @@ export function compositeColor(teffK: number, composite: BandComposite): [number
 }
 
 /** Composite schemes, derived from the shared band definitions. */
-const COMPOSITE_SCHEMES: ColorScheme[] = BAND_COMPOSITES.map((c) => ({
+const COMPOSITE_SCHEMES: ColorScheme[] = ALL_COMPOSITES.map((c) => ({
   id: `band-${c.id}`,
   label: c.label,
-  // Only the visible composite approximates what a person would see; the others
-  // are false colour in the ordinary astronomical sense.
-  kind: c.id === "visible" ? "physical" : "schematic",
+  /* Only the Johnson-Cousins composite approximates what a person would see; every other one
+   * is false colour in the ordinary astronomical sense — a real and standard way to show light
+   * the eye cannot receive, but not a photograph of what is there. The id changed from
+   * "visible" to "johnson" when composites moved to `core/photometry/instruments`, and it says
+   * more: what makes it near-true-colour is that it IS the visual system, not a label. */
+  kind: c.id === "johnson" ? "physical" : "schematic",
   note: c.note,
   color: (T: number) => compositeColor(T, c),
 }));

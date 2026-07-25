@@ -338,28 +338,16 @@ export interface BandComposite {
   note: string;
 }
 
-/**
- * Standard composites. Visible is near-true colour; the others are FALSE colour
- * in the ordinary astronomical sense — a real and standard way to show light the
- * eye cannot see, but not what a person would see.
+/*
+ * `BAND_COMPOSITES` USED TO LIVE HERE and has moved to `./instruments`.
+ *
+ * It listed three composites — `visible`, `nir`, `wide` — and two of the three were secretly
+ * INSTRUMENT composites under names that did not say so: `visible` was Johnson R/V/B and `nir` was
+ * 2MASS K/H/J. That mattered once instruments became selectable, because a page could pair Rubin r
+ * brightness with a 2MASS composite and produce an image of nothing. Composites are now derived
+ * from the instrument that owns them, and the one genuinely cross-instrument composite is exported
+ * as `BASELINE_COMPOSITE` with its non-observational status stated.
+ *
+ * The `BandComposite` TYPE stays here, beside `bandIntegral` which consumes it, so `./instruments`
+ * can import it without this module importing `./instruments` back.
  */
-export const BAND_COMPOSITES: BandComposite[] = [
-  {
-    id: "visible",
-    label: "Visible (R/V/B)",
-    bands: [PASSBANDS.R!, PASSBANDS.V!, PASSBANDS.B!],
-    note: "Red, visual and blue filters mapped to RGB — close to what a colour camera records.",
-  },
-  {
-    id: "nir",
-    label: "Near-IR (K/H/J)",
-    bands: [PASSBANDS.K!, PASSBANDS.H!, PASSBANDS.J!],
-    note: "2MASS K, H and J mapped to RGB. False colour: cool stars dominate here because this is where their light actually is.",
-  },
-  {
-    id: "wide",
-    label: "Wide (K/V/U)",
-    bands: [PASSBANDS.K!, PASSBANDS.V!, PASSBANDS.U!],
-    note: "Near-IR to ultraviolet across the full baseline. False colour, and the most temperature-sensitive of the three.",
-  },
-];

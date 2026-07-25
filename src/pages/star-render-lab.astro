@@ -7,6 +7,7 @@ import { spectralType } from "@novascope/core/stellar";
 import { DEFAULT_LUPTON_DEPTH_MAG } from "@novascope/core/imaging/lupton";
 import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/passbands";
 import { SURVEYS } from "@novascope/core/photometry/surveys";
+import { INSTRUMENTS } from "@novascope/core/photometry/instruments";
 import { clusterStarTable } from "@novascope/viz/starfield/source";
 import { prepareStarField } from "@novascope/viz/starfield/prepare";
 
@@ -124,12 +125,36 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 
   <div class="srl wrap-wide">
     <div class="srl__controls">
+      <!--
+        INSTRUMENT FIRST, because it drives two other controls.
+        Choosing one sets both the colour composite and the brightness band together, which is the
+        whole reason the registry exists: picking a band and a composite independently made it
+        possible to show Rubin r brightness through a 2MASS composite — an image of nothing.
+        "No instrument" takes its hue from the temperature ramp instead of from three filters. It
+        still goes through the SAME per-pixel transfer as the composites, so it is not yet a
+        different rendering mode — measured hue spread 0.031 against 0.030 for Johnson, which is no
+        real difference. Making it one means restoring the per-star normalisation the old path had,
+        where a faint red dwarf was as saturated as a bright blue giant (hue spread 0.082, or 0.150
+        with the stretched scheme). Until that exists this option changes the colour SOURCE and not
+        the character of the image, and the label says only that.
+      -->
+      <script id="srl-instruments" type="application/json" is:inline set:html={JSON.stringify(
+        Object.fromEntries(INSTRUMENTS.map((i) => [i.id, {
+          label: i.label, composite: i.composite, brightnessBand: i.brightnessBand,
+        }])),
+      )} />
+      <label class="srl__ctl">Instrument
+        <select data-instrument>
+          <option value="population" selected>No instrument — temperature ramp</option>
+          {INSTRUMENTS.map((i) => <option value={i.id}>{i.label}</option>)}
+        </select>
+      </label>
       <label class="srl__ctl">Colour scheme
         <select data-scheme>
           {COLOR_SCHEMES.map((s) => <option value={s.id}>{s.label} — {s.kind}</option>)}
         </select>
       </label>
-      <label class="srl__ctl">Brightness band
+      <label class="srl__ctl">Brightness band <span data-band-note></span>
         <select data-band>
           {BAND_GROUPS.map((g) => (
             <optgroup label={g.label}>
@@ -429,6 +454,33 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   // ~5% of visitors get that backend, so it needs to be checkable on demand.
   const forceWebGL = new URLSearchParams(location.search).has("forceWebGL");
 
+  /*
+   * The registry, serialised at build time. Only the two fields the client needs, so the page
+   * cannot drift from `core/photometry/instruments` by restating a composite: if a triple changes
+   * there, this changes with it.
+   */
+  const INSTRUMENT_TABLE: Record<string, { label: string; composite: readonly [string, string, string]; brightnessBand: string }> =
+    JSON.parse(document.querySelector<HTMLScriptElement>("#srl-instruments")!.textContent!);
+
+  /*
+   * Show that the brightness band is DRIVEN when an instrument is selected, rather than leaving an
+   * enabled control that silently does nothing.
+   *
+   * A dead control is worse than an absent one: it invites the conclusion that the band does not
+   * matter, which is the opposite of what this page is for. So it is disabled, moved to the
+   * instrument's own band, and labelled with why.
+   */
+  const syncBandControl = (): void => {
+    const sel = document.querySelector<HTMLSelectElement>("[data-band]");
+    const note = document.querySelector<HTMLElement>("[data-band-note]");
+    const id = document.querySelector<HTMLSelectElement>("[data-instrument]")?.value ?? "population";
+    const inst = INSTRUMENT_TABLE[id];
+    if (!sel) return;
+    sel.disabled = inst !== undefined;
+    if (inst) sel.value = inst.brightnessBand;
+    if (note) note.textContent = inst ? `— set by ${inst.label}` : "";
+  };
+
   /** Short band name for the magnitude readout, e.g. "V", "Rubin r". */
   const bandLabelFor = (id: string): string =>
     document.querySelector<HTMLOptionElement>(`[data-band] option[value="${id}"]`)?.textContent ?? id;
@@ -439,9 +491,18 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     // and the previous one silently disagreed with it.
     const depth = document.querySelector<HTMLInputElement>("[data-depth]")?.value;
     const minMass = Number(document.querySelector<HTMLInputElement>("[data-min-mass]")?.value ?? 0);
+    const instrumentId = document.querySelector<HTMLSelectElement>("[data-instrument]")?.value ?? "population";
+    const inst = INSTRUMENT_TABLE[instrumentId];
+    /*
+     * An instrument supplies BOTH the composite and the brightness band; "population" supplies
+     * neither, and that omission is what selects the temperature-ramp path in `prepare`. Passing an
+     * invented triple for it would turn "this is a temperature ramp" into a false claim that three
+     * named filters recorded something.
+     */
     return {
       scheme: document.querySelector<HTMLSelectElement>("[data-scheme]")?.value ?? "true",
-      band: document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V",
+      band: inst ? inst.brightnessBand : (document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V"),
+      ...(inst ? { bandTriple: inst.composite } : {}),
       ...(depth === undefined ? {} : { depthMag: Number(depth) }),
       exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
       minMass,
@@ -489,10 +550,14 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         };
         show(lab.stats);
         for (const el of document.querySelectorAll<HTMLElement>(
-          "[data-scheme],[data-band],[data-depth],[data-exposure],[data-min-mass]",
+          "[data-instrument],[data-scheme],[data-band],[data-depth],[data-exposure],[data-min-mass]",
         )) {
-          el.addEventListener("input", () => show(lab.update(read())));
+          el.addEventListener("input", () => {
+            syncBandControl();
+            show(lab.update(read()));
+          });
         }
+        syncBandControl();
 
         // Motion toggle. The label is DERIVED from the renderer's state so it cannot
         // disagree with it — the starting state comes from prefers-reduced-motion.
