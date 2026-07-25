@@ -178,6 +178,37 @@ export interface PrepareOptions {
    * the same double-compression this whole restructuring removed from the overlap case.
    */
   scaling?: "lupton" | StretchId;
+  /**
+   * Sky level subtracted before the display transfer, as a FRACTION of the white point.
+   *
+   * What a real reduction pipeline does first, and what `minimum` in astropy's `make_lupton_rgb`
+   * is for. The background in a rendered cluster is the summed wings of every star, so it is real
+   * and it is blue — the light is dominated by hot stars — and any curve that lifts the faint end
+   * lifts it too. Subtracting the median took a frame from 0.7% to 41% black, raised the hue spread
+   * from 0.225 to 0.349, and cut the blue fraction from 0.249 to 0.148.
+   *
+   * DEFAULTS TO ZERO because the right value is not derivable here. It is a percentile of the
+   * RENDERED pixels, and unlike the white point it is not a stable fraction of anything available
+   * without them: measured across composites, frame sizes, fields of view and exposures it spans
+   * 97x, against 1.45x for the white point. Anything else would be a fabricated default.
+   *
+   * Carried on `PrepareOptions` rather than passed straight to the renderer so one call describes
+   * the whole image, and reported back in `stats` so a page can state what it did.
+   */
+  skyLevel?: number;
+  /**
+   * Bloom strength. 0 disables it.
+   *
+   * A control rather than a constant because it turned out to dominate a symptom I had blamed on the
+   * display transfer: bloom keys on display white, the stars that overflow in a young cluster are the
+   * hot blue ones, and their glow is spread across the whole frame — so the BACKGROUND takes their
+   * hue. Measured mean blue fraction 0.75 with bloom against 0.15 for the same field in the CPU
+   * reference, which differs from the live pipeline in exactly that one pass.
+   *
+   * Not consumed by `prepare` itself — it belongs to the pipeline — but carried here so one options
+   * object still describes the whole image.
+   */
+  bloom?: number;
   /** Exposure multiplier. */
   exposure?: number;
   /** Tier percentile boundaries. */
@@ -278,6 +309,8 @@ export interface StarField {
     colorMode: "photometric" | "population";
     /** The per-pixel transfer this field expects, resolved the same way. */
     scaling: "lupton" | StretchId;
+    /** Sky fraction subtracted before that transfer; 0 means none. */
+    skyLevel: number;
     /**
      * The instrument's detection limit, and what it implies — `null` without a
      * `magLimit`, or when no band is selected.
@@ -696,6 +729,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
       shown,
       colorMode,
       scaling,
+      skyLevel: opts.skyLevel ?? 0,
       detection:
         magLimit !== undefined && band !== null
           ? {

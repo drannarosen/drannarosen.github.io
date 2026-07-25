@@ -125,7 +125,15 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   />
 
   <div class="srl wrap-wide">
-    <div class="srl__controls">
+    <!--
+      GROUPED BY WHAT THE CONTROL DECIDES, because a flat row of seven gave no clue which ones
+      interact. "What is shown" is a claim about the cluster; "How it is displayed" is a choice about
+      pixels. That split is the same one `colorMode` makes in `prepare`, so the UI now says out loud
+      what the code already distinguished.
+    -->
+    <div class="srl__group">
+      <h2 class="srl__grouph">What is shown <span>a claim about the cluster</span></h2>
+      <div class="srl__controls">
       <!--
         INSTRUMENT FIRST, because it drives two other controls.
         Choosing one sets both the colour composite and the brightness band together, which is the
@@ -166,6 +174,11 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           ))}
         </select>
       </label>
+      </div>
+    </div>
+    <div class="srl__group">
+      <h2 class="srl__grouph">How it is displayed <span>choices about pixels, not about the stars</span></h2>
+      <div class="srl__controls">
       <label class="srl__ctl">Depth <span data-depth-val>{depthStart.toFixed(2)}</span> mag below white
         <input type="range" min={DEPTH_MIN} max={DEPTH_MAX} step={DEPTH_STEP} value={depthStart} data-depth />
       </label>
@@ -182,12 +195,39 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           {STRETCH_IDS.map((id) => <option value={id} title={STRETCH_NOTES[id]}>{id}</option>)}
         </select>
       </label>
+      <!--
+        SKY defaults to 0 and cannot be derived — the right level is a percentile of the rendered
+        pixels, and unlike the white point it is not a stable fraction of anything computable without
+        them (97x spread across configurations, against 1.45x). So it is a knob with an honest
+        default rather than a fabricated one. Raising it is what makes the background go black
+        instead of glowing blue: the glow is the summed wings of ten thousand stars, and it is blue
+        because the light is dominated by hot ones.
+      -->
+      <label class="srl__ctl">Sky subtracted <span data-sky-val>none</span>
+        <input type="range" min="0" max="0.05" step="0.0005" value="0" data-sky />
+      </label>
+      <!--
+        BLOOM was the actual cause of the blue wash, not the stretch. It keys on display white, the
+        stars that overflow in a young cluster are the hot blue ones, and their glow is spread across
+        the frame — so the background takes their hue. Turn it to 0 to see the difference; the CPU
+        reference, which has no bloom pass, measures a blue fraction of 0.15 where the live pipeline
+        measured 0.75.
+      -->
+      <label class="srl__ctl">Bloom <span data-bloom-val>0.35</span>
+        <input type="range" min="0" max="1" step="0.01" value="0.35" data-bloom />
+      </label>
       <label class="srl__ctl">Exposure
         <input type="range" min="0.25" max="4" step="0.05" value="1" data-exposure />
       </label>
+      </div>
+    </div>
+    <div class="srl__group">
+      <h2 class="srl__grouph">Which stars are counted <span>a selection, and the page says so below</span></h2>
+      <div class="srl__controls">
       <label class="srl__ctl">Lowest mass shown <span data-minmass-val>all</span>
         <input type="range" min="0" max="2" step="0.05" value="0" data-min-mass />
       </label>
+      </div>
     </div>
 
     <p class="srl__selection" data-selection hidden>
@@ -522,6 +562,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       ...(inst ? { bandTriple: inst.composite } : {}),
       colorMode: inst ? ("photometric" as const) : ("population" as const),
       ...(scaling ? { scaling: scaling as never } : {}),
+      skyLevel: Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0),
+      bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
       ...(depth === undefined ? {} : { depthMag: Number(depth) }),
       exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
       minMass,
@@ -539,6 +581,14 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           const pct = ((100 * s.visible) / lab.starCount).toFixed(1);
           const minMass = read().minMass;
           if (depthVal) depthVal.textContent = s.depthMag.toFixed(2);
+          const bloomEl = document.querySelector<HTMLInputElement>("[data-bloom]");
+          const bloomVal = document.querySelector<HTMLElement>("[data-bloom-val]");
+          if (bloomVal && bloomEl) bloomVal.textContent = Number(bloomEl.value).toFixed(2);
+          const skyVal = document.querySelector<HTMLElement>("[data-sky-val]");
+          if (skyVal) {
+            skyVal.textContent =
+              s.skyLevel > 0 ? `${(100 * s.skyLevel).toFixed(2)}% of white` : "none";
+          }
           if (massVal) massVal.textContent = minMass > 0 ? `${minMass.toFixed(2)} M☉` : "all";
           // The filtered-population warning is driven by the CUT, not by the star
           // count, so it cannot fall out of step with what is actually drawn.
@@ -569,7 +619,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         };
         show(lab.stats);
         for (const el of document.querySelectorAll<HTMLElement>(
-          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-depth],[data-exposure],[data-min-mass]",
+          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-bloom],[data-depth],[data-exposure],[data-min-mass]",
         )) {
           el.addEventListener("input", () => {
             syncBandControl();
@@ -654,6 +704,13 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   }
   .srl__selection[hidden] { display: none; }
 
+  .srl__group { margin-block-start: var(--space-s); }
+  .srl__grouph {
+    font-family: var(--font-mono); font-size: var(--step--2); font-weight: 500;
+    color: var(--ink); margin-block-end: 0.35rem;
+  }
+  .srl__grouph span { color: var(--ink-faint); font-weight: 400; }
+  .srl__grouph span::before { content: "— "; }
   .srl__controls { display: flex; flex-wrap: wrap; gap: var(--space-s) var(--space-m); align-items: end; }
   .srl__ctl { display: grid; gap: 0.2rem; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }
   .srl__ctl select, .srl__ctl input { font-family: inherit; font-size: var(--step--2); accent-color: var(--spec-teal-bright, #4fd6c4); }

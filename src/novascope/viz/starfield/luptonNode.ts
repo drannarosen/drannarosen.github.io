@@ -78,6 +78,22 @@ const INTENSITY_EPSILON = 1e-30;
  */
 export function createLuptonNode(radiance: Vec3Node) {
   /*
+   * SKY LEVEL — subtracted before anything else, which is what `minimum` in astropy's
+   * `make_lupton_rgb` is for and what a real reduction pipeline does first.
+   *
+   * It matters more than it sounds. The background here is the summed wings of ten thousand stars,
+   * so it is genuinely present and genuinely blue (the light is dominated by hot stars), and any
+   * curve that lifts the faint end lifts it too: at a log stretch a background of 3e-3 arrives at
+   * 0.35. Subtracting the median first took the frame from 0.7% black to 41% black, raised the hue
+   * spread from 0.225 to 0.349, and cut the blue fraction from 0.249 to 0.148.
+   *
+   * NOT DERIVED, and that is deliberate rather than lazy. The right level is a percentile of the
+   * RENDERED pixels, and unlike the white point it is not a stable fraction of anything computable
+   * without them — measured across composites, frame sizes, fields of view and exposures it spans
+   * 97x, against 1.45x for the white point. A default would therefore be wrong nearly everywhere,
+   * so it defaults to ZERO (subtract nothing) and is a control.
+   */
+  /*
    * The uniforms are created HERE, beside the arithmetic that consumes them, and handed back to
    * the caller to drive. An earlier shape took them as a parameter, which meant a caller could
    * pass a Q to one place and a slope derived from a different Q to another — and the two are
@@ -87,8 +103,11 @@ export function createLuptonNode(radiance: Vec3Node) {
   const uStretch = uniform(1);
   const uQ = uniform(LUPTON_Q);
   const uSlope = uniform(luptonSlope(LUPTON_Q));
+  const uSky = uniform(0);
 
-  const c = vec3(radiance);
+  // Subtract the sky, then clamp up: a per-channel minimum can push one channel negative while the
+  // mean intensity stays positive, which is the same order astropy uses.
+  const c = vec3(radiance).sub(uSky).max(float(0));
   const intensity = c.x.add(c.y).add(c.z).div(float(3));
   const stretched = asinh(intensity.mul(uQ).div(uStretch)).mul(uSlope);
   const scale = stretched.div(intensity.max(float(INTENSITY_EPSILON)));
@@ -117,6 +136,10 @@ export function createLuptonNode(radiance: Vec3Node) {
       uSlope.value = luptonSlope(uQ.value);
       uStretch.value = Math.max(Number.MIN_VALUE, whitePixel) * luptonStretchForWhite(uQ.value);
     },
+    /** Sky level to subtract, as a FRACTION of the white point. 0 subtracts nothing. */
+    setSky(fraction: number, whitePixel: number): void {
+      uSky.value = Math.max(0, fraction) * Math.max(Number.MIN_VALUE, whitePixel);
+    },
   };
 }
 
@@ -141,7 +164,9 @@ export function createLuptonNode(radiance: Vec3Node) {
  */
 export function createStretchNode(radiance: Vec3Node, id: StretchId) {
   const uWhite = uniform(1);
-  const x = vec3(radiance).div(uWhite).clamp(0, 1);
+  const uSky = uniform(0);
+  // Sky first, then normalise — the same order as the Lupton path and as a real reduction.
+  const x = vec3(radiance).sub(uSky).max(float(0)).div(uWhite).clamp(0, 1);
 
   const curve = (() => {
     switch (id) {
@@ -165,9 +190,13 @@ export function createStretchNode(radiance: Vec3Node, id: StretchId) {
     setWhitePoint(whitePoint: number): void {
       uWhite.value = Math.max(Number.MIN_VALUE, whitePoint);
     },
-    /** No-op, so a caller can drive either node through the same shape. */
+    /** No-op on depth, so a caller can drive either node through the same shape. */
     setDepth(_depthMag: number, whitePoint: number): void {
       uWhite.value = Math.max(Number.MIN_VALUE, whitePoint);
+    },
+    /** Sky level to subtract, as a FRACTION of the white point. 0 subtracts nothing. */
+    setSky(fraction: number, whitePoint: number): void {
+      uSky.value = Math.max(0, fraction) * Math.max(Number.MIN_VALUE, whitePoint);
     },
   };
 }

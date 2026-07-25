@@ -17,7 +17,7 @@
  */
 import * as THREE from "three";
 import { WebGPURenderer, RenderPipeline } from "three/webgpu";
-import { pass, vec4 } from "three/tsl";
+import { pass, vec4, uniform, float } from "three/tsl";
 import { bloom } from "three/examples/jsm/tsl/display/BloomNode.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { prepareStarField, STAR_STRIDE, type PrepareOptions, type StarField } from "./prepare.ts";
@@ -180,8 +180,23 @@ export async function initStarLab(
    * every fragment, since a GPU takes both sides of a select. Reassigning `outputNode` makes three
    * rebuild the graph — which costs a compile on a control change and nothing per frame.
    */
-  const litScene = scenePass.add(bloom(scenePass, 0.35, 0.6, 1.0)).rgb;
-  type Transfer = { node: unknown; setDepth(depthMag: number, white: number): void };
+  /*
+   * BLOOM STRENGTH IS A LIVE UNIFORM, not a literal, because it turned out to be the dominant cause
+   * of a symptom I had been attributing to the display transfer.
+   *
+   * The threshold is display white, so only genuine overflow blooms — and in a young cluster the
+   * stars that overflow are the hot blue ones. Their glow is then spread across the frame, so the
+   * BACKGROUND takes their hue. Measured: with bloom the mean blue fraction is 0.75 against the CPU
+   * reference's 0.15 for the same field, and the reference differs from the live pipeline in exactly
+   * this one pass. Sky subtraction cannot touch it, because bloom is added AFTER the sky is removed.
+   */
+  const uBloom = uniform(0.35);
+  const litScene = scenePass.add(bloom(scenePass, 0.35, 0.6, 1.0).mul(uBloom.div(float(0.35)))).rgb;
+  type Transfer = {
+    node: unknown;
+    setDepth(depthMag: number, white: number): void;
+    setSky(fraction: number, white: number): void;
+  };
   let transfer: Transfer = createLuptonNode(litScene);
   let transferId: "lupton" | StretchId = "lupton";
   const setTransfer = (id: "lupton" | StretchId): void => {
@@ -211,6 +226,7 @@ export async function initStarLab(
 
   let lastField: StarField | null = null;
   let lastDepthMag = DEFAULT_LUPTON_DEPTH_MAG;
+  let lastSkyLevel = 0;
 
   /*
    * CALIBRATE THE DISPLAY TRANSFER for the current field at the current frame size.
@@ -258,6 +274,7 @@ export async function initStarLab(
         ? whitePixelIntensity(lastField, w, h, { floor: floorForDepth(lastDepthMag) })
         : 1;
     transfer.setDepth(lastDepthMag, white);
+    transfer.setSky(lastSkyLevel, white);
   };
 
   const build = (o: PrepareOptions): StarLabStats => {
@@ -271,6 +288,8 @@ export async function initStarLab(
     scene.add(graph.mesh);
     lastField = field;
     lastDepthMag = o.depthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
+    lastSkyLevel = o.skyLevel ?? 0;
+    uBloom.value = o.bloom ?? 0.35;
     // The field RESOLVED which transfer it expects (the default depends on the colour mode), so the
     // pipeline follows the field rather than the caller — they cannot disagree.
     setTransfer(field.stats.scaling);
