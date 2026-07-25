@@ -902,8 +902,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
               ? lab.sky.pixels > 0
                 ? `measured ${(100 * lab.sky.level).toFixed(3)}% of white`
                 : "measuring…"
-              : s.skyLevel > 0
-                ? `${(100 * s.skyLevel).toFixed(2)}% of white`
+              : Number(skyEl?.value ?? 0) > 0
+                ? `${(100 * Number(skyEl?.value ?? 0)).toFixed(2)}% of white`
                 : "none";
           }
           const autoNote = document.querySelector<HTMLElement>("[data-sky-auto-note]");
@@ -998,23 +998,60 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         let motionChoice: MotionChoice = initialState.motion;
 
         let pendingUpdate = 0;
-        const scheduleUpdate = () => {
+        let pendingRebuild = false;
+        /*
+         * ONE UPDATE PER FRAME, of whichever KIND is needed.
+         *
+         * Both paths are coalesced, and the display-only one had to be: `setDisplay` skips
+         * `prepareStarField` but still recalibrates the exposure and recounts what reaches the
+         * display, which is ~26 ms for 10,000 stars. Run straight from the handler that is 26 ms
+         * of blocking work per input event — better than 425, still a drag rather than a slider.
+         *
+         * `pendingRebuild` latches: if any event in a frame needs the physics, the frame's single
+         * update is a full rebuild. So dragging sky is cheap, dragging exposure is not, and
+         * dragging both in one frame is correct rather than merely fast.
+         */
+        const schedule = (rebuild: boolean) => {
+          if (rebuild) pendingRebuild = true;
           if (pendingUpdate !== 0) return;
           pendingUpdate = requestAnimationFrame(() => {
             pendingUpdate = 0;
-            show(lab.update(read()));
+            if (pendingRebuild) {
+              pendingRebuild = false;
+              show(lab.update(read()));
+              return;
+            }
+            lab.setDisplay({
+              bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
+              skyLevel: Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0),
+              skyAuto: document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? false,
+            });
+            show(lab.stats); // stats are unchanged; the readout still needs the new sky
           });
         };
 
         for (const el of document.querySelectorAll<HTMLElement>(
           "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-sky-auto],[data-bloom],[data-depth],[data-exposure],[data-min-mass]",
         )) {
+          /*
+           * DISPLAY-ONLY CONTROLS SKIP THE FIELD REBUILD.
+           *
+           * Bloom, the sky level and the sky mode are pipeline uniforms — they change no star
+           * data — so they go through `setDisplay` and take effect in the next frame instead of
+           * paying `prepareStarField`'s 180-425 ms. Everything else genuinely changes the physics
+           * and still goes through the coalesced rebuild.
+           *
+           * The split is by DATA ATTRIBUTE rather than by a list of ids kept somewhere else,
+           * because the two facts — "this control is display-only" and "this control is wired to
+           * setDisplay" — must not be able to drift apart.
+           */
+          const displayOnly = el.matches("[data-sky],[data-bloom],[data-sky-auto]");
           el.addEventListener("input", () => {
             syncDepthForMode();
             syncBandControl();
             showInputs(); // instant: the control's own value
             syncUrl(motionChoice); // instant: the address bar tracks the controls
-            scheduleUpdate(); // coalesced: the image and the derived readout
+            schedule(!displayOnly); // coalesced; a rebuild only when the physics changed
           });
         }
         syncDepthForMode();

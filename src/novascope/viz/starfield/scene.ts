@@ -107,6 +107,20 @@ export interface StarLab {
   /** Rebuild the field with new physics options (scheme, band, exposure…). */
   update(opts: PrepareOptions): StarLabStats;
   /**
+   * Change only what the DISPLAY does, skipping the field rebuild entirely.
+   *
+   * `prepareStarField` costs 180-425 ms for 10,000 stars, because it integrates a Planck function
+   * through a real filter curve per star per band. Bloom, the sky level and the sky mode change
+   * none of that: they are pipeline uniforms, and `prepare` carries them only so one options
+   * object describes the whole image. Routing them through `update` therefore paid the entire
+   * physics cost to move a slider — the difference between a control that responds and one that
+   * lurches.
+   *
+   * Verified before relying on it: `skyLevel` and `bloom` appear in `prepare` only in its options
+   * interface and in the stats it reports back. Neither reaches the star data.
+   */
+  setDisplay(opts: { bloom?: number; skyLevel?: number; skyAuto?: boolean }): void;
+  /**
    * Whether the view is drifting. Starts false when the visitor prefers reduced
    * motion; a consumer MUST surface a visible control for it either way.
    */
@@ -596,6 +610,19 @@ export async function initStarLab(
       const s = build(next);
       dirty = true; // a rebuilt field must reach the screen even while paused
       return s;
+    },
+    setDisplay(next) {
+      if (next.bloom !== undefined) uBloom.value = next.bloom;
+      if (next.skyLevel !== undefined) lastSkyLevel = next.skyLevel;
+      if (next.skyAuto !== undefined && next.skyAuto !== skyAuto) {
+        skyAuto = next.skyAuto;
+        // Turning auto OFF must drop the measurement, or the manual slider would be ignored while
+        // appearing to be in charge.
+        if (!skyAuto) sky = { level: 0, sampled: 0, pixels: 0, min: 0, max: 0, mean: 0 };
+      }
+      recalibrate();
+      probeSky();
+      dirty = true;
     },
     get drifting() {
       return drifting;
