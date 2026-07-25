@@ -20,6 +20,8 @@ import {
   linearToSrgbRGB,
   spectrumToXYZ,
   spectrumLinearRGB,
+  unitLuminanceChroma,
+  relativeLuminance,
 } from "../src/novascope/core/colorimetry/index.ts";
 import { planckNm, wienPeakLambda, NM_TO_CM } from "../src/novascope/core/blackbody/index.ts";
 import { COLOR_SCHEMES, getScheme, stretchChroma } from "../src/novascope/core/colorimetry/schemes.ts";
@@ -29,6 +31,8 @@ import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../src/novasc
 import {
   computeTiers,
   quadExtentPx,
+  aureoleExtentRadii,
+  MAX_QUAD_PX,
   subpixelGain,
   PSF_WIDTH_PX,
   PSF_BETA,
@@ -370,13 +374,53 @@ ok(PSF_WIDTH_PX >= 2, "…and is wide enough to read as a round point, not a blo
 ok(PSF_BETA >= 2 && PSF_BETA <= 5, "Moffat beta is in the seeing-limited range");
 
 /* Only the BILLBOARD grows with brightness, so wings have room. The profile
- * inside it is identical for every star. */
-ok(quadExtentPx(1, false) > quadExtentPx(0, false), "the quad grows with signal");
-ok(quadExtentPx(0.5, true) > quadExtentPx(0.5, false), "…and further when a star carries a wing");
-ok(quadExtentPx(0, false) >= PSF_WIDTH_PX * 2, "even the faintest quad holds the core");
+ * inside it is identical for every star.
+ *
+ * The second argument is the HALO DRIVE — a linear flux ratio, not a boolean.
+ * These assertions previously passed `true`/`false`, which kept passing when the
+ * parameter changed meaning because `true` coerces to a drive of 1. Numeric
+ * drives, so the check says what it tests. */
+const FAINT_DRIVE = 1e-6; // a median star: no halo at all
+const BRIGHT_DRIVE = 25; // the brightest in the shipped population
+ok(quadExtentPx(1, 0) > quadExtentPx(0, 0), "the quad grows with signal");
 ok(
-  quadExtentPx(4, false) === quadExtentPx(1, false),
-  "an over-white star does not keep growing — the extent is clamped",
+  quadExtentPx(0.5, BRIGHT_DRIVE) > quadExtentPx(0.5, FAINT_DRIVE),
+  "…and much further for a star with a real scattered-light halo",
+);
+ok(quadExtentPx(0, 0) >= PSF_WIDTH_PX * 2, "even the faintest quad holds the core");
+ok(
+  quadExtentPx(4, 0) === quadExtentPx(1, 0),
+  "an over-white star's CORE allowance does not keep growing — it is clamped",
+);
+// A faint star must pay nothing for a wing it cannot show. This is what the old
+// tier gate got wrong: it handed every star above a percentile a fixed +10 core
+// radii of quad whether or not its halo was visible.
+ok(
+  aureoleExtentRadii(FAINT_DRIVE, DEFAULT_AUREOLE) === 0,
+  "a median star is allotted NO halo extent",
+);
+ok(
+  aureoleExtentRadii(BRIGHT_DRIVE, DEFAULT_AUREOLE) > 10,
+  "…while a bright one is allotted a broad one",
+);
+// The halo's threshold radius goes as drive^(1/p) — the strong size lever, since
+// 1/p = 0.33 against the core's 1/(2*beta) = 0.156.
+// Compared where the power law actually holds. The extent is
+// scale * ((amp*drive/floor)^(1/p) - 1), and that trailing -1 makes the ratio
+// STEEPER than drive^(1/p) near the cutoff (12.3x rather than 10x for a 1000x
+// drive), so the asymptotic form is only recovered well above it.
+{
+  const lo = aureoleExtentRadii(1e3, DEFAULT_AUREOLE);
+  const hi = aureoleExtentRadii(1e6, DEFAULT_AUREOLE);
+  const expected = 1e3 ** (1 / DEFAULT_AUREOLE.p);
+  ok(
+    Math.abs(hi / lo - expected) / expected < 0.05,
+    `halo extent scales as drive^(1/p) (${(hi / lo).toFixed(2)}x for 1000x, expected ~${expected.toFixed(2)}x)`,
+  );
+}
+ok(
+  quadExtentPx(1, 1e12) === MAX_QUAD_PX,
+  "an unbounded drive is bounded by the cost cap, not left to grow",
 );
 // Sub-pixel profiles are dimmed to preserve energy, never faked wider.
 ok(subpixelGain(2) === 1, "a profile wider than a pixel needs no compensation");
@@ -534,5 +578,73 @@ ok(table.every((v, i) => v === again2[i]), "the cluster producer is deterministi
 // And the whole pipeline must survive it: a real population, all visible.
 const real = prepareStarField(table, { band: "V" });
 ok(real.stats.visible > nStars * 0.9, "the sampled cluster renders visible, not black");
+
+/* ── brightness must not depend on COLOUR ──
+ *
+ * Chromaticity is rescaled to unit luminance so the display signal alone sets how
+ * bright a star reads. Peak-normalized, luminance ran 0.49 at 2500 K, 0.90 at
+ * 5772 K and 0.48 at 45000 K, so a Sun-like star rendered 1.86x more luminous
+ * than an O star at the SAME signal — colour cancelling the exposure's ordering,
+ * and measured peak brightness came out non-monotonic in luminosity. */
+for (const T of [2500, 3500, 5772, 12000, 30000, 45000]) {
+  const y = relativeLuminance(unitLuminanceChroma(getScheme("true").color(T)));
+  ok(Math.abs(y - 1) < 1e-9, `unit-luminance colour at ${T} K carries luminance 1, not ${y.toFixed(3)}`);
+}
+// Hue is untouched — only the scale changes. Ratios between channels must survive.
+{
+  const peakN = getScheme("true").color(30000);
+  const unitN = unitLuminanceChroma(peakN);
+  const ratio = (a, b) => a / b;
+  ok(
+    Math.abs(ratio(unitN[2], unitN[0]) - ratio(peakN[2], peakN[0])) < 1e-9,
+    "…and the blue/red ratio is unchanged, so the hue is the scheme's, not ours",
+  );
+}
+// Out-of-gamut channels are EXPECTED for a saturated colour and must not be
+// clamped — clamping would put the Teff-dependent luminance straight back.
+ok(
+  Math.max(...unitLuminanceChroma(getScheme("true").color(45000))) > 1,
+  "a saturated colour legitimately exceeds 1 in linear HDR",
+);
+
+/* ── the inverse-square law applies WITHIN the cluster ──
+ *
+ * Depth is the star's own z in the cluster frame, never the live camera's axis:
+ * a cluster 400 pc away cannot be orbited, and deriving depth from the camera
+ * would make brightness pump as the view rotates. */
+{
+  const near = new Float32Array([0, 0, 100, 1, 5772, 1]); // 100 pc nearer
+  const far = new Float32Array([0, 0, -100, 1, 5772, 1]); // 100 pc further
+  const pair = new Float32Array(12);
+  pair.set(near, 0);
+  pair.set(far, 6);
+  const f = prepareStarField(pair, { band: "V" });
+  ok(f.halo[0] > f.halo[1], "a nearer star of identical type is brighter");
+  // (400-(-100))^2 / (400-100)^2 = 500^2/300^2 = 2.78
+  const expected = (D0_PC + 100) ** 2 / (D0_PC - 100) ** 2;
+  const got = f.halo[0] / f.halo[1];
+  ok(
+    Math.abs(got - expected) / expected < 1e-3,
+    `…by exactly the inverse-square ratio (${got.toFixed(3)} vs ${expected.toFixed(3)})`,
+  );
+}
+
+/* ── APPARENT SIZE must vary across the population ──
+ *
+ * The defect this replaced: measured in the browser, every star from 3 to 100
+ * Msun rendered at an identical 4.51 px — 4.2 dex of luminosity with no size
+ * variation at all — because the halo was scaled by the compressed display signal
+ * and so inherited the asinh compression. Asserted on the quad extent, which is
+ * derived from the same drive the shader uses, so the two cannot disagree. */
+{
+  const f = prepareStarField(table, { band: "V" });
+  const sizes = Array.from(f.sizePx).sort((a, b) => a - b);
+  const med = sizes[Math.floor(sizes.length / 2)];
+  const max = sizes[sizes.length - 1];
+  ok(max / med > 3, `the brightest star's billboard dwarfs the median (${(max / med).toFixed(1)}x)`);
+  // …and it must not be a cliff: sizes should be spread, not two clusters.
+  const p90 = sizes[Math.floor(sizes.length * 0.9)];
+  ok(p90 > med && max > p90, "billboard size is graded, not a two-state step");
+}
 
 process.exit(failures ? 1 : 0);

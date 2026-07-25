@@ -92,19 +92,19 @@ export function createStarGraph(field: StarField): StarGraph {
   const aPos = new THREE.InstancedBufferAttribute(field.position, 3);
   const aColor = new THREE.InstancedBufferAttribute(field.color, 3);
   const aSignal = new THREE.InstancedBufferAttribute(field.signal, 1);
+  const aHalo = new THREE.InstancedBufferAttribute(field.halo, 1);
   const aSizePx = new THREE.InstancedBufferAttribute(field.sizePx, 1);
-  const aTier = new THREE.InstancedBufferAttribute(Float32Array.from(field.tier), 1);
   geometry.setAttribute("iPos", aPos);
   geometry.setAttribute("iColor", aColor);
   geometry.setAttribute("iSignal", aSignal);
+  geometry.setAttribute("iHalo", aHalo);
   geometry.setAttribute("iSizePx", aSizePx);
-  geometry.setAttribute("iTier", aTier);
 
   const iPos = instancedBufferAttribute<"vec3">(aPos, "vec3");
   const iColor = instancedBufferAttribute<"vec3">(aColor, "vec3");
   const iSignal = instancedBufferAttribute<"float">(aSignal, "float");
+  const iHalo = instancedBufferAttribute<"float">(aHalo, "float");
   const iSizePx = instancedBufferAttribute<"float">(aSizePx, "float");
-  const iTier = instancedBufferAttribute<"float">(aTier, "float");
 
   /*
    * The instrument's parameters. Every number is imported, never restated: the
@@ -134,6 +134,29 @@ export function createStarGraph(field: StarField): StarGraph {
   // Additive in LINEAR HDR: stars are emitters, so their radiances add. Order
   // independent, which is why no per-frame sort is needed for 10k billboards.
   material.blending = THREE.AdditiveBlending;
+  /*
+   * ALPHA IS 1, NOT THE PROFILE — see the fragment stage. This is load-bearing:
+   * emitting the profile in alpha applied it TWICE.
+   *
+   * `AdditiveBlending` resolves to setBlend(SrcAlpha, One) in
+   * WebGPUPipelineUtils, so the GPU computes `rgb * a + dst`. With
+   * `rgb = colour * signal * profile` and `a = profile`, the result was
+   * proportional to profile SQUARED — a Moffat of exponent 2*beta = 6.4 against
+   * the 3.2 that `core/optics` defines and the CPU reference computes. Measured
+   * on a single star, the linear falloff was 0.604, 0.0802, 0.00518, 0.000304,
+   * matching the squared prediction (0.608, 0.0803, 0.00522) to under 1% and
+   * nothing like the intended profile (0.821, 0.299, 0.0762).
+   *
+   * That is not a cosmetic error. Apparent size goes as signal^(1/2*beta), so
+   * squaring halved the exponent to 0.078 and flattened the size-vs-luminosity
+   * law this renderer exists to show; the PSF width and the aureole were then
+   * tuned to compensate for a profile twice as steep as the model.
+   *
+   * `material.premultipliedAlpha = true` is NOT the fix, which is worth recording
+   * because it looks like one. It makes three premultiply in the SHADER instead —
+   * the generated WGSL gains `fn0(c) = vec4(c.xyz * c.w, c.w)` — and then blends
+   * One/One, so the product is unchanged. The multiplication only moves.
+   */
 
   // ── vertex: project the instance centre, then offset by the quad corner in px
   material.vertexNode = Fn(() => {
@@ -154,31 +177,53 @@ export function createStarGraph(field: StarField): StarGraph {
     const rho = rPx.div(uPsfWidth);
     const edge = halfPx.div(uPsfWidth); // quad edge, in PSF widths
 
-    const hasWing = iTier.greaterThan(float(1.5)).select(float(1), float(0));
-    // Moffat core + (Tier >= 2) scattered-light wing, evaluated at rho and again
-    // at the quad edge. Written out twice rather than via a helper because TSL's
-    // node types do not survive a generic callback parameter.
-    const atRho = float(1)
-      .add(rho.mul(rho))
-      .pow(uBeta.negate())
-      .add(uAurAmp.div(float(1).add(rho.div(uAurScale)).pow(uAurP)).mul(hasWing));
-    const atEdge = float(1)
-      .add(edge.mul(edge))
-      .pow(uBeta.negate())
-      .add(uAurAmp.div(float(1).add(edge.div(uAurScale)).pow(uAurP)).mul(hasWing));
+    /*
+     * TWO TERMS ON TWO DIFFERENT DRIVES, and that is the physics.
+     *
+     * The Moffat core is scaled by the DISPLAY SIGNAL, which has been through the
+     * asinh transfer, because the core is what the exposure is choosing how to
+     * show. The scattered-light halo is scaled by the LINEAR flux (`iHalo`),
+     * because scattered light is a fixed fraction of the flux that entered the
+     * instrument and knows nothing about how the image will be displayed.
+     *
+     * Keeping them separate is what gives apparent size back its range. Both terms
+     * used to be multiplied by the compressed signal, so the halo inherited the
+     * compression and every star ended up the same size; on the shipped population
+     * `signal` spans 3.1x from median to brightest while `iHalo` spans 9.6e6.
+     *
+     * Written out twice rather than via a helper because TSL's node types do not
+     * survive a generic callback parameter.
+     */
+    const core = (r: typeof rho) => float(1).add(r.mul(r)).pow(uBeta.negate());
+    const wing = (r: typeof rho) =>
+      uAurAmp.mul(iHalo).div(float(1).add(r.div(uAurScale)).pow(uAurP));
+    const atRho = core(rho).mul(iSignal).add(wing(rho));
+    const atEdge = core(edge).mul(iSignal).add(wing(edge));
 
     /*
      * PEDESTAL SUBTRACTION. The profile is still ~1e-3 at the quad edge, which
      * survives the sRGB transfer against a black sky and crops every star into a
      * visible SQUARE. Subtracting the edge value makes it reach exactly zero
      * there, so the billboard boundary disappears without widening the quad.
+     *
+     * This is also why `quadExtentPx` has to derive its wing allowance from the
+     * aureole's own parameters and the same `halo` drive: whatever the profile
+     * still is out here gets subtracted from the WHOLE star, so a halo that has
+     * not yet faded by the quad edge is not clipped, it is cancelled.
      */
     const profile = atRho.sub(atEdge).max(float(0));
 
-    // Linear HDR radiance: chromaticity x display signal x profile. Nothing is
-    // clamped — above 1 is real overflow, which is what a bloom pass keys on.
-    const radiance = iColor.mul(iSignal).mul(profile).mul(uGain);
-    return vec4(radiance, profile);
+    /*
+     * Linear HDR radiance. Nothing is clamped — above 1 is real overflow, which is
+     * what a bloom pass keys on.
+     *
+     * ALPHA IS 1. It must not carry the profile: `AdditiveBlending` multiplies rgb
+     * by alpha, so returning the profile there applied it twice and squared it (see
+     * the blending note above). Alpha has no compositing role for an emitter — the
+     * radiance is already the contribution.
+     */
+    const radiance = iColor.mul(profile).mul(uGain);
+    return vec4(radiance, float(1));
   })();
 
   const mesh = new THREE.Mesh(geometry, material);

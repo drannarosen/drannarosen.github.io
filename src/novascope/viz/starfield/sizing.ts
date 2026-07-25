@@ -8,6 +8,7 @@
  */
 
 import { robustWhiteFlux } from "../../core/imaging/index.ts";
+import { DEFAULT_AUREOLE, type AureoleParams } from "../../core/optics/index.ts";
 
 /**
  * The instrument's point-spread function width, in CSS pixels.
@@ -30,14 +31,61 @@ export const PSF_WIDTH_PX = 2.2;
 export const PSF_BETA = 3.2;
 
 /**
+ * How far the aureole must be allowed to run, in core radii, before it is dim
+ * enough to cut off.
+ *
+ * Solves `amp / (1 + rho/scale)^p = floor` for rho. This is DERIVED rather than
+ * chosen because the quad and the wing are coupled through the shader's pedestal
+ * subtraction, and getting that wrong is silent: the profile has its value at the
+ * quad edge subtracted everywhere, so a wing that is still bright at the edge is
+ * not merely clipped — it is subtracted off the whole star, dimming the core and
+ * truncating the halo. Widening the aureole while leaving the quad alone therefore
+ * cancels most of the change instead of applying it.
+ *
+ * `floor` is a radiance, so it is compared against a display signal of order 1;
+ * 1e-4 is far below one 8-bit step.
+ */
+export function aureoleExtentRadii(drive: number, a: AureoleParams, floor = 1e-4): number {
+  const peak = a.amp * Math.max(0, drive);
+  if (!(peak > floor) || !(a.p > 0) || !(a.scale > 0)) return 0;
+  return a.scale * ((peak / floor) ** (1 / a.p) - 1);
+}
+
+/**
+ * Cap on a billboard's half-extent, in CSS pixels.
+ *
+ * Purely a COST bound, not physics: a scattered-light halo really does run to
+ * enormous radius on a very bright source, but the quad is where the shading cost
+ * lives. At 240 px the widest star shades ~0.23 Mpx, which is one canvas-sized
+ * pass for the handful of stars that reach it.
+ */
+export const MAX_QUAD_PX = 240;
+
+/**
  * Half-extent of a star's billboard, in CSS pixels.
  *
  * Only the QUAD grows with brightness, so a bright star's wings have somewhere to
  * live. The profile inside it is identical for every star.
+ *
+ * `halo` is the star's LINEAR flux relative to the display white point — not its
+ * compressed display signal — because that is what the aureole is driven by, and
+ * the quad has to contain whatever the aureole reaches. It is also what makes the
+ * quad cheap where it should be: a median star's halo term is ~1e-6, far below the
+ * cutoff, so it gets no wing allowance at all, where the previous tier-gated
+ * version handed a fixed +10 core radii to every star above a percentile.
+ *
+ * The CORE allowance saturates at signal 1 on purpose even though signal may now
+ * exceed it: the Moffat's threshold radius grows only as signal^(1/2*beta), so a
+ * 10x overflow widens the visible core ~1.4x and 17 core radii still contains it.
  */
-export function quadExtentPx(signal: number, hasAureole: boolean): number {
+export function quadExtentPx(
+  signal: number,
+  halo: number,
+  aureoleParams: AureoleParams = DEFAULT_AUREOLE,
+): number {
   const s = Math.min(1, Math.max(0, signal));
-  return PSF_WIDTH_PX * (3 + 14 * s + (hasAureole ? 10 : 0));
+  const wing = aureoleExtentRadii(halo, aureoleParams);
+  return Math.min(MAX_QUAD_PX, PSF_WIDTH_PX * (3 + 14 * s + wing));
 }
 
 /**

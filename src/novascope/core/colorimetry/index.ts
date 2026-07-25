@@ -116,6 +116,44 @@ export function normalizeChroma(c: readonly [number, number, number]): [number, 
   return [r / peak, g / peak, b / peak];
 }
 
+/** Rec. 709 luminance weights — the Y row of the sRGB→XYZ matrix. */
+const LUMA = [0.2126, 0.7152, 0.0722] as const;
+
+/** Relative luminance of a linear-light sRGB triple. */
+export function relativeLuminance(c: readonly [number, number, number]): number {
+  return LUMA[0] * c[0] + LUMA[1] * c[1] + LUMA[2] * c[2];
+}
+
+/**
+ * Rescale a chromaticity to UNIT LUMINANCE, so brightness is carried entirely by
+ * whatever the caller multiplies it by.
+ *
+ * This is the fix for a real defect in the rendered image. `normalizeChroma`
+ * fixes the largest CHANNEL at 1, which leaves the luminance of the result a
+ * function of temperature: measured on the `true` scheme, a peak-normalized
+ * colour has relative luminance 0.490 at 2500 K, 0.901 at 5772 K and 0.484 at
+ * 45000 K. Multiplying that by a display signal means a Sun-like star renders
+ * 1.86x more luminous than an O star at the SAME signal — so colour silently
+ * cancels the brightness ordering the exposure just established, and the measured
+ * peak brightness of a star population came out non-monotonic in luminosity.
+ *
+ * After this, luminance is exactly the signal and hue is unchanged.
+ *
+ * The cost is deliberate: a saturated colour needs channels ABOVE 1 to reach unit
+ * luminance (a 45000 K star's blue lands near 2.1), so the result is legitimately
+ * out of the sRGB gamut. That is correct for a linear HDR pipeline — the values
+ * are radiances, not display codes — and gamut compression is the tone mapper's
+ * job. Do NOT clamp here; clamping would restore the very Teff-dependent
+ * luminance this removes.
+ */
+export function unitLuminanceChroma(
+  c: readonly [number, number, number],
+): [number, number, number] {
+  const y = relativeLuminance(c);
+  if (!(y > 0)) return [0, 0, 0];
+  return [c[0] / y, c[1] / y, c[2] / y];
+}
+
 /**
  * Chromaticity of an arbitrary spectrum, as linear-light sRGB normalized to a
  * peak of 1.

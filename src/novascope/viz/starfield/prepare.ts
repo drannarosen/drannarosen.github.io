@@ -16,6 +16,7 @@ import { deriveLogL, apparentFlux, D0_PC } from "../../core/photometry/index.ts"
 import { PASSBANDS, bandFlux, type Passband } from "../../core/photometry/passbands.ts";
 import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../../core/imaging/index.ts";
 import { getScheme } from "../../core/colorimetry/schemes.ts";
+import { unitLuminanceChroma } from "../../core/colorimetry/index.ts";
 import { computeTiers, quadExtentPx, PSF_WIDTH_PX, type TierBoundaries } from "./sizing.ts";
 
 /**
@@ -60,6 +61,20 @@ export interface StarField {
   color: Float32Array;
   /** Display signal per star; 1 is white, above 1 is HDR overflow. */
   signal: Float32Array;
+  /**
+   * LINEAR flux relative to the display white point, times exposure. Unbounded.
+   *
+   * What drives the scattered-light halo, and the reason it is a separate channel
+   * from `signal`. Scattered light is a fixed fraction of the flux that actually
+   * entered the instrument, so the halo belongs to the physics, while `signal` has
+   * already been through the asinh transfer for DISPLAY. Driving the halo off
+   * `signal` — as it was — made the halo inherit the compression, and that is what
+   * flattened apparent size: measured across this population, `signal` spans a
+   * factor of 3.1 from median to brightest while this spans 9.6e6 (7.0 dex). The
+   * halo's threshold radius goes as drive^(1/p), so 7 dex gives ~90x of extent to
+   * work with where the compressed signal gave 1.5x.
+   */
+  halo: Float32Array;
   /** Billboard half-extent per star [device px]; the PSF width is fixed. */
   sizePx: Float32Array;
   /** Render tier per star (1, 2 or 3). */
@@ -84,6 +99,34 @@ export interface StarField {
 
 const DEFAULT_TIERS: TierBoundaries = { t2: 0.9, t3: 0.995 };
 
+/**
+ * Closest a star may be placed to the observer [pc].
+ *
+ * Only a guard against a divide-by-zero from an unbounded profile tail — a
+ * Plummer sphere formally reaches any radius — not a physical horizon. Far below
+ * any real cluster depth, so it never binds on a sane population.
+ */
+const MIN_DISTANCE_PC = 1;
+
+/**
+ * Population fraction mapped to display white.
+ *
+ * Kept HIGH, against the intuition that letting more stars overflow would give the
+ * bright end more range to vary size with. Measured on a 10,000-star cluster, the
+ * ratio of the brightest signal to the median — which is what apparent size keys
+ * on — moves the WRONG way as the percentile drops:
+ *
+ *     0.995   max/p50 = 3.1      0.95   max/p50 = 2.2
+ *     0.99    max/p50 = 2.9      0.90   max/p50 = 1.9
+ *
+ * because lowering the white point raises every signal, and asinh compresses
+ * harder the larger its argument. So a lower percentile brightens the image and
+ * FLATTENS it. The bright-end range has to come from somewhere the transfer has
+ * not already compressed — which is why the halo is driven by linear flux instead
+ * (see `halo` in StarField).
+ */
+const DEFAULT_WHITE_PERCENTILE = 0.995;
+
 /** Resolve a band id, falling back to bolometric when unknown or absent. */
 function resolveBand(id: string | undefined): Passband | null {
   if (!id || id === "bolometric") return null;
@@ -103,12 +146,13 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const scheme = getScheme(opts.scheme ?? "true");
   const softening = opts.softening ?? DEFAULT_SOFTENING;
   const exposure = opts.exposure ?? 1;
-  const percentile = opts.whitePercentile ?? 0.995;
+  const percentile = opts.whitePercentile ?? DEFAULT_WHITE_PERCENTILE;
   const dpr = opts.pixelRatio ?? 1;
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
   const signal = new Float32Array(count);
+  const halo = new Float32Array(count);
   const sizePx = new Float32Array(count);
   const flux = new Float64Array(count);
 
@@ -121,12 +165,37 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     const teff = stars[o + 4] ?? 0;
     const radius = stars[o + 5] ?? 0;
 
+    /*
+     * Each star at its OWN distance, so the inverse-square law applies within the
+     * cluster and near stars really are brighter than far ones.
+     *
+     * The depth is the star's z in the CLUSTER's frame, not along the interactive
+     * camera's axis, and that is the whole point. A cluster 400 pc away cannot be
+     * orbited; the observer's line of sight is fixed at the moment of exposure.
+     * Deriving depth from the live camera instead would make every star's
+     * brightness change as the view rotates — the "pumping" the exposure
+     * calibration exists to prevent. So orbiting turns the MODEL, not the
+     * telescope, and the photometry stays put.
+     *
+     * Clamped away from the observer: a sampled profile has an unbounded tail, and
+     * a star drawn past z = D0 would otherwise divide by a zero or negative
+     * distance and return an infinite flux that captures the white point.
+     */
+    const dPc = Math.max(MIN_DISTANCE_PC, D0_PC - (stars[o + 2] ?? 0));
+
     // Brightness: through a filter when one is chosen, else bolometric.
     flux[i] = band
-      ? bandFlux(teff, radius, D0_PC, band)
-      : apparentFlux(deriveLogL(teff, radius), D0_PC);
+      ? bandFlux(teff, radius, dPc, band)
+      : apparentFlux(deriveLogL(teff, radius), dPc);
 
-    const [r, g, b] = scheme.color(teff);
+    /*
+     * Colour is rescaled to UNIT LUMINANCE, so the display signal alone sets how
+     * bright a star reads. The scheme still owns the hue; only its scale changes.
+     * Left peak-normalized, a star's luminance also depended on its temperature
+     * (0.90 at 5772 K against 0.48 at 45000 K), which cancelled the brightness
+     * ordering — see `unitLuminanceChroma`.
+     */
+    const [r, g, b] = unitLuminanceChroma(scheme.color(teff));
     color[i * 3] = r;
     color[i * 3 + 1] = g;
     color[i * 3 + 2] = b;
@@ -146,8 +215,20 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     signal[i] = s;
     if (s > 0.02) visible++;
     if (s > 1) clipping++;
+    /*
+     * The halo drive: linear flux relative to white, uncompressed. Exposure
+     * multiplies it for the same reason it multiplies the core — a longer exposure
+     * collects more scattered light too.
+     *
+     * NOT gated by tier. The tier boundary was a percentile proxy for "bright
+     * enough to show a wing", and this is the quantity it was standing in for, so
+     * the halo now switches on continuously instead of stepping at a rank
+     * threshold. Tiers keep their real job: the expensive optics (diffraction) that
+     * genuinely should be rare.
+     */
+    halo[i] = (exposure * (flux[i] ?? 0)) / (whiteFlux > 0 ? whiteFlux : 1);
     // Only the BILLBOARD grows with brightness; the PSF inside it is fixed.
-    const px = quadExtentPx(s, (tier[i] ?? 1) > 1) * dpr;
+    const px = quadExtentPx(s, halo[i] ?? 0) * dpr;
     sizePx[i] = px;
     if (px > maxSizePx) maxSizePx = px;
     const t = tier[i] ?? 1;
@@ -159,6 +240,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     position,
     color,
     signal,
+    halo,
     sizePx,
     tier,
     stats: { whiteFlux, visible, clipping, tierCounts, maxSizePx, psfWidthPx: PSF_WIDTH_PX * dpr },
