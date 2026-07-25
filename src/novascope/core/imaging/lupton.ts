@@ -131,6 +131,24 @@ export function luptonIntensityForOutput(
 export const ONE_DISPLAY_LEVEL = 1 / 255;
 
 /**
+ * Default exposure depth for the per-pixel Lupton path, in magnitudes.
+ *
+ * NOT the same number as the asinh path's 19.78, and that is the point. The two depths share a
+ * unit but not a meaning: `asinhResponse` compresses PER STAR, so every star was already lifted
+ * before the radiances were summed, and 19.78 mag was tuned against that. Applied per pixel the
+ * same figure puts 100% of the frame above 64/255 — a white rectangle — because the background
+ * is only a few magnitudes below the bright pixels once thousands of wings are added together.
+ *
+ * 8 mag is what a star field actually wants, measured on the shipped cluster: 34% black sky,
+ * 59% dim, 7% bright. Porting the old number across would have been the single most misleading
+ * thing to do at the switch-over, since the result looks like a broken shader.
+ *
+ * The floor of what this curve family can do is 6.06 mag, where `luptonQForDepth` clamps at
+ * Q = 0.1 — worth knowing before wiring a slider to it.
+ */
+export const DEFAULT_LUPTON_DEPTH_MAG = 8;
+
+/**
  * How many MAGNITUDES the display curve spans, from one 8-bit level up to white.
  *
  * The Lupton equivalent of the depth this renderer already reports for its asinh path,

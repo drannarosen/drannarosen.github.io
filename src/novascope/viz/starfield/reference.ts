@@ -190,11 +190,11 @@ export const REFERENCE_PSF_WIDTH_PX = PSF_WIDTH_PX;
  * radiance. That is the whole point of the pass, so it is named in the return type rather
  * than left for a caller to assume.
  */
-export function renderReferenceLupton(
+export function accumulateBandRadiance(
   field: StarField,
   camera: ReferenceCamera,
-  opts: ReferenceOptions & { depthMag?: number; whitePercentile?: number } = {},
-): ReferenceImage {
+  opts: ReferenceOptions & { depthMag?: number } = {},
+): { width: number; height: number; radiance: Float64Array } {
   const { width: W, height: H } = camera;
   const aureole = opts.aureole ?? DEFAULT_AUREOLE;
   const beta = opts.beta ?? PSF_BETA;
@@ -220,8 +220,7 @@ export function renderReferenceLupton(
    * below, which only needs an order of magnitude to bound the geometry.
    */
   const q = luptonQForDepth(opts.depthMag ?? field.stats.depthMag);
-  const provisionalStretch = luptonStretchForWhite(q);
-  const floor = luptonIntensityForOutput(ONE_DISPLAY_LEVEL, provisionalStretch, q);
+  const floor = luptonIntensityForOutput(ONE_DISPLAY_LEVEL, luptonStretchForWhite(q), q);
 
   const accum = new Float64Array(W * H * 3);
   const focal = H / 2 / Math.tan((camera.fovDeg * Math.PI) / 180 / 2);
@@ -283,14 +282,34 @@ export function renderReferenceLupton(
     }
   }
 
-  /*
-   * CALIBRATE on the pixel intensities that were actually produced, then compress once.
-   *
-   * The percentile is taken over LIT pixels only. Including the empty sky would put the
-   * percentile in the background — most of a star field is sky, so a 99.5th percentile
-   * over every pixel is still measuring nothing much — and the quantity worth mapping to
-   * white is the bright end of the light that is there.
-   */
+  return { width: W, height: H, radiance: accum };
+}
+
+/**
+ * Rasterise the LUPTON path all the way to display RGB.
+ *
+ * `accumulateBandRadiance` does the geometry; this adds only the calibration and the transfer.
+ * They are SEPARATE functions because the parity harness needs each half independently: the
+ * linear accumulation is what the GPU's fragment stage must reproduce, at full float precision
+ * and with no curve in the way to hide a disagreement, while the transfer is what the TSL
+ * mirror of `luptonRGB` must reproduce. A single combined function can only report that
+ * something differs somewhere.
+ *
+ * CALIBRATE on the pixel intensities that were actually produced, then compress once.
+ *
+ * The percentile is taken over LIT pixels only. Including the empty sky would put the percentile
+ * in the background — most of a star field is sky — and the quantity worth mapping to white is
+ * the bright end of the light that is there.
+ */
+export function renderReferenceLupton(
+  field: StarField,
+  camera: ReferenceCamera,
+  opts: ReferenceOptions & { depthMag?: number; whitePercentile?: number } = {},
+): ReferenceImage {
+  const { width: W, height: H } = camera;
+  const q = luptonQForDepth(opts.depthMag ?? field.stats.depthMag);
+  const accum = accumulateBandRadiance(field, camera, opts).radiance;
+
   const lit: number[] = [];
   for (let p = 0; p < W * H; p++) {
     const o = p * 3;
@@ -300,17 +319,14 @@ export function renderReferenceLupton(
   lit.sort((a, b) => a - b);
   const whitePixel =
     lit.length > 0 ? (lit[Math.floor((opts.whitePercentile ?? 0.995) * (lit.length - 1))] ?? 1) : 1;
-  // f(I) depends on I/stretch, so mapping intensity `whitePixel` to display white is just
-  // the unit-white stretch scaled by it.
+  // f(I) depends on I/stretch, so mapping intensity `whitePixel` to display white is just the
+  // unit-white stretch scaled by it.
   const stretch = Math.max(Number.MIN_VALUE, whitePixel) * luptonStretchForWhite(q);
 
   const rgb = new Float32Array(W * H * 3);
   for (let p = 0; p < W * H; p++) {
     const o = p * 3;
-    const [r, g, b] = luptonRGB(accum[o] ?? 0, accum[o + 1] ?? 0, accum[o + 2] ?? 0, {
-      stretch,
-      q,
-    });
+    const [r, g, b] = luptonRGB(accum[o] ?? 0, accum[o + 1] ?? 0, accum[o + 2] ?? 0, { stretch, q });
     rgb[o] = r;
     rgb[o + 1] = g;
     rgb[o + 2] = b;
@@ -319,46 +335,43 @@ export function renderReferenceLupton(
 }
 
 /*
- * ── HOW TO RUN THE PARITY CHECK, AND THE TWO TRAPS IN IT ─────────────────────
+ * ── THE PARITY CHECK ─────────────────────────────────────────────────────────
  *
- * The GPU half needs a browser, so this cannot be a node gate; what IS gated in
- * node is `starProfile` and this rasteriser (see check:star-optics). The GPU
- * comparison is run against a dev server through Playwright:
+ * The procedure and its two traps used to be described here, at length, in prose. It is now
+ * CODE — `./parity` — because the GPU half needs a browser and so cannot be a node gate, and a
+ * method that lives only in a comment gets re-improvised each time it is needed. Read that file
+ * for the traps (readback row order, and the 256-byte row alignment that shears an unaligned
+ * width); both are enforced or asserted there rather than remembered.
  *
- *   1. render the SAME prepared field with `renderer.toneMapping = NoToneMapping`
- *      into a `RenderTarget` of `type: FloatType`, `colorSpace: LinearSRGBColorSpace`
- *      — tone mapping and sRGB would hide a numerical disagreement inside a curve;
- *   2. `await renderer.readRenderTargetPixelsAsync(rt, 0, 0, W, H)`;
- *   3. call `renderReference` with `distancePc` = the camera's z and the same fov;
- *   4. compare linear radiance per channel.
+ * Two modes, because there are two things to check and one number cannot say which failed:
  *
- * Measured on 2026-07-24, r185, native WebGPU — 3k and 10k stars, 256/320/400 px,
- * V/K/bolometric, depth 13 mag, a 0.5 Msun mass cut, and a D=2 close-up:
+ *   LINEAR — `accumulateBandRadiance` against the GPU rendering to a FloatType target with no
+ *     post-processing. The strong test: full float precision, no curve to hide a disagreement
+ *     inside. Measured 2026-07-25, r185, native WebGPU, 10k stars at 256/320/400 px:
  *
- *     total energy ratio      1.000000 +- 2e-6
- *     mean |error| / energy    3e-4 to 5e-4
- *     worst relative error     0.35%   (on pixels above 0.02 radiance)
+ *         total energy ratio      1.00050
+ *         median relative error   0.058%   (over pixels above 0.02 radiance)
+ *         99th percentile         1.87%
+ *         worst pixel             7.1%
+ *         peak value              31.7356 GPU against 31.7261 CPU  (0.03%)
  *
- * The residual is float32 against float64 plus WGSL's `pow` differing from JS's in
- * the last bits. Anything structural shows up far above that floor: the profile
- * being applied twice (the bug this apparatus was built to catch) is a factor of
- * the profile itself, not 0.35%.
+ *     The MEDIAN is the number that matters; a structural error moves it. The thin tail is
+ *     float32 against float64 plus WGSL's transcendentals differing in the last bits, and it
+ *     lands where the profile is nearly flat or where an angular term is hypersensitive — a
+ *     diffraction lobe raised to the 24th power moves percent for parts-per-million in theta.
  *
- * TRAP 1 — ROW ORDER. `readRenderTargetPixelsAsync` returns TOP-DOWN on the WebGPU
- * backend, the same order as this rasteriser. Reading it bottom-up (the WebGL
- * habit) reported an 83% energy error and a 36x worst-case discrepancy while the
- * PEAK VALUES still agreed to 0.02% — which is the signature of a misaligned
- * comparison rather than a physics disagreement, since a flip moves light without
- * changing how much there is. Diagnose it with ONE off-centre star: compute the
- * expected pixel from focal/depth and check which row order lands on it.
+ *   LUPTON — `renderReferenceLupton` against the full pipeline including the TSL transfer. The
+ *     only test of that mirror, and of the fact that no second sRGB encode is applied. Reported
+ *     in 8-BIT DISPLAY LEVELS, because after the transfer the output spans [0, 1] and what
+ *     matters is a quantisation step, not a fraction:
  *
- * TRAP 2 — ROW ALIGNMENT. WebGPU requires a readback's `bytesPerRow` to be a
- * multiple of 256, so a width whose `W * 16` bytes (RGBA float32) is not aligned
- * comes back with padded rows and a SHEARED image. 300 px gives 4800 bytes and
- * fails; 256, 320 and 400 give 4096, 5120 and 6400 and pass. Same signature again:
- * total energy matched to 3e-4 while the worst-case error was 155x. Choose widths
- * with `(W * 16) % 256 === 0`.
+ *         mean |difference|   0.03 to 0.15 levels   (composites, sizes, depths 6.5-12)
+ *         99.9th percentile   0.9 to 1.6 levels
+ *         worst pixel         1.8 to 4.4 levels
  *
- * Both traps produce a large spatial error with correct total energy. If a parity
- * run ever shows that pattern, suspect the harness before the renderer.
+ *     A double encode would shift this by tens of levels, so the small number is the evidence.
+ *
+ * Both halves must be given the SAME white point, or the comparison measures the exposure
+ * calibration instead of the renderer — that mistake read as a 1.03% median until the reference's
+ * own percentile was fed to the GPU.
  */

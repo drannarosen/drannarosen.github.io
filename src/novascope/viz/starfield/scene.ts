@@ -17,12 +17,15 @@
  */
 import * as THREE from "three";
 import { WebGPURenderer, RenderPipeline } from "three/webgpu";
-import { pass } from "three/tsl";
+import { pass, vec4 } from "three/tsl";
 import { bloom } from "three/examples/jsm/tsl/display/BloomNode.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { prepareStarField, STAR_STRIDE, type PrepareOptions, type StarField } from "./prepare.ts";
 import { clusterStarTable } from "./source.ts";
 import { createStarGraph, type StarGraph } from "./starGraph.ts";
+import { createLuptonNode } from "./luptonNode.ts";
+import { whitePixelIntensity, floorForDepth } from "./calibrate.ts";
+import { DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
 
 export type RenderBackend = "webgpu" | "webgl2";
 
@@ -112,7 +115,14 @@ export async function initStarLab(
     // pipeline needs, so it is left alone rather than restated.
   });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-  renderer.toneMapping = THREE.AgXToneMapping;
+  /*
+   * NO TONE MAPPING HERE. Lupton IS the tone mapping — an asinh stretch whose output is
+   * display-referred — so leaving AgX in place would apply two curves in series and wash the
+   * image out. The transfer now lives in the output node (`./luptonNode`), for the same reason
+   * it had to move out of the renderer when bloom arrived: a pass that reads the scene must read
+   * it in LINEAR HDR, and here the scene's channels are three BANDS' linear flux.
+   */
+  renderer.toneMapping = THREE.NoToneMapping;
   await renderer.init();
   const backend: RenderBackend = isWebGPUBackend(renderer.backend) ? "webgpu" : "webgl2";
 
@@ -148,10 +158,31 @@ export async function initStarLab(
   const scenePass = pass(scene, camera);
   const pipeline = new RenderPipeline(renderer);
   pipeline.outputColorTransform = false;
-  pipeline.outputNode = scenePass
-    .add(bloom(scenePass, 0.35, 0.6, 1.0))
-    .renderOutput();
+  /*
+   * scene (linear band radiance) -> bloom (still linear) -> Lupton -> framebuffer.
+   *
+   * `renderOutput()` is deliberately NOT called on the result. It applies the output colour
+   * transform, and Lupton's output is ALREADY display-referred — astropy writes
+   * `make_lupton_rgb`'s result straight to a PNG for exactly this reason. Encoding it again
+   * would brighten and wash the image, which is the kind of error that looks like a taste
+   * decision; the GPU-versus-CPU parity check is what settles it, because the CPU reference
+   * emits display values in [0, 1] and the two have to agree numerically.
+   *
+   * Bloom stays BEFORE the transfer and keys on 1.0 as before, which still means display white:
+   * `bandFlux` is normalized so intensity 1 is the white point, so the threshold has the same
+   * meaning it did under the asinh path.
+   */
+  const luptonOut = createLuptonNode(scenePass.add(bloom(scenePass, 0.35, 0.6, 1.0)).rgb);
+  // Alpha is 1: the canvas is opaque (`alpha: false`) and Lupton has no compositing role.
+  pipeline.outputNode = vec4(luptonOut.node, 1);
 
+  /*
+   * Declared BEFORE `build`, because the exposure calibration reads them and `build` runs during
+   * setup. They were below it at first and the whole scene died with "Cannot access 'bufW'
+   * before initialization" — a temporal-dead-zone error, so the renderer never started at all.
+   */
+  let bufW = 0;
+  let bufH = 0;
   let graph: StarGraph | null = null;
   /*
    * Seeded by an actual preparation of an empty field rather than a hand-written
@@ -159,6 +190,38 @@ export async function initStarLab(
    * members — which is the same reason `StarLabStats` aliases that type.
    */
   let stats: StarLabStats = prepareStarField(new Float32Array(0)).stats;
+
+  let lastField: StarField | null = null;
+  let lastDepthMag = DEFAULT_LUPTON_DEPTH_MAG;
+
+  /*
+   * CALIBRATE THE DISPLAY TRANSFER for the current field at the current frame size.
+   *
+   * The white point is a property of the rendered PIXELS, not of the stars — a background pixel
+   * sums thousands of wings and lands three orders of magnitude above a median star's own peak —
+   * so it cannot be read off the per-star normalization. `whitePixelIntensity` derives it
+   * analytically in well under a millisecond (see ./calibrate), which is why this can run on
+   * every change rather than needing a GPU histogram pass.
+   *
+   * CALLED ON RESIZE AS WELL AS ON REBUILD, and that is not incidental. The mean pixel intensity
+   * is total light over PIXEL COUNT, so it goes as 1/area: doubling both dimensions quarters it,
+   * which check:calibrate asserts exactly. Calibrating only at build would leave every resized
+   * frame exposed for the size it used to be — four times too bright on a shrink.
+   *
+   * NOT called per frame, though. It depends on the population and the frame size, neither of
+   * which an orbit changes, and recalibrating per frame would make the exposure pump as the
+   * camera moved — the failure the original per-population white point was introduced to prevent.
+   */
+  const recalibrate = (): void => {
+    if (!lastField) return;
+    const w = bufW || canvas.clientWidth;
+    const h = bufH || canvas.clientHeight;
+    if (!(w > 0) || !(h > 0)) return; // before layout; guessing a size mis-exposes the frame
+    luptonOut.setDepth(
+      lastDepthMag,
+      whitePixelIntensity(lastField, w, h, { floor: floorForDepth(lastDepthMag) }),
+    );
+  };
 
   const build = (o: PrepareOptions): StarLabStats => {
     if (graph) {
@@ -169,6 +232,9 @@ export async function initStarLab(
     const field = prepareStarField(stars, { pixelRatio: renderer.getPixelRatio(), ...o });
     graph = createStarGraph(field);
     scene.add(graph.mesh);
+    lastField = field;
+    lastDepthMag = o.depthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
+    recalibrate();
     stats = field.stats;
     return stats;
   };
@@ -185,8 +251,6 @@ export async function initStarLab(
    * leaves the buffer at the renderer's default there. Star sizes are specified
    * in PIXELS, so a stale buffer mis-sizes every star.
    */
-  let bufW = 0;
-  let bufH = 0;
   const syncSize = () => {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
@@ -197,6 +261,7 @@ export async function initStarLab(
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    recalibrate(); // the white point goes as 1/area, so a resize re-exposes the frame
     dirty = true; // a resized buffer must be redrawn even while paused
   };
 

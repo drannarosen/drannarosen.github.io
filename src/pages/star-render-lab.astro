@@ -4,8 +4,7 @@ import PageHeader from "../components/PageHeader.astro";
 import { COLOR_SCHEMES } from "@novascope/core/colorimetry/schemes";
 import { linearToSrgbRGB } from "@novascope/core/colorimetry";
 import { spectralType } from "@novascope/core/stellar";
-import { DEFAULT_SOFTENING, limitingFluxRatio } from "@novascope/core/imaging";
-import { magnitudeDifference } from "@novascope/core/photometry";
+import { DEFAULT_LUPTON_DEPTH_MAG } from "@novascope/core/imaging/lupton";
 import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/passbands";
 import { SURVEYS } from "@novascope/core/photometry/surveys";
 import { clusterStarTable } from "@novascope/viz/starfield/source";
@@ -79,14 +78,29 @@ const BAND_SPREAD = SPREAD_BANDS.map((id) => {
  * physical statement the old "faint detail" slider was making opaquely: it read
  * dex of asinh softening, so the control could be tuned but never reported.
  *
- * Its starting position is DERIVED from the tuned default softening, snapped to the
- * slider's step, so there is still exactly one home for the default. That default
- * turns out to be a 19.8-magnitude stretch, which is worth being able to read off
- * the page rather than having to measure.
+ * ITS RANGE AND DEFAULT CHANGED WITH THE DISPLAY TRANSFER, and the number could not be
+ * carried across. Both transfers measure depth in magnitudes below white, but they do
+ * not mean the same thing by it: the old asinh path compressed PER STAR, so every star
+ * was already lifted before the radiances were summed, and 19.8 mag was tuned against
+ * that. Lupton compresses once per PIXEL, after summation — and at 19.8 mag the frame
+ * came out 83.5% saturated with no black sky at all, a white rectangle that looks
+ * exactly like a broken shader.
+ *
+ * So the default is `DEFAULT_LUPTON_DEPTH_MAG`, which is 8 and was measured: 34% black
+ * sky, 59% dim, 7% bright on this population. The lower bound is 6.06 rather than a
+ * round number because that is the FLOOR of this curve family — `luptonQForDepth` clamps
+ * at Q = 0.1 — so anything below it silently produces the same image, and a slider with
+ * a dead zone is worse than a shorter slider.
+ *
+ * The old derivation from `DEFAULT_SOFTENING` is gone rather than kept alongside. Two
+ * defaults for one control is how they drift, and the asinh softening no longer reaches
+ * the screen.
  */
 const DEPTH_STEP = 0.25;
+const DEPTH_MIN = 6.25; // just above the 6.06 mag floor, on the slider's own step
+const DEPTH_MAX = 16;
 const depthStart =
-  Math.round(magnitudeDifference(limitingFluxRatio(DEFAULT_SOFTENING)) / DEPTH_STEP) * DEPTH_STEP;
+  Math.round(DEFAULT_LUPTON_DEPTH_MAG / DEPTH_STEP) * DEPTH_STEP;
 const schemeRows = COLOR_SCHEMES.map((s) => ({
   id: s.id,
   label: s.label,
@@ -127,7 +141,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         </select>
       </label>
       <label class="srl__ctl">Depth <span data-depth-val>{depthStart.toFixed(2)}</span> mag below white
-        <input type="range" min="8" max="24" step={DEPTH_STEP} value={depthStart} data-depth />
+        <input type="range" min={DEPTH_MIN} max={DEPTH_MAX} step={DEPTH_STEP} value={depthStart} data-depth />
       </label>
       <label class="srl__ctl">Exposure
         <input type="range" min="0.25" max="4" step="0.05" value="1" data-exposure />

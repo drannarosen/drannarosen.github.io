@@ -91,24 +91,31 @@ export function createStarGraph(field: StarField): StarGraph {
    * once.
    */
   const aPos = new THREE.InstancedBufferAttribute(field.position, 3);
-  const aColor = new THREE.InstancedBufferAttribute(field.color, 3);
-  const aSignal = new THREE.InstancedBufferAttribute(field.signal, 1);
-  const aHalo = new THREE.InstancedBufferAttribute(field.halo, 1);
+  /*
+   * ONE ATTRIBUTE CARRIES BOTH COLOUR AND BRIGHTNESS, and that replaces three.
+   *
+   * The previous graph took `iColor` (a hue, unit luminance), `iSignal` (a compressed display
+   * brightness) and `iHalo` (a linear flux driving scattered light). Colour and brightness were
+   * separate decisions about the same pixel, so a saturated star drifted toward white and
+   * choosing a filter never changed a hue.
+   *
+   * `iBandFlux` is three bands' LINEAR flux. Its ratios are the hue, its mean is the intensity,
+   * and the display transfer runs once per pixel at the end of the pipeline rather than once
+   * per star before the radiances are summed. Compressing per star meant two overlapping stars
+   * were compressed twice, which is not the transfer of their summed flux.
+   */
+  const aBandFlux = new THREE.InstancedBufferAttribute(field.bandFlux, 3);
   const aSizePx = new THREE.InstancedBufferAttribute(field.sizePx, 1);
   // Tier is uploaded as a float because a vertex attribute feeding a float
   // comparison must be one; the CPU value is a small integer either way.
   const aTier = new THREE.InstancedBufferAttribute(Float32Array.from(field.tier), 1);
   geometry.setAttribute("iPos", aPos);
-  geometry.setAttribute("iColor", aColor);
-  geometry.setAttribute("iSignal", aSignal);
-  geometry.setAttribute("iHalo", aHalo);
+  geometry.setAttribute("iBandFlux", aBandFlux);
   geometry.setAttribute("iSizePx", aSizePx);
   geometry.setAttribute("iTier", aTier);
 
   const iPos = instancedBufferAttribute<"vec3">(aPos, "vec3");
-  const iColor = instancedBufferAttribute<"vec3">(aColor, "vec3");
-  const iSignal = instancedBufferAttribute<"float">(aSignal, "float");
-  const iHalo = instancedBufferAttribute<"float">(aHalo, "float");
+  const iBandFlux = instancedBufferAttribute<"vec3">(aBandFlux, "vec3");
   const iSizePx = instancedBufferAttribute<"float">(aSizePx, "float");
   const iTier = instancedBufferAttribute<"float">(aTier, "float");
 
@@ -196,18 +203,25 @@ export function createStarGraph(field: StarField): StarGraph {
      * inspection. Change one and you must change the other — the parity check in
      * `check:star-optics` is what makes that fail loudly.
      *
-     * TWO TERMS ON TWO DIFFERENT DRIVES, and that is the physics. The Moffat core
-     * is scaled by the DISPLAY SIGNAL, because the core is what the exposure is
-     * choosing how to show. The halo is scaled by the LINEAR flux (`iHalo`),
-     * because scattered light is a fixed fraction of the flux that entered the
-     * instrument and knows nothing about how the image will be displayed.
+     * IT FACTORISES NOW, which is why this is shorter than it was. The previous
+     * version had the core on a compressed display signal and the wing on a linear
+     * flux — two different drives, so the profile could not be separated from the
+     * star's brightness. With the Lupton path every term rides the SAME per-channel
+     * band flux, because scattered light and diffraction are both fixed fractions of
+     * the light that entered the instrument at that wavelength. So
+     *
+     *     raw_k(rho) = f_k * [ core(rho) + wing(rho) + spike(rho, theta) ]
+     *
+     * and the whole profile is one SCALAR shape multiplied by a vec3 at the end. The
+     * pedestal subtraction commutes with that multiply because f_k is non-negative
+     * and the shape is monotonically decreasing inside the quad, so `max(0, ...)`
+     * can be applied to the shape alone.
      *
      * Written out twice rather than via a helper because TSL's node types do not
      * survive a generic callback parameter.
      */
     const core = (r: typeof rho) => float(1).add(r.mul(r)).pow(uBeta.negate());
-    const wing = (r: typeof rho) =>
-      uAurAmp.mul(iHalo).div(float(1).add(r.div(uAurScale)).pow(uAurP));
+    const wing = (r: typeof rho) => uAurAmp.div(float(1).add(r.div(uAurScale)).pow(uAurP));
 
     /*
      * DIFFRACTION, TIER 3 ONLY. The spider's spikes are an instrument signature of
@@ -229,13 +243,12 @@ export function createStarGraph(field: StarField): StarGraph {
     const lobe = uSpikeCount.mul(theta.sub(uSpikeAngle)).cos().max(float(0));
     const spike = (r: typeof rho) =>
       uSpikeAmp
-        .mul(iHalo)
         .mul(lobe.pow(uSpikeSharp))
         .div(float(1).add(r.div(uSpikeScale)).pow(uSpikeP))
         .mul(isTier3);
 
-    const atRho = core(rho).mul(iSignal).add(wing(rho)).add(spike(rho));
-    const atEdge = core(edge).mul(iSignal).add(wing(edge)).add(spike(edge));
+    const atRho = core(rho).add(wing(rho)).add(spike(rho));
+    const atEdge = core(edge).add(wing(edge)).add(spike(edge));
 
     /*
      * PEDESTAL SUBTRACTION. The profile is still ~1e-3 at the quad edge, which
@@ -251,15 +264,21 @@ export function createStarGraph(field: StarField): StarGraph {
     const profile = atRho.sub(atEdge).max(float(0));
 
     /*
-     * Linear HDR radiance. Nothing is clamped — above 1 is real overflow, which is
-     * what a bloom pass keys on.
+     * LINEAR band radiance, three channels, UNCOMPRESSED. Nothing is clamped and no
+     * display transfer is applied here — that happens once per pixel at the end of the
+     * pipeline (`./luptonNode`), after every star's contribution has been summed.
      *
-     * ALPHA IS 1. It must not carry the profile: `AdditiveBlending` multiplies rgb
-     * by alpha, so returning the profile there applied it twice and squared it (see
-     * the blending note above). Alpha has no compositing role for an emitter — the
+     * This is the fix for a real error, not just a restructuring: the previous graph
+     * emitted an already-compressed `signal`, so two overlapping stars summed two
+     * compressed values, which is not the transfer of their summed flux. Additive
+     * blending is only correct on linear radiance.
+     *
+     * ALPHA IS 1. It must not carry the profile: `AdditiveBlending` multiplies rgb by
+     * alpha, so returning the profile there applied it twice and squared it (see the
+     * blending note above). Alpha has no compositing role for an emitter — the
      * radiance is already the contribution.
      */
-    const radiance = iColor.mul(profile).mul(uGain);
+    const radiance = iBandFlux.mul(profile).mul(uGain);
     return vec4(radiance, float(1));
   })();
 

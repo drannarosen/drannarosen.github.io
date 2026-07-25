@@ -560,7 +560,26 @@ const fld = prepareStarField(fake, { band: "V", scheme: "true" });
 ok(fld.count === 300, "one entry per star");
 ok(fld.position.length === 900 && fld.color.length === 900, "positions and colours are vec3 arrays");
 ok(fld.signal.every((v) => v >= 0 && Number.isFinite(v)), "signals are finite and non-negative");
-ok(fld.sizePx.every((v) => v >= PSF_WIDTH_PX && Number.isFinite(v)), "every billboard holds its PSF");
+/* Every DRAWN billboard holds its PSF, and an undrawn one has no billboard at all.
+ *
+ * The old form demanded `>= PSF_WIDTH_PX` for every star, which was right while the sizing
+ * interpolated a floor of 3 core radii for everyone. Solved sizing gives a star below the
+ * display floor a quad of exactly ZERO — the honest answer, and a saving: 40 of these 300
+ * stars previously shaded a 6.6 px quad to produce nothing. So the assertion splits in two,
+ * and the second half is the one with content: nothing may be drawn thinner than one PSF,
+ * because a sub-pixel quad is sampled wherever the pixel centre lands. */
+ok(
+  fld.sizePx.every((v) => Number.isFinite(v) && v >= 0),
+  "every billboard size is finite and non-negative",
+);
+ok(
+  fld.sizePx.every((v) => v === 0 || v >= PSF_WIDTH_PX),
+  "every DRAWN billboard holds its PSF, and an invisible star gets no quad",
+);
+ok(
+  [...fld.sizePx].some((v) => v === 0) && [...fld.sizePx].some((v) => v >= PSF_WIDTH_PX),
+  "…and both cases are actually present in this population, so neither branch is untested",
+);
 ok(fld.tier.every((t) => t >= 1 && t <= 3), "every star lands in a valid tier");
 ok(fld.stats.whiteFlux > 0, "a positive white point is derived");
 ok(fld.stats.clipping < fld.count * 0.02, "only a small fraction clips");

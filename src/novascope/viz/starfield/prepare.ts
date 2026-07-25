@@ -42,7 +42,17 @@ import {
 import { getScheme } from "../../core/colorimetry/schemes.ts";
 import { DEFAULT_AUREOLE, DEFAULT_DIFFRACTION } from "../../core/optics/index.ts";
 import { unitLuminanceChroma } from "../../core/colorimetry/index.ts";
-import { computeTiers, quadExtentPx, PSF_WIDTH_PX, type TierBoundaries } from "./sizing.ts";
+import {
+  computeTiers,
+  PSF_WIDTH_PX,
+  MAX_QUAD_PX,
+  coreExtentRadii,
+  aureoleExtentRadii,
+  diffractionExtentRadii,
+  type TierBoundaries,
+} from "./sizing.ts";
+import { floorForDepth } from "./calibrate.ts";
+import { DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
 
 /**
  * Floats per star in the packed table this module reads, in the order
@@ -315,6 +325,12 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const dpr = opts.pixelRatio ?? 1;
   const minMass = opts.minMass ?? 0;
   const magLimit = opts.magLimit;
+  /*
+   * The intensity one display level corresponds to, on the LUPTON curve — what decides how far
+   * a star's billboard has to reach. Derived from the same `depthMag` the asinh path uses, so
+   * one control still drives the depth, but through the transfer that is actually applied.
+   */
+  const displayFloor = floorForDepth(opts.depthMag ?? DEFAULT_LUPTON_DEPTH_MAG);
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
@@ -532,15 +548,52 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
      * genuinely should be rare.
      */
     halo[i] = (exposure * (flux[i] ?? 0)) / (whiteFlux > 0 ? whiteFlux : 1);
-    // Only the BILLBOARD grows with brightness; the PSF inside it is fixed.
-    // Tier 3 carries diffraction, so its quad must be sized to hold the spikes.
+    /*
+     * Only the BILLBOARD grows with brightness; the PSF inside it is fixed. Tier 3
+     * carries diffraction, so its quad must be sized to hold the spikes.
+     *
+     * SIZED FROM THE LINEAR BAND FLUX, not from the compressed signal, because the
+     * shader now shades `bandFlux * profileShape` and it is that amplitude which
+     * decides where the profile drops below one display level. The brightest channel
+     * sets the extent: a quad that held only the mean would clip whichever channel
+     * dominates, and for a strongly coloured star those differ by a large factor.
+     *
+     * `coreExtentRadii` SOLVES for that radius where the previous `quadExtentPx`
+     * interpolated `3 + 14 * s` core radii in the compressed signal — well tuned at
+     * the top (17.20 solved against 17.0) but clamped above white and handing 3 radii
+     * to stars that render nothing.
+     */
+    const ampPeak = Math.max(
+      bandFluxOut[i * 3] ?? 0,
+      bandFluxOut[i * 3 + 1] ?? 0,
+      bandFluxOut[i * 3 + 2] ?? 0,
+    );
+    const spikeParams = (tier[i] ?? 1) >= 3 ? DEFAULT_DIFFRACTION : undefined;
+    const reachRadii = Math.max(
+      coreExtentRadii(ampPeak, displayFloor),
+      aureoleExtentRadii(ampPeak, DEFAULT_AUREOLE),
+      spikeParams ? diffractionExtentRadii(ampPeak, spikeParams) : 0,
+    );
+    /*
+     * TWO FLOORS, and they say different things.
+     *
+     * A star below the display floor reaches nowhere and gets NO quad — `reachRadii` is 0 and
+     * so is its billboard. That is the honest outcome and it is new: the interpolated sizing
+     * this replaced handed 3 core radii to every star, so ~13% of this population shaded a
+     * 6.6 px quad to produce nothing.
+     *
+     * A star ABOVE the floor gets at least one PSF width even when its own reach is less.
+     * Solved sizing alone put 26 of 300 stars in a quad narrower than 2.2 px, down to 0.29 px,
+     * and a quad that thin is sampled wherever the pixel centre happens to fall — the aliasing
+     * `MIN_RENDERABLE_PX` documents. Enlarging it is safe and slightly more accurate rather
+     * than less: the profile is already below one display level out there, and the pedestal
+     * subtracted at a wider edge is smaller, so the star reads marginally brighter than a
+     * tight quad would have made it, not dimmer.
+     */
     const px =
-      quadExtentPx(
-        s,
-        halo[i] ?? 0,
-        DEFAULT_AUREOLE,
-        (tier[i] ?? 1) >= 3 ? DEFAULT_DIFFRACTION : undefined,
-      ) * dpr;
+      reachRadii > 0
+        ? Math.min(MAX_QUAD_PX, PSF_WIDTH_PX * Math.max(1, reachRadii)) * dpr
+        : 0;
     sizePx[i] = px;
     if (px > maxSizePx) maxSizePx = px;
     const t = tier[i] ?? 1;
