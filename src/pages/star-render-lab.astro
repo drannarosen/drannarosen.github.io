@@ -330,6 +330,10 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   // ~5% of visitors get that backend, so it needs to be checkable on demand.
   const forceWebGL = new URLSearchParams(location.search).has("forceWebGL");
 
+  /** Short band name for the magnitude readout, e.g. "V", "Rubin r". */
+  const bandLabelFor = (id: string): string =>
+    document.querySelector<HTMLOptionElement>(`[data-band] option[value="${id}"]`)?.textContent ?? id;
+
   const read = () => {
     // Depth is OMITTED when its control is missing, so core/imaging's tuned default
     // applies. A fallback number here would be a second place the same fact lives,
@@ -367,10 +371,21 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           const limit = Number.isFinite(s.faintestVisibleMbol)
             ? ` · faintest m_bol ${s.faintestVisibleMbol.toFixed(1)}`
             : "";
+          /*
+           * ABSOLUTE magnitude range of the drawn stars, in the selected band's own
+           * system. Reported separately from the depth because the two are different
+           * kinds of thing: this describes the STARS and does not move when the
+           * exposure or the camera does, which is what makes it the teaching number.
+           */
+          const bandId = read().band;
+          const sys = s.absMag.system === "AB" ? `M(${bandLabelFor(bandId)})` : "M_bol";
+          const abs = Number.isFinite(s.absMag.brightest)
+            ? ` · ${sys} ${s.absMag.brightest.toFixed(1)} to ${s.absMag.faintest.toFixed(1)}`
+            : "";
           setStatus(
             `${label}${forceWebGL ? " (forced)" : ""} · ${s.shown.toLocaleString()} of ` +
               `${lab.starCount.toLocaleString()} drawn · ${s.visible.toLocaleString()} above ` +
-              `threshold (${pct}%) · ${s.clipping} clipping · depth ${s.depthMag.toFixed(1)} mag${limit}`,
+              `threshold (${pct}%) · ${s.clipping} clipping · depth ${s.depthMag.toFixed(1)} mag${limit}${abs}`,
           );
         };
         show(lab.stats);

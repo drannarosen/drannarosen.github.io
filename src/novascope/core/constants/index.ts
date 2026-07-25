@@ -86,3 +86,20 @@ export const PC_CM = (648000 / Math.PI) * 1.495978707e13;
 
 /** Astronomical unit [cm]. IAU 2012 B2 exact definition. */
 export const AU_CM = 1.495978707e13;
+
+/* ── Photometric zero points ── */
+
+/**
+ * AB magnitude zero point [erg s^-1 cm^-2 Hz^-1].
+ *
+ * The AB system is DEFINED by f_nu = 3631 Jy at m = 0 (Oke & Gunn 1983), and
+ * 1 Jy = 1e-23 erg s^-1 cm^-2 Hz^-1 exactly, so this is a definition rather than a
+ * measurement. Written as the product so both halves stay visible.
+ *
+ * This is the second absolute zero point in the package, and the two answer different
+ * questions: `L_ZERO_BOL_ERG_S` calibrates BOLOMETRIC magnitudes (total output), this
+ * calibrates magnitudes THROUGH A FILTER. A bolometric correction is exactly the
+ * difference between them, which is why both are needed to state one.
+ */
+export const AB_ZERO_JY = 3631;
+export const AB_ZERO_CGS = AB_ZERO_JY * 1e-23;

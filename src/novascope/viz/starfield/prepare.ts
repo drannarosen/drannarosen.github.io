@@ -21,7 +21,7 @@ import {
   magnitudeDifference,
   fluxRatioForMagnitudes,
 } from "../../core/photometry/index.ts";
-import { PASSBANDS, bandFlux, type Passband } from "../../core/photometry/passbands.ts";
+import { PASSBANDS, bandFlux, absoluteAbMagnitude, type Passband } from "../../core/photometry/passbands.ts";
 import {
   robustWhiteFlux,
   asinhResponse,
@@ -150,6 +150,15 @@ export interface StarField {
     faintestVisibleMbol: number;
     /** Stars actually drawn, after any `minMass` cut. */
     shown: number;
+    /**
+     * Range of ABSOLUTE magnitude across the drawn population, in the selected
+     * band's own system — AB when a band is chosen, IAU bolometric otherwise.
+     *
+     * A property of the STARS, not of the exposure or the framing, which is exactly
+     * what makes it the useful teaching number: it does not move when the depth
+     * slider or the camera does. `brightest` is the smallest (most negative).
+     */
+    absMag: { brightest: number; faintest: number; system: "AB" | "bolometric" };
   };
 }
 
@@ -271,6 +280,8 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   let clipping = 0;
   let maxSizePx = 0;
   let shown = 0;
+  let absBrightest = Infinity;
+  let absFaintest = -Infinity;
   let faintestVisibleMbol = -Infinity;
   const tierCounts: [number, number, number] = [0, 0, 0];
   for (let i = 0; i < count; i++) {
@@ -295,7 +306,22 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
         distanceModulus(Math.max(MIN_DISTANCE_PC, D0_PC - (stars[o + 2] ?? 0)));
       if (m > faintestVisibleMbol) faintestVisibleMbol = m;
     }
-    if (!cut) shown++;
+    if (!cut) {
+      shown++;
+      /*
+       * Absolute magnitude of every star that is DRAWN. Computed at 10 pc, so it is
+       * distance-free and describes the star rather than this view of it — a mass cut
+       * changes the range because the population changed, but the depth slider and
+       * the camera cannot.
+       */
+      const M = band
+        ? absoluteAbMagnitude(stars[o + 4] ?? 0, stars[o + 5] ?? 0, band)
+        : bolometricMagnitude(deriveLogL(stars[o + 4] ?? 0, stars[o + 5] ?? 0));
+      if (Number.isFinite(M)) {
+        if (M < absBrightest) absBrightest = M;
+        if (M > absFaintest) absFaintest = M;
+      }
+    }
     if (s > 1) clipping++;
     /*
      * The halo drive: linear flux relative to white, uncompressed. Exposure
@@ -343,6 +369,11 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
       depthMag: magnitudeDifference(limitingFluxRatio(softening)),
       faintestVisibleMbol: visible > 0 ? faintestVisibleMbol : Infinity,
       shown,
+      absMag: {
+        brightest: absBrightest,
+        faintest: absFaintest,
+        system: band ? "AB" : "bolometric",
+      },
     },
   };
 }

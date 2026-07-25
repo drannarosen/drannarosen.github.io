@@ -27,14 +27,21 @@
  * for science — a real filter curve does not change that, it only removes one of
  * the two approximations.
  *
- * NO ABSOLUTE ZERO POINT. Fluxes are in arbitrary but self-consistent units, so
- * ratios and colour indices are meaningful and apparent AB magnitudes are NOT
- * available. That is why survey depths (`./surveys`) are carried as reference data
- * a page can quote, not as a limit this module can test a star against.
+ * ABSOLUTE MAGNITUDES ARE AVAILABLE, via `abMagnitude` / `absoluteAbMagnitude` on
+ * the AB system's defining zero point. That is a change from an earlier state of this
+ * module, when fluxes were ratios only — and the thing that had to be fixed to get
+ * there was a missing factor of pi in the flux from a sphere (see `spectralFluxCgs`),
+ * which cost exactly 1.19 mag and was invisible while nothing but ratios was used.
+ *
+ * Validated where a reader can check it: the Sun comes out at M_V = 4.87 against a
+ * published ~4.83 AB, a 0.04 mag agreement across the pi, the Jansky conversion, the
+ * CGS units and the band average together. Gaia G comes out 4.82 against a real 4.67,
+ * and that 0.15 mag IS the blackbody approximation — the discrepancy grows toward
+ * cool stars, which is what a bolometric-correction table would quantify.
  */
 
-import { planckNm } from "../blackbody/index.ts";
-import { R_SUN_CM, PC_CM } from "../constants/index.ts";
+import { planckNm, NM_TO_CM } from "../blackbody/index.ts";
+import { R_SUN_CM, PC_CM, C_CM_S, AB_ZERO_CGS } from "../constants/index.ts";
 import { TABULATED_CURVES, type TabulatedCurve } from "./passbandCurves.ts";
 
 export interface Passband {
@@ -186,9 +193,108 @@ export function bandFlux(
   band: Passband,
 ): number {
   if (!(teffK > 0) || !(radiusRsun > 0) || !(distancePc > 0)) return 0;
-  const solidAngle = ((radiusRsun * R_SUN_CM) / (distancePc * PC_CM)) ** 2;
-  return bandIntegral((l) => planckNm(l, teffK), band) * solidAngle;
+  return bandIntegral((l) => spectralFluxCgs(l, teffK, radiusRsun, distancePc), band);
 }
+
+/**
+ * Spectral flux density at the observer from a blackbody sphere,
+ * F_lambda [erg s^-1 cm^-2 cm^-1] — an ABSOLUTE value, not a ratio.
+ *
+ *     F_lambda = pi * B_lambda(Teff) * (R / d)^2
+ *
+ * NOTE THE pi. `planckNm` returns a RADIANCE, per steradian; integrating the
+ * outward hemisphere of a Lambertian surface gives a factor of pi, and the
+ * (R/d)^2 then converts surface flux to flux at the observer.
+ *
+ * That pi was previously missing. It was harmless while only ratios were used —
+ * every flux carried the same factor, so the exposure's white point absorbed it and
+ * the rendered image was identical — but it is NOT harmless the moment an absolute
+ * magnitude is computed, where it is a fixed 1.19 mag error. It is fixed here rather
+ * than at the call site so there is one definition of "the flux from a star".
+ */
+export function spectralFluxCgs(
+  lambdaNm: number,
+  teffK: number,
+  radiusRsun: number,
+  distancePc: number,
+): number {
+  const dilution = ((radiusRsun * R_SUN_CM) / (distancePc * PC_CM)) ** 2;
+  return Math.PI * planckNm(lambdaNm, teffK) * dilution;
+}
+
+/**
+ * Band-averaged flux density <f_nu> [erg s^-1 cm^-2 Hz^-1], on the PHOTON-COUNTING
+ * convention:
+ *
+ *     <f_nu> = integral(F_lambda * lambda * T dlambda) / (c * integral(T dlambda/lambda))
+ *
+ * Photon-counting because that is what the detectors these curves describe actually
+ * do — Rubin, Gaia, HST and JWST all count photons, and SVO labels the Gaia curves
+ * as photon counters explicitly. The classical Bessell UBVRI curves are ENERGY
+ * counters and strictly want a different weighting; that difference is small next to
+ * the blackbody approximation already in play, and it is recorded here rather than
+ * silently ignored.
+ */
+export function bandFluxDensityCgs(
+  teffK: number,
+  radiusRsun: number,
+  distancePc: number,
+  band: Passband,
+): number {
+  if (!(teffK > 0) || !(radiusRsun > 0) || !(distancePc > 0)) return 0;
+  // Both integrals run over the same grid, in CM so the result is CGS.
+  const numer = bandIntegral(
+    (l) => spectralFluxCgs(l, teffK, radiusRsun, distancePc) * (l * NM_TO_CM),
+    band,
+  );
+  const denom = bandIntegral((l) => 1 / (l * NM_TO_CM), band);
+  if (!(denom > 0)) return 0;
+  // bandIntegral returns its sum times the grid step in NM, and the same factor
+  // appears in both integrals, so it cancels — no nm/cm conversion is needed on it.
+  return numer / (C_CM_S * denom);
+}
+
+/**
+ * Apparent AB magnitude through a band.
+ *
+ * m_AB = -2.5 log10(<f_nu> / 3631 Jy), the AB system's defining zero point
+ * (Oke & Gunn 1983). Returns `Infinity` for a source with no flux, which is the
+ * honest answer rather than a NaN.
+ *
+ * THIS IS A BLACKBODY MAGNITUDE. It is exact given the filter curve and the assumed
+ * spectrum, and the spectrum is the weak link: no line blanketing, no Balmer jump, no
+ * molecular bands. Expect real disagreement with published photometry for cool stars,
+ * which is precisely what a bolometric correction table would quantify.
+ */
+export function abMagnitude(
+  teffK: number,
+  radiusRsun: number,
+  distancePc: number,
+  band: Passband,
+): number {
+  const f = bandFluxDensityCgs(teffK, radiusRsun, distancePc, band);
+  if (!(f > 0)) return Infinity;
+  return -2.5 * Math.log10(f / AB_ZERO_CGS);
+}
+
+/**
+ * ABSOLUTE AB magnitude: the apparent magnitude the star would have at 10 pc.
+ *
+ * Distance-free by construction, so it is a property of the star alone — which is
+ * what makes it the useful teaching quantity. The Sun in Johnson V should land near
+ * 4.8; `check:passbands` asserts that, because it is the one number in this module
+ * a reader can check from memory.
+ */
+export function absoluteAbMagnitude(
+  teffK: number,
+  radiusRsun: number,
+  band: Passband,
+): number {
+  return abMagnitude(teffK, radiusRsun, ABSOLUTE_MAG_DISTANCE_PC, band);
+}
+
+/** The 10 pc at which an absolute magnitude is defined. */
+export const ABSOLUTE_MAG_DISTANCE_PC = 10;
 
 /**
  * Zero-point reference temperature for colour indices.

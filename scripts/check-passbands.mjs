@@ -17,7 +17,7 @@
  * justification does not. This gate is what stops that coming back.
  */
 import { TABULATED_CURVES, RESAMPLE_STEP_NM } from "../src/novascope/core/photometry/passbandCurves.ts";
-import { PASSBANDS, bandResponse, bandIntegral, bandFlux } from "../src/novascope/core/photometry/passbands.ts";
+import { PASSBANDS, bandResponse, bandIntegral, bandFlux, abMagnitude, absoluteAbMagnitude } from "../src/novascope/core/photometry/passbands.ts";
 import { SURVEYS, RUBIN, GAIA, depthRange } from "../src/novascope/core/photometry/surveys.ts";
 import { planckNm } from "../src/novascope/core/blackbody/index.ts";
 
@@ -113,6 +113,42 @@ ok(PASSBANDS.LSST_r.curve !== undefined, "Rubin r uses its measured curve");
     bandFlux(3000, 1, 10, PASSBANDS.LSST_z) > bandFlux(3000, 1, 10, PASSBANDS.LSST_u),
     "a 3000 K star is brighter in z than in u",
   );
+}
+
+/* ── ABSOLUTE MAGNITUDES ──
+ *
+ * The Sun in V is the one number in this module a reader can check from memory, so it
+ * is the anchor. A missing factor of pi in the flux from a sphere — which is what this
+ * module shipped with until absolute magnitudes were added — costs exactly
+ * 2.5*log10(pi) = 1.19 mag, so this assertion catches precisely that class of error. */
+{
+  const mv = absoluteAbMagnitude(5772, 1, PASSBANDS.V);
+  ok(Math.abs(mv - 4.83) < 0.15, `the Sun's M_V is ~4.83 AB (got ${mv.toFixed(3)})`);
+  // If pi went missing again, mv would land near 6.06. Assert the gap explicitly.
+  ok(Math.abs(mv - (4.83 + 2.5 * Math.log10(Math.PI))) > 0.5, "…and not 1.19 mag too faint (the missing-pi signature)");
+
+  // Absolute magnitude must be distance-free by construction.
+  ok(
+    Math.abs(abMagnitude(5772, 1, 10, PASSBANDS.V) - absoluteAbMagnitude(5772, 1, PASSBANDS.V)) < 1e-12,
+    "absolute magnitude IS the apparent magnitude at 10 pc",
+  );
+  // …and must follow the distance modulus exactly.
+  ok(
+    Math.abs(abMagnitude(5772, 1, 100, PASSBANDS.V) - absoluteAbMagnitude(5772, 1, PASSBANDS.V) - 5) < 1e-9,
+    "10x the distance is exactly 5 magnitudes fainter",
+  );
+  // Bigger and hotter are brighter (smaller magnitude), in the right amounts.
+  ok(
+    Math.abs(absoluteAbMagnitude(5772, 2, PASSBANDS.V) - absoluteAbMagnitude(5772, 1, PASSBANDS.V) + 2.5 * Math.log10(4)) < 1e-9,
+    "doubling the radius brightens by exactly 2.5 log10(4)",
+  );
+  ok(absoluteAbMagnitude(30000, 1, PASSBANDS.V) < absoluteAbMagnitude(3000, 1, PASSBANDS.V), "a hot star is brighter in V than a cool one of the same radius");
+  // Every band must give a finite, plausible stellar magnitude for the Sun.
+  for (const id of ["U","B","V","R","I","J","H","K","LSST_u","LSST_g","LSST_r","LSST_i","LSST_z","LSST_y","Gaia_G","Gaia_BP","Gaia_RP"]) {
+    const m = absoluteAbMagnitude(5772, 1, PASSBANDS[id]);
+    ok(Number.isFinite(m) && m > 3 && m < 8, `${id}: the Sun's absolute AB magnitude is plausible (${m.toFixed(2)})`);
+  }
+  ok(absoluteAbMagnitude(5772, 0, PASSBANDS.V) === Infinity, "a zero-radius star is infinitely faint, not NaN");
 }
 
 /* Survey reference data. */
