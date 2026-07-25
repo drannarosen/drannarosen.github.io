@@ -34,7 +34,6 @@ import { planckNm } from "../../core/blackbody/index.ts";
 import {
   robustWhiteFlux,
   asinhResponse,
-  DEFAULT_SOFTENING,
   VISIBILITY_THRESHOLD,
   limitingFluxRatio,
   softeningForLimit,
@@ -52,7 +51,11 @@ import {
   type TierBoundaries,
 } from "./sizing.ts";
 import { floorForDepth } from "./calibrate.ts";
-import { DEFAULT_LUPTON_DEPTH_MAG, ONE_DISPLAY_LEVEL } from "../../core/imaging/lupton.ts";
+import {
+  DEFAULT_LUPTON_DEPTH_MAG,
+  DEFAULT_POPULATION_DEPTH_MAG,
+  ONE_DISPLAY_LEVEL,
+} from "../../core/imaging/lupton.ts";
 import { stretchInverse, type StretchId } from "../../core/imaging/stretch.ts";
 
 /**
@@ -384,10 +387,25 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const band = resolveBand(opts.band);
   const scheme = getScheme(opts.scheme ?? "true");
   // A stated DEPTH wins over a raw softening: it says the same thing physically.
+  /*
+   * A stated DEPTH wins over a raw softening: it says the same thing physically.
+   *
+   * The fallback is the MODE's default rather than `DEFAULT_SOFTENING`, so omitting `depthMag` and
+   * passing the mode's own default produce the same image. They used to differ — `DEFAULT_SOFTENING`
+   * is 19.78 mag while the page sent 8 — which is why the bug was invisible in unit tests that
+   * omitted the option and glaring on the page that supplied it.
+   */
   const softening =
     opts.depthMag !== undefined
       ? softeningForLimit(fluxRatioForMagnitudes(opts.depthMag))
-      : (opts.softening ?? DEFAULT_SOFTENING);
+      : (opts.softening ??
+        softeningForLimit(
+          fluxRatioForMagnitudes(
+            (opts.colorMode ?? (opts.bandTriple ? "photometric" : "population")) === "photometric"
+              ? DEFAULT_LUPTON_DEPTH_MAG
+              : DEFAULT_POPULATION_DEPTH_MAG,
+          ),
+        ));
   const exposure = opts.exposure ?? 1;
   const percentile = opts.whitePercentile ?? DEFAULT_WHITE_PERCENTILE;
   const dpr = opts.pixelRatio ?? 1;
@@ -406,9 +424,16 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
    * corresponding to one display level spans 850x (1.5e-5 for sqrt against 1.3e-2 for sinh), so a
    * fixed floor would either clip the faint stars under sqrt or waste enormous quads under sinh.
    */
+  /*
+   * The depth default is PER MODE, because `depthMag` drives a different parameter in each: Lupton's
+   * Q per pixel, or the per-star asinh softening. One shared default put population mode's median
+   * star at a signal of 1e-4 against a 0.02 threshold — see `DEFAULT_POPULATION_DEPTH_MAG`.
+   */
+  const defaultDepthMag =
+    colorMode === "photometric" ? DEFAULT_LUPTON_DEPTH_MAG : DEFAULT_POPULATION_DEPTH_MAG;
   const displayFloor =
     scaling === "lupton"
-      ? floorForDepth(opts.depthMag ?? DEFAULT_LUPTON_DEPTH_MAG)
+      ? floorForDepth(opts.depthMag ?? defaultDepthMag)
       : stretchInverse(ONE_DISPLAY_LEVEL, scaling);
 
   const position = new Float32Array(count * 3);

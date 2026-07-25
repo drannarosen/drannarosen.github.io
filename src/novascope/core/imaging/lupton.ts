@@ -149,6 +149,42 @@ export const ONE_DISPLAY_LEVEL = 1 / 255;
 export const DEFAULT_LUPTON_DEPTH_MAG = 8;
 
 /**
+ * Default exposure depth for POPULATION mode, in magnitudes — and it is nearly twice the Lupton
+ * one, because `depthMag` drives a different parameter in each mode.
+ *
+ * In photometric mode it sets Lupton's Q, a per-PIXEL curve. In population mode it sets the
+ * per-STAR asinh softening, so it decides whether the faint majority is rendered at all. Sharing
+ * one number between them was a real regression: at 8 mag the MEDIAN star's display signal is 1e-4
+ * against a visibility threshold of 0.02, so only the brightest stars survived — and in a young
+ * cluster those are the hot blue ones, so every pixel took their hue and the field read as a single
+ * colour.
+ *
+ * 16 is measured, on the shipped population under the `vivid` scheme:
+ *
+ *     depth   median signal   mean blue fraction   hue spread
+ *      8         0.0001            0.738             0.179
+ *     12         0.0035            0.449             0.349
+ *     16         0.1009            0.210             0.326
+ *     19.78      0.2845            0.147             0.281
+ *
+ * Hue spread peaks near 12 and the blue fraction keeps falling past 20, so 16 is chosen as the best
+ * joint position rather than the optimum of either: it removes most of the blue cast while keeping
+ * 94% of the peak colour separation. Past 20 everything is lifted far enough that the hues wash back
+ * together, which is the opposite failure.
+ */
+export const DEFAULT_POPULATION_DEPTH_MAG = 16;
+
+/**
+ * Slider bounds that must cover BOTH mode defaults.
+ *
+ * Exported so a UI derives its range instead of restating it. The regression this fixes was exactly
+ * a restated range: the control was narrowed to 6.25-16 for the Lupton path, which put the depth
+ * population mode needs at or outside its own maximum. `check:star-optics` asserts these bounds
+ * bracket both defaults, so narrowing one for the other's benefit fails the build.
+ */
+export const DEPTH_MAG_RANGE = { min: 6.25, max: 24 } as const;
+
+/**
  * How many MAGNITUDES the display curve spans, from one 8-bit level up to white.
  *
  * The Lupton equivalent of the depth this renderer already reports for its asinh path,

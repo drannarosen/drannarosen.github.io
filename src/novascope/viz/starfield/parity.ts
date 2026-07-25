@@ -35,7 +35,8 @@ import { pass, vec4 } from "three/tsl";
 import { prepareStarField, type PrepareOptions, type StarField } from "./prepare.ts";
 import { clusterStarTable } from "./source.ts";
 import { createStarGraph } from "./starGraph.ts";
-import { createLuptonNode } from "./luptonNode.ts";
+import { createLuptonNode, createStretchNode } from "./luptonNode.ts";
+import { stretch, type StretchId } from "../../core/imaging/stretch.ts";
 import { accumulateBandRadiance, renderReferenceLupton } from "./reference.ts";
 import { whitePixelIntensity, floorForDepth } from "./calibrate.ts";
 import { DEFAULT_LUPTON_DEPTH_MAG, luptonRGB, luptonQForDepth, luptonStretchForWhite } from "../../core/imaging/lupton.ts";
@@ -51,6 +52,18 @@ export interface ParityOptions {
   prepare?: PrepareOptions;
   /** Apply the TSL Lupton node on the GPU, and compare display RGB instead of radiance. */
   lupton?: boolean;
+  /**
+   * Apply a SCALAR stretch on the GPU (`createStretchNode`) and the same curve per channel on the
+   * CPU. Mutually exclusive with `lupton`.
+   *
+   * This mode was missing, and its absence was a real coverage hole rather than an omission of
+   * convenience: `createStretchNode` shipped unverified while `createLuptonNode` was checked to
+   * 0.05 display levels, and the symptom that exposed the gap — a blue wash on the live page —
+   * lives in exactly the path that had no test.
+   */
+  scaling?: StretchId;
+  /** White point for the scalar path. Population mode uses 1, since its signal is pre-normalised. */
+  whitePoint?: number;
 }
 
 export interface ParityResult {
@@ -79,7 +92,17 @@ export interface ParityResult {
    */
   percentiles: { p50: number; p90: number; p99: number; p999: number; max: number };
   /**
-   * ABSOLUTE difference in 8-bit display levels, over EVERY pixel — Lupton mode only.
+   * Mean blue fraction, b/(r+g+b), over lit pixels — on BOTH sides.
+   *
+   * Reported because it is the SYMPTOM, and an aggregate error metric can hide it completely: a
+   * uniform hue shift leaves total energy and per-pixel magnitudes almost untouched while making
+   * the whole frame the wrong colour. The Lupton path was verified to 0.05 display levels and that
+   * number would have looked just as good with the channels swapped. Only a hue-specific measure
+   * catches a colour-space mismatch or a swizzle.
+   */
+  blueFraction: { gpu: number; cpu: number } | null;
+  /**
+   * ABSOLUTE difference in 8-bit display levels, over EVERY pixel — display modes only.
    *
    * The right metric for a display image, and it is not interchangeable with the relative one.
    * Relative error is the meaningful measure in LINEAR radiance, where a value spans eight decades
@@ -185,7 +208,25 @@ export async function runParity(opts: ParityOptions = {}): Promise<ParityResult>
   const cpuLupton = opts.lupton ? renderReferenceLupton(field, cam, { depthMag }) : null;
 
   let gpu: Float32Array;
-  if (opts.lupton) {
+  if (opts.scaling) {
+    /*
+     * SCALAR-STRETCH MODE. Same structure as the Lupton branch and, critically, still read back
+     * from a FloatType target rather than from the canvas — so this isolates the TSL curve from
+     * whatever the canvas does to the values on presentation. Those are two different suspects and
+     * one measurement cannot separate them.
+     */
+    const scenePass = pass(scene, camera);
+    const pipeline = new RenderPipeline(renderer);
+    pipeline.outputColorTransform = false;
+    const str = createStretchNode(scenePass.rgb, opts.scaling);
+    str.setWhitePoint(opts.whitePoint ?? 1);
+    pipeline.outputNode = vec4(str.node, 1);
+    renderer.setRenderTarget(rt);
+    renderer.setClearColor(0x000000, 1);
+    await pipeline.renderAsync();
+    gpu = (await renderer.readRenderTargetPixelsAsync(rt, 0, 0, width, height)) as Float32Array;
+    renderer.setRenderTarget(null);
+  } else if (opts.lupton) {
     /*
      * The full chain, with NO bloom. Bloom is a separate, deliberately non-physical pass; the
      * CPU reference does not model it, so including it here would measure the difference
@@ -220,15 +261,28 @@ export async function runParity(opts: ParityOptions = {}): Promise<ParityResult>
    * error and a 6x peak disagreement while total energy matched to 1%. Two different images, not a
    * broken shader. It is also the exact signature the header warns about, so: suspect the harness.
    */
-  const cpu = opts.lupton
-    ? (cpuLupton?.rgb ?? new Float32Array(0))
-    : accumulateBandRadiance(field, cam, { depthMag }).radiance;
+  let cpu: Float32Array | Float64Array;
+  if (opts.scaling) {
+    // The same curve, per channel, on the same accumulated radiance — the CPU mirror of the node.
+    const acc = accumulateBandRadiance(field, cam, { depthMag }).radiance;
+    const white = Math.max(Number.MIN_VALUE, opts.whitePoint ?? 1);
+    const out = new Float32Array(acc.length);
+    for (let i = 0; i < acc.length; i++) out[i] = stretch((acc[i] ?? 0) / white, opts.scaling);
+    cpu = out;
+  } else if (opts.lupton) {
+    cpu = cpuLupton?.rgb ?? new Float32Array(0);
+  } else {
+    cpu = accumulateBandRadiance(field, cam, { depthMag }).radiance;
+  }
 
   /*
    * Compared TOP-DOWN in both, which is TRAP 1. The GPU readback is RGBA (4 floats) and the CPU
    * reference is RGB (3), so the strides differ and the indices must not be conflated.
    */
-  const floor = opts.lupton ? 1 / 255 : 0.02;
+  const isDisplay = opts.lupton === true || opts.scaling !== undefined;
+  const floor = isDisplay ? 1 / 255 : 0.02;
+  const blueGpu: number[] = [];
+  const blueCpu: number[] = [];
   let energyGpu = 0;
   let energyCpu = 0;
   let sumAbs = 0;
@@ -240,6 +294,12 @@ export async function runParity(opts: ParityOptions = {}): Promise<ParityResult>
   let peakGpu = 0;
   let peakCpu = 0;
   for (let p = 0; p < width * height; p++) {
+    if (isDisplay) {
+      const gr = gpu[p * 4] ?? 0, gg = gpu[p * 4 + 1] ?? 0, gb = gpu[p * 4 + 2] ?? 0;
+      const cr = cpu[p * 3] ?? 0, cg = cpu[p * 3 + 1] ?? 0, cb = cpu[p * 3 + 2] ?? 0;
+      if (Math.max(gr, gg, gb) > floor) blueGpu.push(gb / (gr + gg + gb));
+      if (Math.max(cr, cg, cb) > floor) blueCpu.push(cb / (cr + cg + cb));
+    }
     for (let k = 0; k < 3; k++) {
       const g = gpu[p * 4 + k] ?? 0;
       const c = cpu[p * 3 + k] ?? 0;
@@ -273,7 +333,13 @@ export async function runParity(opts: ParityOptions = {}): Promise<ParityResult>
 
   return {
     percentiles: { p50: at(0.5), p90: at(0.9), p99: at(0.99), p999: at(0.999), max: worst },
-    levels: opts.lupton
+    blueFraction: isDisplay
+      ? {
+          gpu: blueGpu.length ? blueGpu.reduce((a, b) => a + b, 0) / blueGpu.length : 0,
+          cpu: blueCpu.length ? blueCpu.reduce((a, b) => a + b, 0) / blueCpu.length : 0,
+        }
+      : null,
+    levels: isDisplay
       ? {
           mean: levelDiffs.reduce((a, b) => a + b, 0) / Math.max(1, levelDiffs.length),
           p999: atLevel(0.999),

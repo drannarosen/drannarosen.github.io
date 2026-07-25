@@ -4,7 +4,11 @@ import PageHeader from "../components/PageHeader.astro";
 import { COLOR_SCHEMES } from "@novascope/core/colorimetry/schemes";
 import { linearToSrgbRGB } from "@novascope/core/colorimetry";
 import { spectralType } from "@novascope/core/stellar";
-import { DEFAULT_LUPTON_DEPTH_MAG } from "@novascope/core/imaging/lupton";
+import {
+  DEFAULT_LUPTON_DEPTH_MAG,
+  DEFAULT_POPULATION_DEPTH_MAG,
+  DEPTH_MAG_RANGE,
+} from "@novascope/core/imaging/lupton";
 import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/passbands";
 import { SURVEYS } from "@novascope/core/photometry/surveys";
 import { INSTRUMENTS } from "@novascope/core/photometry/instruments";
@@ -80,29 +84,34 @@ const BAND_SPREAD = SPREAD_BANDS.map((id) => {
  * physical statement the old "faint detail" slider was making opaquely: it read
  * dex of asinh softening, so the control could be tuned but never reported.
  *
- * ITS RANGE AND DEFAULT CHANGED WITH THE DISPLAY TRANSFER, and the number could not be
- * carried across. Both transfers measure depth in magnitudes below white, but they do
- * not mean the same thing by it: the old asinh path compressed PER STAR, so every star
- * was already lifted before the radiances were summed, and 19.8 mag was tuned against
- * that. Lupton compresses once per PIXEL, after summation — and at 19.8 mag the frame
- * came out 83.5% saturated with no black sky at all, a white rectangle that looks
- * exactly like a broken shader.
+ * IT DRIVES A DIFFERENT PARAMETER IN EACH MODE, which is why there are two defaults and why the
+ * range must cover both. In PHOTOMETRIC mode it sets Lupton's Q — a per-pixel curve, where 8 mag
+ * gives 34% black sky and 19.8 mag gives a saturated white rectangle. In POPULATION mode it sets the
+ * per-STAR asinh softening, so it decides whether the faint majority renders at all, and 8 mag puts
+ * the median star's signal at 1e-4 against a 0.02 visibility threshold — only the hot blue stars
+ * survive, so the whole field reads as one colour.
  *
- * So the default is `DEFAULT_LUPTON_DEPTH_MAG`, which is 8 and was measured: 34% black
- * sky, 59% dim, 7% bright on this population. The lower bound is 6.06 rather than a
- * round number because that is the FLOOR of this curve family — `luptonQForDepth` clamps
- * at Q = 0.1 — so anything below it silently produces the same image, and a slider with
- * a dead zone is worse than a shorter slider.
+ * That is the bug this fixes. Narrowing the control to 6.25-16 for the Lupton path put the depth
+ * population mode needs at its own maximum, and the default of 8 was the wrong end entirely.
  *
- * The old derivation from `DEFAULT_SOFTENING` is gone rather than kept alongside. Two
- * defaults for one control is how they drift, and the asinh softening no longer reaches
- * the screen.
+ * Bounds and defaults are IMPORTED from `core/imaging/lupton`, not restated here. A restated range
+ * is exactly how this broke, and `check:star-optics` asserts the range brackets both defaults, so
+ * narrowing one for the other's benefit fails the build.
  */
 const DEPTH_STEP = 0.25;
-const DEPTH_MIN = 6.25; // just above the 6.06 mag floor, on the slider's own step
-const DEPTH_MAX = 16;
-const depthStart =
-  Math.round(DEFAULT_LUPTON_DEPTH_MAG / DEPTH_STEP) * DEPTH_STEP;
+const DEPTH_MIN = DEPTH_MAG_RANGE.min;
+const DEPTH_MAX = DEPTH_MAG_RANGE.max;
+const snap = (v: number): number => Math.round(v / DEPTH_STEP) * DEPTH_STEP;
+/*
+ * BOTH defaults are emitted, and the control switches between them, because `depthMag` drives a
+ * different parameter in each mode — see `DEFAULT_POPULATION_DEPTH_MAG`. The page starts in
+ * population mode, so that is the starting position.
+ */
+const DEPTH_DEFAULTS = {
+  photometric: snap(DEFAULT_LUPTON_DEPTH_MAG),
+  population: snap(DEFAULT_POPULATION_DEPTH_MAG),
+};
+const depthStart = DEPTH_DEFAULTS.population;
 const schemeRows = COLOR_SCHEMES.map((s) => ({
   id: s.id,
   label: s.label,
@@ -147,6 +156,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         10,000 stars carry 92% of the light and they are all hot. It must not be described as what a
         telescope sees.
       -->
+      <script id="srl-depth-defaults" type="application/json" is:inline set:html={JSON.stringify(DEPTH_DEFAULTS)} />
       <script id="srl-instruments" type="application/json" is:inline set:html={JSON.stringify(
         Object.fromEntries(INSTRUMENTS.map((i) => [i.id, {
           label: i.label, composite: i.composite, brightnessBand: i.brightnessBand,
@@ -524,6 +534,38 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
    * matter, which is the opposite of what this page is for. So it is disabled, moved to the
    * instrument's own band, and labelled with why.
    */
+  const DEPTH_DEFAULTS: Record<string, number> = JSON.parse(
+    document.querySelector<HTMLScriptElement>("#srl-depth-defaults")!.textContent!,
+  );
+
+  /*
+   * MOVE THE DEPTH SLIDER WHEN THE MODE CHANGES, because the parameter it drives changes with it.
+   *
+   * In photometric mode `depthMag` sets Lupton's Q, a per-pixel curve; in population mode it sets the
+   * per-star asinh softening, so it decides whether the faint majority renders at all. Leaving one
+   * position across a mode switch is the regression this fixes: at the photometric default of 8 the
+   * median star's signal is 1e-4 against a 0.02 threshold, so only the hot blue stars survived and
+   * the whole field read as one colour.
+   *
+   * Only moved when the slider is still sitting on the OTHER mode's default — otherwise a value the
+   * user chose deliberately would be discarded every time they compared modes.
+   */
+  let lastMode: string | null = null;
+  const syncDepthForMode = (): void => {
+    const el = document.querySelector<HTMLInputElement>("[data-depth]");
+    const id = document.querySelector<HTMLSelectElement>("[data-instrument]")?.value ?? "population";
+    const mode = id === "population" ? "population" : "photometric";
+    if (!el || mode === lastMode) {
+      lastMode = mode;
+      return;
+    }
+    const other = mode === "population" ? "photometric" : "population";
+    if (lastMode === null || Number(el.value) === DEPTH_DEFAULTS[other]) {
+      el.value = String(DEPTH_DEFAULTS[mode]);
+    }
+    lastMode = mode;
+  };
+
   const syncBandControl = (): void => {
     const sel = document.querySelector<HTMLSelectElement>("[data-band]");
     const note = document.querySelector<HTMLElement>("[data-band-note]");
@@ -622,10 +664,13 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-bloom],[data-depth],[data-exposure],[data-min-mass]",
         )) {
           el.addEventListener("input", () => {
-            syncBandControl();
+            syncDepthForMode();
+            syncDepthForMode();
+        syncBandControl();
             show(lab.update(read()));
           });
         }
+        syncDepthForMode();
         syncBandControl();
 
         // Motion toggle. The label is DERIVED from the renderer's state so it cannot

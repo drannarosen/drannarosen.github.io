@@ -37,6 +37,11 @@ import { planckNm, wienPeakLambda, NM_TO_CM } from "../src/novascope/core/blackb
 import { COLOR_SCHEMES, getScheme, stretchChroma } from "../src/novascope/core/colorimetry/schemes.ts";
 import { PASSBANDS, bandFlux, bandIntegral, colorIndex, bandResponse, VEGA_TEFF_K } from "../src/novascope/core/photometry/passbands.ts";
 import { INSTRUMENTS, INSTRUMENT_COMPOSITES, ALL_COMPOSITES, BASELINE_COMPOSITE, getInstrument } from "../src/novascope/core/photometry/instruments.ts";
+import {
+  DEFAULT_LUPTON_DEPTH_MAG,
+  DEFAULT_POPULATION_DEPTH_MAG,
+  DEPTH_MAG_RANGE,
+} from "../src/novascope/core/imaging/lupton.ts";
 import { SURVEYS } from "../src/novascope/core/photometry/surveys.ts";
 import {
   moffat,
@@ -665,14 +670,19 @@ ok(
  * testing both modes; asserting them on one field is what failed here. */
 {
   const pop = [...fld.sizePx];
-  ok(
-    pop.every((v) => v >= PSF_WIDTH_PX),
-    "population mode draws EVERY star — its per-star asinh lifts them all above the floor",
-  );
+  /* Population mode draws all but a handful — 299 of 300 at its 16 mag default, and all 300 at
+   * 19.78. It is not "every star" and the earlier form of this assertion said so only because the
+   * default was then the deeper 19.78: a shallower default legitimately drops the very faintest.
+   * What matters is that it drops FAR fewer than photometric, since showing the population is the
+   * mode's entire purpose. */
+  const popZero = pop.filter((v) => v === 0).length;
+  ok(popZero <= pop.length * 0.02, `population mode draws all but ${popZero} of ${pop.length} stars`);
   const phot = [...prepareStarField(fake, { bandTriple: ["R", "V", "B"], scheme: "true" }).sizePx];
+  const photZero = phot.filter((v) => v === 0).length;
+  ok(photZero > 0, `photometric mode drops the faintest instead (${photZero} of ${phot.length} get no quad)`);
   ok(
-    phot.some((v) => v === 0),
-    `photometric mode drops the faintest instead (${phot.filter((v) => v === 0).length} of ${phot.length} get no quad)`,
+    photZero > popZero * 5,
+    `…and drops many times more than population does (${photZero} against ${popZero}), which is the difference between the two claims`,
   );
   ok(
     phot.some((v) => v >= PSF_WIDTH_PX),
@@ -696,6 +706,84 @@ const LOW = 1e3;
 const inV = prepareStarField(fake, { band: "V", softening: LOW }).stats.visible;
 const inK = prepareStarField(fake, { band: "K", softening: LOW }).stats.visible;
 ok(inK > inV, "more stars are visible in K than in V (cool stars dominate the IR)");
+
+/* ── THE DEPTH CONTROL MEANS DIFFERENT THINGS IN THE TWO MODES ──
+ *
+ * This is a REGRESSION TEST for the bug that made the lab look monochrome blue.
+ *
+ * `depthMag` drives two unrelated parameters. In PHOTOMETRIC mode it sets Lupton's Q, a per-PIXEL
+ * curve. In POPULATION mode it sets the per-STAR asinh softening — so it decides whether the faint
+ * majority is rendered at all. Their useful ranges are therefore different, and when the slider was
+ * narrowed to 6.25-16 for the Lupton path, population mode inherited a default of 8 where the
+ * MEDIAN STAR's signal is 1e-4 against a visibility threshold of 0.02.
+ *
+ * The visible result was that only the brightest stars survived, and in a young cluster those are
+ * the hot blue ones — so every pixel took their hue and the field read as one colour. Measured mean
+ * blue fraction 0.738 at depth 8 against 0.210 at 16.
+ *
+ * The assertion is on the MEDIAN star rather than on a colour statistic, because that is the
+ * mechanism: a mode whose whole purpose is showing the population must actually show the median
+ * member of it. A hue metric would pass again for the wrong reason if the scheme changed.
+ */
+{
+  const popField = (depthMag) =>
+    prepareStarField(clusterStarTable({ sampling: { mode: "count", target: 4000 } }), {
+      scheme: "vivid",
+      band: "V",
+      colorMode: "population",
+      ...(depthMag === undefined ? {} : { depthMag }),
+      pixelRatio: 1,
+    });
+  const medianSignal = (f) => {
+    const s = [...f.signal].filter((v) => v > 0).sort((a, b) => a - b);
+    return s.length ? (s[Math.floor(s.length / 2)] ?? 0) : 0;
+  };
+
+  // The default must show the median star. This is what failed.
+  const atDefault = popField(undefined);
+  ok(
+    medianSignal(atDefault) > VISIBILITY_THRESHOLD,
+    `population mode's DEFAULT depth shows the median star (signal ${medianSignal(atDefault).toFixed(4)} > threshold ${VISIBILITY_THRESHOLD})`,
+  );
+  // And the Lupton default is NOT a safe value for it — the specific regression.
+  ok(
+    medianSignal(popField(8)) < VISIBILITY_THRESHOLD,
+    "…while the photometric default of 8 mag does NOT, which is why the two modes cannot share one",
+  );
+  // Monotonic in depth, which is the mechanism rather than a coincidence.
+  const shallow = medianSignal(popField(10));
+  const deep = medianSignal(popField(20));
+  ok(deep > shallow, `a deeper stretch lifts the median star (${deep.toFixed(4)} > ${shallow.toFixed(4)})`);
+
+  /* THE TWO DEFAULTS MUST DIFFER, and the shared slider range must BRACKET BOTH.
+   *
+   * This is the assertion that would have caught the regression. The control was narrowed to
+   * 6.25-16 for the Lupton path, which left population mode's needed depth at the very edge of its
+   * own maximum — so the fix is not just a better number, it is that one range now has to hold two
+   * defaults and the build fails if it stops doing so. */
+  ok(
+    DEFAULT_POPULATION_DEPTH_MAG > DEFAULT_LUPTON_DEPTH_MAG,
+    `population mode needs a DEEPER default than photometric (${DEFAULT_POPULATION_DEPTH_MAG} > ${DEFAULT_LUPTON_DEPTH_MAG})`,
+  );
+  for (const [name, v] of [
+    ["photometric", DEFAULT_LUPTON_DEPTH_MAG],
+    ["population", DEFAULT_POPULATION_DEPTH_MAG],
+  ]) {
+    ok(
+      v >= DEPTH_MAG_RANGE.min && v <= DEPTH_MAG_RANGE.max,
+      `…and the shared slider range brackets the ${name} default (${DEPTH_MAG_RANGE.min}-${DEPTH_MAG_RANGE.max} holds ${v})`,
+    );
+  }
+  // Headroom above the population default, or the control cannot be pushed past it.
+  ok(
+    DEPTH_MAG_RANGE.max > DEFAULT_POPULATION_DEPTH_MAG,
+    `…with headroom above it (max ${DEPTH_MAG_RANGE.max}), so the deep end is reachable`,
+  );
+  ok(
+    medianSignal(popField(DEFAULT_POPULATION_DEPTH_MAG)) > VISIBILITY_THRESHOLD,
+    `and the population default itself shows the median star (signal ${medianSignal(popField(DEFAULT_POPULATION_DEPTH_MAG)).toFixed(4)})`,
+  );
+}
 
 /* ── DETECTION LIMIT, and the hard limit on what it can do ──
  *
