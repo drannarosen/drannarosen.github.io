@@ -1,11 +1,15 @@
 /*
  * scene.ts — Observed-mode renderer (the Three.js LAB HARNESS).
  *
- * All physics lives in the pure, three-free novascope core, filed by domain:
+ * All physics lives in the pure, three-free novascope CORE, filed by domain:
  * core/photometry (flux, passbands), core/colorimetry (colour schemes),
  * core/optics (PSF, aureole), core/imaging (white point, asinh stretch), with
  * viz/starfield holding the pixel-space policy and the CPU preparation. This
  * file is only the Three.js glue (ADR 0015).
+ *
+ * It is glue that belongs to the PACKAGE, though, not to the site — a renderer
+ * is what novascope is for. So `three` is a Layer 2 dependency and the purity
+ * claim is scoped to core, which is where the node gates run.
  *
  * Verified through BOTH backends: native WebGPU, and the WebGL 2 fallback via
  * `forceWebGL` — ~5% of visitors take the latter and it is a younger code path
@@ -14,8 +18,9 @@
 import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { prepareStarField, type PrepareOptions } from "@novascope/viz/starfield/prepare";
-import { createStarGraph, type StarGraph } from "./starGraph";
+import { prepareStarField, STAR_STRIDE, type PrepareOptions } from "./prepare.ts";
+import { clusterStarTable } from "./source.ts";
+import { createStarGraph, type StarGraph } from "./starGraph.ts";
 
 export type RenderBackend = "webgpu" | "webgl2";
 
@@ -48,26 +53,39 @@ export interface StarLab {
 export interface StarLabOptions extends PrepareOptions {
   /** Force the WebGL 2 backend. Development only — exercises the fallback. */
   forceWebGL?: boolean;
-  /** Data directory for the realization. */
-  base?: string;
+  /** How many stars to sample. */
+  count?: number;
+  /** Cluster seed — the same seed always gives the same cluster. */
+  seed?: number;
 }
 
 export async function initStarLab(
   canvas: HTMLCanvasElement,
   opts: StarLabOptions = {},
 ): Promise<StarLab> {
-  const base = opts.base ?? "/data/gravoturb";
-  const [meta, starBuf] = await Promise.all([
-    fetch(`${base}/meta.json`).then((r) => r.json() as Promise<Record<string, number>>),
-    fetch(`${base}/stars.f32`).then((r) => r.arrayBuffer()),
-  ]);
-  const stars = new Float32Array(starBuf);
   /*
-   * Frame on the cluster, not on the simulation box. r_half is ~0.67 pc inside a
-   * 6 pc box, so framing the box leaves the cluster a small blob in the middle —
-   * the box is a property of the export, not of the object being shown.
+   * The population is SAMPLED, not fetched (see ./source for why the gravoturb
+   * export's positions cannot be imaged). No network, and deterministic in the
+   * seed, so a reload shows the identical cluster.
    */
-  const rHalfPc = (meta.r_half_pc as number) ?? 0.7;
+  const stars = clusterStarTable({
+    ...(opts.seed !== undefined ? { seed: opts.seed } : {}),
+    sampling: { mode: "count", target: opts.count ?? 10_000 },
+  });
+  const count = Math.floor(stars.length / STAR_STRIDE);
+  /*
+   * Frame on the cluster's own half-mass radius, measured from the stars that
+   * were actually drawn rather than declared: a sampled population's r_half is a
+   * property of the draw, so deriving it here means the framing cannot disagree
+   * with what is on screen.
+   */
+  const radii: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const o = i * STAR_STRIDE;
+    radii.push(Math.hypot(stars[o] ?? 0, stars[o + 1] ?? 0, stars[o + 2] ?? 0));
+  }
+  radii.sort((a, b) => a - b);
+  const rHalfPc = radii[Math.floor(count / 2)] ?? 1;
   const framePc = rHalfPc * 6;
 
   const renderer = new WebGPURenderer({
@@ -154,7 +172,7 @@ export async function initStarLab(
     get info() {
       return { calls: renderer.info.render.drawCalls, tris: renderer.info.render.triangles };
     },
-    starCount: Math.floor(stars.length / 6),
+    starCount: count,
     backend,
     get stats() {
       return stats;

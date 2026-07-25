@@ -34,7 +34,8 @@ import {
   PSF_BETA,
   MIN_RENDERABLE_PX,
 } from "../src/novascope/viz/starfield/sizing.ts";
-import { prepareStarField } from "../src/novascope/viz/starfield/prepare.ts";
+import { prepareStarField, STAR_STRIDE } from "../src/novascope/viz/starfield/prepare.ts";
+import { clusterStarTable } from "../src/novascope/viz/starfield/source.ts";
 import { effectiveTemperature } from "../src/novascope/core/stellar/index.ts";
 
 let failures = 0;
@@ -471,5 +472,67 @@ ok(
 // should be essentially all visible, which is the bug this replaced.
 const shipped = prepareStarField(fake, { band: "V" });
 ok(shipped.stats.visible > fake.length / 6 * 0.9, "the DEFAULT softening leaves the field visible, not black");
+
+/* ── the POPULATION the lab actually renders ──
+ *
+ * Everything above runs on a synthetic 300-star array, which is the right way to
+ * test the transfer but says nothing about the stars on screen. This block
+ * asserts against the real producer, because the worst bug in this pipeline was
+ * never in the maths.
+ *
+ * The gravoturb export's star POSITIONS are quantized to the 128^3 gas grid with
+ * uniform sub-cell jitter: its 10,301 stars occupied 139 distinct cells of
+ * 6.0/128 = 0.046875 pc, and ONE cell held 7,973 of them (77.4%). Rendered, 77%
+ * of the cluster piled into a single ~15 px disc and additive blending saturated
+ * it into a flat white blob — read for a whole session as a shader bug ("stars
+ * render as filled squares") because a pile and a broken PSF look alike. The
+ * shader was correct the entire time.
+ *
+ * A pile is invisible to every assertion above: the fluxes, colours, tiers and
+ * exposure were all exactly right for the stars it contained. So the check has
+ * to be on the SPATIAL distribution, and it has to run on the producer rather
+ * than on a fixture, since a fixture is chosen and a producer is not.
+ */
+const table = clusterStarTable({ sampling: { mode: "count", target: 4000 } });
+const nStars = table.length / STAR_STRIDE;
+ok(nStars === 4000, "the cluster producer honours its requested star count");
+
+const CELL_PC = 6.0 / 128; // the grid the historical pile was quantized to
+const occupancy = new Map();
+for (let i = 0; i < nStars; i++) {
+  const o = i * STAR_STRIDE;
+  const key = [0, 1, 2].map((j) => Math.floor(table[o + j] / CELL_PC)).join(",");
+  occupancy.set(key, (occupancy.get(key) ?? 0) + 1);
+}
+const densest = Math.max(...occupancy.values());
+ok(
+  densest < nStars * 0.02,
+  `no cell holds more than 2% of the cluster (densest holds ${(densest / nStars * 100).toFixed(2)}%)`,
+);
+ok(
+  occupancy.size > nStars * 0.5,
+  `positions are continuous, not grid-quantized (${occupancy.size} cells for ${nStars} stars)`,
+);
+
+// Derived stellar state must be physical, not zero-filled: a zero radius or a
+// zero Teff is silently zero flux, which renders as a star that simply is not
+// there rather than as an error.
+let badTeff = 0;
+let badRadius = 0;
+for (let i = 0; i < nStars; i++) {
+  const o = i * STAR_STRIDE;
+  if (!(table[o + 4] > 1000)) badTeff++;
+  if (!(table[o + 5] > 0)) badRadius++;
+}
+ok(badTeff === 0, "every sampled star has a physical Teff");
+ok(badRadius === 0, "every sampled star has a positive radius");
+
+// The producer is deterministic in its seed — the lab URL must be stable.
+const again2 = clusterStarTable({ sampling: { mode: "count", target: 4000 } });
+ok(table.every((v, i) => v === again2[i]), "the cluster producer is deterministic in its seed");
+
+// And the whole pipeline must survive it: a real population, all visible.
+const real = prepareStarField(table, { band: "V" });
+ok(real.stats.visible > nStars * 0.9, "the sampled cluster renders visible, not black");
 
 process.exit(failures ? 1 : 0);

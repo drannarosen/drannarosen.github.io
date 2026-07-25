@@ -27,14 +27,14 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 
 <BaseLayout
   title="Star-render lab — Anna Rosen"
-  description="Internal prototype: a photographic observed-mode star-cluster renderer on the real gravoturb cluster."
+  description="Internal prototype: a photographic observed-mode star-cluster renderer on an analytically sampled cluster."
   path="/star-render-lab"
   noindex
 >
   <PageHeader
     eyebrow="Prototype · not linked"
     title="Star-render lab"
-    lede="A testbed for the photographic star renderer on the real gravoturb cluster: apparent flux through a chosen filter, a robust asinh exposure calibrated once against the population, a bounded unresolved core with a Moffat PSF, and a broad faint aureole on the brighter stars. The physics lives in pure, dependency-free novascope modules; this page is the Three.js harness around them. Drag to orbit, scroll to zoom. Add ?forceWebGL to exercise the WebGL 2 fallback."
+    lede="A testbed for the photographic star renderer: apparent flux through a chosen filter, a robust asinh exposure calibrated once against the population, a bounded unresolved core with a Moffat PSF, and a broad faint aureole on the brighter stars. The cluster is sampled analytically — masses from the IMF, positions from a Plummer profile, and each star's temperature and radius derived from its ZAMS state — by the same novascope core the homepage hero uses. The physics lives in pure, dependency-free modules; this page is the Three.js harness around them. Drag to orbit, scroll to zoom. Add ?forceWebGL to exercise the WebGL 2 fallback."
   />
 
   <div class="srl wrap-wide">
@@ -102,7 +102,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 </BaseLayout>
 
 <script>
-  import { initStarLab } from "../lib/starlab/scene";
+  import { initStarLab } from "@novascope/viz/starfield/scene";
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-stage]");
   const status = document.querySelector<HTMLElement>("[data-status]");

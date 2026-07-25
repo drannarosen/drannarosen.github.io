@@ -18,7 +18,14 @@ import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../../core/im
 import { getScheme } from "../../core/colorimetry/schemes.ts";
 import { computeTiers, quadExtentPx, PSF_WIDTH_PX, type TierBoundaries } from "./sizing.ts";
 
-/** Fields of one star in the gravoturb export, in order. */
+/**
+ * Floats per star in the packed table this module reads, in the order
+ * `[x, y, z, mass, teff, radius]`.
+ *
+ * A neutral struct-of-floats sized for a GPU upload — NOT a file format. Where
+ * the rows come from is a scientific choice and lives in `./source`, which is
+ * also where the record of why one particular producer is unusable is kept.
+ */
 export const STAR_STRIDE = 6;
 
 export interface PrepareOptions {
@@ -79,8 +86,9 @@ function resolveBand(id: string | undefined): Passband | null {
 /**
  * Build the GPU arrays for a star field.
  *
- * `stars` is the raw export: `count * 6` floats of
- * `[x, y, z, mass, teff, radius]` in `(pc, pc, pc, Msun, K, Rsun)`.
+ * `stars` is the packed table: `count * STAR_STRIDE` floats of
+ * `[x, y, z, mass, teff, radius]` in `(pc, pc, pc, Msun, K, Rsun)`. Build one
+ * with `./source`.
  */
 export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {}): StarField {
   const count = Math.floor(stars.length / STAR_STRIDE);

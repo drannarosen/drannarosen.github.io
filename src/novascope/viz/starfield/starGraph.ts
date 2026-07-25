@@ -1,14 +1,19 @@
 /*
- * starGraph.ts — the TSL shader graph for the star field (lab harness).
+ * starGraph.ts — the TSL shader graph for the star field (Layer 2).
  *
  * This is the ONLY place the star maths is restated for the GPU, and it is
  * deliberately small. Flux, exposure, colour, core size and tier are all
- * constant per star, so `viz/starfield/prepare` computes them on the CPU in
- * tested TypeScript and hands them over as instance attributes. What is left
- * here is the one thing that genuinely varies across a billboard: the profile.
+ * constant per star, so `./prepare` computes them on the CPU in tested
+ * TypeScript and hands them over as instance attributes. What is left here is
+ * the one thing that genuinely varies across a billboard: the profile.
  *
  * So the mirrored surface is the Moffat PSF and the aureole — two functions,
  * both gated in `core/optics` — rather than the whole pipeline (ADR 0015).
+ *
+ * Lives in the novascope package, not in `src/lib`: the renderer is part of the
+ * portable engine, so `three` is a package dependency of Layer 2 (ADR 0015
+ * Consequences). Layer 0 stays pure and node-testable — that is the boundary
+ * that matters, and `check:novascope` enforces it.
  */
 import * as THREE from "three";
 import { MeshBasicNodeMaterial } from "three/webgpu";
@@ -21,14 +26,12 @@ import {
   uniform,
   uv,
   vec2,
-  vec3,
   vec4,
   float,
   screenSize,
 } from "three/tsl";
-import { DEFAULT_AUREOLE } from "@novascope/core/optics";
-import { PSF_WIDTH_PX, PSF_BETA } from "@novascope/viz/starfield/sizing";
-import type { StarField } from "@novascope/viz/starfield/prepare";
+import { PSF_WIDTH_PX, PSF_BETA } from "./sizing.ts";
+import type { StarField } from "./prepare.ts";
 
 /**
  * How far the quad extends past the core radius, in core radii.
