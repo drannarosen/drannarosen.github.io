@@ -85,6 +85,16 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 
     <div class="srl__stage">
       <canvas class="srl__canvas" data-stage aria-label="A star cluster rendered in observed mode."></canvas>
+      {/*
+        A REAL button, not a div: it must be reachable by keyboard and announced as a
+        toggle. `aria-pressed` carries the state, and the label is set from the
+        renderer's own `drifting` rather than assumed, because the starting state
+        depends on prefers-reduced-motion and a control that lies about it is worse
+        than no control.
+      */}
+      <button class="srl__motion" type="button" data-motion aria-pressed="false">
+        <span data-motion-label>Pause motion</span>
+      </button>
       <p class="srl__status" data-status aria-live="polite">Loading…</p>
     </div>
 
@@ -190,6 +200,22 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         )) {
           el.addEventListener("input", () => show(lab.update(read())));
         }
+
+        // Motion toggle. The label is DERIVED from the renderer's state so it cannot
+        // disagree with it — the starting state comes from prefers-reduced-motion.
+        const motionBtn = document.querySelector<HTMLButtonElement>("[data-motion]");
+        const motionLabel = document.querySelector<HTMLElement>("[data-motion-label]");
+        const syncMotion = () => {
+          if (!motionBtn || !motionLabel) return;
+          const drifting = lab.drifting;
+          motionBtn.setAttribute("aria-pressed", String(!drifting));
+          motionLabel.textContent = drifting ? "Pause motion" : "Resume motion";
+        };
+        motionBtn?.addEventListener("click", () => {
+          lab.setDrifting(!lab.drifting);
+          syncMotion();
+        });
+        syncMotion();
         // Expose live state for verification without relying on a screenshot.
         (window as unknown as { starlab?: unknown }).starlab = {
           backend: lab.backend,
@@ -198,6 +224,12 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           },
           get info() {
             return lab.info;
+          },
+          get frames() {
+            return lab.frames;
+          },
+          get drifting() {
+            return lab.drifting;
           },
         };
       })
@@ -212,6 +244,24 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   .srl__stage { position: relative; aspect-ratio: 16 / 10; max-block-size: min(70vh, 620px); margin-inline: auto; inline-size: 100%; max-inline-size: calc(min(70vh, 620px) * 1.6); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #05060a; }
   .srl__canvas { inline-size: 100%; block-size: 100%; display: block; }
   .srl__status { position: absolute; inset-block-end: 0.5rem; inset-inline-start: 0.6rem; margin: 0; font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: overlay status */
+
+  /* Always visible, not hover-revealed: a motion control that only appears on hover
+     is unreachable on touch and invisible to anyone who needs it most. */
+  .srl__motion {
+    position: absolute;
+    inset-block-start: 0.5rem;
+    inset-inline-end: 0.6rem;
+    padding: 0.25rem 0.6rem;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink);
+    background: color-mix(in oklab, #05060a 72%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .srl__motion:hover { border-color: var(--spec-teal-bright, #4fd6c4); }
+  .srl__motion:focus-visible { outline: 2px solid var(--spec-teal-bright, #4fd6c4); outline-offset: 2px; }
 
   /* The filtered-population warning. Deliberately prominent: a mass-cut image is
      not the cluster, and the page must not let that pass unstated. */

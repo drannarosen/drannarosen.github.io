@@ -51,9 +51,18 @@ export interface StarLab {
   dispose(): void;
   starCount: number;
   backend: RenderBackend;
+  /** Frames actually presented — the only reliable way to confirm a pause. */
+  readonly frames: number;
   stats: StarLabStats;
   /** Rebuild the field with new physics options (scheme, band, exposure…). */
   update(opts: PrepareOptions): StarLabStats;
+  /**
+   * Whether the view is drifting. Starts false when the visitor prefers reduced
+   * motion; a consumer MUST surface a visible control for it either way.
+   */
+  readonly drifting: boolean;
+  /** Start or stop the drift. Stopping also stops redrawing (see the render tick). */
+  setDrifting(on: boolean): void;
 }
 
 export interface StarLabOptions extends PrepareOptions {
@@ -113,7 +122,6 @@ export async function initStarLab(
 
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
-  controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   controls.autoRotateSpeed = 0.3;
 
   /*
@@ -189,15 +197,49 @@ export async function initStarLab(
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    dirty = true; // a resized buffer must be redrawn even while paused
   };
+
+  /*
+   * MOTION AND REDRAW ARE SEPARATE THINGS, and conflating them is why a paused
+   * canvas usually still burns a GPU at 60 fps.
+   *
+   * `dirty` marks "the image would differ from what is on screen". Drift sets it
+   * every frame; a drag, a resize, or a rebuild set it once. So pausing genuinely
+   * stops the work instead of merely freezing the camera, while a paused viewer can
+   * still orbit by hand and see the result.
+   *
+   * `prefers-reduced-motion` decides the STARTING state, and the visible control can
+   * override it in either direction — someone who reduces motion system-wide may
+   * still want to watch this, and someone who has not may still want it to stop.
+   */
+  let dirty = true;
+  let drifting = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  controls.autoRotate = drifting;
+  controls.addEventListener("change", () => {
+    dirty = true;
+  });
+
   syncSize();
   const settle = setTimeout(syncSize, 0);
 
   let raf = 0;
+  /*
+   * Frames actually PRESENTED. Exposed because "is it paused?" cannot be answered
+   * from the canvas: a WebGPU drawing buffer is discarded after compositing, so
+   * reading pixels on a frame that was never drawn returns stale or blank data and
+   * looks exactly like motion. This counter is the ground truth, and it is what the
+   * pause control is verified against.
+   */
+  let frames = 0;
   const tick = () => {
     raf = requestAnimationFrame(tick);
     syncSize();
     controls.update();
+    if (drifting) dirty = true;
+    if (!dirty) return;
+    dirty = false;
+    frames++;
     /*
      * Through the PIPELINE, not renderer.render — otherwise the bloom pass is built
      * and never used, which looks exactly like a bloom that does nothing.
@@ -217,11 +259,25 @@ export async function initStarLab(
     },
     starCount: count,
     backend,
+    get frames() {
+      return frames;
+    },
     get stats() {
       return stats;
     },
     update(next) {
-      return build(next);
+      const s = build(next);
+      dirty = true; // a rebuilt field must reach the screen even while paused
+      return s;
+    },
+    get drifting() {
+      return drifting;
+    },
+    setDrifting(on: boolean) {
+      drifting = on;
+      controls.autoRotate = on;
+      // Redraw once on the way to a stop, so the final frame is the settled one.
+      dirty = true;
     },
     dispose() {
       cancelAnimationFrame(raf);
