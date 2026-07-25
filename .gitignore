@@ -28,3 +28,9 @@ pnpm-debug.log*
 # Raw media pulled from the old WordPress site. Kept locally as an archive;
 # anything used on the site is processed and committed under public/images/.
 wp-media/
+
+# Playwright MCP scratch output (page snapshots, screenshots). Browser
+# verification is how this repo checks layout and the render lab, so these
+# accumulate on every session; one got committed in 5aa0914 before this line
+# existed.
+.playwright-mcp/

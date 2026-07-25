@@ -11,14 +11,24 @@
  * It is also what makes an infrared view meaningful: the same M dwarfs that are
  * faint in V are dominant in K, because that is where their light actually is.
  *
- * TWO KINDS OF FILTER LIVE HERE, and the difference is stated rather than blurred:
+ * EVERY BAND IS A MEASURED CURVE (see `./passbandCurves`) — 30 of them, from Johnson
+ * U at 362 nm to JWST/MIRI F770W at 7.7 um. There is no Gaussian fallback and no
+ * `fwhmNm` field, which is a deliberate deletion rather than an omission.
  *
- *   - Johnson-Cousins UBVRI and 2MASS JHKs are GAUSSIAN models, from each band's
- *     published effective wavelength and FWHM. A defensible approximation of a
- *     classical broadband filter, and no bulk data to ship.
- *   - Rubin/LSST ugrizy and Gaia DR3 G/BP/RP are REAL MEASURED CURVES (see
- *     `./passbandCurves`), because for those a Gaussian is not an approximation but
- *     a different filter — Gaia's G spans ~330-1050 nm and has no bell shape at all.
+ * The Gaussians were defended on two grounds: a bell is a reasonable model of a
+ * classical broadband filter, and there was no bulk data to ship for UBVRI or 2MASS.
+ * The first was always weak — Gaia's G spans 330-1050 nm and is not bell-shaped at
+ * all — and the second turned out to be false: `lsst/throughputs` carries measured
+ * Johnson, Cousins, 2MASS and SDSS curves alongside the Rubin ones. Keeping both a
+ * curve and a nominal FWHM would leave two descriptions of one filter, and the pair
+ * that disagrees is the pair that drifts.
+ *
+ * The one thing lost is a small honesty gain, so it is stated: the Johnson-Cousins
+ * curves here are FILTER transmission only, with no telescope, detector or atmosphere,
+ * because that is the generic system a synthetic UBVRI colour is defined on. The
+ * Rubin, Gaia, SDSS, HST and JWST curves are TOTAL system throughputs. Both are the
+ * right choice for their own instrument, but they are not the same kind of number, so
+ * a peak transmission is not comparable across the two groups.
  *
  * APPROXIMATION THAT REMAINS, for every band: the source spectrum is a BLACKBODY,
  * and a real star is not one. Line blanketing, the Balmer jump and the molecular
@@ -33,89 +43,75 @@
  * there was a missing factor of pi in the flux from a sphere (see `spectralFluxCgs`),
  * which cost exactly 1.19 mag and was invisible while nothing but ratios was used.
  *
- * Validated where a reader can check it: the Sun comes out at M_V = 4.87 against a
- * published ~4.83 AB, a 0.04 mag agreement across the pi, the Jansky conversion, the
- * CGS units and the band average together. Gaia G comes out 4.82 against a real 4.67,
- * and that 0.15 mag IS the blackbody approximation — the discrepancy grows toward
- * cool stars, which is what a bolometric-correction table would quantify.
+ * Validated where a reader can check it: the Sun comes out at M_V = 4.86 against a
+ * published ~4.83 AB, across the pi, the Jansky conversion, the CGS units and the band
+ * average together. Gaia G comes out 4.82 against a real 4.67, and that 0.15 mag IS
+ * the blackbody approximation — the discrepancy grows toward cool stars, which is what
+ * `bolometricCorrection` quantifies.
  */
 
 import { planckNm, NM_TO_CM } from "../blackbody/index.ts";
 import { R_SUN_CM, PC_CM, C_CM_S, AB_ZERO_CGS } from "../constants/index.ts";
+import { deriveLogL, bolometricMagnitude } from "./index.ts";
 import { TABULATED_CURVES, type TabulatedCurve } from "./passbandCurves.ts";
 
 export interface Passband {
-  /** Short standard name. */
+  /** Short standard name. Also the key in `PASSBANDS`. */
   id: string;
-  /** Effective wavelength [nm]. */
-  lambdaEffNm: number;
-  /** Full width at half maximum [nm]. Unused when `curve` is present. */
-  fwhmNm: number;
-  /** Which regime it samples — for grouping in a UI. */
-  regime: "uv" | "visible" | "nir";
   /**
-   * A REAL measured response curve, when one is available. Present for Rubin and
-   * Gaia; absent for Johnson-Cousins and 2MASS, which stay Gaussian.
+   * Effective wavelength [nm] — the curve's OWN transmission-weighted mean, derived
+   * in the importer rather than copied from a published table, so it cannot disagree
+   * with the curve beside it.
    *
-   * The split is deliberate rather than half-finished. A Gaussian is a defensible
-   * model of a classical broadband filter — the header's caveat covers it — but it
-   * is not a model of Gaia's G band, which runs ~330-1050 nm and is nothing like a
-   * bell. Where an instrument's real curve is available and its shape matters, the
-   * curve wins; where a Gaussian is honest and the data would be bulk, it stays.
+   * It therefore differs slightly from published values, which are variously photon-
+   * or energy-weighted: Rubin u derives to 372.4 against a tabulated 367.0. That
+   * ~1.5% gap is a convention difference, not an error, and having one derived
+   * definition is worth more here than matching each survey's own convention.
    */
-  curve?: TabulatedCurve;
-  /** Human label, when the id is not self-explanatory. */
-  label?: string;
+  lambdaEffNm: number;
+  /** Which regime it samples — for grouping in a UI. `mir` is JWST/MIRI only. */
+  regime: "uv" | "visible" | "nir" | "mir";
+  /** The measured response curve. Every band has one. */
+  curve: TabulatedCurve;
+  /** Human label — "Johnson V", "Rubin r", "JWST F444W". */
+  label: string;
 }
 
 /**
- * Johnson-Cousins UBVRI and 2MASS JHKs.
+ * Every band, keyed by id: Johnson UBV, Cousins RI, 2MASS JHKs, SDSS ugriz,
+ * Rubin ugrizy, Gaia G/BP/RP, HST F275W/F606W/F814W/F160W and JWST
+ * F090W/F200W/F444W/F770W.
  *
- * Effective wavelengths and widths are the standard published values (Bessell
- * 1990 for Johnson-Cousins; Cohen, Wheaton & Megeath 2003 for 2MASS), rounded to
- * the precision this use justifies.
+ * Derived wholesale from `TABULATED_CURVES` — this module states no band's
+ * wavelength, width or shape, because the generated curve module already does and a
+ * second statement of the same fact is a second thing to keep true. The classical
+ * bands keep their bare ids (`V`, not `Johnson_V`) because those ARE the names.
  */
-export const PASSBANDS: Record<string, Passband> = {
-  U: { id: "U", lambdaEffNm: 365, fwhmNm: 66, regime: "uv" },
-  B: { id: "B", lambdaEffNm: 445, fwhmNm: 94, regime: "visible" },
-  V: { id: "V", lambdaEffNm: 551, fwhmNm: 88, regime: "visible" },
-  R: { id: "R", lambdaEffNm: 658, fwhmNm: 138, regime: "visible" },
-  I: { id: "I", lambdaEffNm: 806, fwhmNm: 149, regime: "nir" },
-  J: { id: "J", lambdaEffNm: 1235, fwhmNm: 162, regime: "nir" },
-  H: { id: "H", lambdaEffNm: 1662, fwhmNm: 251, regime: "nir" },
-  K: { id: "K", lambdaEffNm: 2159, fwhmNm: 262, regime: "nir" },
-  /*
-   * Rubin/LSST ugrizy and Gaia DR3 G/BP/RP, from REAL tabulated curves — see
-   * `./passbandCurves`. `fwhmNm: 0` because these do not use it: the shape comes
-   * from the data, and a nominal width here would be a second, disagreeing
-   * description of the same filter.
-   *
-   * Effective wavelengths are the curves' own transmission-weighted means, which
-   * reproduce the published values closely — Rubin r derives to 622.1 nm against a
-   * published 622.0, Gaia G to 639.0 against ~639. Rubin u derives to 372.4 against
-   * a tabulated 367.0; that ~1.5% gap is a convention difference (photon- vs
-   * energy-weighted mean), not an error, and it is why the value is derived here
-   * rather than copied.
-   */
-  ...Object.fromEntries(
-    Object.values(TABULATED_CURVES).map((c) => [
-      c.id,
-      {
-        id: c.id,
-        label: c.label,
-        lambdaEffNm: c.lambdaEffNm,
-        fwhmNm: 0,
-        regime: c.regime,
-        curve: c,
-      } satisfies Passband,
-    ]),
-  ),
-};
+export const PASSBANDS: Record<string, Passband> = Object.fromEntries(
+  Object.values(TABULATED_CURVES).map((c) => [
+    c.id,
+    {
+      id: c.id,
+      label: c.label,
+      lambdaEffNm: c.lambdaEffNm,
+      regime: c.regime,
+      curve: c,
+    } satisfies Passband,
+  ]),
+);
 
-const FWHM_TO_SIGMA = 1 / (2 * Math.sqrt(2 * Math.LN2));
-
-/** Linear interpolation into a tabulated curve; 0 outside its grid. */
-function curveResponse(lambdaNm: number, c: TabulatedCurve): number {
+/**
+ * Filter response at `lambdaNm`, by linear interpolation into the band's curve;
+ * 0 outside its grid.
+ *
+ * NOT normalized to a peak of 1. Most of these curves carry the instrument's own
+ * throughput — Rubin's include atmosphere, optics and detector, so they peak near
+ * 0.6, and SDSS z near 0.09 — and rescaling would discard real information about how
+ * much light each band actually collects. Only ratios are used downstream, so the
+ * absolute level is free, but it must be CONSISTENT within a band, which it is.
+ */
+export function bandResponse(lambdaNm: number, band: Passband): number {
+  const c = band.curve;
   const x = (lambdaNm - c.startNm) / c.stepNm;
   if (x < 0 || x > c.values.length - 1) return 0;
   const i = Math.floor(x);
@@ -126,56 +122,29 @@ function curveResponse(lambdaNm: number, c: TabulatedCurve): number {
 }
 
 /**
- * Filter response at `lambdaNm`.
+ * Integrate a spectral radiance against a band response, over the curve's OWN grid —
+ * one term per stored sample.
  *
- * Tabulated where a real curve exists, Gaussian otherwise. NOT normalized to a
- * peak of 1 in the tabulated case: those curves carry the instrument's own
- * throughput (Rubin's include atmosphere, optics and detector, so they peak well
- * below 1), and rescaling them would discard real information about how much light
- * each band actually collects. Only ratios are used downstream, so the absolute
- * level is free — but it must be CONSISTENT within a band, which it is.
- */
-export function bandResponse(lambdaNm: number, band: Passband): number {
-  if (band.curve) return curveResponse(lambdaNm, band.curve);
-  const sigma = band.fwhmNm * FWHM_TO_SIGMA;
-  const t = (lambdaNm - band.lambdaEffNm) / sigma;
-  return Math.exp(-0.5 * t * t);
-}
-
-/**
- * Integrate a spectral radiance against a band response.
+ * Using a fixed step count instead would undersample a wide band and oversample a
+ * narrow one; using the curve's grid means the integration resolution IS the import
+ * resolution, which is the thing `check:passbands` gates.
  *
- * The Gaussian path spans +/- 3.5 sigma, where the response has fallen below 2e-3 —
- * far enough that the tails cannot matter, near enough to stay cheap.
- *
- * The tabulated path integrates over the curve's OWN grid, one sample per stored
- * point. Using a fixed step count instead would undersample a wide band and
- * oversample a narrow one, and for Gaia G (147 points over 730 nm) a 64-step
- * integration would miss structure the curve was imported to capture.
+ * Accuracy comes from the import, not from here: each stored value is a bin AVERAGE
+ * of the sub-nm source curve, so this sum reproduces the true transmission integral
+ * exactly and the flux integral to O(step^2). That is why a band needs only ~10
+ * samples across its FWHM to give a good flux, and why the gate's criterion is the
+ * integral rather than the shape.
  */
 export function bandIntegral(
   spectralRadiance: (lambdaNm: number) => number,
   band: Passband,
 ): number {
   const c = band.curve;
-  if (c) {
-    let sum = 0;
-    for (let i = 0; i < c.values.length; i++) {
-      sum += spectralRadiance(c.startNm + i * c.stepNm) * (c.values[i] ?? 0);
-    }
-    return sum * c.stepNm;
-  }
-  const sigma = band.fwhmNm * FWHM_TO_SIGMA;
-  const lo = Math.max(1, band.lambdaEffNm - 3.5 * sigma);
-  const hi = band.lambdaEffNm + 3.5 * sigma;
-  const steps = 64;
-  const dl = (hi - lo) / steps;
   let sum = 0;
-  for (let i = 0; i < steps; i++) {
-    const l = lo + (i + 0.5) * dl;
-    sum += spectralRadiance(l) * bandResponse(l, band);
+  for (let i = 0; i < c.values.length; i++) {
+    sum += spectralRadiance(c.startNm + i * c.stepNm) * (c.values[i] ?? 0);
   }
-  return sum * dl;
+  return sum * c.stepNm;
 }
 
 /**
@@ -297,13 +266,51 @@ export function absoluteAbMagnitude(
 export const ABSOLUTE_MAG_DISTANCE_PC = 10;
 
 /**
+ * Bolometric correction: BC_X = M_bol - M_X.
+ *
+ * How much of a star's total output the band MISSES. It is large and strongly
+ * temperature-dependent, and it is the number that explains why rendering cool stars
+ * at their bolometric luminosity over-brightens them: BC_V runs about -4 for a hot O
+ * star (most of the light is in the ultraviolet) through ~-0.1 near the Sun's
+ * temperature, to about -2 for an M dwarf (most of the light is in the infrared).
+ * Both extremes are ultraviolet or infrared light the V filter never sees, which is
+ * why the correction is negative on both sides of a shallow minimum.
+ *
+ * INDEPENDENT OF RADIUS AND DISTANCE, which is what makes it a property of the
+ * spectrum rather than of the star. M_bol carries -5 log R and so does M_X, so both
+ * cancel in the difference; the radius below is arbitrary and `check:passbands`
+ * asserts the invariance rather than leaving it as a claim in a comment.
+ *
+ * BLACKBODY-DERIVED, so this is a model BC and not a tabulated empirical one. It
+ * reproduces the published values at both ends of the mass range to a few tenths,
+ * which is the useful accuracy here and the honest limit of the assumption. A real
+ * BC table (Pecaut & Mamajek 2013) folds in line blanketing, the Balmer jump and
+ * molecular bands, none of which a Planck function has.
+ */
+export function bolometricCorrection(teffK: number, band: Passband): number {
+  const radiusRsun = 1;
+  const mBol = bolometricMagnitude(deriveLogL(teffK, radiusRsun));
+  return mBol - absoluteAbMagnitude(teffK, radiusRsun, band);
+}
+
+/**
  * Zero-point reference temperature for colour indices.
  *
  * The Vega system defines an A0V star to have zero colour in every index. Vega
  * is close to A0V at ~9550 K, so anchoring on a blackbody of that temperature
  * reproduces the convention: `colorIndex` returns ~0 for a 9550 K star by
- * construction, and the Sun then lands near its real B-V of ~0.65, which is the
- * check that the band placements are sane.
+ * construction.
+ *
+ * The Sun then lands at B-V = 0.46 against a real 0.65. That 0.19 mag gap is not a
+ * band-placement error, it is LINE BLANKETING: the crowd of metal lines and the Balmer
+ * discontinuity depress a real star's B flux, and a Planck function has neither.
+ *
+ * This docstring previously claimed the Sun landed "near its real B-V of ~0.65", cited
+ * as evidence the bands were sanely placed. That was true of the Gaussian V model it
+ * was written against, and it was an accident of where the bell sat — the measured V
+ * curve gives the correct blackbody answer instead. `check:star-optics` now gates the
+ * SIGN and SIZE of the deficit against real dwarf colours, which is a claim that
+ * survives changing the filter.
  */
 export const VEGA_TEFF_K = 9550;
 

@@ -228,29 +228,36 @@ ok(blackbodyLinearRGB(60000).every(Number.isFinite), "finite above the fit range
 /* ── passbands: what a FILTER sees, not the bolometric total ── */
 const bU = PASSBANDS.U, bB = PASSBANDS.B, bV = PASSBANDS.V, bR = PASSBANDS.R;
 const bI = PASSBANDS.I, bJ = PASSBANDS.J, bH = PASSBANDS.H, bK = PASSBANDS.K;
-/* A band is well-formed if it has a positive effective wavelength AND exactly one
- * description of its shape: a positive FWHM (Gaussian model) or a tabulated curve.
- * The old form demanded `fwhmNm > 0` for everything, which the measured Rubin/Gaia
- * curves correctly broke — they carry `fwhmNm: 0` because a nominal width beside a
- * real curve would be a second, disagreeing description of the same filter. */
+/* A band is well-formed if it has a positive effective wavelength and a MEASURED
+ * CURVE. This gate went through two earlier forms, and the history is the point:
+ * first it demanded `fwhmNm > 0` for everything, which the measured Rubin/Gaia curves
+ * correctly broke; then it demanded exactly one shape description, FWHM or curve. Now
+ * every band is tabulated and there is no `fwhmNm` to disagree with anything — so the
+ * assertion is simply that no band can exist without its data. */
 ok(
-  Object.values(PASSBANDS).every(
-    (b) => b.lambdaEffNm > 0 && ((b.fwhmNm > 0) !== (b.curve !== undefined)),
-  ),
-  "every band has a positive lambda_eff and exactly one shape description",
+  Object.values(PASSBANDS).every((b) => b.lambdaEffNm > 0 && b.curve !== undefined),
+  "every band has a positive lambda_eff and a measured curve",
 );
 ok(
-  Object.values(PASSBANDS).some((b) => b.curve) && Object.values(PASSBANDS).some((b) => !b.curve),
-  "…and both kinds are present (measured curves and Gaussian models)",
+  Object.values(PASSBANDS).every((b) => b.curve.id === b.id && b.curve.label === b.label),
+  "…and carries the curve that actually belongs to it",
 );
+ok(!("fwhmNm" in bV), "the Gaussian model is gone, not merely unused");
 ok(bU.lambdaEffNm < bB.lambdaEffNm && bB.lambdaEffNm < bV.lambdaEffNm, "UBV are ordered in wavelength");
 ok(bV.lambdaEffNm < bR.lambdaEffNm && bR.lambdaEffNm < bI.lambdaEffNm, "VRI are ordered");
 ok(bI.lambdaEffNm < bJ.lambdaEffNm && bJ.lambdaEffNm < bH.lambdaEffNm && bH.lambdaEffNm < bK.lambdaEffNm, "IJHK are ordered");
-ok(Math.abs(bandResponse(bV.lambdaEffNm, bV) - 1) < 1e-12, "band response peaks at 1 at lambda_eff");
-ok(
-  Math.abs(bandResponse(bV.lambdaEffNm + bV.fwhmNm / 2, bV) - 0.5) < 1e-6,
-  "…and is at half power one half-FWHM away, by construction",
-);
+/* With a measured curve the response at lambda_eff is no longer 1 by construction —
+ * it is whatever the filter does there. It must still land on the transmissive core,
+ * which is the real content of the old "peaks at 1" assertion: a lambda_eff out on a
+ * tail would mean the weighted mean had been dragged by a long low-throughput wing.
+ * The worst case across all 30 bands is HST F275W at 74% of peak. */
+for (const b of Object.values(PASSBANDS)) {
+  const peak = Math.max(...b.curve.values);
+  ok(
+    bandResponse(b.lambdaEffNm, b) > 0.6 * peak,
+    `${b.id}: lambda_eff sits on the filter's core, not a tail (${((100 * bandResponse(b.lambdaEffNm, b)) / peak).toFixed(0)}% of peak)`,
+  );
+}
 
 // The Vega convention: an A0V-like star has zero colour in every index.
 ok(Math.abs(colorIndex(VEGA_TEFF_K, bB, bV)) < 1e-9, "A0V-like star has B-V = 0 (Vega zero point)");

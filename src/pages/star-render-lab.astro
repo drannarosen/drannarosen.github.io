@@ -6,8 +6,10 @@ import { linearToSrgbRGB } from "@novascope/core/colorimetry";
 import { spectralType } from "@novascope/core/stellar";
 import { DEFAULT_SOFTENING, limitingFluxRatio } from "@novascope/core/imaging";
 import { magnitudeDifference } from "@novascope/core/photometry";
-import { PASSBANDS } from "@novascope/core/photometry/passbands";
+import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/passbands";
 import { SURVEYS } from "@novascope/core/photometry/surveys";
+import { clusterStarTable } from "@novascope/viz/starfield/source";
+import { prepareStarField } from "@novascope/viz/starfield/prepare";
 
 /*
  * Colour-scheme comparison, rendered at BUILD time. Every swatch is computed by
@@ -20,19 +22,57 @@ const css = (c: readonly [number, number, number]): string => {
   return `rgb(${r} ${g} ${b})`;
 };
 /*
- * Bands, GROUPED BY WHAT KIND OF FILTER MODEL THEY ARE, because that is the honest
- * distinction: Johnson-Cousins and 2MASS are Gaussian models, Rubin and Gaia are
- * real measured curves. The group labels say so in the control itself rather than
- * only in a docstring nobody opens.
+ * Bands, grouped BY INSTRUMENT.
+ *
+ * These labels used to split on what kind of filter MODEL each band was — "Gaussian
+ * model" against "measured curve" — because that was the honest distinction while
+ * Johnson-Cousins and 2MASS were bells. Every band is now a measured curve, so the
+ * distinction is gone and saying it here would be false. Grouping by instrument is
+ * what is left to say, and it is the useful axis anyway: it puts the ground-based
+ * surveys next to each other and the two space telescopes at the end, which is roughly
+ * the order of what they can reach.
  */
 const BAND_GROUPS: Array<{ label: string; ids: string[] }> = [
   { label: "Bolometric (total)", ids: ["bolometric"] },
-  { label: "Johnson–Cousins / 2MASS — Gaussian model", ids: ["U", "B", "V", "R", "I", "J", "H", "K"] },
-  { label: "Rubin / LSST — measured curve", ids: ["LSST_u", "LSST_g", "LSST_r", "LSST_i", "LSST_z", "LSST_y"] },
-  { label: "Gaia DR3 — measured curve", ids: ["Gaia_G", "Gaia_BP", "Gaia_RP"] },
+  { label: "Johnson–Cousins / 2MASS", ids: ["U", "B", "V", "R", "I", "J", "H", "K"] },
+  { label: "SDSS", ids: ["SDSS_u", "SDSS_g", "SDSS_r", "SDSS_i", "SDSS_z"] },
+  { label: "Rubin / LSST", ids: ["LSST_u", "LSST_g", "LSST_r", "LSST_i", "LSST_z", "LSST_y"] },
+  { label: "Gaia DR3", ids: ["Gaia_G", "Gaia_BP", "Gaia_RP"] },
+  { label: "HST — no atmosphere, reaches the near-UV", ids: ["HST_F275W", "HST_F606W", "HST_F814W", "HST_F160W"] },
+  { label: "JWST — reaches the mid-IR", ids: ["JWST_F090W", "JWST_F200W", "JWST_F444W", "JWST_F770W"] },
 ];
 const bandLabel = (id: string): string =>
   id === "bolometric" ? "bolometric (total)" : (PASSBANDS[id]?.label ?? id);
+
+/*
+ * WHAT THE FILTER DOES TO A CLUSTER, measured at BUILD time on the same population
+ * the canvas draws.
+ *
+ * The point is the trend, and it is a large one: the same 10,000 stars span ~30
+ * magnitudes in the near-UV and ~14 in the mid-IR, because at 271 nm we are on the
+ * Wien side where flux goes as exp(-hc/lkT) and at 7.7 um we are on the Rayleigh-Jeans
+ * side where it goes as T. Choosing a filter is choosing how much dynamic range the
+ * cluster has, and the visible sits in the middle of a factor-of-two swing.
+ *
+ * DERIVED HERE, NOT TYPED. Every one of these numbers moves if a curve, the IMF, the
+ * sampling or the AB zero point changes, and a hand-typed table would go stale in
+ * silence — which is precisely what happened to this page's "max/median 3.1 -> 1.9"
+ * line, measured once and left behind. Sampling 10,000 stars per band at build time
+ * costs milliseconds and buys a claim that cannot drift.
+ */
+const SPREAD_BANDS = ["HST_F275W", "U", "B", "V", "R", "K", "JWST_F200W", "JWST_F770W"];
+const clusterForSpread = clusterStarTable({ sampling: { mode: "count", target: 10_000 } });
+const BAND_SPREAD = SPREAD_BANDS.map((id) => {
+  const { stats } = prepareStarField(clusterForSpread, { band: id, pixelRatio: 1 });
+  return {
+    id,
+    label: bandLabel(id),
+    lambdaEffNm: PASSBANDS[id]!.lambdaEffNm,
+    range: stats.absMag.faintest - stats.absMag.brightest,
+    visibleFraction: stats.visible / (clusterForSpread.length / 6),
+    bcSun: bolometricCorrection(5772, PASSBANDS[id]!),
+  };
+});
 
 /*
  * The depth slider is in MAGNITUDES below the display white point, which is the
@@ -215,11 +255,56 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         </dd>
         <dt>Filters</dt>
         <dd>
-          Rubin ugrizy and Gaia G/BP/RP use <strong>real measured curves</strong>;
-          Johnson–Cousins and 2MASS are Gaussian models. Gaia G spans ~730 nm, so a
-          Gaussian there is not an approximation but a different filter. Effective
-          wavelengths are derived from the curves and reproduce published values
-          (Rubin r: 622.1 nm vs 622.0).
+          All 30 bands are <strong>real measured curves</strong> — Johnson–Cousins,
+          2MASS, SDSS, Rubin, Gaia, HST and JWST — spanning 271 nm to 7663 nm, a factor
+          of 28. There is no Gaussian fallback: UBVRI and JHK were modelled as bells
+          until measured curves for them turned up in the same repository as Rubin's,
+          and keeping both a curve and a nominal width would be two descriptions of one
+          filter. Effective wavelengths are derived from the curves, not copied, and
+          reproduce published means within 2% (Rubin r: 622.1 nm vs 622.0).
+        </dd>
+        <dt>Absolute magnitudes and bolometric corrections</dt>
+        <dd>
+          On the AB zero point (3631 Jy). The Sun comes out at
+          M<sub>V</sub> = 4.87 against a published ≈4.83. BC<sub>V</sub> = M<sub>bol</sub>
+          − M<sub>V</sub> then falls out: −3.5 for an O star, −0.12 for the Sun, −1.5 for
+          an M4 dwarf — negative at both ends because V misses the ultraviolet of hot
+          stars and the infrared of cool ones. It is independent of radius and distance
+          by construction, and that is gated, not asserted.
+        </dd>
+        <dt>Choosing a filter is choosing a dynamic range</dt>
+        <dd>
+          Measured at build time on the same 10,000 stars the canvas draws, so these
+          cannot go stale. The spread collapses by a factor of two from the near-UV to
+          the mid-IR — Wien's exponential at one end, Rayleigh–Jeans' linear
+          <em>T</em> at the other — and the fraction of the cluster that clears the
+          threshold collapses with it.
+          <table class="srl__table">
+            <thead>
+              <tr><th>Band</th><th>λ<sub>eff</sub></th><th>M range</th><th>above threshold</th><th>BC<sub>☉</sub></th></tr>
+            </thead>
+            <tbody>
+              {BAND_SPREAD.map((b) => (
+                <tr>
+                  <td>{b.label}</td>
+                  <td>{b.lambdaEffNm < 1000 ? `${b.lambdaEffNm.toFixed(0)} nm` : `${(b.lambdaEffNm / 1000).toFixed(2)} µm`}</td>
+                  <td>{b.range.toFixed(1)} mag</td>
+                  <td>{(100 * b.visibleFraction).toFixed(0)}%</td>
+                  <td>{b.bcSun.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </dd>
+        <dt>What the blackbody assumption costs</dt>
+        <dd>
+          Every flux here integrates a <em>Planck function</em> through a real curve, so
+          the filter is exact and the spectrum is not. The size of that is measurable
+          rather than hand-waved: the Sun's B−V comes out 0.46 against a real 0.65, and
+          BC<sub>V</sub> is good to 0.05 mag near solar temperatures but 0.5 mag off for
+          an O5V. The missing physics is line blanketing, the Balmer jump and molecular
+          bands — and the error grows toward both temperature extremes, exactly where
+          those matter most.
         </dd>
       </dl>
 
@@ -236,7 +321,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         <dt>White percentile (0.995)</dt>
         <dd>
           Kept high <em>against intuition</em>. Lowering it brightens the image but
-          <strong>flattens</strong> it: max/median signal moves 3.1 → 1.9 as the
+          <strong>flattens</strong> it: max/median signal moves 4.15 → 2.33 as the
           percentile drops 0.995 → 0.90, because asinh compresses harder at larger
           argument.
         </dd>

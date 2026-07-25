@@ -16,10 +16,11 @@
  * and which broke novascope's extractability guarantee: the code moves, the
  * justification does not. This gate is what stops that coming back.
  */
-import { TABULATED_CURVES, RESAMPLE_STEP_NM } from "../src/novascope/core/photometry/passbandCurves.ts";
-import { PASSBANDS, bandResponse, bandIntegral, bandFlux, abMagnitude, absoluteAbMagnitude } from "../src/novascope/core/photometry/passbands.ts";
+import { TABULATED_CURVES, DEFAULT_RESAMPLE_STEP_NM } from "../src/novascope/core/photometry/passbandCurves.ts";
+import { PASSBANDS, bandResponse, bandIntegral, bandFlux, abMagnitude, absoluteAbMagnitude, bolometricCorrection } from "../src/novascope/core/photometry/passbands.ts";
 import { SURVEYS, RUBIN, GAIA, depthRange } from "../src/novascope/core/photometry/surveys.ts";
 import { planckNm } from "../src/novascope/core/blackbody/index.ts";
+import { bolometricMagnitude, deriveLogL } from "../src/novascope/core/photometry/index.ts";
 
 let failures = 0;
 const ok = (cond, msg) => {
@@ -30,12 +31,11 @@ const ok = (cond, msg) => {
 console.log("passbands (tabulated curves + survey reference data):");
 
 const ids = Object.keys(TABULATED_CURVES);
-ok(ids.length === 9, `nine curves are shipped (${ids.length})`);
-ok(RESAMPLE_STEP_NM > 0 && RESAMPLE_STEP_NM <= 10, "the resample grid is fine enough to resolve a broadband filter");
+ok(ids.length === 30, `thirty curves are shipped (${ids.length})`);
+ok(DEFAULT_RESAMPLE_STEP_NM > 0 && DEFAULT_RESAMPLE_STEP_NM <= 10, "the default resample grid is fine enough to resolve a broadband filter");
 
 for (const c of Object.values(TABULATED_CURVES)) {
   const peak = Math.max(...c.values);
-  ok(c.values.length > 20, `${c.id}: has a real curve (${c.values.length} samples)`);
   ok(c.values.every((v) => Number.isFinite(v) && v >= 0), `${c.id}: transmission is finite and non-negative`);
   ok(peak > 0.01 && peak <= 1.0001, `${c.id}: peak transmission is physical (${peak.toFixed(3)})`);
   // lambdaEff must be the curve's OWN weighted mean — it is derived, so re-derive it.
@@ -54,31 +54,122 @@ for (const c of Object.values(TABULATED_CURVES)) {
     c.lambdaEffNm > c.startNm && c.lambdaEffNm < c.startNm + (c.values.length - 1) * c.stepNm,
     `${c.id}: lambda_eff lies within the curve's own range`,
   );
+
+  /* ── SAMPLING ──
+   *
+   * `stepNm` is per band, hand-chosen in the importer, because the bands span 25x in
+   * width — one global step would under-resolve Johnson U or store hundreds of
+   * redundant samples of MIRI F770W. This is the gate that makes 21 hand-chosen
+   * numbers safe: it asserts the OUTCOME, so a badly-stepped new filter fails here
+   * rather than shipping a curve too coarse to integrate or too fine to justify. */
+  ok(
+    c.values.length >= 40 && c.values.length <= 200,
+    `${c.id}: sampled enough to integrate and not more (${c.values.length} samples @ ${c.stepNm} nm)`,
+  );
+  const half = peak / 2;
+  const above = c.values.map((v, i) => (v >= half ? i : -1)).filter((i) => i >= 0);
+  const fwhmSamples = above.length ? above[above.length - 1] - above[0] + 1 : 0;
+  ok(fwhmSamples >= 8, `${c.id}: at least 8 samples across the FWHM (${fwhmSamples})`);
+
+  /* ── RESAMPLING FIDELITY ──
+   *
+   * `sourceLambdaEffNm` is the same weighted mean computed from the RAW rows before
+   * resampling, so this compares the committed curve against its own source with no
+   * network and no published table in the way. Everything lands under 0.002%.
+   *
+   * This check is deliberately separate from the published comparison below, because
+   * the two ask different questions and only one of them has a defect for an answer.
+   * It also caught a bug in ITSELF: the first version summed the raw rows unweighted,
+   * which is not an integral on the non-uniform 2MASS grids and reported Ks as 1.2%
+   * off. The resampled curve was right; the yardstick was wrong. */
+  ok(
+    Math.abs(c.lambdaEffNm - c.sourceLambdaEffNm) / c.sourceLambdaEffNm < 1e-4,
+    `${c.id}: resampling preserves lambda_eff (${(1e6 * Math.abs(c.lambdaEffNm - c.sourceLambdaEffNm) / c.sourceLambdaEffNm).toFixed(1)} ppm)`,
+  );
 }
 
-/* Published effective wavelengths, as an INDEPENDENT check on the import. These are
- * not the source of the values — the curves are — so agreement means the resampling
- * and the unit conversion are both right. Angstrom/nm confusion would show as a 10x
- * miss, and it is the single most likely import bug. */
+/* Published mean wavelengths, as an INDEPENDENT check on the import. These are not the
+ * source of the values — the curves are — so agreement means the resampling AND the
+ * unit conversion are both right. An Angstrom/nm confusion would show as a 10x miss,
+ * and it is the single most likely import bug.
+ *
+ * These are the SVO Filter Profile Service's own `WavelengthMean`, which is defined as
+ * integ[x*T dx]/integ[T dx] — the same definition used here. Comparing against a
+ * published `WavelengthEff` instead would fail honestly, because that one is
+ * Vega-weighted and answers a different question.
+ *
+ * The Rubin entries stay on their own published values (Ivezic et al. 2019), which are
+ * photon-weighted; that convention difference is why LSST_u sits 1.5% out and is the
+ * reason lambda_eff is derived here rather than copied.
+ */
 const PUBLISHED_NM = {
   LSST_u: 367, LSST_g: 482.5, LSST_r: 622, LSST_i: 754, LSST_z: 869, LSST_y: 971,
   Gaia_G: 639, Gaia_BP: 518, Gaia_RP: 782,
+  B: 443.1, V: 553.7, R: 646.9, I: 788.6,
+  J: 1235.0, H: 1662.0, K: 2159.0,
+  SDSS_u: 357.2, SDSS_g: 475.1, SDSS_r: 620.4, SDSS_i: 751.9, SDSS_z: 899.2,
+  HST_F275W: 271.8, HST_F606W: 603.6, HST_F814W: 812.9, HST_F160W: 1543.6,
+  JWST_F090W: 908.3, JWST_F200W: 2002.8, JWST_F444W: 4439.4, JWST_F770W: 7711.1,
 };
 for (const [id, want] of Object.entries(PUBLISHED_NM)) {
   const got = TABULATED_CURVES[id].lambdaEffNm;
   const off = Math.abs(got - want) / want;
   ok(off < 0.02, `${id}: lambda_eff within 2% of published (${got.toFixed(1)} vs ${want} nm)`);
 }
-
-/* Band ordering: the curves must come out in the physical order their names imply.
- * Catches a mis-assigned file, which no per-curve check would notice. */
-const order = ["LSST_u", "LSST_g", "LSST_r", "LSST_i", "LSST_z", "LSST_y"];
-for (let i = 1; i < order.length; i++) {
-  ok(
-    TABULATED_CURVES[order[i]].lambdaEffNm > TABULATED_CURVES[order[i - 1]].lambdaEffNm,
-    `${order[i]} sits redder than ${order[i - 1]}`,
-  );
+/* Johnson U is the one band NOT compared above, and the reason is recorded rather than
+ * hidden in a widened tolerance. It derives to 361.8 nm against SVO's Generic/Johnson.U
+ * at 353.1 — a 2.5% gap — because these are two different U curves: Mann & von Braun's
+ * spans 296-419 nm and SVO's spans 310-410 nm. The import is exact (it reproduces its
+ * own source to 10 ppm, gated above); the filters simply differ, which is normal for U,
+ * where the blue edge is set by where the atmosphere is assumed to cut off. */
+{
+  const u = TABULATED_CURVES.U;
+  ok(Math.abs(u.lambdaEffNm - 361.8) < 0.5, `Johnson U is Mann & von Braun's curve, not SVO's (${u.lambdaEffNm.toFixed(1)} nm)`);
+  ok(u.startNm < 300 && u.startNm + (u.values.length - 1) * u.stepNm > 415, "…which is the wider of the two, as its span shows");
 }
+
+/* Band ordering: within each instrument the curves must come out in the physical order
+ * their names imply. This is the check that catches a MIS-ASSIGNED FILE — swap two
+ * throughput files and every per-curve assertion still passes, because each curve is
+ * individually valid. With 30 bands imported from five directories and two services,
+ * it is the most likely remaining import error. */
+const ORDERED_SETS = [
+  ["LSST_u", "LSST_g", "LSST_r", "LSST_i", "LSST_z", "LSST_y"],
+  ["U", "B", "V", "R", "I", "J", "H", "K"],
+  ["SDSS_u", "SDSS_g", "SDSS_r", "SDSS_i", "SDSS_z"],
+  ["HST_F275W", "HST_F606W", "HST_F814W", "HST_F160W"],
+  ["JWST_F090W", "JWST_F200W", "JWST_F444W", "JWST_F770W"],
+];
+for (const order of ORDERED_SETS) {
+  for (let i = 1; i < order.length; i++) {
+    ok(
+      TABULATED_CURVES[order[i]].lambdaEffNm > TABULATED_CURVES[order[i - 1]].lambdaEffNm,
+      `${order[i]} sits redder than ${order[i - 1]}`,
+    );
+  }
+}
+/* Cross-instrument sanity on the extremes of the whole set, which no within-instrument
+ * ordering would catch: the package must actually span near-UV to mid-IR. */
+{
+  const all = Object.values(TABULATED_CURVES);
+  const bluest = all.reduce((a, b) => (a.lambdaEffNm < b.lambdaEffNm ? a : b));
+  const reddest = all.reduce((a, b) => (a.lambdaEffNm > b.lambdaEffNm ? a : b));
+  ok(bluest.id === "HST_F275W", `the bluest band is HST F275W (${bluest.id}, ${bluest.lambdaEffNm.toFixed(0)} nm)`);
+  ok(reddest.id === "JWST_F770W", `the reddest is JWST F770W (${reddest.id}, ${reddest.lambdaEffNm.toFixed(0)} nm)`);
+  ok(reddest.lambdaEffNm / bluest.lambdaEffNm > 25, `…spanning more than a factor of 25 in wavelength (${(reddest.lambdaEffNm / bluest.lambdaEffNm).toFixed(1)}x)`);
+  ok(all.filter((c) => c.regime === "mir").length === 1, "exactly one band is mid-IR (MIRI F770W)");
+}
+/* The two space telescopes reach where the ground cannot, and that is the point of
+ * having them here: no atmosphere below 300 nm and none above ~2.5 um. */
+ok(
+  TABULATED_CURVES.HST_F275W.lambdaEffNm < TABULATED_CURVES.LSST_u.lambdaEffNm &&
+    TABULATED_CURVES.HST_F275W.lambdaEffNm < TABULATED_CURVES.SDSS_u.lambdaEffNm,
+  "HST F275W reaches bluer than any ground-based u band",
+);
+ok(
+  TABULATED_CURVES.JWST_F444W.lambdaEffNm > TABULATED_CURVES.K.lambdaEffNm,
+  "JWST F444W reaches redder than 2MASS Ks, the reddest ground band here",
+);
 ok(
   TABULATED_CURVES.Gaia_BP.lambdaEffNm < TABULATED_CURVES.Gaia_G.lambdaEffNm &&
     TABULATED_CURVES.Gaia_G.lambdaEffNm < TABULATED_CURVES.Gaia_RP.lambdaEffNm,
@@ -98,8 +189,12 @@ for (const id of ids) {
   ok(bandResponse(TABULATED_CURVES[id].lambdaEffNm, PASSBANDS[id]) > 0, `${id} responds at its own lambda_eff`);
   ok(bandResponse(50, PASSBANDS[id]) === 0, `${id} does not respond far outside its grid`);
 }
-ok(PASSBANDS.V.curve === undefined, "Johnson V stays a Gaussian model");
-ok(PASSBANDS.LSST_r.curve !== undefined, "Rubin r uses its measured curve");
+/* Every band is now tabulated — there is no Gaussian fallback left to fall back to,
+ * which is why `PASSBANDS` is derived wholesale from these curves. Asserted both ways
+ * so neither table can grow an entry the other lacks. */
+ok(Object.keys(PASSBANDS).length === ids.length, `PASSBANDS holds exactly the tabulated curves (${Object.keys(PASSBANDS).length})`);
+ok(Object.values(PASSBANDS).every((b) => b.curve !== undefined), "every band uses a measured curve");
+ok(!("fwhmNm" in PASSBANDS.V), "…and no band carries a nominal FWHM beside its curve");
 
 /* Physics through the tabulated path: a hot star must be relatively brighter in u
  * than a cool one, which is the whole reason band flux is computed at all. */
@@ -149,6 +244,79 @@ ok(PASSBANDS.LSST_r.curve !== undefined, "Rubin r uses its measured curve");
     ok(Number.isFinite(m) && m > 3 && m < 8, `${id}: the Sun's absolute AB magnitude is plausible (${m.toFixed(2)})`);
   }
   ok(absoluteAbMagnitude(5772, 0, PASSBANDS.V) === Infinity, "a zero-radius star is infinitely faint, not NaN");
+}
+
+/* ── BOLOMETRIC CORRECTIONS ──
+ *
+ * BC_X = M_bol - M_X: how much of a star's output the filter misses. It needs both zero
+ * points at once (the IAU B2 bolometric one and the AB one), which is why it could not
+ * be stated until absolute magnitudes existed.
+ *
+ * Three things are gated, in increasing strength.
+ */
+{
+  const bcV = (T) => bolometricCorrection(T, PASSBANDS.V);
+
+  /* 1. INVARIANCE. A BC is a property of the spectrum, not of the star's size: both
+   *    M_bol and M_X carry -5 log R, so it cancels exactly. `bolometricCorrection`
+   *    fixes the radius at 1 internally, so asserting over its own argument would prove
+   *    nothing at all — the difference has to be RECONSTRUCTED at each radius from the
+   *    two magnitudes to test anything. It comes out identical to machine precision
+   *    over four decades, which is the strongest form this can take. */
+  const byRadius = [0.01, 0.1, 1, 10, 100].map(
+    (R) => bolometricMagnitude(deriveLogL(5772, R)) - absoluteAbMagnitude(5772, R, PASSBANDS.V),
+  );
+  ok(
+    byRadius.every((v) => Math.abs(v - byRadius[2]) < 1e-12),
+    `BC is independent of radius across four decades (spread ${(Math.max(...byRadius) - Math.min(...byRadius)).toExponential(1)} mag)`,
+  );
+  ok(Math.abs(byRadius[2] - bcV(5772)) < 1e-12, "…and that reconstruction agrees with bolometricCorrection");
+
+  /* 2. SHAPE. BC_V must be negative at BOTH ends of the temperature range with a
+   *    shallow minimum near the Sun — hot stars hide their light in the ultraviolet,
+   *    cool stars in the infrared, and V sees neither. A monotonic BC would mean the
+   *    band placement or the Planck function was wrong. */
+  ok(bcV(40000) < -3, `BC_V is strongly negative for an O star (${bcV(40000).toFixed(2)})`);
+  ok(bcV(2500) < -2, `…and negative again for an M dwarf (${bcV(2500).toFixed(2)})`);
+  ok(Math.abs(bcV(6500)) < 0.3, `…with a shallow minimum near solar temperatures (${bcV(6500).toFixed(2)})`);
+  ok(bcV(40000) < bcV(10000) && bcV(2500) < bcV(4500), "…so it is non-monotonic in Teff, as it must be");
+
+  /* 3. AGREEMENT WITH REALITY, and the size of the disagreement.
+   *
+   * These are published BC_V values for dwarfs (Pecaut & Mamajek 2013, and the
+   * standard M_bol,sun - M_V,sun for the Sun). A blackbody has no line blanketing, no
+   * Balmer jump and no molecular bands, so it CANNOT reproduce them exactly, and a
+   * gate that demanded it would be lying about what this model is.
+   *
+   * What is gated instead is the error PROFILE: excellent near solar temperatures,
+   * degrading toward both extremes. That is the honest statement of the assumption's
+   * validity, and it fails loudly if someone "improves" the code in a way that breaks
+   * the middle while flattering the ends. */
+  for (const [name, T, real, tol] of [
+    ["Sun", 5772, -0.07, 0.15],
+    ["A0V", 9550, -0.15, 0.35],
+    ["B0V", 30000, -3.0, 0.6],
+    ["O5V", 40000, -4.0, 0.8],
+    ["K5V", 4410, -0.6, 0.3],
+    ["M4V", 3200, -1.6, 0.3],
+  ]) {
+    const got = bcV(T);
+    ok(
+      Math.abs(got - real) < tol,
+      `BC_V(${name}) = ${got.toFixed(2)} vs published ${real} (within ${tol})`,
+    );
+  }
+
+  /* The infrared BC changes SIGN, which is the whole reason an IR view is worth
+   * having: for a cool enough star the K band collects more than a bolometric
+   * accounting of the visible would suggest. */
+  ok(bolometricCorrection(30000, PASSBANDS.K) < -4, "BC_K is deeply negative for a hot star");
+  ok(bolometricCorrection(3000, PASSBANDS.K) > 0, "…and positive for a cool one — the IR is where its light is");
+
+  /* And BC must exist, finite, for every band including the mid-IR one. */
+  for (const b of Object.values(PASSBANDS)) {
+    ok(Number.isFinite(bolometricCorrection(5772, b)), `${b.id}: BC is finite for the Sun`);
+  }
 }
 
 /* Survey reference data. */
