@@ -539,13 +539,15 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 
 <script>
   import { initStarLab } from "@novascope/viz/starfield/scene";
-  import { TRANSFER_IDS, type TransferId } from "@novascope/core/imaging/transfers";
-
-  /*
-   * The valid transfer ids, from the same registry that generated the control's options — so the
-   * page validates against the list rather than against a copy of it.
-   */
-  const TRANSFER_ID_SET: ReadonlySet<string> = new Set(TRANSFER_IDS);
+  import type { TransferId } from "@novascope/core/imaging/transfers";
+  import { decode, encode } from "@novascope/core/params/urlState";
+  import {
+    LAB_SCHEMA,
+    PASSTHROUGH_KEYS,
+    TRANSFER_AUTO,
+    type LabState,
+    type MotionChoice,
+  } from "@novascope/viz/starfield/labParams";
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-stage]");
   const status = document.querySelector<HTMLElement>("[data-status]");
@@ -584,6 +586,92 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     : undefined;
 
   /*
+   * ── EVERY CONTROL IS IN THE URL ──
+   *
+   * An outstanding commitment from ADR 0012 ("One canonical cluster = (seed, params, t) …
+   * Reproducible and URL-shareable"), and the thing that makes this page usable away from a
+   * keyboard: a class gets one link per concept, a talk becomes bookmarks instead of live slider
+   * drags, a figure becomes reproducible, and a bug report from a stranger arrives as a state
+   * rather than a description. A preset needs no machinery — a preset is a named URL.
+   *
+   * The codec is `core/params/urlState`, gated by `check:url-state`; the schema is
+   * `viz/starfield/labParams`, derived from the same registries that generate the options here.
+   * This file owns only `location` and `history`, which is the part that cannot be node-tested.
+   */
+  const initialState: LabState = decode(LAB_SCHEMA, location.search);
+
+  /** The harness keys, preserved verbatim so a debugging link survives being copied back. */
+  const passthrough: Record<string, string> = {};
+  for (const key of PASSTHROUGH_KEYS) {
+    const raw = params.get(key);
+    if (raw !== null) passthrough[key] = raw;
+  }
+
+  const setValue = (selector: string, value: string): void => {
+    const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
+    if (el) el.value = value;
+  };
+
+  /**
+   * Push the decoded state into the controls, BEFORE the renderer starts.
+   *
+   * Order matters: `read()` below builds the renderer's options by reading the DOM, so the DOM
+   * has to be the state first. Setting the controls and letting one code path read them keeps a
+   * single source of truth — the alternative, passing the state to the renderer AND setting the
+   * controls separately, is two paths that can disagree, and the disagreement would show up as a
+   * link whose picture does not match its own sliders.
+   */
+  const applyState = (s: LabState): void => {
+    setValue("[data-instrument]", s.instrument);
+    setValue("[data-scheme]", s.scheme);
+    setValue("[data-band]", s.band);
+    setValue("[data-scaling]", s.transfer === TRANSFER_AUTO ? "" : s.transfer);
+    setValue("[data-depth]", String(s.depth));
+    setValue("[data-sky]", String(s.sky));
+    setValue("[data-bloom]", String(s.bloom));
+    setValue("[data-exposure]", String(s.exposure));
+    setValue("[data-min-mass]", String(s.minmass));
+  };
+
+  const readValue = (selector: string, fallback: string): string =>
+    document.querySelector<HTMLInputElement | HTMLSelectElement>(selector)?.value ?? fallback;
+
+  /**
+   * The current control state, for writing back to the URL.
+   *
+   * `motion` is passed in rather than read from the renderer, and that is the whole point of it
+   * being tri-state: `lab.drifting` reports what the renderer is DOING, which is not the same as
+   * what anyone CHOSE. Recording the former is what put `?spin` on every link and would have
+   * overridden a reduced-motion visitor's setting. Only a deliberate click moves this off `auto`.
+   */
+  const readState = (motion: MotionChoice): LabState => ({
+    instrument: readValue("[data-instrument]", initialState.instrument),
+    scheme: readValue("[data-scheme]", initialState.scheme),
+    band: readValue("[data-band]", initialState.band),
+    transfer: readValue("[data-scaling]", "") || TRANSFER_AUTO,
+    depth: Number(readValue("[data-depth]", String(initialState.depth))),
+    sky: Number(readValue("[data-sky]", "0")),
+    bloom: Number(readValue("[data-bloom]", "0.35")),
+    exposure: Number(readValue("[data-exposure]", "1")),
+    minmass: Number(readValue("[data-min-mass]", "0")),
+    motion,
+  });
+
+  /**
+   * Write the state to the address bar.
+   *
+   * `replaceState`, not `pushState`: a slider drag would otherwise stack one history entry per
+   * frame and make the back button unusable — the visitor would have to press it two hundred
+   * times to leave the page. The URL is a live description of the state, not a trail through it.
+   */
+  const syncUrl = (motion: MotionChoice): void => {
+    const query = encode(LAB_SCHEMA, readState(motion), passthrough);
+    history.replaceState(null, "", query === "" ? location.pathname : `?${query}`);
+  };
+
+  applyState(initialState);
+
+  /*
    * The registry, serialised at build time. Only the two fields the client needs, so the page
    * cannot drift from `core/photometry/instruments` by restating a composite: if a triple changes
    * there, this changes with it.
@@ -615,6 +703,17 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
    * Only moved when the slider is still sitting on the OTHER mode's default — otherwise a value the
    * user chose deliberately would be discarded every time they compared modes.
    */
+  /*
+   * A DEPTH IN THE URL WINS OVER THE MODE DEFAULT, which this function would otherwise clobber.
+   *
+   * Its first call has `lastMode === null` and unconditionally forces the mode's default, which
+   * is right on a cold load and wrong when a link said `?depth=12` — the slider would move to 16
+   * before the first frame and the link would show a different picture from the one it recorded.
+   * That is the failure mode a shared link exists to prevent, so an explicit depth suppresses the
+   * initial forcing only. Every later mode switch behaves exactly as before.
+   */
+  const depthFromUrl = params.has("depth");
+
   let lastMode: string | null = null;
   const syncDepthForMode = (): void => {
     const el = document.querySelector<HTMLInputElement>("[data-depth]");
@@ -625,7 +724,9 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       return;
     }
     const other = mode === "population" ? "photometric" : "population";
-    if (lastMode === null || Number(el.value) === DEPTH_DEFAULTS[other]) {
+    const firstCall = lastMode === null;
+    const sittingOnOtherDefault = Number(el.value) === DEPTH_DEFAULTS[other];
+    if (firstCall ? !depthFromUrl : sittingOnOtherDefault) {
       el.value = String(DEPTH_DEFAULTS[mode]);
     }
     lastMode = mode;
@@ -663,9 +764,15 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
      * id it has no node for.
      */
     const rawScaling = document.querySelector<HTMLSelectElement>("[data-scaling]")?.value ?? "";
-    const scaling: TransferId | "" = (TRANSFER_ID_SET.has(rawScaling) ? rawScaling : "") as
-      | TransferId
-      | "";
+    /*
+     * VALIDATED BY THE SCHEMA'S OWN FIELD, so "which transfer ids are legal" has exactly one
+     * home — the registry that generated both the options above and the URL codec. An
+     * independent Set here would be a third copy, and the one that silently kept accepting a
+     * transfer after it was removed.
+     */
+    const parsed = LAB_SCHEMA.transfer.parse(rawScaling);
+    const scaling: TransferId | "" =
+      parsed === undefined || parsed === TRANSFER_AUTO ? "" : (parsed as TransferId);
     const inst = INSTRUMENT_TABLE[instrumentId];
     /*
      * An instrument supplies BOTH the composite and the brightness band; "population" supplies
@@ -780,6 +887,15 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
          * no re-prepare at all. That is a change to `StarLab`'s surface rather than to this page,
          * so it is left for the renderer work rather than smuggled in here.
          */
+        /*
+         * A CLICK IS A CHOICE, and only a click moves this off `auto`.
+         *
+         * The renderer's own starting state is a viewer preference, not a decision — so it must
+         * never be written into a link. Once someone toggles the button they HAVE decided, and
+         * that decision is worth carrying to whoever opens the link next.
+         */
+        let motionChoice: MotionChoice = initialState.motion;
+
         let pendingUpdate = 0;
         const scheduleUpdate = () => {
           if (pendingUpdate !== 0) return;
@@ -796,6 +912,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
             syncDepthForMode();
             syncBandControl();
             showInputs(); // instant: the control's own value
+            syncUrl(motionChoice); // instant: the address bar tracks the controls
             scheduleUpdate(); // coalesced: the image and the derived readout
           });
         }
@@ -814,9 +931,22 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         };
         motionBtn?.addEventListener("click", () => {
           lab.setDrifting(!lab.drifting);
+          motionChoice = lab.drifting ? "on" : "off";
           syncMotion();
+          syncUrl(motionChoice);
         });
+        /*
+         * `auto` DEFERS to the viewer; `on` and `off` override in either direction.
+         *
+         * Silence in the URL means the visitor's `prefers-reduced-motion` decides, which is why
+         * this only acts when the link said something explicit. Someone presenting a talk asks for
+         * motion by name; someone who reduces motion system-wide keeps their setting unless a link
+         * deliberately overrides it, and can still start it by hand either way.
+         */
+        if (motionChoice === "on" && !lab.drifting) lab.setDrifting(true);
+        if (motionChoice === "off" && lab.drifting) lab.setDrifting(false);
         syncMotion();
+        syncUrl(motionChoice);
         // Expose live state for verification without relying on a screenshot.
         (window as unknown as { starlab?: unknown }).starlab = {
           backend: lab.backend,
