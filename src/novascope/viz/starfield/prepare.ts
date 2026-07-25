@@ -12,9 +12,24 @@
  * The maths itself lives in Layer 0 and is imported, never restated.
  */
 
-import { deriveLogL, apparentFlux, D0_PC } from "../../core/photometry/index.ts";
+import {
+  deriveLogL,
+  apparentFlux,
+  D0_PC,
+  distanceModulus,
+  bolometricMagnitude,
+  magnitudeDifference,
+  fluxRatioForMagnitudes,
+} from "../../core/photometry/index.ts";
 import { PASSBANDS, bandFlux, type Passband } from "../../core/photometry/passbands.ts";
-import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../../core/imaging/index.ts";
+import {
+  robustWhiteFlux,
+  asinhResponse,
+  DEFAULT_SOFTENING,
+  VISIBILITY_THRESHOLD,
+  limitingFluxRatio,
+  softeningForLimit,
+} from "../../core/imaging/index.ts";
 import { getScheme } from "../../core/colorimetry/schemes.ts";
 import { unitLuminanceChroma } from "../../core/colorimetry/index.ts";
 import { computeTiers, quadExtentPx, PSF_WIDTH_PX, type TierBoundaries } from "./sizing.ts";
@@ -45,6 +60,31 @@ export interface PrepareOptions {
   whitePercentile?: number;
   /** asinh softening: roughly log10(k) dex of faint detail revealed. */
   softening?: number;
+  /**
+   * How deep the exposure reaches, in MAGNITUDES below the display white point.
+   *
+   * The physical way to say the same thing `softening` says opaquely: this is a
+   * statement about an observation, so it can be reported, checked and compared,
+   * where `k = 3e7` can only be tuned. When set it DERIVES `softening` and wins
+   * over it. (`3e7` turns out to mean 19.78 mag, which is a very deep stretch —
+   * worth knowing rather than discovering.)
+   */
+  depthMag?: number;
+  /**
+   * Lower mass cut [Msun]. Stars below it are computed but not shown.
+   *
+   * A MODELLING selection, not an observational one, and kept distinct from
+   * `depthMag` for that reason: depth is a property of the instrument, a mass cut
+   * is a decision about which stars to count. Presenting a mass-cut image as "the
+   * cluster" would be a claim about the cluster that the cut itself falsifies, so
+   * a consumer showing this must say the population is filtered.
+   *
+   * The white point is deliberately still computed over the FULL population, so
+   * the cut changes which stars you see and not how bright the rest are. Otherwise
+   * removing the faint majority would silently re-expose the image and there would
+   * be nothing to compare.
+   */
+  minMass?: number;
   /** Exposure multiplier. */
   exposure?: number;
   /** Tier percentile boundaries. */
@@ -94,6 +134,21 @@ export interface StarField {
     tierCounts: [number, number, number];
     maxSizePx: number;
     psfWidthPx: number;
+    /** Softening actually used, whether given directly or derived from `depthMag`. */
+    softening: number;
+    /** How deep this exposure reaches, in magnitudes below the white point. */
+    depthMag: number;
+    /**
+     * Apparent BOLOMETRIC magnitude of the faintest star still above threshold, on
+     * the IAU 2015 B2 scale. `Infinity` if nothing is visible.
+     *
+     * The absolute anchor for the depth, and bolometric because that is the only
+     * magnitude scale with a zero point this package can state honestly — the
+     * passbands are Vega-relative for colour indices only.
+     */
+    faintestVisibleMbol: number;
+    /** Stars actually drawn, after any `minMass` cut. */
+    shown: number;
   };
 }
 
@@ -144,10 +199,15 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const count = Math.floor(stars.length / STAR_STRIDE);
   const band = resolveBand(opts.band);
   const scheme = getScheme(opts.scheme ?? "true");
-  const softening = opts.softening ?? DEFAULT_SOFTENING;
+  // A stated DEPTH wins over a raw softening: it says the same thing physically.
+  const softening =
+    opts.depthMag !== undefined
+      ? softeningForLimit(fluxRatioForMagnitudes(opts.depthMag))
+      : (opts.softening ?? DEFAULT_SOFTENING);
   const exposure = opts.exposure ?? 1;
   const percentile = opts.whitePercentile ?? DEFAULT_WHITE_PERCENTILE;
   const dpr = opts.pixelRatio ?? 1;
+  const minMass = opts.minMass ?? 0;
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
@@ -209,11 +269,32 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   let visible = 0;
   let clipping = 0;
   let maxSizePx = 0;
+  let shown = 0;
+  let faintestVisibleMbol = -Infinity;
   const tierCounts: [number, number, number] = [0, 0, 0];
   for (let i = 0; i < count; i++) {
-    const s = asinhResponse(flux[i] ?? 0, exposure, softening, whiteFlux);
+    const o = i * STAR_STRIDE;
+    /*
+     * The mass cut zeroes a star's signal rather than removing it from the arrays.
+     * Deliberate: the white point above was computed over the whole population, so
+     * the surviving stars keep the exposure they had, and the cut is a comparison
+     * rather than a re-normalization. It does leave a zero-signal quad in the
+     * buffer, which is wasted vertex work in exchange for that property — an
+     * acceptable trade in a lab, and worth compacting if this reaches production.
+     */
+    const cut = minMass > 0 && (stars[o + 3] ?? 0) < minMass;
+    const s = cut ? 0 : asinhResponse(flux[i] ?? 0, exposure, softening, whiteFlux);
     signal[i] = s;
-    if (s > 0.02) visible++;
+    if (s > VISIBILITY_THRESHOLD) {
+      visible++;
+      // Faintest star still showing, as an apparent bolometric magnitude: a larger
+      // magnitude is fainter, so the deepest one is the maximum.
+      const m =
+        bolometricMagnitude(deriveLogL(stars[o + 4] ?? 0, stars[o + 5] ?? 0)) +
+        distanceModulus(Math.max(MIN_DISTANCE_PC, D0_PC - (stars[o + 2] ?? 0)));
+      if (m > faintestVisibleMbol) faintestVisibleMbol = m;
+    }
+    if (!cut) shown++;
     if (s > 1) clipping++;
     /*
      * The halo drive: linear flux relative to white, uncompressed. Exposure
@@ -243,6 +324,17 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     halo,
     sizePx,
     tier,
-    stats: { whiteFlux, visible, clipping, tierCounts, maxSizePx, psfWidthPx: PSF_WIDTH_PX * dpr },
+    stats: {
+      whiteFlux,
+      visible,
+      clipping,
+      tierCounts,
+      maxSizePx,
+      psfWidthPx: PSF_WIDTH_PX * dpr,
+      softening,
+      depthMag: magnitudeDifference(limitingFluxRatio(softening)),
+      faintestVisibleMbol: visible > 0 ? faintestVisibleMbol : Infinity,
+      shown,
+    },
   };
 }

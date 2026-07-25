@@ -14,7 +14,17 @@
  * while the GPU path mirrors it in TSL: a TSL node is a graph object with no CPU
  * value and cannot be asserted on here.
  */
-import { deriveLogL, apparentFlux, D0_PC, distanceModulus, apparentMagnitude, absoluteMagnitude } from "../src/novascope/core/photometry/index.ts";
+import {
+  deriveLogL,
+  apparentFlux,
+  D0_PC,
+  distanceModulus,
+  apparentMagnitude,
+  absoluteMagnitude,
+  magnitudeDifference,
+  fluxRatioForMagnitudes,
+  bolometricMagnitude,
+} from "../src/novascope/core/photometry/index.ts";
 import {
   blackbodyLinearRGB,
   linearToSrgbRGB,
@@ -27,7 +37,14 @@ import { planckNm, wienPeakLambda, NM_TO_CM } from "../src/novascope/core/blackb
 import { COLOR_SCHEMES, getScheme, stretchChroma } from "../src/novascope/core/colorimetry/schemes.ts";
 import { PASSBANDS, bandFlux, bandIntegral, colorIndex, bandResponse, VEGA_TEFF_K, BAND_COMPOSITES } from "../src/novascope/core/photometry/passbands.ts";
 import { moffat, aureole, DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
-import { robustWhiteFlux, asinhResponse, DEFAULT_SOFTENING } from "../src/novascope/core/imaging/index.ts";
+import {
+  robustWhiteFlux,
+  asinhResponse,
+  DEFAULT_SOFTENING,
+  VISIBILITY_THRESHOLD,
+  limitingFluxRatio,
+  softeningForLimit,
+} from "../src/novascope/core/imaging/index.ts";
 import {
   computeTiers,
   quadExtentPx,
@@ -578,6 +595,59 @@ ok(table.every((v, i) => v === again2[i]), "the cluster producer is deterministi
 // And the whole pipeline must survive it: a real population, all visible.
 const real = prepareStarField(table, { band: "V" });
 ok(real.stats.visible > nStars * 0.9, "the sampled cluster renders visible, not black");
+
+/* ── DEPTH is a statement, not a tuning number ──
+ *
+ * `k = 3e7` cannot be checked, compared or reported. The same exposure expressed
+ * as "reaches 19.8 mag below the white point" can be all three, which is what
+ * makes the faint end inspectable: nothing on the page previously revealed that
+ * the default stretch shows 20th-magnitude stars at a third of display white. */
+ok(limitingFluxRatio(1e6) < limitingFluxRatio(1e3), "a larger softening reaches fainter");
+ok(magnitudeDifference(limitingFluxRatio(1e6)) > magnitudeDifference(limitingFluxRatio(1e3)),
+  "…which is more magnitudes below white");
+// The inverse must actually invert. It did NOT on the first attempt: the search
+// direction was written the intuitive way round, but limitingFluxRatio DECREASES
+// in k, so a 10-mag request returned the deep bracket end (30.6 mag) and a 20-mag
+// request the shallow one (5.6 mag) — silently, since both are valid softenings.
+{
+  let worst = 0;
+  for (const d of [6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 30]) {
+    const k = softeningForLimit(fluxRatioForMagnitudes(d));
+    worst = Math.max(worst, Math.abs(magnitudeDifference(limitingFluxRatio(k)) - d));
+  }
+  ok(worst < 1e-9, `depth -> softening -> depth round-trips (worst error ${worst.toExponential(1)} mag)`);
+}
+// A star exactly at the stated depth must land on the threshold — the definition.
+{
+  const k = softeningForLimit(fluxRatioForMagnitudes(15));
+  const s = asinhResponse(fluxRatioForMagnitudes(15), 1, k, 1);
+  ok(Math.abs(s - VISIBILITY_THRESHOLD) < 1e-9,
+    "a star at the stated depth sits exactly on the visibility threshold");
+}
+// Requests outside the bracket saturate rather than throwing or returning NaN.
+ok(Number.isFinite(softeningForLimit(fluxRatioForMagnitudes(1))), "an absurdly shallow depth is clamped, not NaN");
+ok(Number.isFinite(softeningForLimit(fluxRatioForMagnitudes(60))), "an absurdly deep depth is clamped, not NaN");
+ok(softeningForLimit(0) > 0, "a zero-flux limit degrades to the deepest exposure");
+
+/* ── the mass cut is a SELECTION, and must not re-expose the image ──
+ *
+ * The white point stays calibrated on the full population, so cutting the faint
+ * majority changes which stars are drawn and not how bright the rest are. If it
+ * re-normalized, the two views would not be comparable and the cut would silently
+ * brighten everything left. */
+{
+  const full = prepareStarField(table, { band: "V" });
+  const cut = prepareStarField(table, { band: "V", minMass: 1 });
+  ok(cut.stats.whiteFlux === full.stats.whiteFlux, "a mass cut leaves the white point untouched");
+  ok(cut.stats.shown < full.stats.shown, "…and draws fewer stars");
+  ok(cut.stats.shown > 0, "…but not none");
+  // Every surviving star keeps the exact signal it had.
+  let moved = 0;
+  for (let i = 0; i < cut.count; i++) {
+    if (cut.signal[i] > 0 && Math.abs(cut.signal[i] - full.signal[i]) > 1e-12) moved++;
+  }
+  ok(moved === 0, "…and every star that survives keeps the brightness it had");
+}
 
 /* ── brightness must not depend on COLOUR ──
  *

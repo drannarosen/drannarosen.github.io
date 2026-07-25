@@ -18,7 +18,7 @@
 import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { prepareStarField, STAR_STRIDE, type PrepareOptions } from "./prepare.ts";
+import { prepareStarField, STAR_STRIDE, type PrepareOptions, type StarField } from "./prepare.ts";
 import { clusterStarTable } from "./source.ts";
 import { createStarGraph, type StarGraph } from "./starGraph.ts";
 
@@ -34,11 +34,15 @@ function isWebGPUBackend(b: unknown): b is { isWebGPUBackend: true } {
   return typeof b === "object" && b !== null && "isWebGPUBackend" in b;
 }
 
-export interface StarLabStats {
-  visible: number;
-  clipping: number;
-  tierCounts: [number, number, number];
-}
+/**
+ * The prepared field's own diagnostics, passed through unchanged.
+ *
+ * DERIVED from `StarField` rather than re-declared: this used to be a hand-written
+ * subset (visible, clipping, tierCounts), so every new statistic had to be added
+ * in two places and a consumer could only read what someone had remembered to
+ * copy. Aliasing the source type means the readout cannot lag the physics.
+ */
+export type StarLabStats = StarField["stats"];
 
 export interface StarLab {
   info: { calls: number; tris: number };
@@ -111,7 +115,12 @@ export async function initStarLab(
   controls.autoRotateSpeed = 0.3;
 
   let graph: StarGraph | null = null;
-  let stats: StarLabStats = { visible: 0, clipping: 0, tierCounts: [0, 0, 0] };
+  /*
+   * Seeded by an actual preparation of an empty field rather than a hand-written
+   * zero literal, so this initializer cannot drift as `StarField["stats"]` gains
+   * members — which is the same reason `StarLabStats` aliases that type.
+   */
+  let stats: StarLabStats = prepareStarField(new Float32Array(0)).stats;
 
   const build = (o: PrepareOptions): StarLabStats => {
     if (graph) {
@@ -122,11 +131,7 @@ export async function initStarLab(
     const field = prepareStarField(stars, { pixelRatio: renderer.getPixelRatio(), ...o });
     graph = createStarGraph(field);
     scene.add(graph.mesh);
-    stats = {
-      visible: field.stats.visible,
-      clipping: field.stats.clipping,
-      tierCounts: field.stats.tierCounts,
-    };
+    stats = field.stats;
     return stats;
   };
   build(opts);

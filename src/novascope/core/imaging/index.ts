@@ -96,3 +96,69 @@ export function asinhResponse(flux: number, exposure: number, k: number, whiteFl
   if (denom <= 0) return 0;
   return Math.asinh((k * exposure * Math.max(0, flux)) / white) / denom;
 }
+
+/**
+ * Display signal below which a star is not showing.
+ *
+ * One home for it. This lived as a bare `0.02` inside the field preparation, which
+ * made the image's DEPTH — the single most consequential property of an exposure —
+ * a magic number in a loop that nothing could report or invert.
+ */
+export const VISIBILITY_THRESHOLD = 0.02;
+
+/**
+ * The flux (relative to white) that lands exactly on the visibility threshold:
+ * the faintest thing this transfer shows.
+ *
+ * Closed form, by inverting `asinhResponse` at signal = t:
+ *
+ *     asinh(k x) / asinh(k) = t   =>   x = sinh(t asinh(k)) / k
+ *
+ * This is what turns `k` from a tuning number into a statement. Feed it through
+ * `magnitudeDifference` and the exposure reports how many magnitudes below its
+ * white point it reaches, which is checkable; `k = 3e7` is not.
+ */
+export function limitingFluxRatio(k: number, threshold = VISIBILITY_THRESHOLD): number {
+  if (!(k > 0)) return 0;
+  return Math.sinh(threshold * Math.asinh(k)) / k;
+}
+
+/** Bracket for the softening search: 10 to 1e12 covers every sane exposure. */
+const K_MIN = 10;
+const K_MAX = 1e12;
+
+/**
+ * The softening that makes the exposure reach exactly `target` (a flux ratio
+ * relative to white) — the inverse of `limitingFluxRatio`.
+ *
+ * Bisected rather than solved, because the relation is transcendental in k. It is
+ * monotonic (larger k reaches fainter), so bisection is exact to the bracket and
+ * has no starting-guess sensitivity. Pure and deterministic, so it is gated in
+ * node like everything else here.
+ *
+ * Clamped to the bracket rather than throwing: a depth request outside what any
+ * softening can deliver should saturate at the deepest available exposure, not
+ * fail the render.
+ */
+export function softeningForLimit(target: number, threshold = VISIBILITY_THRESHOLD): number {
+  if (!(target > 0)) return K_MAX;
+  if (limitingFluxRatio(K_MIN, threshold) <= target) return K_MIN;
+  if (limitingFluxRatio(K_MAX, threshold) >= target) return K_MAX;
+  let lo = K_MIN;
+  let hi = K_MAX;
+  /*
+   * NOTE THE DIRECTION: `limitingFluxRatio` DECREASES in k — a larger softening
+   * reaches fainter, so it returns a smaller ratio. A ratio above the target
+   * therefore means this k is too SHALLOW and the answer lies at larger k. Writing
+   * the comparison the intuitive way round inverts the search, and it fails
+   * silently by returning a bracket end: a 10-mag request came back as k = 1e12
+   * (30.6 mag) and a 20-mag request as k = 10 (5.6 mag). Caught by round-tripping
+   * depth -> k -> depth, which is now a gate.
+   */
+  for (let i = 0; i < 100; i++) {
+    const mid = Math.sqrt(lo * hi); // geometric — k spans decades
+    if (limitingFluxRatio(mid, threshold) > target) lo = mid;
+    else hi = mid;
+  }
+  return Math.sqrt(lo * hi);
+}

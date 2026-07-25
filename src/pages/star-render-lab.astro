@@ -4,7 +4,8 @@ import PageHeader from "../components/PageHeader.astro";
 import { COLOR_SCHEMES } from "@novascope/core/colorimetry/schemes";
 import { linearToSrgbRGB } from "@novascope/core/colorimetry";
 import { spectralType } from "@novascope/core/stellar";
-import { DEFAULT_SOFTENING } from "@novascope/core/imaging";
+import { DEFAULT_SOFTENING, limitingFluxRatio } from "@novascope/core/imaging";
+import { magnitudeDifference } from "@novascope/core/photometry";
 
 /*
  * Colour-scheme comparison, rendered at BUILD time. Every swatch is computed by
@@ -19,13 +20,18 @@ const css = (c: readonly [number, number, number]): string => {
 const BANDS = ["bolometric", "U", "B", "V", "R", "I", "J", "H", "K"];
 
 /*
- * The faint-detail slider is in dex of softening, and its starting position is
- * DERIVED from the tuned default rather than typed in. It used to read `value="8"`
- * while `DEFAULT_SOFTENING` was 3e7 (10^7.48), so the tuned value was never the
- * one on screen — the slider always overrode it on the first render.
+ * The depth slider is in MAGNITUDES below the display white point, which is the
+ * physical statement the old "faint detail" slider was making opaquely: it read
+ * dex of asinh softening, so the control could be tuned but never reported.
+ *
+ * Its starting position is DERIVED from the tuned default softening, snapped to the
+ * slider's step, so there is still exactly one home for the default. That default
+ * turns out to be a 19.8-magnitude stretch, which is worth being able to read off
+ * the page rather than having to measure.
  */
-const SOFT_STEP = 0.25;
-const softStart = Math.round(Math.log10(DEFAULT_SOFTENING) / SOFT_STEP) * SOFT_STEP;
+const DEPTH_STEP = 0.25;
+const depthStart =
+  Math.round(magnitudeDifference(limitingFluxRatio(DEFAULT_SOFTENING)) / DEPTH_STEP) * DEPTH_STEP;
 const schemeRows = COLOR_SCHEMES.map((s) => ({
   id: s.id,
   label: s.label,
@@ -59,13 +65,23 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           {BANDS.map((b) => <option value={b} selected={b === "V"}>{b === "bolometric" ? "bolometric (total)" : b}</option>)}
         </select>
       </label>
-      <label class="srl__ctl">Faint detail
-        <input type="range" min="3" max="11" step={SOFT_STEP} value={softStart} data-log-soft />
+      <label class="srl__ctl">Depth <span data-depth-val>{depthStart.toFixed(2)}</span> mag below white
+        <input type="range" min="8" max="24" step={DEPTH_STEP} value={depthStart} data-depth />
       </label>
       <label class="srl__ctl">Exposure
         <input type="range" min="0.25" max="4" step="0.05" value="1" data-exposure />
       </label>
+      <label class="srl__ctl">Lowest mass shown <span data-minmass-val>all</span>
+        <input type="range" min="0" max="2" step="0.05" value="0" data-min-mass />
+      </label>
     </div>
+
+    <p class="srl__selection" data-selection hidden>
+      <strong>Population filtered.</strong> Stars below the mass cut are not drawn,
+      so this is not what the cluster looks like — it is what its more massive stars
+      contribute. The exposure is unchanged: the white point is still calibrated on
+      the full population, so the remaining stars keep the brightness they had.
+    </p>
 
     <div class="srl__stage">
       <canvas class="srl__canvas" data-stage aria-label="A star cluster rendered in observed mode."></canvas>
@@ -126,15 +142,17 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   const forceWebGL = new URLSearchParams(location.search).has("forceWebGL");
 
   const read = () => {
-    // Softening is OMITTED when its control is missing, so core/imaging's tuned
-    // default applies. A fallback number here would be a third place the same
-    // fact lives, and the previous one (8) silently disagreed with it.
-    const soft = document.querySelector<HTMLInputElement>("[data-log-soft]")?.value;
+    // Depth is OMITTED when its control is missing, so core/imaging's tuned default
+    // applies. A fallback number here would be a second place the same fact lives,
+    // and the previous one silently disagreed with it.
+    const depth = document.querySelector<HTMLInputElement>("[data-depth]")?.value;
+    const minMass = Number(document.querySelector<HTMLInputElement>("[data-min-mass]")?.value ?? 0);
     return {
       scheme: document.querySelector<HTMLSelectElement>("[data-scheme]")?.value ?? "true",
       band: document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V",
-      ...(soft === undefined ? {} : { softening: 10 ** Number(soft) }),
+      ...(depth === undefined ? {} : { depthMag: Number(depth) }),
       exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
+      minMass,
     };
   };
 
@@ -142,20 +160,33 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     initStarLab(canvas, { forceWebGL, ...read() })
       .then((lab) => {
         const label = lab.backend === "webgpu" ? "WebGPU" : "WebGL 2";
-        const show = (s: { visible: number; clipping: number }) => {
+        const depthVal = document.querySelector<HTMLElement>("[data-depth-val]");
+        const massVal = document.querySelector<HTMLElement>("[data-minmass-val]");
+        const selection = document.querySelector<HTMLElement>("[data-selection]");
+        const show = (s: typeof lab.stats) => {
           const pct = ((100 * s.visible) / lab.starCount).toFixed(1);
+          const minMass = read().minMass;
+          if (depthVal) depthVal.textContent = s.depthMag.toFixed(2);
+          if (massVal) massVal.textContent = minMass > 0 ? `${minMass.toFixed(2)} M☉` : "all";
+          // The filtered-population warning is driven by the CUT, not by the star
+          // count, so it cannot fall out of step with what is actually drawn.
+          if (selection) selection.hidden = minMass <= 0;
           // "above threshold", not "visible": the count is a property of each
           // star's display signal, and says nothing about whether it is inside
           // the frame. A Plummer sphere has a long tail, so some of these stars
           // are off-screen, and calling them visible would overstate the readout.
+          const limit = Number.isFinite(s.faintestVisibleMbol)
+            ? ` · faintest m_bol ${s.faintestVisibleMbol.toFixed(1)}`
+            : "";
           setStatus(
-            `${label}${forceWebGL ? " (forced)" : ""} · ${lab.starCount.toLocaleString()} stars · ` +
-              `${s.visible.toLocaleString()} above threshold (${pct}%) · ${s.clipping} clipping`,
+            `${label}${forceWebGL ? " (forced)" : ""} · ${s.shown.toLocaleString()} of ` +
+              `${lab.starCount.toLocaleString()} drawn · ${s.visible.toLocaleString()} above ` +
+              `threshold (${pct}%) · ${s.clipping} clipping · depth ${s.depthMag.toFixed(1)} mag${limit}`,
           );
         };
         show(lab.stats);
         for (const el of document.querySelectorAll<HTMLElement>(
-          "[data-scheme],[data-band],[data-log-soft],[data-exposure]",
+          "[data-scheme],[data-band],[data-depth],[data-exposure],[data-min-mass]",
         )) {
           el.addEventListener("input", () => show(lab.update(read())));
         }
@@ -181,6 +212,20 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   .srl__stage { position: relative; aspect-ratio: 16 / 10; max-block-size: min(70vh, 620px); margin-inline: auto; inline-size: 100%; max-inline-size: calc(min(70vh, 620px) * 1.6); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #05060a; }
   .srl__canvas { inline-size: 100%; block-size: 100%; display: block; }
   .srl__status { position: absolute; inset-block-end: 0.5rem; inset-inline-start: 0.6rem; margin: 0; font-family: var(--font-mono); font-size: var(--step--3, 0.68rem); color: var(--ink-faint); } /* type-scale-exempt: overlay status */
+
+  /* The filtered-population warning. Deliberately prominent: a mass-cut image is
+     not the cluster, and the page must not let that pass unstated. */
+  .srl__selection {
+    margin: 0;
+    padding: var(--space-2xs) var(--space-s);
+    border-inline-start: 3px solid var(--spec-teal-bright, #4fd6c4);
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--spec-teal-bright, #4fd6c4) 8%, transparent);
+    max-inline-size: var(--width-prose);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .srl__selection[hidden] { display: none; }
 
   .srl__controls { display: flex; flex-wrap: wrap; gap: var(--space-s) var(--space-m); align-items: end; }
   .srl__ctl { display: grid; gap: 0.2rem; font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim); }

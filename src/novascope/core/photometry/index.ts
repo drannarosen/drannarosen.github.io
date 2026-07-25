@@ -10,6 +10,7 @@
  */
 
 import { luminosity } from "../stellar/index.ts";
+import { M_BOL_SUN } from "../constants/index.ts";
 
 /**
  * Reference distance [pc] for rendering a cluster as if observed from one place.
@@ -72,4 +73,34 @@ export function apparentMagnitude(absMag: number, distancePc: number): number {
 /** Absolute magnitude from apparent magnitude and distance [pc]. */
 export function absoluteMagnitude(appMag: number, distancePc: number): number {
   return appMag - distanceModulus(distancePc);
+}
+
+/**
+ * Difference in magnitudes corresponding to a FLUX RATIO: -2.5 log10(ratio).
+ *
+ * Needs no zero point, which is what makes it the honest way to state how deep an
+ * exposure reaches: "this shows stars down to 12 mag below the white point" is
+ * exact, where an absolute V limit would require a calibration this package does
+ * not have. Returns +Infinity for a ratio of 0.
+ */
+export function magnitudeDifference(fluxRatio: number): number {
+  if (!(fluxRatio > 0)) return Infinity;
+  return -2.5 * Math.log10(fluxRatio);
+}
+
+/** Inverse of `magnitudeDifference`: the flux ratio for a magnitude difference. */
+export function fluxRatioForMagnitudes(deltaMag: number): number {
+  return 10 ** (-0.4 * deltaMag);
+}
+
+/**
+ * Bolometric ABSOLUTE magnitude from log10(L/Lsun).
+ *
+ * On the IAU 2015 B2 scale, whose zero point is exact by definition — see
+ * `L_ZERO_BOL_ERG_S`. This is the one absolute magnitude the package can state
+ * without inventing a calibration, so a page reporting "reaches M_bol = 12" is
+ * making a checkable claim.
+ */
+export function bolometricMagnitude(logL: number): number {
+  return M_BOL_SUN - 2.5 * logL;
 }

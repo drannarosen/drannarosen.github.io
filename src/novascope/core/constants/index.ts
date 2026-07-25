@@ -45,7 +45,28 @@ export const K_B_CGS = 1.380649e-16;
 /** Stefan-Boltzmann constant [erg cm^-2 s^-1 K^-4]. CODATA 2018. */
 export const SIGMA_SB_CGS = 5.670374419e-5;
 
+/**
+ * Zero-point luminosity of the bolometric magnitude scale [erg/s].
+ *
+ * IAU 2015 Resolution B2 fixes this EXACTLY at 3.0128e28 W, precisely so that
+ * bolometric magnitudes stop depending on an adopted solar luminosity. It is the
+ * only absolute magnitude zero point this package can state honestly: the
+ * passbands here are calibrated relative to Vega for COLOUR indices only, so there
+ * is no V-band zero point to quote, and inventing one would be a fabricated
+ * number on a page that reports magnitudes.
+ */
+export const L_ZERO_BOL_ERG_S = 3.0128e35;
+
 /* ── Derived ── */
+
+/**
+ * Solar bolometric absolute magnitude, DERIVED from the two luminosities above:
+ * M = -2.5 log10(L / L_0).
+ *
+ * Derived rather than typed as 4.74 for the same reason as `T_SUN_K`. It comes out
+ * at 4.7398…, which is the familiar value to the precision the inputs justify.
+ */
+export const M_BOL_SUN = -2.5 * Math.log10(L_SUN_ERG_S / L_ZERO_BOL_ERG_S);
 
 /**
  * Solar effective temperature [K], DERIVED from the nominal constants above via
