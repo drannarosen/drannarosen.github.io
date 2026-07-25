@@ -34,6 +34,9 @@ import {
   luptonSlope,
   luptonQ,
   LUPTON_Q,
+  luptonIntensityForOutput,
+  luptonDepthMag,
+  luptonQForDepth,
 } from "../src/novascope/core/imaging/lupton.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -179,6 +182,123 @@ ok(/Lupton et al\. \(2004\)/.test(ref.reference), "…and the literature referen
     luptonStretchedIntensity(1, 20, 8) < luptonStretchedIntensity(1, 5, 8),
     "a larger stretch dims a fixed intensity — genuinely the other control",
   );
+}
+
+/* ── THE INVERSE ──
+ *
+ * `luptonIntensityForOutput` takes over from `limitingFluxRatio` for the Lupton path:
+ * it is what sizes a star's billboard to hold exactly the visible part of its PSF, and
+ * what turns the display threshold into a depth in magnitudes.
+ *
+ * It is a CLOSED FORM rather than a bisection, deliberately. `softeningForLimit` is the
+ * same shape of function and its first version was inverted, answering a 10-magnitude
+ * request with 30.6 magnitudes; a closed form removes that class of bug instead of
+ * gating against it. The round trip is still checked, because "closed form" is a claim
+ * about the algebra and the algebra can be wrong. */
+{
+  let worst = 0;
+  let worstDesc = "";
+  for (const stretch of [0.1, 1, 5, 20, 1000]) {
+    for (const q of [0.5, 8, 30, 100]) {
+      for (const t of [1 / 255, 0.01, 0.1, 0.5, 1, 2]) {
+        const I = luptonIntensityForOutput(t, stretch, q);
+        const back = luptonStretchedIntensity(I, stretch, q);
+        const err = Math.abs(back - t) / t;
+        if (err > worst) {
+          worst = err;
+          worstDesc = `stretch=${stretch} Q=${q} t=${t}`;
+        }
+      }
+    }
+  }
+  ok(worst < 1e-12, `output -> intensity -> output round-trips (worst ${worst.toExponential(1)} at ${worstDesc})`);
+
+  // …and the other direction, over the intensities a star field actually spans.
+  let worstI = 0;
+  for (const stretch of [1, 5, 20]) {
+    for (let e = -8; e <= 6; e++) {
+      const I = 10 ** e;
+      const back = luptonIntensityForOutput(luptonStretchedIntensity(I, stretch), stretch);
+      worstI = Math.max(worstI, Math.abs(back - I) / I);
+    }
+  }
+  ok(worstI < 1e-9, `intensity -> output -> intensity round-trips over 14 decades (worst ${worstI.toExponential(1)})`);
+
+  // Direction, which is the thing the analogous bug got wrong.
+  ok(
+    luptonIntensityForOutput(0.5, 5) > luptonIntensityForOutput(1 / 255, 5),
+    "a brighter target needs a higher intensity — the direction softeningForLimit inverted",
+  );
+  ok(
+    luptonIntensityForOutput(1 / 255, 20) > luptonIntensityForOutput(1 / 255, 5),
+    "a larger stretch pushes the visibility threshold to higher flux",
+  );
+
+  /* The number this exists to produce: how many magnitudes of dynamic range the display
+   * curve spans, from one 8-bit level up to white. Reported so it is comparable with the
+   * asinh path's 19.8 mag rather than being a different unnameable quantity. */
+  for (const stretch of [1, 5, 20]) {
+    const faint = luptonIntensityForOutput(1 / 255, stretch);
+    const white = luptonIntensityForOutput(1, stretch);
+    const depth = -2.5 * Math.log10(faint / white);
+    ok(depth > 5 && depth < 40, `stretch ${stretch}: the curve spans ${depth.toFixed(1)} mag from one display level to white`);
+  }
+}
+
+/* ── DEPTH IN MAGNITUDES, AND ITS INVERSE ──
+ *
+ * This is what lets the page go on asking for "19.8 magnitudes of depth" while the
+ * display transfer changes underneath it. The depth is the physical statement; Q is
+ * merely the parameter that delivers it, and nothing outside this module should name Q.
+ */
+{
+  /* ORTHOGONALITY, which is not obvious: `stretch` is a pure scale on intensity, so it
+   * moves both ends of the faint/white ratio equally and cancels out of the depth
+   * entirely. Q sets how much dynamic range the curve holds; stretch sets which flux
+   * sits in the middle of it. A UI that merged them would be merging two different
+   * things, so the independence is asserted rather than assumed. */
+  for (const q of [1, 8, 30, 200]) {
+    const depths = [0.1, 1, 5, 100, 1e4].map((s) => luptonDepthMag(q, s));
+    const spread = Math.max(...depths) - Math.min(...depths);
+    ok(spread < 1e-9, `Q = ${q}: depth is independent of stretch (spread ${spread.toExponential(1)} mag)`);
+  }
+
+  /* MONOTONICITY before the bisection is trusted — same precaution as
+   * massForMagnitudeLimit, and for the same reason. */
+  {
+    let prev = -Infinity;
+    let mono = true;
+    for (let i = 0; i <= 400; i++) {
+      const q = 0.1 * (1e10 / 0.1) ** (i / 400);
+      const d = luptonDepthMag(q);
+      if (!(d > prev)) mono = false;
+      prev = d;
+    }
+    ok(mono, "depth is strictly increasing in Q over the whole search bracket");
+  }
+
+  // The round trip, which is the assertion softeningForLimit needed and did not have.
+  let worst = 0;
+  let worstAt = 0;
+  for (const d of [6.5, 8, 11.06, 15, 19.78, 25, 34, 50]) {
+    const back = luptonDepthMag(luptonQForDepth(d));
+    if (Math.abs(back - d) > worst) {
+      worst = Math.abs(back - d);
+      worstAt = d;
+    }
+  }
+  ok(worst < 1e-9, `depth -> Q -> depth round-trips (worst ${worst.toExponential(1)} mag at ${worstAt})`);
+
+  ok(Math.abs(luptonDepthMag(8) - 11.06) < 0.02, `astropy's default Q = 8 is a ${luptonDepthMag(8).toFixed(2)} mag stretch`);
+  ok(
+    Math.abs(luptonDepthMag(luptonQForDepth(19.78)) - 19.78) < 1e-9,
+    `Q = ${luptonQForDepth(19.78).toFixed(2)} reproduces the asinh path's 19.78 mag exactly`,
+  );
+  ok(luptonQForDepth(19.78) > 8, "…which is deeper than astropy's default, so the images are not directly comparable");
+  // Saturating rather than lying, at both ends.
+  ok(luptonQForDepth(0) === 0.1, "a non-positive depth request clamps to the shallowest Q");
+  ok(luptonQForDepth(1e6) === 1e10, "an absurd depth request clamps rather than diverging");
+  ok(Number.isFinite(luptonQForDepth(Number.NaN)) , "a NaN depth returns a finite Q rather than propagating");
 }
 
 if (failures) {
