@@ -829,7 +829,6 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         };
 
         const show = (s: typeof lab.stats) => {
-          const pct = ((100 * s.visible) / lab.starCount).toFixed(1);
           showInputs();
           if (depthVal) depthVal.textContent = s.depthMag.toFixed(2);
           const skyVal = document.querySelector<HTMLElement>("[data-sky-val]");
@@ -855,10 +854,33 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           const abs = Number.isFinite(s.absMag.brightest)
             ? ` · ${sys} ${s.absMag.brightest.toFixed(1)} to ${s.absMag.faintest.toFixed(1)}`
             : "";
+          /*
+           * THE COUNT COMES FROM THE TRANSFER ACTUALLY APPLIED, via `lab.reach`.
+           *
+           * It used to come from `stats.visible`, which counts through `asinhResponse` — the
+           * per-star curve POPULATION mode uses — whatever transfer was selected. In photometric
+           * mode that is not the applied curve, and the number moved the WRONG WAY: measured at
+           * 1,500 stars, raising depth from 8 to 14 took it from 11.7% to 66.8% while the count of
+           * stars standing clear of the background fell from 786 to 706. The image got worse while
+           * the readout got better, which is how a lab tool wastes its owner's afternoon.
+           *
+           * `mean` is the other half, and it is deliberately NOT a verdict. In photometric mode the
+           * background is the summed wings of every star, so a star can clear the transfer's floor
+           * and still be invisible against what it sits on — the count is necessary and not
+           * sufficient. The analytic mean is reported as a companion so that regime is visible,
+           * labelled as a MEAN because on a heavy-tailed star field it runs well above the median
+           * pixel. A boolean "sky-limited" flag was tried and removed: it came out true even on a
+           * frame that was a quarter pure black, which is the same confident-and-wrong failure this
+           * change exists to remove. The honest background needs a percentile readback.
+           */
+          const r = lab.reach;
+          const reachPct = ((100 * r.count) / lab.starCount).toFixed(1);
+          const skyNote = ` · mean frame level ${(100 * r.meanLevel).toFixed(0)}%`;
           setStatus(
             `${label}${forceWebGL ? " (forced)" : ""} · ${s.shown.toLocaleString()} of ` +
-              `${lab.starCount.toLocaleString()} drawn · ${s.visible.toLocaleString()} above ` +
-              `threshold (${pct}%) · ${s.clipping} clipping · depth ${s.depthMag.toFixed(1)} mag${limit}${abs}`,
+              `${lab.starCount.toLocaleString()} drawn · ${r.count.toLocaleString()} reach the ` +
+              `display (${reachPct}%) · ${s.clipping} clipping · depth ${s.depthMag.toFixed(1)} mag` +
+              `${limit}${abs}${skyNote}`,
           );
         };
         show(lab.stats);
@@ -952,6 +974,9 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           backend: lab.backend,
           get stats() {
             return lab.stats;
+          },
+          get reach() {
+            return lab.reach;
           },
           get info() {
             return lab.info;

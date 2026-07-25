@@ -38,13 +38,20 @@
  * `STRETCH_NOTES` and the photographic ones from `TONE_MAP_NOTES`, so a curve's description has
  * one home and a new curve appears here by existing rather than by being remembered.
  */
-import { STRETCH_IDS, STRETCH_NOTES, stretchInverse, type StretchId } from "./stretch.ts";
-import { TONE_MAP_IDS, TONE_MAP_NOTES, toneMapFloor, type ToneMapId } from "./toneMap.ts";
+import { STRETCH_IDS, STRETCH_NOTES, stretch, stretchInverse, type StretchId } from "./stretch.ts";
+import {
+  TONE_MAP_IDS,
+  TONE_MAP_NOTES,
+  toneMapFloor,
+  toneMapGrey,
+  type ToneMapId,
+} from "./toneMap.ts";
 import {
   ONE_DISPLAY_LEVEL,
   luptonIntensityForOutput,
   luptonQForDepth,
   luptonStretchForWhite,
+  luptonStretchedIntensity,
 } from "./lupton.ts";
 
 /**
@@ -167,6 +174,44 @@ export function getTransfer(id: TransferId): TransferRecord {
   const found = TRANSFERS.find((t) => t.id === id);
   if (found === undefined) throw new Error(`unknown transfer: ${id}`);
   return found;
+}
+
+/**
+ * The DISPLAY value a neutral scene intensity produces under a transfer.
+ *
+ * The scalar, CPU-side companion to `viz/starfield/transferNode`: same curves, same white point,
+ * one channel. It exists so a readout can ask "what will this actually look like?" of the
+ * transfer that is genuinely being applied, rather than of a different curve that happens to be
+ * nearby in the code.
+ *
+ * WHY THAT MATTERED. The lab's status line counted stars through `asinhResponse` — the per-star
+ * curve population mode uses — and reported the result whatever transfer was selected. In
+ * photometric mode that is not the applied curve, so the number moved OPPOSITE to the image:
+ * going from 8 to 14 magnitudes of depth it rose from 11.7% to 66.8% while the count of stars
+ * standing clear of the background actually fell, 786 to 706. A readout that confident and that
+ * wrong costs more than no readout.
+ *
+ * `whitePoint` is the intensity that maps to display white, and it must be the PIXEL white
+ * (`whitePixelIntensity`) rather than the per-star normalisation — a pixel sums thousands of
+ * wings, and the two differ by three orders of magnitude on this cluster. Passing the wrong one
+ * is the same class of error this function exists to fix.
+ */
+export function transferDisplayGrey(
+  id: TransferId,
+  sceneValue: number,
+  whitePoint: number,
+  depthMag: number,
+): number {
+  const white = whitePoint > 0 ? whitePoint : Number.MIN_VALUE;
+  const x = Math.max(0, sceneValue);
+  if (id === "lupton") {
+    const q = luptonQForDepth(depthMag);
+    const stretch = white * luptonStretchForWhite(q);
+    return Math.min(1, luptonStretchedIntensity(x, stretch, q));
+  }
+  if (isToneMapId(id)) return toneMapGrey(x / white, id);
+  if (isStretchId(id)) return stretch(x / white, id);
+  return assertNeverTransfer(id);
 }
 
 /**

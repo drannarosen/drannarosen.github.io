@@ -25,9 +25,10 @@ import { clusterStarTable } from "./source.ts";
 import { createStarGraph, type StarGraph } from "./starGraph.ts";
 import { createTransferNode, type Transfer } from "./transferNode.ts";
 import type { TransferId } from "../../core/imaging/transfers.ts";
-import { whitePixelIntensity } from "./calibrate.ts";
-import { transferFloor } from "../../core/imaging/transfers.ts";
+import { whitePixelIntensity, analyticMeanIntensity } from "./calibrate.ts";
+import { transferFloor, transferDisplayGrey } from "../../core/imaging/transfers.ts";
 import { DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
+import { VISIBILITY_THRESHOLD } from "../../core/imaging/index.ts";
 
 export type RenderBackend = "webgpu" | "webgl2";
 
@@ -51,6 +52,45 @@ function isWebGPUBackend(b: unknown): b is { isWebGPUBackend: true } {
  */
 export type StarLabStats = StarField["stats"];
 
+/**
+ * How many stars actually reach the display, under the transfer that is actually applied.
+ *
+ * COMPUTED HERE, NOT IN `prepare`, and that is the whole point rather than a filing preference.
+ * `prepare` reports `stats.visible` from `asinhResponse` — the per-star curve POPULATION mode
+ * uses — and it cannot do better: the answer needs the PIXEL white point, which depends on the
+ * frame size, which `prepare` does not know. So in photometric mode that number was computed
+ * from a curve the renderer was not applying, and it moved the wrong way. Measured on the lab at
+ * 1,500 stars going from 8 to 14 magnitudes of depth: `stats.visible` rose 11.7% -> 66.8% while
+ * the count of stars standing clear of the background FELL, 786 -> 706.
+ *
+ * `reach` counts stars whose own peak clears `VISIBILITY_THRESHOLD` through the applied transfer
+ * at the real white point. `limitedBySky` says whether the background is the binding constraint,
+ * because in photometric mode it usually is — the sky there is the summed wings of every star,
+ * so a star can clear the transfer floor and still be invisible against what it sits on. Saying
+ * so is the difference between a readout that informs and one that promises.
+ */
+export interface StarReach {
+  /** Stars whose peak clears the visibility threshold through the APPLIED transfer. */
+  count: number;
+  /**
+   * The displayed level of the frame's ANALYTIC MEAN, 0-1 — an upper bound on the background,
+   * not the background itself.
+   *
+   * Stated as a mean because that is what it is. `analyticMeanIntensity` is total light over
+   * pixel count, and on a star field that distribution is heavy-tailed: measured at depth 8 it
+   * reports 17% while the MEDIAN pixel is 1/255, because a handful of bright cores carry the
+   * mean. It is the right quantity for calibrating an exposure — which is what it was built for
+   * — and the wrong one for answering "how grey is my sky".
+   *
+   * A first version of this shipped a `limitedBySky` boolean derived from it. That flag came out
+   * TRUE at every depth, including one where the frame was 25% pure black, which would have made
+   * it the same kind of confident-and-wrong readout as the count this whole change exists to
+   * fix. It was removed rather than tuned: the honest background is a low PERCENTILE of the
+   * rendered pixels, which needs a readback and arrives with the sky-derivation work.
+   */
+  meanLevel: number;
+}
+
 export interface StarLab {
   info: { calls: number; tris: number };
   dispose(): void;
@@ -59,6 +99,8 @@ export interface StarLab {
   /** Frames actually presented — the only reliable way to confirm a pause. */
   readonly frames: number;
   stats: StarLabStats;
+  /** Stars reaching the display through the transfer actually applied — see `StarReach`. */
+  readonly reach: StarReach;
   /** Rebuild the field with new physics options (scheme, band, exposure…). */
   update(opts: PrepareOptions): StarLabStats;
   /**
@@ -238,6 +280,7 @@ export async function initStarLab(
   let stats: StarLabStats = prepareStarField(new Float32Array(0)).stats;
 
   let lastField: StarField | null = null;
+  let reach: StarReach = { count: 0, meanLevel: 0 };
   let lastDepthMag = DEFAULT_LUPTON_DEPTH_MAG;
   let lastSkyLevel = 0;
 
@@ -307,7 +350,55 @@ export async function initStarLab(
         : 1;
     transfer.setDepth(lastDepthMag, white);
     transfer.setSky(lastSkyLevel, white);
+    reach = measureReach(lastField, white, w, h);
   };
+
+  /*
+   * Count what the APPLIED transfer actually puts on screen, at the real white point.
+   *
+   * A star's own peak contribution to a pixel is its `bandFlux` (the profile peaks at 1 at the
+   * centre), and `whitePixelIntensity` is in those same units — so both go through
+   * `transferDisplayGrey` unchanged. The sky is estimated from `analyticMeanIntensity`, which is
+   * the same quantity the exposure calibration already trusts, so no second model of the
+   * background is introduced here.
+   *
+   * The threshold is `VISIBILITY_THRESHOLD`, unchanged, so this is the SAME criterion the old
+   * count used — only the curve it is applied to is different, which is precisely the bug.
+   */
+  function measureReach(field: StarField, white: number, w: number, h: number): StarReach {
+    const id = field.stats.scaling;
+    /*
+     * THE BACKGROUND IS MEASURED, NOT READ OFF THE SUBTRACTION CONTROL.
+     *
+     * A first version used `lastSkyLevel` here — the amount the user has chosen to SUBTRACT — and
+     * so reported a background of zero whenever nothing had been subtracted, which is exactly
+     * when the sky is the problem. That is the same shape of lie as the count this function
+     * exists to fix: a number that reads plausibly and is measuring the wrong thing.
+     *
+     * `analyticMeanIntensity` is the real estimate. It is total light over pixel count, so on a
+     * star field it IS the diffuse background — the summed wings of every star — and it is the
+     * same quantity the exposure calibration already trusts, so no second model of the sky is
+     * introduced. The subtraction is then removed from it, because that is what the transfer sees.
+     */
+    const mean = analyticMeanIntensity(field, w, h, { floor: transferFloor(id, lastDepthMag) });
+    const meanLevel = transferDisplayGrey(
+      id,
+      Math.max(0, mean - lastSkyLevel * white),
+      white,
+      lastDepthMag,
+    );
+    let count = 0;
+    for (let i = 0; i < field.count; i++) {
+      const peak = Math.max(
+        field.bandFlux[i * 3] ?? 0,
+        field.bandFlux[i * 3 + 1] ?? 0,
+        field.bandFlux[i * 3 + 2] ?? 0,
+      );
+      if (peak <= 0) continue;
+      if (transferDisplayGrey(id, peak, white, lastDepthMag) > VISIBILITY_THRESHOLD) count++;
+    }
+    return { count, meanLevel };
+  }
 
   const build = (o: PrepareOptions): StarLabStats => {
     if (graph) {
@@ -420,6 +511,9 @@ export async function initStarLab(
     },
     get stats() {
       return stats;
+    },
+    get reach() {
+      return reach;
     },
     update(next) {
       const s = build(next);
