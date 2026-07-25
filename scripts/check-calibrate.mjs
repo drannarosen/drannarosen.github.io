@@ -33,7 +33,6 @@ import {
   floorForDepth,
   CALIBRATION_RUNS,
   WHITE_FROM_ANALYTIC_MEAN,
-  WHITE_FROM_ANALYTIC_MEAN_SPREAD,
 } from "../src/novascope/viz/starfield/calibrate.ts";
 import { starProfile } from "../src/novascope/viz/starfield/profile.ts";
 import {
@@ -99,10 +98,15 @@ for (const run of CALIBRATION_RUNS) {
   );
   const k = recorded.whitePixel / mean;
   ratios.push(k);
-  ok(
-    k >= WHITE_FROM_ANALYTIC_MEAN_SPREAD.min && k <= WHITE_FROM_ANALYTIC_MEAN_SPREAD.max,
-    `${run.id}: white/mean = ${k.toFixed(2)} stays inside the recorded spread`,
-  );
+  /* A LOOSE PLAUSIBILITY BOUND, deliberately not tuned to the measurements.
+   *
+   * The measured ratios run 27-39, and bounds set near those would be a copy of the fixture — which
+   * cannot fail, since `k` is the fixture's own ratio once the mean is asserted above. This instead
+   * asserts something independent: white-over-mean is a SHAPE factor for a heavily skewed
+   * distribution, so a star field cannot plausibly sit below ~5 (the 99.5th percentile barely above
+   * the mean) or above ~200. It catches a corrupted fixture row or a units error, and it can never
+   * go stale because it was never fitted. */
+  ok(k > 5 && k < 200, `${run.id}: white/mean = ${k.toFixed(2)} is a plausible skew factor`);
 }
 
 /* The constant and the spread, re-derived over ALL configurations on every build now that
@@ -117,7 +121,9 @@ for (const run of CALIBRATION_RUNS) {
      * two-homes-for-one-fact failure the fixture exists to prevent. The constant IS the fixture's
      * geometric mean, so the tolerance only has to cover rounding to two decimals. */
     Math.abs(geo - WHITE_FROM_ANALYTIC_MEAN) / WHITE_FROM_ANALYTIC_MEAN < 0.002,
-    `the constant is the geometric mean of all ${ratios.length} (${geo.toFixed(2)} vs ${WHITE_FROM_ANALYTIC_MEAN})`,
+    Math.abs(geo - WHITE_FROM_ANALYTIC_MEAN) / WHITE_FROM_ANALYTIC_MEAN < 0.002
+      ? `the constant is the geometric mean of all ${ratios.length} (${geo.toFixed(2)})`
+      : `CONSTANT DRIFTED — set WHITE_FROM_ANALYTIC_MEAN in src/novascope/viz/starfield/calibrate.ts to ${geo.toFixed(2)} (currently ${WHITE_FROM_ANALYTIC_MEAN})`,
   );
   const spreadMag = 2.5 * Math.log10(hi / lo);
   ok(spreadMag < 0.6, `the spread is ${spreadMag.toFixed(2)} mag`);

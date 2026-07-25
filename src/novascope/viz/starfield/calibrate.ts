@@ -90,13 +90,20 @@ import type { StarField } from "./prepare.ts";
  */
 export const WHITE_FROM_ANALYTIC_MEAN = 33.91;
 
-/**
- * Bounds the per-configuration ratio must stay inside, at 1% either side of the recorded
- * extremes. The margin exists so float noise cannot fail the build on a boundary value — an
- * earlier version recorded the rounded extremes exactly and one configuration landed a
- * fraction below its own minimum.
+/*
+ * `WHITE_FROM_ANALYTIC_MEAN_SPREAD` USED TO LIVE HERE and is gone.
+ *
+ * It held the per-configuration extremes at 1% either side, hand-copied from the fixture — a
+ * hand-kept copy of a fact the fixture already records, exported from a SHIPPED module but used
+ * only by the gate. Two homes for one fact, and the shipped one carried test data.
+ *
+ * It was also nearly tautological. The gate computes `k = recorded.whitePixel / mean` immediately
+ * after asserting that `mean` reproduces `recorded.analyticMean` to 1e-6, so `k` IS the fixture's
+ * own recorded ratio; bounds copied from that same fixture cannot fail. What has teeth is the
+ * aggregate — the spread in magnitudes and the constant matching the geometric mean — and both are
+ * computed from the data in `check:calibrate`, plus a loose plausibility bound there that is
+ * deliberately NOT tuned to the measurements, so it can never go stale.
  */
-export const WHITE_FROM_ANALYTIC_MEAN_SPREAD = { min: 26.8, max: 39.8 };
 
 /**
  * Total light one channel of a star puts into its own billboard, in core-radius^2 units.
