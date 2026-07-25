@@ -164,7 +164,13 @@ export async function runParity(opts: ParityOptions = {}): Promise<ParityResult>
   const field: StarField = prepareStarField(stars, {
     bandTriple: ["R", "V", "B"],
     pixelRatio: 1,
-    depthMag,
+    /*
+     * The harness's `depthMag` is the LUPTON depth — this file compares the per-pixel transfer
+     * against its CPU mirror, so that is the only depth it has ever meant. It also feeds the
+     * per-star curve here, so the population path is exercised at a matching reach.
+     */
+    pixelDepthMag: depthMag,
+    starDepthMag: depthMag,
     ...opts.prepare,
   });
 

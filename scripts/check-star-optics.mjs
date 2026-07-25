@@ -711,11 +711,17 @@ ok(inK > inV, "more stars are visible in K than in V (cool stars dominate the IR
  *
  * This is a REGRESSION TEST for the bug that made the lab look monochrome blue.
  *
- * `depthMag` drives two unrelated parameters. In PHOTOMETRIC mode it sets Lupton's Q, a per-PIXEL
- * curve. In POPULATION mode it sets the per-STAR asinh softening — so it decides whether the faint
- * majority is rendered at all. Their useful ranges are therefore different, and when the slider was
- * narrowed to 6.25-16 for the Lupton path, population mode inherited a default of 8 where the
+ * `depthMag` DROVE two unrelated parameters, and this is the bug that cost. In PHOTOMETRIC mode it
+ * set Lupton's Q, a per-PIXEL curve; in POPULATION mode the per-STAR asinh softening — so it decided
+ * whether the faint majority was rendered at all. Their useful ranges differ, and when the slider
+ * was narrowed to 6.25-16 for the Lupton path, population mode inherited a default of 8 where the
  * MEDIAN STAR's signal is 1e-4 against a visibility threshold of 0.02.
+ *
+ * The option has since been SPLIT into `starDepthMag` and `pixelDepthMag`, so the two can no longer
+ * share a value at all. These assertions are kept and now exercise `starDepthMag`: the split
+ * removes the mechanism, and this is what proves the per-star curve still behaves the way the fix
+ * depended on. The gate caught the rename too — passing the retired `depthMag` left both cases at
+ * the default and the monotonicity check reported "0.1414 > 0.1414".
  *
  * The visible result was that only the brightest stars survived, and in a young cluster those are
  * the hot blue ones — so every pixel took their hue and the field read as one colour. Measured mean
@@ -726,12 +732,12 @@ ok(inK > inV, "more stars are visible in K than in V (cool stars dominate the IR
  * member of it. A hue metric would pass again for the wrong reason if the scheme changed.
  */
 {
-  const popField = (depthMag) =>
+  const popField = (starDepthMag) =>
     prepareStarField(clusterStarTable({ sampling: { mode: "count", target: 4000 } }), {
       scheme: "vivid",
       band: "V",
       colorMode: "population",
-      ...(depthMag === undefined ? {} : { depthMag }),
+      ...(starDepthMag === undefined ? {} : { starDepthMag }),
       pixelRatio: 1,
     });
   const medianSignal = (f) => {
@@ -748,12 +754,51 @@ ok(inK > inV, "more stars are visible in K than in V (cool stars dominate the IR
   // And the Lupton default is NOT a safe value for it — the specific regression.
   ok(
     medianSignal(popField(8)) < VISIBILITY_THRESHOLD,
-    "…while the photometric default of 8 mag does NOT, which is why the two modes cannot share one",
+    "…while the photometric default of 8 mag does NOT, which is why the two could never share one",
   );
   // Monotonic in depth, which is the mechanism rather than a coincidence.
   const shallow = medianSignal(popField(10));
   const deep = medianSignal(popField(20));
   ok(deep > shallow, `a deeper stretch lifts the median star (${deep.toFixed(4)} > ${shallow.toFixed(4)})`);
+
+  /*
+   * THE TWO DEPTHS ARE INDEPENDENT — the property the split exists to create.
+   *
+   * Before it they were one option, so this could not even be stated. Now each must move its own
+   * parameter and leave the other alone, in both directions. Verified in the browser too
+   * (star reach 10/16/24 moved the per-star depth while the pixel depth held at 8; transfer span
+   * 8/14/20 moved the pixel depth while the per-star depth held at 24), but a node gate is what
+   * survives a refactor.
+   */
+  {
+    const f = (starDepthMag, pixelDepthMag) =>
+      prepareStarField(clusterStarTable({ sampling: { mode: "count", target: 1500 } }), {
+        colorMode: "population",
+        band: "V",
+        starDepthMag,
+        pixelDepthMag,
+        pixelRatio: 1,
+      });
+    const a = f(16, 8);
+    const b = f(16, 20);
+    const c = f(24, 8);
+    ok(
+      a.stats.depthMag === b.stats.depthMag,
+      `moving the PIXEL depth leaves the per-star depth alone (${a.stats.depthMag.toFixed(2)})`,
+    );
+    ok(
+      a.stats.pixelDepthMag !== b.stats.pixelDepthMag,
+      `…while the pixel depth itself moves (${a.stats.pixelDepthMag} -> ${b.stats.pixelDepthMag})`,
+    );
+    ok(
+      a.stats.pixelDepthMag === c.stats.pixelDepthMag,
+      "moving the STAR depth leaves the pixel depth alone",
+    );
+    ok(
+      a.stats.depthMag !== c.stats.depthMag,
+      `…while the per-star depth itself moves (${a.stats.depthMag.toFixed(2)} -> ${c.stats.depthMag.toFixed(2)})`,
+    );
+  }
 
   /* THE TWO DEFAULTS MUST DIFFER, and the shared slider range must BRACKET BOTH.
    *

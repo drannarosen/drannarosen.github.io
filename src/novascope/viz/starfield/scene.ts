@@ -324,6 +324,11 @@ export async function initStarLab(
 
   let lastField: StarField | null = null;
   let reach: StarReach = { count: 0, meanLevel: 0 };
+  /*
+   * The PIXEL depth — Lupton's Q and the display floor. Named for what it drives now that
+   * `depthMag`'s two meanings have been separated; the per-star depth never reaches this file,
+   * because it is consumed inside `prepare` where the star signal is computed.
+   */
   let lastDepthMag = DEFAULT_LUPTON_DEPTH_MAG;
   let lastSkyLevel = 0;
   let skyAuto = false;
@@ -495,7 +500,7 @@ export async function initStarLab(
     graph = createStarGraph(field);
     scene.add(graph.mesh);
     lastField = field;
-    lastDepthMag = o.depthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
+    lastDepthMag = o.pixelDepthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
     lastSkyLevel = o.skyLevel ?? 0;
     skyAuto = o.skyAuto ?? false;
     if (!skyAuto) sky = { level: 0, sampled: 0, pixels: 0, min: 0, max: 0, mean: 0 };

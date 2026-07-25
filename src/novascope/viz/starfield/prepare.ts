@@ -91,7 +91,23 @@ export interface PrepareOptions {
    * over it. (`3e7` turns out to mean 19.78 mag, which is a very deep stretch —
    * worth knowing rather than discovering.)
    */
-  depthMag?: number;
+  starDepthMag?: number;
+  /**
+   * How many magnitudes below white the PER-PIXEL transfer curve spans.
+   *
+   * The other half of what `depthMag` used to mean. Consumed only by transfers whose shape moves
+   * with depth — in practice `lupton`, whose Q this sets — and by the display floor that sizes
+   * each star's billboard. Every other transfer has a fixed shape and ignores it.
+   *
+   * SPLIT FROM `starDepthMag` BECAUSE ONE NAME FOR TWO PARAMETERS HAS COST REAL BUGS. As
+   * `depthMag` it drove the per-star asinh softening AND Lupton's per-pixel Q, and the two want
+   * different values: sharing one number put the median star's display signal at 1e-4 against a
+   * 0.02 threshold, so only the hot blue stars survived and the field read as a single colour
+   * (fixed in 778a91b). It then caused a second, different bug in the URL layer, where a
+   * mode-dependent default could not be encoded and a shared link silently reopened at another
+   * depth. Two parameters, two names, no shared default to get wrong.
+   */
+  pixelDepthMag?: number;
   /**
    * Lower mass cut [Msun]. Stars below it are computed but not shown.
    *
@@ -304,10 +320,13 @@ export interface StarField {
     tierCounts: [number, number, number];
     maxSizePx: number;
     psfWidthPx: number;
-    /** Softening actually used, whether given directly or derived from `depthMag`. */
+    /** Softening actually used, whether given directly or derived from `starDepthMag`. */
     softening: number;
     /** How deep this exposure reaches, in magnitudes below the white point. */
+    /** Depth the PER-STAR curve reaches [mag below white] — what `softening` delivers. */
     depthMag: number;
+    /** Depth the PER-PIXEL transfer curve spans [mag]. Only `lupton` varies with it. */
+    pixelDepthMag: number;
     /**
      * Apparent BOLOMETRIC magnitude of the faintest star still above threshold, on
      * the IAU 2015 B2 scale. `Infinity` if nothing is visible.
@@ -418,8 +437,8 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
    * omitted the option and glaring on the page that supplied it.
    */
   const softening =
-    opts.depthMag !== undefined
-      ? softeningForLimit(fluxRatioForMagnitudes(opts.depthMag))
+    opts.starDepthMag !== undefined
+      ? softeningForLimit(fluxRatioForMagnitudes(opts.starDepthMag))
       : (opts.softening ??
         softeningForLimit(
           fluxRatioForMagnitudes(
@@ -478,7 +497,13 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
    * only Lupton's floor moves with `depthMag`; a branch here would be a second place that
    * asymmetry is written, and it is exactly the asymmetry that produced the depth bug.
    */
-  const displayFloor = transferFloor(scaling, opts.depthMag ?? defaultDepthMag);
+  /*
+   * The floor follows the PIXEL depth, because it is a property of the per-pixel transfer: it is
+   * the scene value that curve still renders as one display level. Feeding it the per-star depth
+   * was one of the two things `depthMag` conflated.
+   */
+  const pixelDepthMag = opts.pixelDepthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
+  const displayFloor = transferFloor(scaling, pixelDepthMag);
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
@@ -794,6 +819,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
       psfWidthPx: PSF_WIDTH_PX * dpr,
       softening,
       depthMag: magnitudeDifference(limitingFluxRatio(softening)),
+      pixelDepthMag,
       faintestVisibleMbol: visible > 0 ? faintestVisibleMbol : Infinity,
       shown,
       colorMode,

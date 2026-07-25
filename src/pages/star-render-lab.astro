@@ -4,7 +4,7 @@ import PageHeader from "../components/PageHeader.astro";
 import { COLOR_SCHEMES } from "@novascope/core/colorimetry/schemes";
 import { linearToSrgbRGB } from "@novascope/core/colorimetry";
 import { spectralType } from "@novascope/core/stellar";
-import { DEPTH_MAG_RANGE } from "@novascope/core/imaging/lupton";
+import { DEPTH_MAG_RANGE, DEFAULT_LUPTON_DEPTH_MAG } from "@novascope/core/imaging/lupton";
 import { D0_PC, DISTANCE_PC_RANGE } from "@novascope/core/photometry";
 import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/passbands";
 import { SURVEYS } from "@novascope/core/photometry/surveys";
@@ -134,6 +134,8 @@ const DEPTH_DEFAULTS = {
   population: snap(DEPTH_MAG_RANGE.max),
 };
 const depthStart = DEPTH_DEFAULTS.population;
+/* The per-PIXEL curve's span. Its measured default is untouched — only `lupton` reads it. */
+const LUPTON_DEPTH_START = snap(DEFAULT_LUPTON_DEPTH_MAG);
 /*
  * The distance slider works in LOG10(pc), because the useful range spans 50 pc to 20 kpc — a
  * factor of 400 — and a linear slider would put every Galactic cluster in its first two percent.
@@ -247,8 +249,25 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     <div class="srl__group">
       <h2 class="srl__grouph">How it is displayed <span>choices about pixels, not about the stars</span></h2>
       <div class="srl__controls">
-      <label class="srl__ctl">Depth <span data-depth-val>{depthStart.toFixed(2)}</span> mag below white
+      <!--
+        TWO DEPTHS, because they were always two parameters wearing one name.
+
+        "Star reach" is the PER-STAR asinh curve: how far down the population it lifts, and so
+        whether the faint majority renders at all. It is the population path's control.
+
+        "Transfer span" is the PER-PIXEL curve's dynamic range — Lupton's Q. Only `lupton` varies
+        with it; every other transfer has a fixed shape and ignores it, which is why it is disabled
+        unless Lupton is selected rather than silently doing nothing.
+
+        Sharing one control made the default mode-dependent, and that produced two separate bugs:
+        the median star at a display signal of 1e-4 against a 0.02 threshold (778a91b), and a
+        shared link that reopened at a different depth than it recorded.
+      -->
+      <label class="srl__ctl">Star reach <span data-depth-val>{depthStart.toFixed(2)}</span> mag below white
         <input type="range" min={DEPTH_MIN} max={DEPTH_MAX} step={DEPTH_STEP} value={depthStart} data-depth />
+      </label>
+      <label class="srl__ctl">Transfer span <span data-curve-val></span>
+        <input type="range" min={DEPTH_MIN} max={DEPTH_MAX} step={DEPTH_STEP} value={LUPTON_DEPTH_START} data-curve />
       </label>
       <!--
         THE DISPLAY TRANSFER — one control, twelve conventions, and no longer two mechanisms.
@@ -599,6 +618,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   import type { TransferId } from "@novascope/core/imaging/transfers";
   import { decode, encode } from "@novascope/core/params/urlState";
   import { D0_PC } from "@novascope/core/photometry";
+  import { DEFAULT_LUPTON_DEPTH_MAG } from "@novascope/core/imaging/lupton";
   import {
     LAB_SCHEMA,
     PASSTHROUGH_KEYS,
@@ -687,6 +707,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     setValue("[data-depth]", String(s.depth));
     setValue("[data-sky]", String(s.sky));
     setValue("[data-dist]", String(Math.log10(s.dist)));
+    setValue("[data-curve]", String(s.curve));
     const skyAutoEl = document.querySelector<HTMLInputElement>("[data-sky-auto]");
     if (skyAutoEl) skyAutoEl.checked = s.skyauto;
     setValue("[data-bloom]", String(s.bloom));
@@ -722,6 +743,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
      * read and retype from a lecture note, `dist=136.4782` is machine exhaust.
      */
     dist: Math.round(10 ** Number(readValue("[data-dist]", String(Math.log10(D0_PC))))),
+    curve: Number(readValue("[data-curve]", String(DEFAULT_LUPTON_DEPTH_MAG))),
     motion,
   });
 
@@ -857,7 +879,10 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       skyLevel: Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0),
       skyAuto: document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? false,
       bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
-      ...(depth === undefined ? {} : { depthMag: Number(depth) }),
+      ...(depth === undefined ? {} : { starDepthMag: Number(depth) }),
+      pixelDepthMag: Number(
+        document.querySelector<HTMLInputElement>("[data-curve]")?.value ?? DEFAULT_LUPTON_DEPTH_MAG,
+      ),
       exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
       distancePc: 10 ** Number(document.querySelector<HTMLInputElement>("[data-dist]")?.value ?? Math.log10(D0_PC)),
       minMass,
@@ -906,6 +931,22 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
            * not a scale to anyone who does not already know the answer, and this control exists to
            * teach — "1.4 kpc" means little, "1.4 kpc — beyond Westerlund 1" places it.
            */
+          /*
+           * The transfer-span control is DISABLED unless Lupton is selected, because every other
+           * transfer has a fixed shape and ignores it. A live control that does nothing invites
+           * the conclusion that the parameter does not matter, which is the opposite of true —
+           * the same reasoning that disables the band control under an instrument.
+           */
+          const curveEl = document.querySelector<HTMLInputElement>("[data-curve]");
+          const curveVal = document.querySelector<HTMLElement>("[data-curve-val]");
+          const transferNow = document.querySelector<HTMLSelectElement>("[data-scaling]")?.value;
+          const luptonSelected = transferNow === "lupton";
+          if (curveEl) curveEl.disabled = !luptonSelected;
+          if (curveVal && curveEl) {
+            curveVal.textContent = luptonSelected
+              ? `${Number(curveEl.value).toFixed(2)} mag — Lupton's Q`
+              : "— only Lupton varies with it";
+          }
           const distEl = document.querySelector<HTMLInputElement>("[data-dist]");
           const distVal = document.querySelector<HTMLElement>("[data-dist-val]");
           if (distEl && distVal) {
@@ -1082,7 +1123,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         };
 
         for (const el of document.querySelectorAll<HTMLElement>(
-          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-sky-auto],[data-bloom],[data-depth],[data-exposure],[data-min-mass],[data-dist]",
+          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-sky-auto],[data-bloom],[data-depth],[data-exposure],[data-min-mass],[data-dist],[data-curve]",
         )) {
           /*
            * DISPLAY-ONLY CONTROLS SKIP THE FIELD REBUILD.

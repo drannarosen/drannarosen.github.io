@@ -37,7 +37,7 @@ import { TRANSFER_IDS } from "../../core/imaging/transfers.ts";
 import { INSTRUMENTS } from "../../core/photometry/instruments.ts";
 import { COLOR_SCHEMES } from "../../core/colorimetry/schemes.ts";
 import { PASSBANDS } from "../../core/photometry/passbands.ts";
-import { DEPTH_MAG_RANGE } from "../../core/imaging/lupton.ts";
+import { DEPTH_MAG_RANGE, DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
 import { D0_PC, DISTANCE_PC_RANGE } from "../../core/photometry/index.ts";
 
 /**
@@ -90,6 +90,16 @@ export const LAB_SCHEMA = {
    * and REOPENED AT 8, because the page forces the mode's own default when the URL is silent.
    * Measured, not theorised — the sender's picture and the recipient's differed, silently.
    */
+  /*
+   * TWO DEPTHS, because they were always two parameters.
+   *
+   * `depth` is the PER-STAR reach — how far down the population the asinh curve lifts. `curve` is
+   * the PER-PIXEL transfer's span, which only `lupton` varies with. Sharing one field is what made
+   * the default mode-dependent, which is what made `alwaysWrite` necessary: a photometric link at
+   * 16 reopened at 8. With two fields each has ONE honest default and that whole class of bug is
+   * gone — `alwaysWrite` is kept on `depth` anyway, because a lecture link that states its depth
+   * is better than one inheriting a default that may move.
+   */
   depth: numberField(
     DEPTH_MAG_RANGE.min,
     DEPTH_MAG_RANGE.max,
@@ -99,6 +109,7 @@ export const LAB_SCHEMA = {
     2,
     true,
   ),
+  curve: numberField(DEPTH_MAG_RANGE.min, DEPTH_MAG_RANGE.max, DEFAULT_LUPTON_DEPTH_MAG, 2),
   sky: numberField(0, 0.05, 0, 4),
   /*
    * MEASURE the sky from the rendered frame rather than using the slider.
