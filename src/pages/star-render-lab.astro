@@ -308,7 +308,9 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         carries different values (citing Ivezić et al. 2019 and the LSST Science
         Book) — up to 0.6 mag apart, with the coadds differing systematically. Both
         are recorded in <code>core/photometry/surveys.ts</code>; neither is treated as
-        wrong.
+        wrong. The filter curves themselves are fetched from their primary sources —
+        <code>lsst/throughputs</code> and the SVO Filter Profile Service — so nothing
+        here depends on my own packages.
       </p>
     </section>
   </div>

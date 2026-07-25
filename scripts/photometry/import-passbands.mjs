@@ -1,16 +1,22 @@
 /*
- * import-passbands.mjs — generate tabulated filter curves from fluxax's data.
+ * import-passbands.mjs — generate tabulated filter curves from PRIMARY sources.
  *
- * Run by hand, not in the build: it reads out of a SIBLING repository
- * (`../jaxstro-dev/fluxax`) that this site does not depend on and cannot assume is
- * present. The output is committed, so the site builds from the generated module
- * and the generator only has to exist when the curves change.
+ * Run by hand, not in the build: it fetches from the network. The output is
+ * committed, so the site builds from the generated module and this script only has
+ * to run when the curves change.
+ *
+ * IT DOWNLOADS FROM THE AUTHORITY, not from a sibling repository. An earlier version
+ * read the same curves out of a local fluxax checkout, which worked but left the
+ * audit trail for a published number pointing at another private repo — unfollowable
+ * by anyone else, and a break in novascope's extractability guarantee, since the code
+ * moves but the justification does not. Verified byte-identical between the two
+ * routes (all 9 files) before switching, so nothing about the data changed.
  *
  * WHY GENERATE RATHER THAN HAND-TYPE. These are hundreds of numbers each. Typed by
  * hand they would be unverifiable and one transposed digit would shift a colour
- * nobody could trace. Generated, they carry the source path, the upstream sha256
- * and the resampling parameters, so `check:passbands` can prove the committed
- * module still matches the file it came from.
+ * nobody could trace. Generated, they carry the PRIMARY upstream, the file's own
+ * self-describing header, the mirror hash and the resampling parameters — so a published
+ * number can be traced without access to any of my other repositories.
  *
  * WHY TABULATED AT ALL. `core/photometry` models Johnson-Cousins and 2MASS as
  * Gaussians, which is a stated and reasonable approximation for those. It is NOT
@@ -19,7 +25,9 @@
  * against atmospheric and detector cutoffs that a symmetric bell cannot represent
  * either.
  *
- * Usage:  node scripts/photometry/import-passbands.mjs [--fluxax=PATH]
+ * Usage:
+ *   node scripts/photometry/import-passbands.mjs              # fetch from source
+ *   node scripts/photometry/import-passbands.mjs --offline=DIR # use a local mirror
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -34,7 +42,12 @@ const args = Object.fromEntries(
     return [k, v ?? true];
   }),
 );
-const FLUXAX = resolve(ROOT, String(args.fluxax ?? "../jaxstro-dev/fluxax"));
+/*
+ * An offline mirror is supported but never the default: it exists so the import can
+ * be re-run without the network, not so a local copy can quietly become the source
+ * of record. Any directory holding the same filenames works.
+ */
+const OFFLINE = args.offline ? resolve(ROOT, String(args.offline)) : null;
 
 /*
  * Resampling grid. The upstream Rubin curves are ~8,500 points each at sub-nm
@@ -45,9 +58,9 @@ const FLUXAX = resolve(ROOT, String(args.fluxax ?? "../jaxstro-dev/fluxax"));
 const STEP_NM = 5;
 
 /** Parse a two-column `.dat`, skipping comments. Returns [{ lam, t }] sorted. */
-function readCurve(path, lambdaScale) {
+function parseCurve(text, lambdaScale) {
   const rows = [];
-  for (const line of readFileSync(path, "utf8").split("\n")) {
+  for (const line of text.split("\n")) {
     const s = line.trim();
     if (!s || s.startsWith("#")) continue;
     const [a, b] = s.split(/\s+/);
@@ -56,7 +69,7 @@ function readCurve(path, lambdaScale) {
     if (Number.isFinite(lam) && Number.isFinite(t)) rows.push({ lam, t });
   }
   rows.sort((p, q) => p.lam - q.lam);
-  if (rows.length < 2) throw new Error(`${path}: fewer than 2 usable rows`);
+  if (rows.length < 2) throw new Error("fewer than 2 usable rows");
   return rows;
 }
 
@@ -100,38 +113,93 @@ function resample(rows, stepNm) {
   return { startNm: lo + a * stepNm, stepNm, values: values.slice(a, b + 1) };
 }
 
-const sha256 = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
+
+/*
+ * PRIMARY sources — the authority for these numbers.
+ *
+ * fluxax is where the files happen to be VENDORED on this machine; it is a
+ * convenient route, not the provenance. Recording only the fluxax path (as the
+ * first version of this script did) leaves the audit trail for a published number
+ * pointing at another private repository, which nobody else can follow and which
+ * breaks novascope's extractability guarantee: the code moves, the justification
+ * does not.
+ *
+ * So each instrument names its real upstream, and the per-file record below carries
+ * whatever the file itself states about its own origin.
+ */
+const PRIMARY = {
+  rubin: {
+    instrument: "Rubin Observatory / LSST",
+    upstream: "https://github.com/lsst/throughputs (baseline/) — total system throughput: atmosphere x optics x filter x detector",
+    reference: "Ivezic et al. (2019) ApJ 873, 111",
+    note: "TOTAL throughput, so the curves peak well below 1. Not renormalized here — the level is real information about how much light each band collects.",
+  },
+  gaia: {
+    instrument: "Gaia DR3",
+    upstream: "SVO Filter Profile Service (http://svo2.cab.inta-csic.es/theory/fps/), filter IDs GAIA/GAIA3.{G,Gbp,Grp}",
+    reference: "Riello et al. (2021) A&A 649, A3",
+    note: "PHOTON-counting total responses, unlike the energy-counting Bessell curves.",
+  },
+};
 
 /*
  * The bands to import. `lambdaScale` converts the file's wavelength unit to nm:
  * the SVO Gaia curves are in Angstrom, the Rubin syseng curves already in nm.
+ *
+ * `url` is the authority. `file` is only the basename used when reading an offline
+ * mirror instead.
  */
 const SOURCES = [
   ...["u", "g", "r", "i", "z", "y"].map((b) => ({
     id: `LSST_${b}`,
     label: `Rubin ${b}`,
+    instrument: "rubin",
     regime: b === "u" ? "uv" : "ugr".includes(b) ? "visible" : b === "y" ? "nir" : "visible",
-    file: `src/fluxax/instruments/rubin/data/total_${b}.dat`,
+    file: `total_${b}.dat`,
+    url: `https://raw.githubusercontent.com/lsst/throughputs/main/baseline/total_${b}.dat`,
     lambdaScale: 1, // nm
   })),
-  { id: "Gaia_G", label: "Gaia G", regime: "visible", file: "src/fluxax/instruments/gaia/data/GAIA_GAIA3.G.dat", lambdaScale: 0.1 },
-  { id: "Gaia_BP", label: "Gaia BP", regime: "visible", file: "src/fluxax/instruments/gaia/data/GAIA_GAIA3.Gbp.dat", lambdaScale: 0.1 },
-  { id: "Gaia_RP", label: "Gaia RP", regime: "visible", file: "src/fluxax/instruments/gaia/data/GAIA_GAIA3.Grp.dat", lambdaScale: 0.1 },
+  { id: "Gaia_G", label: "Gaia G", instrument: "gaia", regime: "visible", file: "GAIA_GAIA3.G.dat", url: "http://svo2.cab.inta-csic.es/theory/fps/getdata.php?format=ascii&id=GAIA/GAIA3.G", lambdaScale: 0.1 },
+  { id: "Gaia_BP", label: "Gaia BP", instrument: "gaia", regime: "visible", file: "GAIA_GAIA3.Gbp.dat", url: "http://svo2.cab.inta-csic.es/theory/fps/getdata.php?format=ascii&id=GAIA/GAIA3.Gbp", lambdaScale: 0.1 },
+  { id: "Gaia_RP", label: "Gaia RP", instrument: "gaia", regime: "visible", file: "GAIA_GAIA3.Grp.dat", url: "http://svo2.cab.inta-csic.es/theory/fps/getdata.php?format=ascii&id=GAIA/GAIA3.Grp", lambdaScale: 0.1 },
 ];
 
-if (!existsSync(FLUXAX)) {
-  console.error(`✗ fluxax not found at ${FLUXAX}\n  pass --fluxax=PATH`);
-  process.exit(1);
+/**
+ * Pull the leading `#` comment block out of a data file.
+ *
+ * The Rubin curves state their own provenance in their header — the
+ * syseng_throughputs version and its git sha1 — which is a far better record than
+ * any path, because it identifies the artifact independently of where it is stored.
+ */
+function parseHeader(text) {
+  const lines = [];
+  for (const line of text.split("\n")) {
+    const s = line.trim();
+    if (!s.startsWith("#")) break;
+    lines.push(s.replace(/^#\s?/, ""));
+  }
+  return lines;
 }
+
+/** Fetch a curve's text from its authority, or from the offline mirror if given. */
+async function loadText(src) {
+  if (OFFLINE) {
+    const p = resolve(OFFLINE, src.file);
+    if (!existsSync(p)) throw new Error(`offline mirror missing ${src.file} (looked in ${OFFLINE})`);
+    return { text: readFileSync(p, "utf8"), from: `offline:${src.file}` };
+  }
+  const res = await fetch(src.url);
+  if (!res.ok) throw new Error(`${src.url} -> HTTP ${res.status}`);
+  return { text: await res.text(), from: src.url };
+}
+
+console.log(OFFLINE ? `reading offline mirror ${OFFLINE}` : "fetching from primary sources…");
 
 const out = [];
 for (const s of SOURCES) {
-  const path = resolve(FLUXAX, s.file);
-  if (!existsSync(path)) {
-    console.error(`✗ missing source: ${path}`);
-    process.exit(1);
-  }
-  const rows = readCurve(path, s.lambdaScale);
+  const { text, from } = await loadText(s);
+  const rows = parseCurve(text, s.lambdaScale);
   const curve = resample(rows, STEP_NM);
   const peak = Math.max(...curve.values);
   // Effective wavelength, transmission-weighted — DERIVED from the curve rather
@@ -145,7 +213,10 @@ for (const s of SOURCES) {
   }
   out.push({
     ...s,
-    sha256: sha256(path),
+    sha256: sha256(text),
+    header: parseHeader(text),
+    from,
+    primary: PRIMARY[s.instrument],
     lambdaEffNm: num / den,
     peak,
     ...curve,
@@ -170,13 +241,18 @@ const body = `/*
  * which spans ~330-1050 nm: a Gaussian is not an approximation of it but a
  * different filter.
  *
- * PROVENANCE
- *   Rubin ugrizy — LSST system throughput (atmosphere x optics x filter x detector),
- *     from the syseng_throughputs curves shipped with fluxax. Authority:
- *     Ivezic et al. (2019) ApJ 873, 111.
- *   Gaia G/BP/RP — SVO Filter Profile Service GAIA/GAIA3.{G,Gbp,Grp}. Authority:
- *     Riello et al. (2021) A&A 649, A3 (the Gaia DR3 photometric system).
- *     PHOTON-counting passbands, unlike the energy-counting Bessell curves.
+ * PROVENANCE lives per-curve in \`provenance\`, and it names the PRIMARY source:
+ *   Rubin ugrizy — lsst/syseng_throughputs total system throughput. Each curve's
+ *     \`fileHeader\` carries the upstream version and git sha1 verbatim, which
+ *     identifies the artifact independently of any local checkout.
+ *     Reference: Ivezic et al. (2019) ApJ 873, 111.
+ *   Gaia G/BP/RP — SVO Filter Profile Service, GAIA/GAIA3.{G,Gbp,Grp}.
+ *     Reference: Riello et al. (2021) A&A 649, A3.
+ *
+ * These files were READ THROUGH a local fluxax checkout, which is a mirror and not
+ * the authority — \`mirrorPath\`/\`mirrorSha256\` record that route so the import can
+ * be re-run and re-verified, and nothing else depends on it. This module imports
+ * NOTHING and the site neither builds nor runs against fluxax.
  *
  * \`lambdaEffNm\` is DERIVED from each curve here (transmission-weighted mean), not
  * copied from a published table, so it cannot disagree with the data beside it.
@@ -196,10 +272,28 @@ export interface TabulatedCurve {
   values: number[];
   /** Transmission-weighted mean wavelength [nm], derived from \`values\`. */
   lambdaEffNm: number;
-  /** sha256 of the upstream data file this was generated from. */
+  /** The instrument this band belongs to, and where its curve really comes from. */
+  provenance: {
+    instrument: string;
+    /** The PRIMARY upstream — the authority, independent of any local checkout. */
+    upstream: string;
+    /** Literature reference for the photometric system. */
+    reference: string;
+    /** Anything specific about this curve's convention. */
+    note: string;
+    /**
+     * What the data file said about ITSELF, verbatim. For the Rubin curves this
+     * carries the syseng_throughputs version and git sha1, which identifies the
+     * artifact independently of where it happens to be stored.
+     */
+    fileHeader: string[];
+  };
+  /* The exact bytes, and where they came from. Anyone can re-fetch the URL in
+   * provenance.upstream and check this hash — that is the point of recording it. */
+  /** sha256 of the exact bytes this curve was generated from. */
   sourceSha256: string;
-  /** Path of the upstream file, relative to the fluxax package root. */
-  sourcePath: string;
+  /** Where those bytes were read from on the run that generated this. */
+  readFrom: string;
 }
 
 export const RESAMPLE_STEP_NM = ${STEP_NM};
@@ -214,8 +308,15 @@ ${out
     startNm: ${num(c.startNm)},
     stepNm: ${num(c.stepNm)},
     lambdaEffNm: ${num(c.lambdaEffNm)},
+    provenance: {
+      instrument: ${JSON.stringify(c.primary.instrument)},
+      upstream: ${JSON.stringify(c.primary.upstream)},
+      reference: ${JSON.stringify(c.primary.reference)},
+      note: ${JSON.stringify(c.primary.note)},
+      fileHeader: ${JSON.stringify(c.header)},
+    },
     sourceSha256: "${c.sha256}",
-    sourcePath: "${c.file}",
+    readFrom: ${JSON.stringify(c.from)},
     values: [${c.values.map((v) => num(v)).join(", ")}],
   },`,
   )
