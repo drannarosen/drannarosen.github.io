@@ -67,3 +67,68 @@ export const DEFAULT_AUREOLE: AureoleParams = { amp: 0.012, scale: 2.0, p: 3.0 }
 export function aureole(rho: number, p: AureoleParams): number {
   return p.amp / (1 + Math.max(0, rho) / p.scale) ** p.p;
 }
+
+/** Geometry of a telescope's diffraction spikes. */
+export interface DiffractionParams {
+  /**
+   * Number of spikes. A spider with N straight vanes at equal angles diffracts
+   * into N spikes, so 4 is the familiar Newtonian/Hubble cross and 6 is a
+   * three-vane spider (each vane spiking both ways).
+   */
+  spikes: number;
+  /** Peak amplitude, as a fraction of the incident flux. */
+  amp: number;
+  /** Angular sharpness. Larger is a tighter, cleaner spike. */
+  sharpness: number;
+  /** Radial scale [PSF widths] — how far the spike reaches before falling off. */
+  scale: number;
+  /** Radial falloff exponent. */
+  p: number;
+  /** Rotation of the spike pattern [radians]. A property of the mount, not the sky. */
+  angle: number;
+}
+
+/**
+ * Default spider: a four-vane cross, faint and long.
+ *
+ * `amp` is an order of magnitude below the aureole's on purpose. Diffraction is the
+ * most recognisable instrument signature there is, which makes it the easiest thing
+ * in this renderer to overdo — a bright cross reads as a lens-flare sticker rather
+ * than as optics, and it is the artifact most likely to be mistaken for a claim
+ * about the star. It earns its place only on sources bright enough to show it.
+ */
+export const DEFAULT_DIFFRACTION: DiffractionParams = {
+  spikes: 4,
+  amp: 1.5e-3,
+  sharpness: 24,
+  scale: 6,
+  p: 1.6,
+  angle: 0,
+};
+
+/**
+ * Diffraction spikes from a straight-vane spider:
+ *
+ *     spike(rho, theta) = amp * max(0, cos(n (theta - angle)))^sharpness
+ *                              / (1 + rho/scale)^p
+ *
+ * The angular term has exactly `spikes` maxima around the circle, because
+ * cos(n phi) peaks wherever n phi is a multiple of 2 pi. Raising it to a high power
+ * narrows each lobe into a spike while keeping the whole thing smooth and cheap —
+ * which matters because this is evaluated per fragment and the alternative,
+ * distance-to-the-nearest-of-N-angles, needs a branch.
+ *
+ * The radial falloff is SHALLOWER than the aureole's (p ~ 1.6 against 3), which is
+ * what makes a spike a spike: it must still be visible where the halo has already
+ * faded, or it is just a lumpy halo.
+ *
+ * `theta` is measured in the image plane, and the pattern is fixed to the
+ * INSTRUMENT — the spikes must not rotate when the object does, because a spider is
+ * bolted to the telescope. A consumer that rotates the view must therefore leave
+ * `angle` alone.
+ */
+export function diffraction(rho: number, theta: number, d: DiffractionParams): number {
+  const lobe = Math.max(0, Math.cos(d.spikes * (theta - d.angle)));
+  if (lobe <= 0) return 0;
+  return (d.amp * lobe ** d.sharpness) / (1 + Math.max(0, rho) / d.scale) ** d.p;
+}

@@ -8,7 +8,11 @@
  */
 
 import { robustWhiteFlux } from "../../core/imaging/index.ts";
-import { DEFAULT_AUREOLE, type AureoleParams } from "../../core/optics/index.ts";
+import {
+  DEFAULT_AUREOLE,
+  type AureoleParams,
+  type DiffractionParams,
+} from "../../core/optics/index.ts";
 
 /**
  * The instrument's point-spread function width, in CSS pixels.
@@ -82,10 +86,34 @@ export function quadExtentPx(
   signal: number,
   halo: number,
   aureoleParams: AureoleParams = DEFAULT_AUREOLE,
+  diffractionParams?: DiffractionParams,
 ): number {
   const s = Math.min(1, Math.max(0, signal));
   const wing = aureoleExtentRadii(halo, aureoleParams);
-  return Math.min(MAX_QUAD_PX, PSF_WIDTH_PX * (3 + 14 * s + wing));
+  // Spikes reach FURTHER than the halo by construction (a shallower radial
+  // exponent), so a quad sized for the halo alone would put the pedestal in the
+  // middle of the cross and subtract most of it away. Same coupling, same fix.
+  const spike = diffractionParams ? diffractionExtentRadii(halo, diffractionParams) : 0;
+  return Math.min(MAX_QUAD_PX, PSF_WIDTH_PX * (3 + 14 * s + Math.max(wing, spike)));
+}
+
+/**
+ * How far a diffraction spike must be allowed to run, in core radii.
+ *
+ * Solves `amp * drive / (1 + rho/scale)^p = floor` along a spike's axis, where the
+ * angular term is 1. Derived for the same reason as the aureole's extent: the
+ * shader subtracts the profile's value at the quad edge from the whole star, so a
+ * spike still bright at the edge is cancelled rather than clipped — and a cancelled
+ * spike takes a slice out of the core with it.
+ */
+export function diffractionExtentRadii(
+  drive: number,
+  d: DiffractionParams,
+  floor = 1e-4,
+): number {
+  const peak = d.amp * Math.max(0, drive);
+  if (!(peak > floor) || !(d.p > 0) || !(d.scale > 0)) return 0;
+  return d.scale * ((peak / floor) ** (1 / d.p) - 1);
 }
 
 /**

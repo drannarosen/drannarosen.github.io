@@ -31,6 +31,7 @@ import {
   softeningForLimit,
 } from "../../core/imaging/index.ts";
 import { getScheme } from "../../core/colorimetry/schemes.ts";
+import { DEFAULT_AUREOLE, DEFAULT_DIFFRACTION } from "../../core/optics/index.ts";
 import { unitLuminanceChroma } from "../../core/colorimetry/index.ts";
 import { computeTiers, quadExtentPx, PSF_WIDTH_PX, type TierBoundaries } from "./sizing.ts";
 
@@ -309,7 +310,14 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
      */
     halo[i] = (exposure * (flux[i] ?? 0)) / (whiteFlux > 0 ? whiteFlux : 1);
     // Only the BILLBOARD grows with brightness; the PSF inside it is fixed.
-    const px = quadExtentPx(s, halo[i] ?? 0) * dpr;
+    // Tier 3 carries diffraction, so its quad must be sized to hold the spikes.
+    const px =
+      quadExtentPx(
+        s,
+        halo[i] ?? 0,
+        DEFAULT_AUREOLE,
+        (tier[i] ?? 1) >= 3 ? DEFAULT_DIFFRACTION : undefined,
+      ) * dpr;
     sizePx[i] = px;
     if (px > maxSizePx) maxSizePx = px;
     const t = tier[i] ?? 1;

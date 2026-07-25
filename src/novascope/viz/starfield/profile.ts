@@ -17,7 +17,12 @@
  * was never being tested. A reference that cannot be compared is decoration.
  */
 
-import { moffat, type AureoleParams } from "../../core/optics/index.ts";
+import {
+  moffat,
+  diffraction,
+  type AureoleParams,
+  type DiffractionParams,
+} from "../../core/optics/index.ts";
 
 export interface ProfileInputs {
   /** Radius from the star's centre, in PSF widths. */
@@ -32,6 +37,19 @@ export interface ProfileInputs {
   aureole: AureoleParams;
   /** Moffat wing exponent. */
   beta: number;
+  /**
+   * Angle in the image plane [radians], for the diffraction spikes. Omit (or leave
+   * `spikes` absent) and no diffraction is computed.
+   */
+  theta?: number;
+  /**
+   * Diffraction geometry. Present ONLY for the stars that earn it — Tier 3, the top
+   * ~0.5% — because diffraction is an instrument artifact visible on genuinely
+   * bright sources, and applying it to every star turns physics into decoration
+   * (ADR 0015). Absent means the term is not evaluated at all, which is also what
+   * keeps the cheap path cheap.
+   */
+  spikes?: DiffractionParams;
 }
 
 /**
@@ -45,7 +63,11 @@ export interface ProfileInputs {
 function rawProfile(rho: number, p: ProfileInputs): number {
   const core = moffat(rho, 1, p.beta) * p.signal;
   const wing = (p.aureole.amp * p.halo) / (1 + Math.max(0, rho) / p.aureole.scale) ** p.aureole.p;
-  return core + wing;
+  // Diffraction rides on the LINEAR flux for the same reason the halo does: it is a
+  // fixed fraction of what entered the aperture, not of a display value.
+  const spike =
+    p.spikes === undefined ? 0 : diffraction(rho, p.theta ?? 0, p.spikes) * p.halo;
+  return core + wing + spike;
 }
 
 /**

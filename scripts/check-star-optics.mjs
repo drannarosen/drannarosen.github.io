@@ -36,7 +36,13 @@ import {
 import { planckNm, wienPeakLambda, NM_TO_CM } from "../src/novascope/core/blackbody/index.ts";
 import { COLOR_SCHEMES, getScheme, stretchChroma } from "../src/novascope/core/colorimetry/schemes.ts";
 import { PASSBANDS, bandFlux, bandIntegral, colorIndex, bandResponse, VEGA_TEFF_K, BAND_COMPOSITES } from "../src/novascope/core/photometry/passbands.ts";
-import { moffat, aureole, DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
+import {
+  moffat,
+  aureole,
+  DEFAULT_AUREOLE,
+  diffraction,
+  DEFAULT_DIFFRACTION,
+} from "../src/novascope/core/optics/index.ts";
 import {
   robustWhiteFlux,
   asinhResponse,
@@ -49,6 +55,7 @@ import {
   computeTiers,
   quadExtentPx,
   aureoleExtentRadii,
+  diffractionExtentRadii,
   MAX_QUAD_PX,
   subpixelGain,
   PSF_WIDTH_PX,
@@ -642,6 +649,43 @@ ok(real.stats.visible > nStars * 0.9, "the sampled cluster renders visible, not 
   ok(Math.abs(b / a - 2) < 1e-9, "the halo is linear in the flux that drives it");
 }
 
+/* ── diffraction: an instrument signature, on the few stars that earn it ── */
+{
+  const D = DEFAULT_DIFFRACTION;
+  ok(D.spikes >= 3 && Number.isInteger(D.spikes), "the spider has a whole number of vanes");
+  ok(D.amp < DEFAULT_AUREOLE.amp, "spikes are FAINTER than the aureole — optics, not a lens flare");
+  ok(D.p < DEFAULT_AUREOLE.p, "…and fall off more slowly, which is what makes a spike a spike");
+  // Exactly `spikes` maxima around the circle, at the expected angles.
+  const onAxis = diffraction(4, 0, D);
+  const offAxis = diffraction(4, Math.PI / D.spikes / 2, D);
+  ok(onAxis > 0, "there is light along a spike axis");
+  ok(offAxis < onAxis * 0.05, "…and almost none between the spikes");
+  for (let k = 0; k < D.spikes; k++) {
+    const th = (2 * Math.PI * k) / D.spikes;
+    ok(Math.abs(diffraction(4, th, D) - onAxis) < 1e-9, `spike ${k + 1} of ${D.spikes} is at ${(th * 180 / Math.PI).toFixed(0)} deg`);
+  }
+  // Linear in the incident flux, like the halo — both are fixed fractions of what
+  // entered the aperture, not of a display value.
+  ok(diffraction(4, 0, { ...D, amp: 2 * D.amp }) === 2 * onAxis, "spike brightness is linear in amplitude");
+  ok(diffraction(20, 0, D) < diffraction(4, 0, D), "spikes fade with radius");
+  // A spike must reach FURTHER than the halo, or the quad sizing is pointless.
+  ok(
+    diffractionExtentRadii(25, DEFAULT_DIFFRACTION) > aureoleExtentRadii(25, DEFAULT_AUREOLE),
+    "a bright star's spikes need more room than its halo",
+  );
+  // And the profile must actually apply it only to Tier 3. The reference gates on
+  // tier; assert the shape difference is real rather than trusting the flag.
+  const base = { rho: 6, edge: 40, signal: 0.5, halo: 20, aureole: DEFAULT_AUREOLE, beta: PSF_BETA };
+  const withSpike = starProfile({ ...base, theta: 0, spikes: D });
+  const without = starProfile({ ...base, theta: 0 });
+  ok(withSpike > without, "a Tier-3 star is brighter along its spike than one without diffraction");
+  ok(
+    Math.abs(starProfile({ ...base, theta: Math.PI / D.spikes / 2, spikes: D }) - without) <
+      without * 0.02,
+    "…and indistinguishable from it between the spikes",
+  );
+}
+
 /* The reference rasteriser must produce a real image of the real cluster, and one
  * whose brightest pixel sits where the projection says it should. */
 {
@@ -652,9 +696,18 @@ ok(real.stats.visible > nStars * 0.9, "the sampled cluster renders visible, not 
   let lit = 0;
   let peak = 0;
   let peakAt = -1;
+  /*
+   * "Sky" is judged at a DISPLAY-relevant radiance, not at any radiance above
+   * zero. A 1e-6 threshold used to work and now cannot: the brightest stars carry
+   * diffraction out to a 1e-4 cutoff across a quad up to 480 px wide, so on a small
+   * frame literally every pixel holds some light — correctly, because faint
+   * scattered light really is everywhere. One 8-bit sRGB step is ~4e-3 linear, so
+   * 1e-3 is the right side of "would a viewer see it".
+   */
+  const SKY = 1e-3;
   for (let p = 0; p < cam.width * cam.height; p++) {
     const v = img.rgb[p * 3] + img.rgb[p * 3 + 1] + img.rgb[p * 3 + 2];
-    if (v > 1e-6) lit++;
+    if (v > SKY) lit++;
     if (v > peak) { peak = v; peakAt = p; }
   }
   ok(lit > 0, "the reference renders something");

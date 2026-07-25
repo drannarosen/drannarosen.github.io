@@ -28,9 +28,10 @@ import {
   vec2,
   vec4,
   float,
+  atan,
   screenSize,
 } from "three/tsl";
-import { DEFAULT_AUREOLE } from "../../core/optics/index.ts";
+import { DEFAULT_AUREOLE, DEFAULT_DIFFRACTION } from "../../core/optics/index.ts";
 import { PSF_BETA } from "./sizing.ts";
 import type { StarField } from "./prepare.ts";
 
@@ -94,17 +95,22 @@ export function createStarGraph(field: StarField): StarGraph {
   const aSignal = new THREE.InstancedBufferAttribute(field.signal, 1);
   const aHalo = new THREE.InstancedBufferAttribute(field.halo, 1);
   const aSizePx = new THREE.InstancedBufferAttribute(field.sizePx, 1);
+  // Tier is uploaded as a float because a vertex attribute feeding a float
+  // comparison must be one; the CPU value is a small integer either way.
+  const aTier = new THREE.InstancedBufferAttribute(Float32Array.from(field.tier), 1);
   geometry.setAttribute("iPos", aPos);
   geometry.setAttribute("iColor", aColor);
   geometry.setAttribute("iSignal", aSignal);
   geometry.setAttribute("iHalo", aHalo);
   geometry.setAttribute("iSizePx", aSizePx);
+  geometry.setAttribute("iTier", aTier);
 
   const iPos = instancedBufferAttribute<"vec3">(aPos, "vec3");
   const iColor = instancedBufferAttribute<"vec3">(aColor, "vec3");
   const iSignal = instancedBufferAttribute<"float">(aSignal, "float");
   const iHalo = instancedBufferAttribute<"float">(aHalo, "float");
   const iSizePx = instancedBufferAttribute<"float">(aSizePx, "float");
+  const iTier = instancedBufferAttribute<"float">(aTier, "float");
 
   /*
    * The instrument's parameters. Every number is imported, never restated: the
@@ -118,6 +124,12 @@ export function createStarGraph(field: StarField): StarGraph {
   const uAurP = uniform(DEFAULT_AUREOLE.p);
   const uGain = uniform(1);
   const uPsfWidth = uniform(field.stats.psfWidthPx);
+  const uSpikeCount = uniform(DEFAULT_DIFFRACTION.spikes);
+  const uSpikeAmp = uniform(DEFAULT_DIFFRACTION.amp);
+  const uSpikeSharp = uniform(DEFAULT_DIFFRACTION.sharpness);
+  const uSpikeScale = uniform(DEFAULT_DIFFRACTION.scale);
+  const uSpikeP = uniform(DEFAULT_DIFFRACTION.p);
+  const uSpikeAngle = uniform(DEFAULT_DIFFRACTION.angle);
   const uniforms: StarGraphUniforms = {
     beta: uBeta,
     aureoleAmp: uAurAmp,
@@ -196,8 +208,34 @@ export function createStarGraph(field: StarField): StarGraph {
     const core = (r: typeof rho) => float(1).add(r.mul(r)).pow(uBeta.negate());
     const wing = (r: typeof rho) =>
       uAurAmp.mul(iHalo).div(float(1).add(r.div(uAurScale)).pow(uAurP));
-    const atRho = core(rho).mul(iSignal).add(wing(rho));
-    const atEdge = core(edge).mul(iSignal).add(wing(edge));
+
+    /*
+     * DIFFRACTION, TIER 3 ONLY. The spider's spikes are an instrument signature of
+     * genuinely bright sources, so evaluating them everywhere would be both slower
+     * and wrong — ADR 0015's whole reason for having tiers.
+     *
+     * `theta` is the angle in the IMAGE PLANE, taken from the billboard's own uv, so
+     * the pattern is bolted to the instrument and does not rotate when the cluster
+     * does. The angular term has exactly `spikes` maxima because cos(n*phi) peaks
+     * wherever n*phi is a multiple of 2pi; the high power narrows each lobe into a
+     * spike while staying smooth and branch-free.
+     *
+     * The gate is a MULTIPLY by 0/1 rather than a branch: every fragment in a warp
+     * pays for the term anyway once any lane needs it, and a select() keeps the
+     * profile a single expression that the CPU mirror can match exactly.
+     */
+    const theta = atan(uv().y.sub(0.5), uv().x.sub(0.5));
+    const isTier3 = iTier.greaterThan(float(2.5)).select(float(1), float(0));
+    const lobe = uSpikeCount.mul(theta.sub(uSpikeAngle)).cos().max(float(0));
+    const spike = (r: typeof rho) =>
+      uSpikeAmp
+        .mul(iHalo)
+        .mul(lobe.pow(uSpikeSharp))
+        .div(float(1).add(r.div(uSpikeScale)).pow(uSpikeP))
+        .mul(isTier3);
+
+    const atRho = core(rho).mul(iSignal).add(wing(rho)).add(spike(rho));
+    const atEdge = core(edge).mul(iSignal).add(wing(edge)).add(spike(edge));
 
     /*
      * PEDESTAL SUBTRACTION. The profile is still ~1e-3 at the quad edge, which

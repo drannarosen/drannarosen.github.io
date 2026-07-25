@@ -20,7 +20,12 @@
 
 import { starProfile } from "./profile.ts";
 import { PSF_BETA, PSF_WIDTH_PX } from "./sizing.ts";
-import { DEFAULT_AUREOLE, type AureoleParams } from "../../core/optics/index.ts";
+import {
+  DEFAULT_AUREOLE,
+  DEFAULT_DIFFRACTION,
+  type AureoleParams,
+  type DiffractionParams,
+} from "../../core/optics/index.ts";
 import type { StarField } from "./prepare.ts";
 
 export interface ReferenceCamera {
@@ -38,6 +43,8 @@ export interface ReferenceOptions {
   beta?: number;
   /** PSF width [px]. Defaults to the field's own, which already includes DPR. */
   psfWidthPx?: number;
+  /** Diffraction geometry, applied to Tier 3 only. */
+  diffraction?: DiffractionParams;
 }
 
 export interface ReferenceImage {
@@ -64,6 +71,7 @@ export function renderReference(
   const { width: W, height: H } = camera;
   const aureole = opts.aureole ?? DEFAULT_AUREOLE;
   const beta = opts.beta ?? PSF_BETA;
+  const spikeParams = opts.diffraction ?? DEFAULT_DIFFRACTION;
   const psfWidthPx = opts.psfWidthPx ?? field.stats.psfWidthPx;
   const rgb = new Float32Array(W * H * 3);
 
@@ -90,6 +98,9 @@ export function renderReference(
 
     // The quad's edge, in PSF widths — exactly the shader's `edge`.
     const edge = halfPx / psfWidthPx;
+    // Tier 3 only, matching the shader's gate: diffraction is an instrument
+    // artifact of genuinely bright sources.
+    const spikes = (field.tier[i] ?? 1) >= 3 ? spikeParams : undefined;
 
     const x0 = Math.max(0, Math.floor(sx - halfPx));
     const x1 = Math.min(W - 1, Math.ceil(sx + halfPx));
@@ -102,7 +113,16 @@ export function renderReference(
         const dx = px + 0.5 - sx;
         const dy = py + 0.5 - sy;
         const rho = Math.hypot(dx, dy) / psfWidthPx;
-        const p = starProfile({ rho, edge, signal, halo, aureole, beta });
+        const p = starProfile({
+          rho,
+          edge,
+          signal,
+          halo,
+          aureole,
+          beta,
+          theta: Math.atan2(dy, dx),
+          ...(spikes === undefined ? {} : { spikes }),
+        });
         if (p <= 0) continue;
         const o = (py * W + px) * 3;
         // Stars are emitters: radiances ADD. Order-independent, like the GPU's
