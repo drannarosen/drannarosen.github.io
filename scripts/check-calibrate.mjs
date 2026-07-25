@@ -1,50 +1,51 @@
 /*
  * check-calibrate.mjs — gate for the per-pixel exposure calibration.
  *
- * `WHITE_FROM_ANALYTIC_MEAN` is a MEASURED constant standing in for a histogram pass, so
- * the thing that has to be gated is not its value but its VALIDITY: that the analytic mean
- * really tracks the rendered frame's white point across everything a user can change, and
- * that the spread stays inside the 0.43 magnitudes claimed for it.
+ * `WHITE_FROM_ANALYTIC_MEAN` stands in for a per-frame histogram pass, so what has to be
+ * gated is not its value but its VALIDITY: that the cheap analytic mean really tracks the
+ * rendered frame's white point across everything a user can change, and that the spread stays
+ * inside the magnitudes claimed for it.
  *
- * A constant like this is exactly the kind that quietly stops being true — a new colour
- * composite, a different default exposure, a change to the aureole, and the image is
- * suddenly washed out or black with nothing having obviously broken. So it is re-derived
- * from the CPU reference and the gate fails if the relationship widens.
+ * Getting the true white point means rasterising, which costs ~100 s for the full sweep
+ * against a 4 s build. This gate briefly ran in two sizes because of that — a fast subset in
+ * `prebuild` and a slow `--full` for the real claim — which was a bad trade dressed up as a
+ * considered one: the fast run could not catch the thing most worth catching, a WIDENING
+ * spread, so the gate that ran on every commit was not gating the claim at all.
  *
- * IT RUNS IN TWO SIZES, because the full sweep costs ~100 seconds against a 4-second build
- * and a 25x build slowdown is not a price worth paying on every commit:
+ * It is not a real trade. The CPU reference is DETERMINISTIC, so it does not belong in the
+ * build: `scripts/reference/gen-calibrate-ref.mjs` rasterises once and commits the result, and
+ * this compares the millisecond-scale analytic mean against it. All seventeen configurations,
+ * every build, in a few milliseconds — strictly more coverage than the slow version at a
+ * fraction of the fast version's cost.
  *
- *   default  — three representative configurations, plus every check that is cheap: the
- *              closed form against a quadrature of `starProfile`, the exact scaling laws,
- *              and the boundary behaviour. This is what `prebuild` runs.
- *   --full   — all seventeen configurations, re-deriving the constant and its spread.
- *              Run this when the constant, the profile, the aureole or the composites
- *              change; it is the run that produced the recorded numbers.
- *
- * The split is deliberate rather than a shortcut: what the fast run cannot catch is a
- * WIDENING of the spread, and the spread only widens when something in the optics or the
- * composites changes — which is exactly when a person is already editing this area and can
- * run the full sweep. The fast run still catches every way the closed form itself can break.
+ * The fixture's own risk is silent staleness, and that is what `fingerprint` is for.
  */
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { clusterStarTable } from "../src/novascope/viz/starfield/source.ts";
 import { prepareStarField } from "../src/novascope/viz/starfield/prepare.ts";
-import { renderReferenceLupton } from "../src/novascope/viz/starfield/reference.ts";
 import {
   analyticMeanIntensity,
   whitePixelIntensity,
   profileIntegral,
+  calibrationFingerprint,
+  floorForDepth,
+  CALIBRATION_RUNS,
   WHITE_FROM_ANALYTIC_MEAN,
   WHITE_FROM_ANALYTIC_MEAN_SPREAD,
 } from "../src/novascope/viz/starfield/calibrate.ts";
 import { starProfile } from "../src/novascope/viz/starfield/profile.ts";
-import { DEFAULT_AUREOLE } from "../src/novascope/core/optics/index.ts";
 import {
-  luptonQForDepth,
-  luptonStretchForWhite,
-  luptonIntensityForOutput,
-  ONE_DISPLAY_LEVEL,
-} from "../src/novascope/core/imaging/lupton.ts";
+  DEFAULT_AUREOLE,
+  DEFAULT_DIFFRACTION,
+  moffatIntegral,
+  aureoleIntegral,
+  diffractionIntegral,
+  diffractionAzimuthalMean,
+} from "../src/novascope/core/optics/index.ts";
 
+const HERE = dirname(fileURLToPath(import.meta.url));
 let failures = 0;
 const ok = (cond, msg) => {
   console.log(`  ${cond ? "ok  " : "FAIL"}  ${msg}`);
@@ -53,155 +54,225 @@ const ok = (cond, msg) => {
 
 console.log("calibrate (per-pixel exposure):");
 
-const stars = clusterStarTable({ sampling: { mode: "count", target: 10_000 } });
-const BASE = { bandTriple: ["R", "V", "B"], pixelRatio: 1 };
-const CAM = { width: 320, height: 320, distancePc: 12, fovDeg: 40 };
-const floorFor = (depthMag) => {
-  const q = luptonQForDepth(depthMag);
-  return luptonIntensityForOutput(ONE_DISPLAY_LEVEL, luptonStretchForWhite(q), q);
-};
+const fixture = JSON.parse(
+  readFileSync(resolve(HERE, "reference/calibrate-whitepoint.json"), "utf8"),
+);
 
-/* The configurations the constant was measured over. Changing this list is changing the
- * claim, which is why it is written out rather than generated. */
-const FULL = process.argv.includes("--full");
-const RUNS_ALL = [
-  ["baseline", {}, null, 8],
-  ["Rubin irg", { bandTriple: ["LSST_i", "LSST_r", "LSST_g"] }, null, 8],
-  ["Gaia RP/G/BP", { bandTriple: ["Gaia_RP", "Gaia_G", "Gaia_BP"] }, null, 8],
-  ["JWST", { bandTriple: ["JWST_F444W", "JWST_F200W", "JWST_F090W"] }, null, 8],
-  ["HST", { bandTriple: ["HST_F814W", "HST_F606W", "HST_F275W"] }, null, 8],
-  ["2MASS KHJ", { bandTriple: ["K", "H", "J"] }, null, 8],
-  ["fallback ramp", { bandTriple: undefined }, null, 8],
-  ["exposure 4", { exposure: 4 }, null, 8],
-  ["exposure 0.25", { exposure: 0.25 }, null, 8],
-  ["minMass 1", { minMass: 1 }, null, 8],
-  ["256 px", {}, { width: 256, height: 256, distancePc: 12, fovDeg: 40 }, 8],
-  ["512 px", {}, { width: 512, height: 512, distancePc: 12, fovDeg: 40 }, 8],
-  ["fov 20", {}, { width: 320, height: 320, distancePc: 12, fovDeg: 20 }, 8],
-  ["fov 70", {}, { width: 320, height: 320, distancePc: 12, fovDeg: 70 }, 8],
-  ["dpr 2", { pixelRatio: 2 }, null, 8],
-  ["depth 12", {}, null, 12],
-  ["depth 6.5", {}, null, 6.5],
-];
-/* The fast subset spans the three axes that matter most: a different composite, a
- * different exposure, and a different frame size. */
-const FAST_KEYS = new Set(["baseline", "JWST", "exposure 4"]);
-const RUNS = FULL ? RUNS_ALL : RUNS_ALL.filter(([n]) => FAST_KEYS.has(n));
-console.log(`  ..    ${FULL ? "FULL sweep" : "fast subset"} — ${RUNS.length} of ${RUNS_ALL.length} configurations`);
-
-const ratios = [];
-for (const [name, over, cam, depth] of RUNS) {
-  const field = prepareStarField(stars, { ...BASE, ...over });
-  const camera = cam ?? CAM;
-  const img = renderReferenceLupton(field, camera, { depthMag: depth });
-  const mean = analyticMeanIntensity(field, camera.width, camera.height, {
-    floor: floorFor(depth),
-  });
-  ok(mean > 0, `${name}: the analytic mean is positive (${mean.toExponential(2)})`);
-  const k = (img.whitePixel ?? 0) / mean;
-  ratios.push(k);
+/* ── STALENESS, checked before anything is compared against the fixture ──
+ *
+ * A committed reference goes on certifying a calibration after the thing it measured has
+ * moved. Change the aureole amplitude, the Moffat beta, the PSF width or the quad cap and
+ * every recorded white point is wrong while a value-only gate keeps passing. So this is
+ * checked first, and reported as an instruction rather than a puzzle. */
+{
+  const now = calibrationFingerprint();
   ok(
-    k >= WHITE_FROM_ANALYTIC_MEAN_SPREAD.min && k <= WHITE_FROM_ANALYTIC_MEAN_SPREAD.max,
-    `${name}: white/mean = ${k.toFixed(2)} stays inside the recorded spread`,
+    fixture.fingerprint === now,
+    fixture.fingerprint === now
+      ? `the fixture matches the current optics (${now})`
+      : `STALE FIXTURE — regenerate with 'node --experimental-strip-types scripts/reference/gen-calibrate-ref.mjs'\n        recorded: ${fixture.fingerprint}\n        current:  ${now}`,
+  );
+  ok(
+    fixture.runs.length === CALIBRATION_RUNS.length,
+    `the fixture covers all ${CALIBRATION_RUNS.length} configurations`,
   );
 }
 
-/* The claim itself. Only the full sweep can re-derive the constant and the spread; the fast
- * subset would compute a narrower spread over three configurations and asserting against it
- * would be asserting something weaker while looking like the same check. */
-if (FULL) {
+/* ── THE CLAIM: the analytic mean tracks the recorded white point everywhere ── */
+const stars = clusterStarTable({ sampling: { mode: "count", target: 10_000 } });
+const ratios = [];
+for (const run of CALIBRATION_RUNS) {
+  const recorded = fixture.runs.find((r) => r.id === run.id);
+  ok(recorded !== undefined, `${run.id}: has a recorded white point`);
+  if (!recorded) continue;
+
+  const field = prepareStarField(stars, { ...run.prepare });
+  const mean = analyticMeanIntensity(field, run.camera.width, run.camera.height, {
+    floor: floorForDepth(run.depthMag),
+  });
+  /* The analytic mean is recomputed HERE rather than read from the fixture, so a change to a
+   * term integral, the profile composition or the quad sizing shows up immediately — it is the
+   * half of the comparison that is cheap, and therefore the half worth re-deriving. */
+  ok(
+    Math.abs(mean - recorded.analyticMean) / recorded.analyticMean < 1e-6,
+    `${run.id}: the analytic mean reproduces its recorded value (${mean.toExponential(4)})`,
+  );
+  const k = recorded.whitePixel / mean;
+  ratios.push(k);
+  ok(
+    k >= WHITE_FROM_ANALYTIC_MEAN_SPREAD.min && k <= WHITE_FROM_ANALYTIC_MEAN_SPREAD.max,
+    `${run.id}: white/mean = ${k.toFixed(2)} stays inside the recorded spread`,
+  );
+}
+
+/* The constant and the spread, re-derived over ALL configurations on every build now that
+ * doing so costs nothing. This is the assertion the two-size split could not make. */
+{
   const lo = Math.min(...ratios);
   const hi = Math.max(...ratios);
   const geo = Math.exp(ratios.reduce((a, b) => a + Math.log(b), 0) / ratios.length);
   ok(
-    Math.abs(geo - WHITE_FROM_ANALYTIC_MEAN) / WHITE_FROM_ANALYTIC_MEAN < 0.05,
-    `the constant is still the geometric mean (${geo.toFixed(2)} vs ${WHITE_FROM_ANALYTIC_MEAN})`,
+    Math.abs(geo - WHITE_FROM_ANALYTIC_MEAN) / WHITE_FROM_ANALYTIC_MEAN < 0.02,
+    `the constant is the geometric mean of all ${ratios.length} (${geo.toFixed(2)} vs ${WHITE_FROM_ANALYTIC_MEAN})`,
   );
   const spreadMag = 2.5 * Math.log10(hi / lo);
-  ok(spreadMag < 0.6, `the spread is ${spreadMag.toFixed(2)} mag across ${ratios.length} configurations`);
-  ok(
-    spreadMag > 0.1,
-    "…and is not suspiciously zero, which would mean the configurations are not varying anything",
-  );
-} else {
-  console.log("  ..    (constant and spread re-derived only by --full)");
+  ok(spreadMag < 0.6, `the spread is ${spreadMag.toFixed(2)} mag`);
+  ok(spreadMag > 0.1, "…and not suspiciously zero, which would mean the configurations vary nothing");
 }
 
-/* SCALING LAWS the analytic mean must obey exactly, which no measured constant can
- * paper over. These are the checks that would catch a units error in the quadrature. */
+/* ── SCALING LAWS, which no measured constant can paper over ── */
 {
-  const field1 = prepareStarField(stars, { ...BASE });
-  const field4 = prepareStarField(stars, { ...BASE, exposure: 4 });
-  const f = floorFor(8);
+  const field1 = prepareStarField(stars, { bandTriple: ["R", "V", "B"], pixelRatio: 1 });
+  const field4 = prepareStarField(stars, {
+    bandTriple: ["R", "V", "B"],
+    pixelRatio: 1,
+    exposure: 4,
+  });
+  const f = floorForDepth(8);
   const m1 = analyticMeanIntensity(field1, 320, 320, { floor: f });
   const m4 = analyticMeanIntensity(field4, 320, 320, { floor: f });
   // Not exactly 4x: a brighter star also reaches further, so its quad grows too.
   ok(m4 > m1 * 3.5 && m4 < m1 * 5, `4x exposure raises the mean ${(m4 / m1).toFixed(2)}x`);
-
-  // Total light is fixed, so the mean must fall as 1/area.
-  const a = analyticMeanIntensity(field1, 320, 320, { floor: f });
-  const b = analyticMeanIntensity(field1, 640, 640, { floor: f });
-  ok(Math.abs(a / b - 4) < 1e-9, `doubling both frame dimensions quarters the mean exactly (${(a / b).toFixed(6)})`);
-
-  ok(analyticMeanIntensity(field1, 0, 320, { floor: f }) === 0, "a degenerate frame gives 0, not a division by zero");
   ok(
-    whitePixelIntensity(field1, 320, 320, { floor: f }) ===
-      WHITE_FROM_ANALYTIC_MEAN * analyticMeanIntensity(field1, 320, 320, { floor: f }),
+    Math.abs(m1 / analyticMeanIntensity(field1, 640, 640, { floor: f }) - 4) < 1e-9,
+    "doubling both frame dimensions quarters the mean exactly",
+  );
+  ok(
+    analyticMeanIntensity(field1, 0, 320, { floor: f }) === 0,
+    "a degenerate frame gives 0, not a division by zero",
+  );
+  ok(
+    whitePixelIntensity(field1, 320, 320, { floor: f }) === WHITE_FROM_ANALYTIC_MEAN * m1,
     "whitePixelIntensity is exactly the constant times the mean",
   );
 }
 
-/* ── THE CLOSED FORM AGAINST THE PROFILE IT INTEGRATES ──
+/* ── THE TERM INTEGRALS AGAINST THE PROFILE THEY INTEGRATE ──
  *
- * `profileIntegral` restates the profile's algebra in order to solve it exactly, which is
- * the one place this codebase deliberately duplicates a formula. So the two are gated equal:
- * a high-sample quadrature of `starProfile` itself, with no diffraction, must reproduce the
- * closed form. Two independent derivations that must agree is a stronger position than one
- * that cannot be checked. */
+ * `profileIntegral` composes the area integrals from `core/optics`; each of those states a
+ * closed form for a term whose VALUE is defined beside it, so no formula is written twice.
+ * A closed form can still be wrong, though, so the composition is checked against a
+ * two-dimensional quadrature of `starProfile` itself — radial AND azimuthal, because with
+ * diffraction present the profile is not axisymmetric and a radial-only check would miss the
+ * angular factor entirely. That factor is exactly what an earlier version got wrong. */
 {
   let worst = 0;
   let worstAt = "";
-  for (const amp of [1e-6, 1e-3, 0.3, 1, 26]) {
-    for (const edge of [1.7, 5.8, 17.2, 28.7]) {
-      const closed = profileIntegral(amp, edge, DEFAULT_AUREOLE, 3.2);
-      // Substituted quadrature, so the core is properly resolved (see calibrate.ts).
-      const NQ = 20000;
-      const vMax = Math.log1p(edge * edge);
-      let quad = 0;
-      for (let j = 0; j < NQ; j++) {
-        const v = (vMax * (j + 0.5)) / NQ;
-        const ev = Math.exp(v);
-        const rho = Math.sqrt(Math.max(0, ev - 1));
-        const p = starProfile({
-          rho,
-          edge,
-          signal: amp,
-          halo: amp,
-          aureole: DEFAULT_AUREOLE,
-          beta: 3.2,
-          theta: 0,
-        });
-        if (p > 0) quad += p * Math.PI * ev * (vMax / NQ);
-      }
-      const err = Math.abs(closed - quad) / Math.max(quad, 1e-300);
-      if (err > worst) {
-        worst = err;
-        worstAt = `amp=${amp} edge=${edge} (closed ${closed.toExponential(4)} vs quad ${quad.toExponential(4)})`;
+  const NR = 800;
+  const NT = 240;
+  for (const amp of [1e-3, 1, 26]) {
+    for (const edge of [5.8, 17.2, 28.7]) {
+      for (const spikes of [undefined, DEFAULT_DIFFRACTION]) {
+        const closed = profileIntegral(amp, edge, DEFAULT_AUREOLE, 3.2, spikes);
+        // Substituted radially so the Moffat core is resolved (see calibrate.ts).
+        const vMax = Math.log1p(edge * edge);
+        let quad = 0;
+        for (let j = 0; j < NR; j++) {
+          const v = (vMax * (j + 0.5)) / NR;
+          const ev = Math.exp(v);
+          const rho = Math.sqrt(Math.max(0, ev - 1));
+          let ring = 0;
+          for (let t = 0; t < NT; t++) {
+            ring += starProfile({
+              rho,
+              edge,
+              signal: amp,
+              halo: amp,
+              aureole: DEFAULT_AUREOLE,
+              beta: 3.2,
+              theta: (2 * Math.PI * (t + 0.5)) / NT,
+              ...(spikes === undefined ? {} : { spikes }),
+            });
+          }
+          quad += (ring / NT) * Math.PI * ev * (vMax / NR);
+        }
+        const err = Math.abs(closed - quad) / Math.max(quad, 1e-300);
+        if (err > worst) {
+          worst = err;
+          worstAt = `amp=${amp} edge=${edge} spikes=${spikes ? "yes" : "no"}`;
+        }
       }
     }
   }
-  ok(worst < 2e-3, `the closed form matches a quadrature of starProfile to ${(100 * worst).toFixed(4)}% (worst: ${worstAt})`);
+  ok(
+    worst < 3e-3,
+    `the composed integral matches a 2D quadrature of starProfile to ${(100 * worst).toFixed(4)}% (worst: ${worstAt})`,
+  );
+}
 
+/* ── THE AZIMUTHAL MEAN, against an independent closed form ──
+ *
+ * `diffractionAzimuthalMean` is computed by quadrature because the exact expression needs a
+ * log-gamma this package has no other use for. At the shipped sharpness of 24, (s+1)/2 is a
+ * half-integer, so the gamma form is an elementary product and can be evaluated here — a
+ * genuinely independent check rather than a finer version of the same sum.
+ *
+ * Its INDEPENDENCE of spike count and spider angle is asserted too. Both fall out of the
+ * substitution u = n (theta - angle), and both are the kind of property an optimisation could
+ * break while still producing a plausible image. */
+{
+  let gamma125 = Math.sqrt(Math.PI);
+  for (let k = 0; k < 12; k++) gamma125 *= k + 0.5; // Gamma(12.5)
+  let gamma13 = 1;
+  for (let k = 1; k <= 12; k++) gamma13 *= k; // Gamma(13) = 12!
+  const exact = gamma125 / (2 * Math.sqrt(Math.PI) * gamma13);
+  const got = diffractionAzimuthalMean(24);
+  ok(
+    Math.abs(got - exact) < 1e-9,
+    `the azimuthal mean at sharpness 24 matches the gamma form (${got.toFixed(8)} vs ${exact.toFixed(8)})`,
+  );
+  ok(
+    Math.abs(1 / got - 12.4) < 0.1,
+    "…so a spike's peak overstates its contribution to the total light by 12.4x",
+  );
+
+  for (const n of [2, 6, 8]) {
+    ok(
+      Math.abs(
+        diffractionIntegral(20, { ...DEFAULT_DIFFRACTION, spikes: n }) -
+          diffractionIntegral(20, DEFAULT_DIFFRACTION),
+      ) < 1e-12,
+      `${n} spikes carry the same total light as 4 — the mean is independent of spike count`,
+    );
+  }
+  for (const angle of [0.7, Math.PI / 3]) {
+    ok(
+      Math.abs(
+        diffractionIntegral(20, { ...DEFAULT_DIFFRACTION, angle }) -
+          diffractionIntegral(20, DEFAULT_DIFFRACTION),
+      ) < 1e-12,
+      `…and rotating the spider by ${angle.toFixed(2)} rad changes nothing`,
+    );
+  }
+  ok(diffractionAzimuthalMean(0) === 1, "a sharpness of 0 means no angular narrowing at all");
+}
+
+/* ── BOUNDARIES on the term integrals ── */
+{
+  ok(moffatIntegral(0, 1, 3.2) === 0, "a zero-extent Moffat integrates to zero");
+  ok(
+    moffatIntegral(10, 1, 1) === 0,
+    "beta = 1 does not converge and is refused rather than returning Infinity",
+  );
+  ok(
+    moffatIntegral(10, 1, 3.2) > 0 && Number.isFinite(moffatIntegral(1e6, 1, 3.2)),
+    "…and it converges to a finite total",
+  );
+  ok(aureoleIntegral(0, DEFAULT_AUREOLE) === 0, "a zero-extent aureole integrates to zero");
   ok(profileIntegral(0, 10, DEFAULT_AUREOLE, 3.2) === 0, "zero amplitude integrates to zero");
   ok(profileIntegral(1, 0, DEFAULT_AUREOLE, 3.2) === 0, "a zero-extent quad integrates to zero");
-  ok(profileIntegral(1, 10, DEFAULT_AUREOLE, 3.2) > 0, "a real star has positive total light");
-  let threw = false;
-  try {
-    profileIntegral(1, 10, { amp: 0.012, scale: 2, p: 2 }, 3.2);
-  } catch {
-    threw = true;
+  for (const [label, fn] of [
+    ["aureole", () => aureoleIntegral(10, { amp: 0.012, scale: 2, p: 2 })],
+    ["diffraction", () => diffractionIntegral(10, { ...DEFAULT_DIFFRACTION, p: 1 })],
+  ]) {
+    let threw = false;
+    try {
+      fn();
+    } catch {
+      threw = true;
+    }
+    ok(threw, `a singular ${label} exponent throws rather than returning NaN into the white point`);
   }
-  ok(threw, "a singular aureole exponent throws rather than returning NaN into the white point");
 }
 
 if (failures) {

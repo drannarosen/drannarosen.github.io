@@ -40,7 +40,7 @@
     "check:completeness": "node --experimental-strip-types scripts/check-completeness.mjs",
     "check:lupton": "node --experimental-strip-types scripts/check-lupton.mjs",
     "check:calibrate": "node --experimental-strip-types scripts/check-calibrate.mjs",
-    "check:calibrate:full": "node --experimental-strip-types scripts/check-calibrate.mjs --full"
+    "gen:calibrate-ref": "node --experimental-strip-types scripts/reference/gen-calibrate-ref.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.2.1",

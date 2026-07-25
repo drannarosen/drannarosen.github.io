@@ -19,6 +19,7 @@
 
 import {
   moffat,
+  aureole,
   diffraction,
   type AureoleParams,
   type DiffractionParams,
@@ -60,9 +61,13 @@ export interface ProfileInputs {
  * scattered light is a fixed fraction of the flux that entered the instrument and
  * knows nothing about display. See `StarField.halo`.
  */
-function rawProfile(rho: number, p: ProfileInputs): number {
+export function rawProfile(rho: number, p: ProfileInputs): number {
   const core = moffat(rho, 1, p.beta) * p.signal;
-  const wing = (p.aureole.amp * p.halo) / (1 + Math.max(0, rho) / p.aureole.scale) ** p.aureole.p;
+  // `aureole` from core/optics, NOT its formula restated. It was restated here for a
+  // while, which put the aureole's algebra in two places and then three once its area
+  // integral was written — the same shape of drift that let `amp: 0.06` sit in optics
+  // while the shader used 0.012. One term, one home.
+  const wing = aureole(rho, p.aureole) * p.halo;
   // Diffraction rides on the LINEAR flux for the same reason the halo does: it is a
   // fixed fraction of what entered the aperture, not of a display value.
   const spike =

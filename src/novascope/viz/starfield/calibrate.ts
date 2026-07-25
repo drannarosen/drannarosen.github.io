@@ -33,6 +33,7 @@
 
 import {
   PSF_BETA,
+  PSF_WIDTH_PX,
   MAX_QUAD_PX,
   coreExtentRadii,
   aureoleExtentRadii,
@@ -41,9 +42,21 @@ import {
 import {
   DEFAULT_AUREOLE,
   DEFAULT_DIFFRACTION,
+  moffat,
+  aureole,
+  moffatIntegral,
+  aureoleIntegral,
+  diffractionIntegral,
+  diffractionAngleAveraged,
   type AureoleParams,
   type DiffractionParams,
 } from "../../core/optics/index.ts";
+import {
+  luptonQForDepth,
+  luptonStretchForWhite,
+  luptonIntensityForOutput,
+  ONE_DISPLAY_LEVEL,
+} from "../../core/imaging/lupton.ts";
 import type { StarField } from "./prepare.ts";
 
 /**
@@ -74,62 +87,146 @@ import type { StarField } from "./prepare.ts";
  * constant absorbs any stable systematic, and what has to be gated is the stability, not
  * the value.
  */
-export const WHITE_FROM_ANALYTIC_MEAN = 34.92;
-
-/** Configurations the constant above was measured over, for the gate to reproduce. */
-export const WHITE_FROM_ANALYTIC_MEAN_SPREAD = { min: 27.9, max: 41.2 };
+export const WHITE_FROM_ANALYTIC_MEAN = 33.70;
 
 /**
- * Integral of one channel's star profile over its quad, in core-radius^2 units.
+ * Bounds the per-configuration ratio must stay inside, at 1% either side of the recorded
+ * extremes. The margin exists so float noise cannot fail the build on a boundary value — an
+ * earlier version recorded the rounded extremes exactly and one configuration landed a
+ * fraction below its own minimum.
+ */
+export const WHITE_FROM_ANALYTIC_MEAN_SPREAD = { min: 26.8, max: 39.8 };
+
+/**
+ * Total light one channel of a star puts into its own billboard, in core-radius^2 units.
  *
- * The closed form of what `starProfile` draws — core plus aureole, minus the pedestal that
- * the shader subtracts at the quad edge — for a single amplitude `amp` used as both the core
- * amplitude and the aureole drive, matching how `prepare` feeds the Lupton path.
+ * COMPOSES the term integrals from `core/optics` — it does not restate any of them. Each
+ * term's value and its integral live together there, beside the parameters they consume, so
+ * this function is only the composition rule: which terms a star profile is made of, and
+ * what the pedestal subtraction does to the total.
  *
- * The diffraction spike is deliberately absent; see the note on `analyticMeanIntensity`.
+ * That mattered. An earlier version solved all three integrals inline here, which put the
+ * aureole's algebra in a third place (once in `optics`, once restated in `./profile`, once
+ * more here) — the same drift that once let `amp: 0.06` sit in optics while the shader used
+ * 0.012, making "does the GPU match the reference?" unanswerable.
  *
- * `p === 1` and `p === 2` are singular in the wing's antiderivative and are rejected rather
- * than special-cased: the shipped aureole uses p = 3 and no configuration in this repository
- * comes near either, so a branch for them would be untested code guarding an input that
- * cannot arrive. Returning the core alone would silently under-report; NaN would propagate
- * into the white point and blank the frame. So it throws, loudly, at the one place that
- * could ever produce it.
+ * The composition mirrors `starProfile` exactly:
+ *
+ *     integral of [ raw(rho) - raw(edge) ] over the disc
+ *       = core + wing + spike - raw(edge) * pi * edge^2
+ *
+ * THE PEDESTAL IS ANGLE-AVERAGED, which is easy to get wrong. `starProfile` subtracts
+ * `rawProfile(edge)` evaluated at THE FRAGMENT'S OWN angle, so along a diffraction spike more
+ * is subtracted than between spikes. Integrated over the disc that removes the angle-averaged
+ * value, not the on-axis one — hence `diffractionAngleAveraged` rather than
+ * `diffraction(edge, 0, ...)`, which would overstate the subtraction by 12.4x wherever a
+ * spike reaches and dim every tier-3 star.
+ *
+ * `amp` is used as BOTH the core amplitude and the wing/spike drive, matching how `prepare`
+ * feeds the Lupton path: there the per-channel band flux is the physical quantity, and
+ * scattered light is a fixed fraction of the light that entered at that wavelength.
  */
 export function profileIntegral(
   amp: number,
   edge: number,
   a: AureoleParams,
   beta: number,
+  spikes?: DiffractionParams,
 ): number {
   if (!(amp > 0) || !(edge > 0)) return 0;
-  const e2 = edge * edge;
 
-  // Core: A pi / (beta - 1) * [1 - (1 + E^2)^(1 - beta)]
-  const core = ((amp * Math.PI) / (beta - 1)) * (1 - (1 + e2) ** (1 - beta));
+  const core = amp * moffatIntegral(edge, 1, beta);
+  const wing = amp * aureoleIntegral(edge, a);
+  const spike = spikes === undefined ? 0 : amp * diffractionIntegral(edge, spikes);
 
-  // Wing: substitute u = 1 + rho/s, so 2 pi rho drho = 2 pi s^2 (u - 1) du.
-  let wing = 0;
-  if (a.scale > 0 && a.p > 0) {
-    if (a.p === 1 || a.p === 2) {
-      throw new Error(`aureole exponent p = ${a.p} is singular in the closed-form integral`);
-    }
-    const U = 1 + edge / a.scale;
-    wing =
-      a.amp *
-      amp *
-      2 *
-      Math.PI *
-      a.scale *
-      a.scale *
-      ((U ** (2 - a.p) - 1) / (2 - a.p) - (U ** (1 - a.p) - 1) / (1 - a.p));
-  }
+  // The pedestal the shader removes from every fragment inside the quad, over its area.
+  const pedestalValue =
+    amp *
+    (moffat(edge, 1, beta) +
+      aureole(edge, a) +
+      (spikes === undefined ? 0 : diffractionAngleAveraged(edge, spikes)));
+  const pedestal = pedestalValue * Math.PI * edge * edge;
 
-  // Pedestal: the shader subtracts the raw profile's value at the edge, everywhere inside.
-  const rawAtEdge =
-    amp * (1 + e2) ** -beta + (a.scale > 0 ? (a.amp * amp) / (1 + edge / a.scale) ** a.p : 0);
-  const pedestal = rawAtEdge * Math.PI * e2;
+  return Math.max(0, core + wing + spike - pedestal);
+}
 
-  return Math.max(0, core + wing - pedestal);
+/**
+ * One display level's worth of intensity, for a requested depth in magnitudes.
+ *
+ * Lives here rather than at each call site because the generator, the gate and the renderer
+ * all need the same number and it is three lines of Lupton plumbing — the kind of thing that
+ * gets copied with one argument different.
+ */
+export function floorForDepth(depthMag: number): number {
+  const q = luptonQForDepth(depthMag);
+  return luptonIntensityForOutput(ONE_DISPLAY_LEVEL, luptonStretchForWhite(q), q);
+}
+
+/**
+ * The configurations `WHITE_FROM_ANALYTIC_MEAN` is measured over.
+ *
+ * SHARED between the fixture generator and the gate, because the two must agree on what was
+ * measured or the comparison is meaningless — a run list written twice is a run list that
+ * drifts, and the failure would look like a calibration error rather than a bookkeeping one.
+ *
+ * They span the axes a user can actually move: which composite, how much exposure, how large
+ * the frame, what device pixel ratio, how wide the field, whether a mass cut is applied, and
+ * how deep the stretch. Adding to this list is changing the claim the constant makes, so it
+ * requires regenerating the fixture — which the fingerprint below enforces.
+ */
+export interface CalibrationRun {
+  id: string;
+  prepare: Record<string, unknown>;
+  camera: { width: number; height: number; distancePc: number; fovDeg: number };
+  depthMag: number;
+}
+
+const BASE_PREPARE = { bandTriple: ["R", "V", "B"] as const, pixelRatio: 1 };
+const BASE_CAMERA = { width: 320, height: 320, distancePc: 12, fovDeg: 40 };
+
+export const CALIBRATION_RUNS: CalibrationRun[] = [
+  { id: "baseline", prepare: { ...BASE_PREPARE }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "Rubin irg", prepare: { ...BASE_PREPARE, bandTriple: ["LSST_i", "LSST_r", "LSST_g"] }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "Gaia", prepare: { ...BASE_PREPARE, bandTriple: ["Gaia_RP", "Gaia_G", "Gaia_BP"] }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "JWST", prepare: { ...BASE_PREPARE, bandTriple: ["JWST_F444W", "JWST_F200W", "JWST_F090W"] }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "HST", prepare: { ...BASE_PREPARE, bandTriple: ["HST_F814W", "HST_F606W", "HST_F275W"] }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "2MASS KHJ", prepare: { ...BASE_PREPARE, bandTriple: ["K", "H", "J"] }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "fallback ramp", prepare: { pixelRatio: 1 }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "exposure 4", prepare: { ...BASE_PREPARE, exposure: 4 }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "exposure 0.25", prepare: { ...BASE_PREPARE, exposure: 0.25 }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "minMass 1", prepare: { ...BASE_PREPARE, minMass: 1 }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "256 px", prepare: { ...BASE_PREPARE }, camera: { ...BASE_CAMERA, width: 256, height: 256 }, depthMag: 8 },
+  { id: "512 px", prepare: { ...BASE_PREPARE }, camera: { ...BASE_CAMERA, width: 512, height: 512 }, depthMag: 8 },
+  { id: "fov 20", prepare: { ...BASE_PREPARE }, camera: { ...BASE_CAMERA, fovDeg: 20 }, depthMag: 8 },
+  { id: "fov 70", prepare: { ...BASE_PREPARE }, camera: { ...BASE_CAMERA, fovDeg: 70 }, depthMag: 8 },
+  { id: "dpr 2", prepare: { ...BASE_PREPARE, pixelRatio: 2 }, camera: BASE_CAMERA, depthMag: 8 },
+  { id: "depth 12", prepare: { ...BASE_PREPARE }, camera: BASE_CAMERA, depthMag: 12 },
+  { id: "depth 6.5", prepare: { ...BASE_PREPARE }, camera: BASE_CAMERA, depthMag: 6.5 },
+];
+
+/**
+ * Fingerprint of every constant that determines the recorded white points.
+ *
+ * THE POINT OF A COMMITTED FIXTURE'S FINGERPRINT is that a fixture's characteristic danger is
+ * silent staleness: it goes on certifying a calibration after the thing it measured has moved.
+ * Change the aureole amplitude, the Moffat beta, the PSF width or the quad cap, and every
+ * recorded white point is wrong while the gate keeps passing.
+ *
+ * So the gate compares this string against the one in the fixture and fails on any difference,
+ * which turns an invisible problem into an instruction to regenerate. It is deliberately a
+ * plain readable string rather than a hash — when it does mismatch, the diff says WHICH
+ * constant moved, and that is most of the diagnosis.
+ */
+export function calibrationFingerprint(): string {
+  const a = DEFAULT_AUREOLE;
+  const d = DEFAULT_DIFFRACTION;
+  return [
+    `aureole=${a.amp},${a.scale},${a.p}`,
+    `diffraction=${d.spikes},${d.amp},${d.sharpness},${d.scale},${d.p},${d.angle}`,
+    `psf=${PSF_WIDTH_PX},${PSF_BETA}`,
+    `quadCap=${MAX_QUAD_PX}`,
+    `runs=${CALIBRATION_RUNS.length}`,
+  ].join(" ");
 }
 
 export interface CalibrateOptions {
@@ -217,7 +314,7 @@ export function analyticMeanIntensity(
     for (let k = 0; k < 3; k++) {
       const amp = field.bandFlux[i * 3 + k] ?? 0;
       if (amp <= 0) continue;
-      const sum = profileIntegral(amp, edge, aureole, beta);
+      const sum = profileIntegral(amp, edge, aureole, beta, spikes);
       // /3 because Lupton's intensity is the MEAN of the three channels, not their sum.
       total += (sum * psf * psf) / 3;
     }
