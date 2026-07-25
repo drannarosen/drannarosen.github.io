@@ -37,6 +37,7 @@
 import {
   float,
   vec3,
+  vec4,
   uniform,
   agxToneMapping,
   neutralToneMapping,
@@ -105,6 +106,25 @@ const TONE_MAP_FN: Record<ToneMapId, ToneMapFn> = {
 };
 
 /**
+ * Apply the sRGB output encode to a vec3, returning a vec3.
+ *
+ * ONE FUNCTION, because it is the single place TSL's JSDoc-derived typings run out, and naming
+ * the gap once is better than two casts inline that read like carelessness:
+ *
+ *   - `vec4()` has no overload accepting the base `Node` that three's tone mappers return.
+ *   - TSL swizzles (`.rgb`) are runtime proxies, so the compiler cannot see them on
+ *     `ColorSpaceNode` even though it is declared `vec4`.
+ *
+ * The vec4 round trip is not decoration. `ColorSpaceNode`'s `setup` reads `outputNode.a`, so it
+ * requires a vec4 in, and it declares `vec4` out — which is why the alpha has to be added and
+ * then dropped. Alpha is 1: the canvas is opaque (`alpha: false`) and no transfer composites.
+ */
+function encodeSRGB(rgb: Node): Node {
+  const rgba = vec4(rgb as never, 1);
+  return (workingToColorSpace(rgba, SRGBColorSpace) as unknown as { rgb: Node }).rgb;
+}
+
+/**
  * A three tone mapping operator, followed by the sRGB encode it is owed.
  *
  * NOT CLAMPED TO 1 ON THE WAY IN, which is the difference from `createStretchNode` and is the
@@ -132,8 +152,22 @@ function createToneMapNode(radiance: Vec3Node, id: ToneMapId): Transfer {
    * this is the only encode in the chain and there is no double application. That it is written
    * here, next to the operator that requires it, rather than as a pipeline-level flag, is what
    * makes it impossible for a transfer to be added without one.
+   *
+   * IT IS A vec4 OPERATION IN BOTH DIRECTIONS, and getting that wrong is not a type quibble.
+   * `ColorSpaceNode` declares `super('vec4')` unconditionally and its `setup` reads
+   * `outputNode.a`, so handing it a vec3 is wrong going in and its result is wrong coming out:
+   * the pipeline's `vec4(node, 1)` then had five components and three refused to compile the
+   * graph — "Length of parameters exceeds maximum length of function 'vec4()'" — which took
+   * every photographic transfer down while the astronomical ones carried on working.
+   *
+   * Alpha is 1 because the canvas is opaque (`alpha: false`); `.rgb` brings it back to the vec3
+   * every transfer in this file returns. This is three's own arrangement in `RenderOutputNode`,
+   * which works in vec4 from end to end for exactly this reason.
+   *
+   * Found by running the page, not by reading it. It type-checked, it bundled, and the node gates
+   * were all green — a TSL graph is only validated when it is built.
    */
-  const node = workingToColorSpace(mapped, SRGBColorSpace);
+  const node = encodeSRGB(mapped);
 
   return {
     node,

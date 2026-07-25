@@ -553,10 +553,35 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     if (status) status.textContent = t;
   };
 
+  const params = new URLSearchParams(location.search);
+
   // ?forceWebGL exercises the WebGPURenderer's WebGL 2 fallback on a machine
   // that would otherwise always take the native path. Development affordance:
   // ~5% of visitors get that backend, so it needs to be checkable on demand.
-  const forceWebGL = new URLSearchParams(location.search).has("forceWebGL");
+  const forceWebGL = params.has("forceWebGL");
+
+  /*
+   * ?stars=N — a smaller population, for driving this page from a test harness.
+   *
+   * `prepareStarField` is 180-425 ms at the default 10,000 and runs on every rebuild, so a
+   * headless browser stepping through twelve transfers spends most of its time in CPU
+   * preparation. The cost is very nearly linear in the count, so 1,500 stars turns a
+   * transfer sweep from minutes into seconds.
+   *
+   * IT CHANGES WHAT IS ON SCREEN, and not only how fast. Fewer stars means a fainter summed
+   * background (the sky glow IS the summed wings of every star) and a different white point,
+   * so a frame drawn at 1,500 is NOT the frame drawn at 10,000 and must not be compared
+   * against numbers measured at the default. The status line reports the count for that
+   * reason, and the parameter is deliberately absent from the UI: it is a harness affordance,
+   * not a control, and offering it as one would invite exactly that comparison.
+   *
+   * Clamped rather than trusted. A URL is user input, and `clusterStarTable` would happily
+   * accept a NaN or a ten-million-star request and hang the tab.
+   */
+  const starsParam = Number(params.get("stars"));
+  const starCountOverride = Number.isFinite(starsParam) && starsParam > 0
+    ? Math.min(50_000, Math.max(100, Math.floor(starsParam)))
+    : undefined;
 
   /*
    * The registry, serialised at build time. Only the two fields the client needs, so the page
@@ -663,7 +688,12 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   };
 
   if (canvas) {
-    initStarLab(canvas, { forceWebGL, ...read() })
+    initStarLab(canvas, {
+      forceWebGL,
+      // Omitted unless asked for, so `initStarLab`'s own default stays the single home for it.
+      ...(starCountOverride === undefined ? {} : { count: starCountOverride }),
+      ...read(),
+    })
       .then((lab) => {
         const label = lab.backend === "webgpu" ? "WebGPU" : "WebGL 2";
         const depthVal = document.querySelector<HTMLElement>("[data-depth-val]");
