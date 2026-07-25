@@ -5,6 +5,7 @@ import { COLOR_SCHEMES } from "@novascope/core/colorimetry/schemes";
 import { linearToSrgbRGB } from "@novascope/core/colorimetry";
 import { spectralType } from "@novascope/core/stellar";
 import { DEPTH_MAG_RANGE } from "@novascope/core/imaging/lupton";
+import { D0_PC, DISTANCE_PC_RANGE } from "@novascope/core/photometry";
 import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/passbands";
 import { SURVEYS } from "@novascope/core/photometry/surveys";
 import { INSTRUMENTS } from "@novascope/core/photometry/instruments";
@@ -134,6 +135,13 @@ const DEPTH_DEFAULTS = {
 };
 const depthStart = DEPTH_DEFAULTS.population;
 /*
+ * The distance slider works in LOG10(pc), because the useful range spans 50 pc to 20 kpc — a
+ * factor of 400 — and a linear slider would put every Galactic cluster in its first two percent.
+ * The URL still carries parsecs; only the widget is logarithmic.
+ */
+const DIST_LOG_MIN = Math.log10(DISTANCE_PC_RANGE.min);
+const DIST_LOG_MAX = Math.log10(DISTANCE_PC_RANGE.max);
+/*
  * The transfer control's option groups, PARTITIONED from the registry rather than listed.
  *
  * The group labels state the one difference that is real and that a reader cannot see: what the
@@ -211,6 +219,17 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         <select data-scheme>
           {COLOR_SCHEMES.map((s) => <option value={s.id}>{s.label} — {s.kind}</option>)}
         </select>
+      </label>
+      <!--
+        DISTANCE — rung 4 of the ladder, and the rung where theory becomes observation.
+        It deliberately does not change the exposure: the white point is a percentile of the
+        resulting fluxes, so moving the whole cluster rescales every flux identically and cancels.
+        What moves is the MEANING — apparent magnitude slides while absolute magnitude does not —
+        which is why the status line reports both, and why this control is worth having even
+        though the picture barely changes.
+      -->
+      <label class="srl__ctl">Distance <span data-dist-val></span>
+        <input type="range" min={DIST_LOG_MIN} max={DIST_LOG_MAX} step="any" value={Math.log10(D0_PC)} data-dist />
       </label>
       <label class="srl__ctl">Brightness band <span data-band-note></span>
         <select data-band>
@@ -579,6 +598,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   import { initStarLab } from "@novascope/viz/starfield/scene";
   import type { TransferId } from "@novascope/core/imaging/transfers";
   import { decode, encode } from "@novascope/core/params/urlState";
+  import { D0_PC } from "@novascope/core/photometry";
   import {
     LAB_SCHEMA,
     PASSTHROUGH_KEYS,
@@ -666,6 +686,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     setValue("[data-scaling]", s.transfer === TRANSFER_AUTO ? "" : s.transfer);
     setValue("[data-depth]", String(s.depth));
     setValue("[data-sky]", String(s.sky));
+    setValue("[data-dist]", String(Math.log10(s.dist)));
     const skyAutoEl = document.querySelector<HTMLInputElement>("[data-sky-auto]");
     if (skyAutoEl) skyAutoEl.checked = s.skyauto;
     setValue("[data-bloom]", String(s.bloom));
@@ -695,6 +716,12 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     bloom: Number(readValue("[data-bloom]", "0.35")),
     exposure: Number(readValue("[data-exposure]", "1")),
     minmass: Number(readValue("[data-min-mass]", "0")),
+    /*
+     * ROUNDED TO WHOLE PARSECS on the way into the URL. The slider is logarithmic and its raw
+     * value carries more precision than the distance is known to; `dist=136` is a link someone can
+     * read and retype from a lecture note, `dist=136.4782` is machine exhaust.
+     */
+    dist: Math.round(10 ** Number(readValue("[data-dist]", String(Math.log10(D0_PC))))),
     motion,
   });
 
@@ -832,6 +859,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
       ...(depth === undefined ? {} : { depthMag: Number(depth) }),
       exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
+      distancePc: 10 ** Number(document.querySelector<HTMLInputElement>("[data-dist]")?.value ?? Math.log10(D0_PC)),
       minMass,
     };
   };
@@ -873,6 +901,29 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           const bloomVal = document.querySelector<HTMLElement>("[data-bloom-val]");
           if (bloomVal && bloomEl) bloomVal.textContent = Number(bloomEl.value).toFixed(2);
           if (massVal) massVal.textContent = minMass > 0 ? `${minMass.toFixed(2)} M☉` : "all";
+          /*
+           * Distance reads in pc or kpc, with a familiar cluster named nearby. A number alone is
+           * not a scale to anyone who does not already know the answer, and this control exists to
+           * teach — "1.4 kpc" means little, "1.4 kpc — beyond Westerlund 1" places it.
+           */
+          const distEl = document.querySelector<HTMLInputElement>("[data-dist]");
+          const distVal = document.querySelector<HTMLElement>("[data-dist-val]");
+          if (distEl && distVal) {
+            const pc = 10 ** Number(distEl.value);
+            const near = [
+              [136, "the Pleiades"],
+              [400, "the Orion Nebula Cluster"],
+              [1600, "the Carina Nebula"],
+              [4000, "Westerlund 1"],
+              [7000, "NGC 3603"],
+            ] as const;
+            let label = "";
+            for (const [d, name] of near) {
+              if (pc >= d * 0.75 && pc <= d * 1.33) { label = ` — near ${name}`; break; }
+            }
+            distVal.textContent =
+              (pc >= 1000 ? `${(pc / 1000).toFixed(2)} kpc` : `${Math.round(pc)} pc`) + label;
+          }
           // The filtered-population warning is driven by the CUT, not by the star
           // count, so it cannot fall out of step with what is actually drawn.
           if (selection) selection.hidden = minMass <= 0;
@@ -1031,7 +1082,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         };
 
         for (const el of document.querySelectorAll<HTMLElement>(
-          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-sky-auto],[data-bloom],[data-depth],[data-exposure],[data-min-mass]",
+          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-sky-auto],[data-bloom],[data-depth],[data-exposure],[data-min-mass],[data-dist]",
         )) {
           /*
            * DISPLAY-ONLY CONTROLS SKIP THE FIELD REBUILD.

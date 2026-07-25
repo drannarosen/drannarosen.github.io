@@ -28,6 +28,25 @@ import { M_BOL_SUN } from "../constants/index.ts";
 export const D0_PC = 400;
 
 /**
+ * Bounds for a distance CONTROL, spanning the real range of young clusters.
+ *
+ * 50 pc is inside the nearest associations; 20 kpc reaches across the Galaxy to the far side of
+ * the disc. Named clusters for scale: the Pleiades at 136 pc, the Orion Nebula Cluster at ~400
+ * (this module's default), Westerlund 1 at ~4 kpc, NGC 3603 at ~7 kpc.
+ *
+ * WHAT MOVING IT DOES AND DOES NOT DO, because the honest answer is the teaching point. It does
+ * NOT change the exposure or the look: the white point is a percentile of the resulting fluxes,
+ * so a different distance rescales every flux identically and cancels — see `D0_PC` above. What
+ * it changes is what the image MEANS. Apparent magnitude slides with distance while ABSOLUTE
+ * magnitude does not move at all, because one is a property of this view and the other a property
+ * of the stars. Having both on screen while the slider moves is the whole lesson.
+ *
+ * It also changes the depth contrast WITHIN the cluster, which is a genuine visual effect at the
+ * near end: a star 5 pc in front of the centre is 20% brighter at 50 pc and 2.5% brighter at 400.
+ */
+export const DISTANCE_PC_RANGE = { min: 50, max: 20_000 } as const;
+
+/**
  * log10 of a star's bolometric luminosity [Lsun] from its own Teff [K] and
  * radius [Rsun].
  *

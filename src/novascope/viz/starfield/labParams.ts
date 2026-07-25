@@ -38,6 +38,7 @@ import { INSTRUMENTS } from "../../core/photometry/instruments.ts";
 import { COLOR_SCHEMES } from "../../core/colorimetry/schemes.ts";
 import { PASSBANDS } from "../../core/photometry/passbands.ts";
 import { DEPTH_MAG_RANGE } from "../../core/imaging/lupton.ts";
+import { D0_PC, DISTANCE_PC_RANGE } from "../../core/photometry/index.ts";
 
 /**
  * "Follow the mode" — the transfer control's empty option, spelled for a URL.
@@ -111,6 +112,14 @@ export const LAB_SCHEMA = {
   bloom: numberField(0, 1, 0.35, 2),
   exposure: numberField(0.25, 4, 1, 2),
   minmass: numberField(0, 2, 0, 2),
+  /*
+   * Distance to the cluster centre [pc] — ladder rung 4, where theory becomes observation.
+   *
+   * Carried in PARSECS rather than in the slider's log units, so a shared link reads
+   * `dist=136` and not `dist=2.13`. The page converts; the URL stays something a person can type
+   * from a lecture note.
+   */
+  dist: numberField(DISTANCE_PC_RANGE.min, DISTANCE_PC_RANGE.max, D0_PC, 0),
   /*
    * MOTION IS TRI-STATE, and a boolean cannot say what a shared link needs to say.
    *

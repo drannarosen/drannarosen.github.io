@@ -206,6 +206,20 @@ export interface PrepareOptions {
    */
   skyAuto?: boolean;
   /**
+   * Distance to the cluster CENTRE [pc]. Defaults to `D0_PC`.
+   *
+   * Rung 4 of the theory-to-observation ladder, and the rung where theory becomes observation:
+   * before it every star sits at a common distance and you are looking at the population; after
+   * it the inverse-square law applies WITHIN the cluster and you are looking at an image.
+   *
+   * It deliberately does not change the exposure. The white point is a percentile of the
+   * resulting fluxes, so moving the whole cluster rescales every flux identically and cancels —
+   * which is why the picture barely changes while the reported apparent magnitudes slide a long
+   * way. Absolute magnitude does not move at all. That contrast IS the lesson, and it is only
+   * legible because both numbers are already reported side by side.
+   */
+  distancePc?: number;
+  /**
    * Bloom strength. 0 disables it.
    *
    * A control rather than a constant because it turned out to dominate a symptom I had blamed on the
@@ -320,6 +334,8 @@ export interface StarField {
     scaling: TransferId;
     /** Sky fraction subtracted before that transfer; 0 means none. */
     skyLevel: number;
+    /** Distance to the cluster centre used for this field [pc]. */
+    distancePc: number;
     /**
      * The instrument's detection limit, and what it implies — `null` without a
      * `magLimit`, or when no band is selected.
@@ -416,6 +432,12 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const percentile = opts.whitePercentile ?? DEFAULT_WHITE_PERCENTILE;
   const dpr = opts.pixelRatio ?? 1;
   const minMass = opts.minMass ?? 0;
+  /*
+   * One local, replacing five uses of the module constant. Clamped away from zero because a
+   * non-positive distance divides by zero in the inverse-square law and returns an infinite flux
+   * that would capture the white point.
+   */
+  const distancePc = Math.max(MIN_DISTANCE_PC, opts.distancePc ?? D0_PC);
   const magLimit = opts.magLimit;
   /*
    * The intensity one display level corresponds to, on the LUPTON curve — what decides how far
@@ -528,7 +550,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
      * a star drawn past z = D0 would otherwise divide by a zero or negative
      * distance and return an infinite flux that captures the white point.
      */
-    const dPc = Math.max(MIN_DISTANCE_PC, D0_PC - (stars[o + 2] ?? 0));
+    const dPc = Math.max(MIN_DISTANCE_PC, distancePc - (stars[o + 2] ?? 0));
 
     // Brightness: through a filter when one is chosen, else bolometric.
     flux[i] = band
@@ -638,7 +660,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
       abMagnitude(
         stars[o + 4] ?? 0,
         stars[o + 5] ?? 0,
-        Math.max(MIN_DISTANCE_PC, D0_PC - (stars[o + 2] ?? 0)),
+        Math.max(MIN_DISTANCE_PC, distancePc - (stars[o + 2] ?? 0)),
         band,
       ) > magLimit;
     if (undetected) undetectedCount++;
@@ -668,7 +690,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
       // magnitude is fainter, so the deepest one is the maximum.
       const m =
         bolometricMagnitude(deriveLogL(stars[o + 4] ?? 0, stars[o + 5] ?? 0)) +
-        distanceModulus(Math.max(MIN_DISTANCE_PC, D0_PC - (stars[o + 2] ?? 0)));
+        distanceModulus(Math.max(MIN_DISTANCE_PC, distancePc - (stars[o + 2] ?? 0)));
       if (m > faintestVisibleMbol) faintestVisibleMbol = m;
     }
     if (!cut) {
@@ -777,13 +799,15 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
       colorMode,
       scaling,
       skyLevel: opts.skyLevel ?? 0,
+      /** The distance this view was computed at [pc], so a readout never has to assume it. */
+      distancePc,
       detection:
         magLimit !== undefined && band !== null
           ? {
               magLimit,
               undetected: undetectedCount,
-              limitingMass: massForMagnitudeLimit(magLimit, band, D0_PC),
-              complete: massForMagnitudeLimit(magLimit, band, D0_PC) <= MASS_SEARCH_MIN,
+              limitingMass: massForMagnitudeLimit(magLimit, band, distancePc),
+              complete: massForMagnitudeLimit(magLimit, band, distancePc) <= MASS_SEARCH_MIN,
             }
           : null,
       absMag: {
