@@ -1,5 +1,5 @@
 /*
- * check-stellar.mjs — validate src/lib/stellar.ts against startrax.
+ * check-stellar.mjs — validate src/novascope/core/stellar against startrax.
  *
  * The stellar relations are a TypeScript PORT of startrax's verified Tout 1996 /
  * Hurley 2000 code. This harness is the parity gate: it asserts the port

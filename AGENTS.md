@@ -51,10 +51,18 @@ WordPress site (anna-rosen.com) as a content/URL archive only — never imitate 
 
 ## Deployment
 
-Target: https://drannarosen.github.io/ (user site, root domain, **no base
-path**). Migration to anna-rosen.com later changes only `site` in
-`astro.config.mjs` — see `docs/domain-migration.md` when created. Do NOT touch
-DNS or configure the real domain.
+Live at **https://anna-rosen.com** — the custom apex domain, migrated from
+`drannarosen.github.io` on 2026-07-19. GitHub Pages, no base path. `site` in
+`astro.config.mjs` is what builds every canonical URL and every absolute Open
+Graph image URL, so it must match the domain actually served or link previews
+fetch from the wrong host. See `docs/domain-migration.md`.
+
+Do NOT touch DNS or reconfigure the domain.
+
+(This section previously described the migration as a future step and told
+agents not to perform it. It had already happened, which is the kind of stale
+instruction that costs a session — `astro.config.mjs` was right and this file
+was wrong.)
 
 ## Commands
 

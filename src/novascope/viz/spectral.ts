@@ -8,11 +8,29 @@
  *
  * It used to carry its own copy of the Kim et al. Planckian-locus fit, its own
  * XYZ->sRGB matrix and its own gamma curve — a third copy of colour maths that
- * already existed in core. One home now: change the colour model in
- * core/colorimetry and every renderer follows. The chromaticity is also now
- * INTEGRATED rather than fitted, which agrees with the old locus values to
- * <0.001 in CIE (x,y) — below what a star on screen resolves — and, unlike a
- * locus fit, can express a reddened star once extinction lands.
+ * already existed in core. The chromaticity is now INTEGRATED rather than fitted,
+ * which agrees with the old locus values to <0.001 in CIE (x,y) — below what a
+ * star on screen resolves — and, unlike a locus fit, can express a reddened star
+ * once extinction lands.
+ *
+ * ── "ONE HOME NOW" WAS TOO STRONG, AND THIS IS THE CORRECTION ──
+ *
+ * This header used to claim "one home now: change the colour model in core/colorimetry and every
+ * renderer follows." That is FALSE, found while auditing on 2026-07-26. There are still TWO live
+ * blackbody colour models:
+ *
+ *   core/colorimetry.blackbodyLinearRGB  — a Planck spectrum integrated against the CIE 1931
+ *                                          observer. What THIS module uses.
+ *   core/stellar.teffToRGB               — a Tanner Helland piecewise fit. What `star().color`
+ *                                          uses, and therefore what `state/render` hands to the
+ *                                          canvas renderers and the HR diagram.
+ *
+ * So changing core/colorimetry does NOT reach every renderer; it reaches this one. They agree
+ * closely enough that nothing looks wrong, which is exactly why the claim survived.
+ *
+ * Left as two deliberately, for now: switching `star().color` to the integrated model would
+ * change the colour of every star on every canvas page at once, which is a visual decision rather
+ * than a cleanup. Recorded here so the next person finds the fact rather than the claim.
  *
  * A star's continuum colour is close to its blackbody colour at Teff; line
  * blanketing shifts it slightly, below what this viz resolves.
