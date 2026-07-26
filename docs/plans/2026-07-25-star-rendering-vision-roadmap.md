@@ -85,9 +85,42 @@ The rule (memory: `no-cosmetic-hacks`, ADR 0015) is that physical features come 
 not from render tricks. Applied honestly, most of the available "movie quality" is physics:
 
 **Worth building.**
-- **Pixel-integrated PSF.** The Moffat is point-sampled at pixel centres today. Integrating it
-  over the pixel footprint is strictly better quadrature *and* removes the shimmer that makes
-  subpixel point sources look cheap. The largest single visual win, and not a trick.
+- ~~**Pixel-integrated PSF.**~~ **BUILT, MEASURED, REVERTED (2026-07-25).** The claim was that
+  point-sampling the Moffat at pixel centres causes the shimmer on subpixel point sources, and
+  that integrating over the pixel footprint would remove it. **The first half is wrong**, so the
+  second does not follow.
+
+  Implemented in both halves from one shared offset table (rotated 2x2 grid), then measured
+  directly: a star's peak brightness as it drifts across one pixel, at 64 sub-pixel positions.
+
+      samples            swing   vs point
+      1 (point)          30.0%     1.00x
+      4 (rotated grid)   25.7%     1.16x
+      16 (4x4)           25.9%     1.16x
+      64 (8x8)           25.7%     1.16x
+      256 (16x16)        25.7%     1.17x
+
+  **It plateaus at 4 samples.** The quadrature converges immediately, so the residual 25.7% is not
+  a quadrature error at all — it is that a pixel's value genuinely depends on where the star
+  centre falls inside it. A star centred on a pixel really does deposit more flux there than one
+  centred on its corner. That is a real detector behaving correctly, and integrating the profile
+  over the pixel cannot and should not remove it.
+
+  The cost was 4x the profile evaluations in the shader, 4x the CPU reference, and parity degraded
+  from 0.069% to 0.197% median relative error. Reverted; parity confirmed back at baseline
+  (energy ratio 0.99951, median 0.069%, peak agreeing to 0.009%).
+
+  **What the measurement points at instead is SSAA** (below): supersampling the whole FRAME
+  integrates over the pixel *including* the geometry and the star's position within it, which is
+  the term that actually dominates. Profile-only integration cannot reach it.
+
+  One real bug was caught on the way, worth keeping in mind for any future attempt: hoisting the
+  pedestal term (`rawProfile(edge)`) out of the per-sample loop is algebraically tempting, since
+  its radial part is constant — but `starProfile` evaluates it at the SAMPLE'S OWN theta, so the
+  angular term appears in both halves and largely cancels off-spike. Hoisting it with the lobe at
+  maximum over-subtracted everywhere the real lobe was smaller: parity went to 2.01% median and
+  0.9807 energy ratio, while the peak still agreed to 0.014% because the brightest core sits where
+  the lobe is near maximum anyway.
 - **A derived sky and a real toe.** Deep blacks are most of what reads as cinematic. `skyLevel`
   defaults to 0 because the right level is not derivable *a priori* (97× spread across configs,
   against 1.45× for the white point) — but it is derivable *per frame* as a low percentile of the
