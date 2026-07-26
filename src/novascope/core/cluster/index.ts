@@ -3,7 +3,7 @@
  * Everything derived (L, Teff, colour, remnant) comes from the star() contract
  * applied to these latent stars, never stored here.
  */
-export type { ClusterIdentity, LatentStar } from "./params.ts";
+export type { ClusterIdentity, LatentStar, ImfKind } from "./params.ts";
 export {
   CLUSTER_SCHEMA_VERSION,
   defaultIdentity,

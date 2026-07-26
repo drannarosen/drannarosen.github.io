@@ -11,13 +11,29 @@
 /** Bump when the identity shape changes; deserialize() migrates older payloads. */
 export const CLUSTER_SCHEMA_VERSION = 1;
 
+/**
+ * Which initial mass function a cluster is drawn from. Both live in `core/imf`.
+ *
+ * Maschberger (2013) is the default: a single smooth formula with an exact analytic quantile,
+ * pinned to a progenax fixture by `check:imf`. Kroupa (2001) is the piecewise broken power law —
+ * the one most readers have seen, and the useful contrast on an explorable about the IMF.
+ */
+export type ImfKind = "maschberger" | "kroupa";
+
 export interface ClusterIdentity {
   schemaVersion: number;
   seed: number;
   /** How many stars to draw: a fixed count, or draw until a target mass (M☉). */
   sampling: { mode: "count" | "mass"; target: number };
-  /** Kroupa IMF bounds (M☉) and the high-mass slope knob (default 2.3). */
-  imf: { mMin: number; mMax: number; alphaHigh: number };
+  /*
+   * The IMF: which law, its mass bounds (M☉), and the high-mass slope knob (default 2.3).
+   *
+   * `kind` IS EXPLICIT BECAUSE IT WAS IMPLICIT AND WRONG. This comment used to read "Kroupa IMF
+   * bounds" while `sample.ts` called `maschbergerMass`, so a serialised cluster — a shareable
+   * URL, a persisted session — asserted a law it had not been drawn from. Naming the law is what
+   * makes the identity honest about itself.
+   */
+  imf: { kind: ImfKind; mMin: number; mMax: number; alphaHigh: number };
   /** Metallicity — CLUSTER-level (a coeval cluster is chemically uniform). */
   Z: number;
   /** Spatial profile; scaleRadius in pc (r_h ≈ 1.305·scaleRadius for Plummer).
@@ -52,7 +68,7 @@ export function defaultIdentity(over: Partial<ClusterIdentity> = {}): ClusterIde
     schemaVersion: CLUSTER_SCHEMA_VERSION,
     seed: 20260718,
     sampling: { mode: "count", target: 1200, ...over.sampling },
-    imf: { mMin: 0.1, mMax: 100, alphaHigh: 2.3, ...over.imf },
+    imf: { kind: "maschberger", mMin: 0.1, mMax: 100, alphaHigh: 2.3, ...over.imf },
     Z: over.Z ?? 0.02,
     profile: { kind: "eff", scaleRadius: 1, gamma: 5, ...over.profile },
     segregation: over.segregation ?? 0,
@@ -68,7 +84,7 @@ export const presets: Record<string, ClusterIdentity> = {
   starburst: defaultIdentity({
     seed: 42,
     sampling: { mode: "mass", target: 3e4 },
-    imf: { mMin: 0.1, mMax: 120, alphaHigh: 2.0 }, // top-heavy
+    imf: { kind: "maschberger", mMin: 0.1, mMax: 120, alphaHigh: 2.0 }, // top-heavy
   }),
   diffuse: defaultIdentity({ seed: 99, profile: { kind: "eff", scaleRadius: 3, gamma: 5 } }),
   segregated: defaultIdentity({ seed: 11, segregation: 1, profile: { kind: "eff", scaleRadius: 1, gamma: 5 } }),
@@ -85,6 +101,7 @@ export function serializeIdentity(id: ClusterIdentity): string {
     seed: String(id.seed),
     sm: id.sampling.mode,
     st: String(id.sampling.target),
+    im: id.imf.kind,
     mn: String(id.imf.mMin),
     mx: String(id.imf.mMax),
     ah: String(id.imf.alphaHigh),
@@ -107,11 +124,15 @@ export function deserializeIdentity(query: string): ClusterIdentity {
   const d = defaultIdentity();
   const mode = p.get("sm") === "mass" ? "mass" : "count";
   const kind = p.get("pr") === "eff" ? "eff" : "plummer";
+  /* Same tolerant-parse shape as `pr` above: absent or unrecognised takes the default rather than
+   * throwing, so a hand-edited or older link still opens. A link written before `im` existed takes
+   * Maschberger — which is the law it was actually drawn from. */
+  const imfKind = p.get("im") === "kroupa" ? "kroupa" : "maschberger";
   return {
     schemaVersion: CLUSTER_SCHEMA_VERSION, // normalize to current on load
     seed: num("seed", d.seed),
     sampling: { mode, target: num("st", d.sampling.target) },
-    imf: { mMin: num("mn", d.imf.mMin), mMax: num("mx", d.imf.mMax), alphaHigh: num("ah", d.imf.alphaHigh) },
+    imf: { kind: imfKind, mMin: num("mn", d.imf.mMin), mMax: num("mx", d.imf.mMax), alphaHigh: num("ah", d.imf.alphaHigh) },
     Z: num("z", d.Z),
     profile: { kind, scaleRadius: num("sr", d.profile.scaleRadius), gamma: num("gm", 5) },
     segregation: num("sg", d.segregation),
