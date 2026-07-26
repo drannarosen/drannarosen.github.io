@@ -76,6 +76,26 @@ Instead the hero's code is relocated without being rewritten (D9). Same loop, sa
 seed, same stars. What it gains is that its physics now comes from Novascope by import rather
 than from a copy inside Layer 0 — so `core/imf` can be cleaned while the picture is untouched.
 
+### Verified against the code before execution
+
+Every factual claim this plan makes about the hero was checked by **running** it, not by reading
+(2026-07-26):
+
+| claim | result |
+| --- | --- |
+| Every symbol `src/lib/hero/sampler.ts` imports is already exported | ✓ all 7, no new exports needed |
+| `core/cluster`'s `samplePlummer` is identical to `core/imf`'s private one — **including how many randoms it consumes**, or the hero reshuffles | ✓ max diff `0` over 500 draws, streams left in the same state |
+| Task 6's `star(m, 0.02).color` === `teffToRGB(massToTeff(m))` | ✓ max diff `0`, 0.05–150 M☉ including out-of-domain clamping |
+| `massToTeff`/`massToLuminosity` are exactly `zamsTeff`/`zamsLuminosity` clamped to [0.1, 100] | ✓ exact |
+| The hero's production call is `count: 520, seed: 20260718` | ✓ 520 stars, painter-ordered, 147 twinkle |
+
+Sanity values for the Task 4 fixture — if the generator disagrees with these, stop:
+
+```
+first star (after painter sort):  mass 0.10014704   x 0.46046506   sizePx 0.50413933
+twinkling stars: 147 / 520
+```
+
 **The bar for "unchanged" is bit-identical, and it is asserted, not assumed.** Task 4 captures a
 fixture of the current output BEFORE anything moves; Task 5 does the move and the same Vitest case
 must still pass, failing if a single mass, coordinate, colour, size or opacity has shifted. The
@@ -915,13 +935,26 @@ git commit -m "refactor(site): the model-path stage uses the frozen hero sampler
 **Files:**
 - Modify: `src/novascope/core/imf/index.ts`
 
-**Step 1: Confirm there are no consumers left inside the package**
+**Step 1: Confirm there are no consumers left — and do NOT grep for the function name**
+
+⚠ **There are two functions called `sampleCluster`, and grepping the name is misleading.** The
+canonical `core/cluster.sampleCluster` has three legitimate callers inside the package
+(`components/CensusEngine.astro` ×3, `viz/starfield/source.ts`) which must NOT be touched. A
+name-grep reports them as if they were consumers of the module being emptied. This was caught by
+running the check while verifying this plan; the first draft of this step had exactly that bug.
+
+Grep the **import site**, not the symbol:
 
 ```bash
-grep -rn "sampleCluster\|massToTeff\|massToLuminosity\|ClusterOptions" src/novascope scripts --include='*.ts' --include='*.astro' --include='*.mjs' | grep -v "core/cluster"
+grep -rn "from ['\"].*core/imf" src scripts --include='*.ts' --include='*.astro' --include='*.mjs'
 ```
-Expected: no hits. Anything remaining must be fixed before deleting — do not delete and then
-chase compile errors.
+
+Expected: every remaining hit imports only IMF-law symbols — `buildKroupaSegments`,
+`sampleKroupaMass`, `kroupaMassFraction`, `maschbergerMass`, `maschbergerMassFraction`,
+`MASCHBERGER_MU`, `MASCHBERGER_BETA`, `alpha3FromEnvironment`, `Segment`, `MaschbergerParams`.
+Anything importing `sampleCluster`, `Star`, `ClusterOptions`, `massToTeff`, `massToLuminosity` or
+`teffToRGB` from `core/imf` must be fixed first. `pnpm check` is the backstop: after the deletion
+it fails on any reference this grep missed.
 
 **Step 2: Delete** — from `core/imf/index.ts`, remove the `── Main-sequence relations ──` block,
 `samplePlummer`, `Star`, `ClusterOptions`, `sampleCluster`, and the `teffToRGB` re-export at lines
