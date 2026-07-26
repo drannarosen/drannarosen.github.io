@@ -96,8 +96,16 @@ function program(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgr
 const T_SUN = T_SUN_K; // IAU nominal — see @novascope/core/constants
 const LOGL_LO = -3.5, LOGL_HI = 6.5; // log10 L/Lsun spanning the IMF
 
-/** Interleave stars (n*6) into the GPU buffer layout [x,y,z, r,g,b, size] (n*7). */
-function buildStarBuffer(stars: Float32Array, emphasizeHot = false): Float32Array {
+/**
+ * Interleave stars (n*6) into the GPU buffer layout [x,y,z, r,g,b, size] (n*7).
+ *
+ * EXPORTED FOR TESTING, deliberately and with the trade named: it is otherwise internal, but it
+ * is the only place the magnitude sizing law is written, and that law is a claim about how
+ * brightness maps to apparent size — the sort of thing that should not be verifiable only by
+ * looking at a picture. It is pure, so a node test reaches it; the alternative was leaving a
+ * physical relation untested because its caller needs a GPU.
+ */
+export function buildStarBuffer(stars: Float32Array, emphasizeHot = false): Float32Array {
   const n = stars.length / 6;
   const sbuf = new Float32Array(n * 7);
   for (let i = 0; i < n; i++) {
