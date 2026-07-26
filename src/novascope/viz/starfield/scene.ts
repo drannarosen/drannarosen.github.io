@@ -104,6 +104,14 @@ export interface StarLab {
   readonly reach: StarReach;
   /** The measured background, when `skyAuto` is on. `pixels === 0` means it has not run. */
   readonly sky: SkyMeasurement;
+  /**
+   * Render the CURRENT scene through several transfers and return thumbnails.
+   *
+   * The comparison this page exists for. Flipping a dropdown and remembering is not a comparison —
+   * a display transfer changes contrast and colour together, and human memory for both is poor
+   * over the second it takes to re-render.
+   */
+  contactSheet(ids: readonly TransferId[]): Promise<ContactTile[]>;
   /** Rebuild the field with new physics options (scheme, band, exposure…). */
   update(opts: PrepareOptions): StarLabStats;
   /**
@@ -127,6 +135,14 @@ export interface StarLab {
   readonly drifting: boolean;
   /** Start or stop the drift. Stopping also stops redrawing (see the render tick). */
   setDrifting(on: boolean): void;
+}
+
+/** One transfer's thumbnail, as 8-bit RGBA ready for `putImageData`. */
+export interface ContactTile {
+  id: TransferId;
+  width: number;
+  height: number;
+  pixels: Uint8ClampedArray;
 }
 
 export interface StarLabOptions extends PrepareOptions {
@@ -490,6 +506,95 @@ export async function initStarLab(
       });
   };
 
+  /*
+   * CONTACT SHEET — the same scene through several transfers, side by side.
+   *
+   * Everything is held fixed except the transfer: same field, same camera, same white point, same
+   * sky, same bloom. That is the whole value — a difference between two tiles is a difference
+   * between two curves and nothing else.
+   *
+   * RENDERED SMALLER THAN THE CANVAS, and the caveat is worth stating rather than hiding. The
+   * background level depends on resolution, because the PSF width is fixed in PIXELS: at a smaller
+   * size each star's wings cover more of the frame and overlap more (measured elsewhere as a 1.57x
+   * drift in median/mean from 96x60 to 320x200). So a tile is NOT identical to the full frame
+   * under the same transfer. It does not need to be: every tile is rendered at the same size, so
+   * the comparison BETWEEN them is exact even though each differs from the full-size render.
+   *
+   * 256 wide because a WebGPU readback needs `bytesPerRow` to be a multiple of 256, and at RGBA
+   * float that is 16 bytes per pixel — 256 x 16 = 4096 exactly. A width of 300 fails with a large
+   * spatial error and the correct total energy, which reads as a renderer bug and is a harness one.
+   */
+  const TILE_W = 256;
+  const TILE_H = 160;
+  const sheetTarget = new THREE.RenderTarget(TILE_W, TILE_H, {
+    type: THREE.FloatType,
+    colorSpace: THREE.LinearSRGBColorSpace,
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+  });
+
+  async function renderContactSheet(ids: readonly TransferId[]): Promise<ContactTile[]> {
+    if (!lastField) return [];
+    const white =
+      lastField.stats.colorMode === "photometric"
+        ? whitePixelIntensity(lastField, bufW || TILE_W, bufH || TILE_H, {
+            floor: transferFloor(lastField.stats.scaling, lastDepthMag),
+          })
+        : 1;
+    const restore = transferId;
+    const tiles: ContactTile[] = [];
+    try {
+      for (const id of ids) {
+        const t = createTransferNode(litScene, id);
+        t.setDepth(lastDepthMag, white);
+        t.setSky(skyAuto && sky.pixels > 0 ? sky.level / white : lastSkyLevel, white);
+        pipeline.outputNode = vec4(t.node as never, 1);
+        pipeline.needsUpdate = true;
+        renderer.setRenderTarget(sheetTarget);
+        await pipeline.renderAsync();
+        const px = (await renderer.readRenderTargetPixelsAsync(
+          sheetTarget,
+          0,
+          0,
+          TILE_W,
+          TILE_H,
+        )) as Float32Array;
+        renderer.setRenderTarget(null);
+        /*
+         * The values are already DISPLAY-REFERRED — astronomical transfers by convention,
+         * photographic ones because `transferNode` applies the sRGB encode. So this is a scale to
+         * 8 bits and nothing more; another encode here would be the double-encode this pipeline
+         * is built to avoid.
+         *
+         * FLIPPED VERTICALLY: `readRenderTargetPixelsAsync` is top-down on WebGPU, and a tile
+         * drawn upside down is the recorded failure that looks like a physics bug.
+         */
+        const out = new Uint8ClampedArray(TILE_W * TILE_H * 4);
+        for (let y = 0; y < TILE_H; y++) {
+          const src = (TILE_H - 1 - y) * TILE_W * 4;
+          const dst = y * TILE_W * 4;
+          for (let x = 0; x < TILE_W * 4; x += 4) {
+            out[dst + x] = (px[src + x] ?? 0) * 255;
+            out[dst + x + 1] = (px[src + x + 1] ?? 0) * 255;
+            out[dst + x + 2] = (px[src + x + 2] ?? 0) * 255;
+            out[dst + x + 3] = 255;
+          }
+        }
+        tiles.push({ id, width: TILE_W, height: TILE_H, pixels: out });
+      }
+    } finally {
+      // Put the visible pipeline back exactly as it was, whatever happened above.
+      renderer.setRenderTarget(null);
+      transferId = restore;
+      transfer = createTransferNode(litScene, restore);
+      pipeline.outputNode = vec4(transfer.node as never, 1);
+      pipeline.needsUpdate = true;
+      recalibrate();
+      dirty = true;
+    }
+    return tiles;
+  }
+
   const build = (o: PrepareOptions): StarLabStats => {
     if (graph) {
       scene.remove(graph.mesh);
@@ -611,6 +716,7 @@ export async function initStarLab(
     get sky() {
       return sky;
     },
+    contactSheet: renderContactSheet,
     update(next) {
       const s = build(next);
       dirty = true; // a rebuilt field must reach the screen even while paused
@@ -647,6 +753,7 @@ export async function initStarLab(
         graph.dispose();
       }
       skyProbe.dispose();
+      sheetTarget.dispose();
       void renderer.dispose();
     },
   };

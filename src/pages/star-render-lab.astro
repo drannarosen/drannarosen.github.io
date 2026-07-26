@@ -378,6 +378,19 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     </div>
     <p class="srl__presetNote" data-preset-note></p>
 
+    <!--
+      THE CONTACT SHEET. Every transfer on the CURRENT state, side by side.
+      Flipping a dropdown and remembering is not a comparison: a transfer changes contrast and
+      colour together, and human memory for both is poor over the second a re-render takes.
+      Rendered on demand rather than always, because it costs one render and one readback per
+      transfer — cheap once, wasteful on every slider tick.
+    -->
+    <div class="srl__sheetBar">
+      <button type="button" class="srl__preset" data-sheet>Compare all transfers</button>
+      <span class="srl__hint" data-sheet-note></span>
+    </div>
+    <div class="srl__sheet" data-sheet-out hidden></div>
+
     <p class="srl__claim" data-claim></p>
 
     <div class="srl__stage">
@@ -639,11 +652,18 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 
 <script>
   import { initStarLab } from "@novascope/viz/starfield/scene";
-  import type { TransferId } from "@novascope/core/imaging/transfers";
   import { decode, encode } from "@novascope/core/params/urlState";
   import { D0_PC } from "@novascope/core/photometry";
   import { DEFAULT_LUPTON_DEPTH_MAG } from "@novascope/core/imaging/lupton";
   import { LAB_PRESETS } from "@novascope/viz/starfield/labPresets";
+  import { TRANSFERS, type TransferId } from "@novascope/core/imaging/transfers";
+
+  /* Order and family come from the registry, so the sheet cannot list a transfer that no longer
+   * exists nor miss one that was added. */
+  const TRANSFER_ORDER: TransferId[] = TRANSFERS.map((t) => t.id);
+  const TRANSFER_FAMILY: Record<string, string> = Object.fromEntries(
+    TRANSFERS.map((t) => [t.id, t.family === "photographic" ? "photographic" : "astronomical"]),
+  );
   import {
     LAB_SCHEMA,
     PASSTHROUGH_KEYS,
@@ -1202,6 +1222,62 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         markActive();
 
         /*
+         * THE CONTACT SHEET, rendered on demand.
+         *
+         * Each tile is drawn with `putImageData` from the renderer's own readback — not a second
+         * drawing path, so a tile cannot differ from the pipeline by anything except the transfer
+         * it names. The caption carries the family, because that is the one difference a reader
+         * cannot see: astronomical curves are display-referred, photographic ones are
+         * scene-referred and get the sRGB encode.
+         */
+        const sheetBtn = document.querySelector<HTMLButtonElement>("[data-sheet]");
+        const sheetOut = document.querySelector<HTMLElement>("[data-sheet-out]");
+        const sheetNote = document.querySelector<HTMLElement>("[data-sheet-note]");
+        sheetBtn?.addEventListener("click", async () => {
+          if (!sheetOut) return;
+          sheetBtn.disabled = true;
+          if (sheetNote) sheetNote.textContent = "rendering…";
+          try {
+            const current = lab.stats.scaling;
+            const tiles = await lab.contactSheet(TRANSFER_ORDER);
+            sheetOut.replaceChildren(
+              ...tiles.map((t) => {
+                const fig = document.createElement("figure");
+                fig.className = "srl__tile" + (t.id === current ? " srl__tile--current" : "");
+                const c = document.createElement("canvas");
+                c.width = t.width;
+                c.height = t.height;
+                const ctx = c.getContext("2d");
+                if (ctx) {
+                  // `createImageData` then `set`, rather than `new ImageData(pixels, …)`: the
+                  // renderer's buffer is typed `Uint8ClampedArray<ArrayBufferLike>` and the
+                  // constructor wants an `ArrayBuffer`-backed one. Copying is the honest fix; a
+                  // cast would assert a backing store this code does not control.
+                  const img = ctx.createImageData(t.width, t.height);
+                  img.data.set(t.pixels);
+                  ctx.putImageData(img, 0, 0);
+                }
+                const cap = document.createElement("figcaption");
+                const name = document.createElement("b");
+                name.textContent = t.id;
+                const fam = document.createElement("span");
+                fam.textContent = TRANSFER_FAMILY[t.id] ?? "";
+                cap.append(name, fam);
+                fig.append(c, cap);
+                return fig;
+              }),
+            );
+            sheetOut.hidden = false;
+            if (sheetNote) {
+              sheetNote.textContent =
+                "same field, camera, white point and sky — only the transfer differs. Tiles are rendered smaller than the canvas, so each differs from the full frame; they are all the same size, so the comparison between them is exact.";
+            }
+          } finally {
+            sheetBtn.disabled = false;
+          }
+        });
+
+        /*
          * ONE REBUILD PER FRAME, COALESCED — and this is a hang fix, not a polish item.
          *
          * `lab.update` re-runs `prepareStarField`, which is 180-425 ms for 10,000 stars (413 ms
@@ -1445,6 +1521,24 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   :global(html[data-project]) .srl__presetNote { font-size: var(--step--1); }
   :global(html[data-project]) .srl__status { font-size: var(--step--2); }
 
+  .srl__sheetBar { display: flex; gap: var(--space-2xs); align-items: center; flex-wrap: wrap; }
+  .srl__sheet {
+    display: grid; gap: var(--space-2xs);
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  }
+  .srl__sheet[hidden] { display: none; }
+  .srl__tile { display: grid; gap: 0.2rem; }
+  .srl__tile canvas {
+    inline-size: 100%; block-size: auto; display: block;
+    border: 1px solid var(--border); border-radius: 6px; background: #05060a;
+  }
+  .srl__tile figcaption {
+    font-family: var(--font-mono); font-size: var(--step--2); color: var(--ink-dim);
+    display: flex; justify-content: space-between; gap: 0.5rem;
+  }
+  .srl__tile b { font-weight: 500; color: var(--ink); }
+  /* The tile matching what is on the big canvas, so the sheet says where you already are. */
+  .srl__tile--current canvas { border-color: var(--spec-teal-bright, #4fd6c4); }
   .srl__group { margin-block-start: var(--space-s); }
   .srl__grouph {
     font-family: var(--font-mono); font-size: var(--step--2); font-weight: 500;
