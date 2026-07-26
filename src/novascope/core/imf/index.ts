@@ -1,194 +1,39 @@
 /*
- * imf.ts — physically-motivated star-cluster sampling for the hero visual.
+ * core/imf — stellar initial mass functions, filed by law.
  *
- * This is deliberately real, not decorative: masses are drawn from a stellar
- * initial mass function, positions from a Plummer sphere, and each star's
- * color and size follow simplified main-sequence relations. The visual payoff
- * (a few rare bright-blue massive stars among many faint red ones) is a direct
- * consequence of the IMF slope — which is the point.
+ * PURE MATHEMATICS. This module knows how many stars of each mass a law predicts and how to draw
+ * one; it does not know where they sit, what colour they are, or how large they render. Sampling a
+ * cluster is `core/cluster`; a star's state is `core/stellar.star()`.
  *
- * Stellar properties (L, Teff) come from the shared physics core in stellar.ts
- * (Tout et al. 1996, ported from and validated against startrax), so the hero,
- * the story, and the /explore inspector all draw from one grounded source.
+ * That boundary is not yet fully held — see the retired block at the bottom, which still exports a
+ * second `sampleCluster` returning `sizePx`, `baseOpacity` and `twinkles`. It is kept only until
+ * its two consumers (the homepage hero and the /model-path stage) move off it, and is deleted in
+ * Task 7 of docs/plans/2026-07-26-novascope-core-consolidation.md. Do not add callers.
  */
+export type { Segment } from "./kroupa.ts";
+export { buildKroupaSegments, sampleKroupaMass, kroupaMassFraction } from "./kroupa.ts";
+export type { MaschbergerParams } from "./maschberger.ts";
+export {
+  MASCHBERGER_MU,
+  MASCHBERGER_BETA,
+  maschbergerMass,
+  maschbergerMassFraction,
+} from "./maschberger.ts";
+export { alpha3FromEnvironment } from "./environment.ts";
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * RETIRED — everything below this line is deleted in Task 7. It is the legacy
+ * cluster sampler: it bypasses the star(M, Z, t) contract, collides by name with
+ * `core/cluster.sampleCluster`, and returns canvas pixels from Layer 0.
+ * ──────────────────────────────────────────────────────────────────────────── */
 
 import { zamsLuminosity, zamsTeff, teffToRGB } from "../stellar/index.ts";
 import { mulberry32 } from "../random/index.ts";
+import { buildKroupaSegments, sampleKroupaMass } from "./kroupa.ts";
 
 // teffToRGB is an intrinsic stellar property (core/stellar); re-exported here so
 // existing callers (the hero story) keep importing it from @novascope/core/imf.
 export { teffToRGB };
-
-/* ── Kroupa (2001) IMF ───────────────────────────────────────────────
- * Broken power law  dN/dm ∝ m^-α  (Kroupa 2001, MNRAS 322, 231):
- *   α = 1.3 for 0.08 ≤ m/M☉ < 0.5
- *   α = 2.3 for 0.5  ≤ m/M☉        (Kroupa canonical high-mass slope, not Salpeter 2.35)
- * We sample over [mMin, mMax] via inverse-CDF of the piecewise law with
- * amplitudes chosen for continuity at the 0.5 M☉ break. */
-export interface Segment {
-  lo: number;
-  hi: number;
-  alpha: number;
-  amp: number; // continuity amplitude A_i in ξ = A_i m^-α
-  weight: number; // ∫ ξ dm over [lo, hi]
-  cum: number; // cumulative weight up to and including this segment
-}
-
-const KROUPA_BREAK = 0.5;
-const KROUPA_ALPHA_LOW = 1.3;
-const KROUPA_ALPHA_HIGH = 2.3;
-
-function segmentIntegral(alpha: number, amp: number, a: number, b: number): number {
-  if (Math.abs(1 - alpha) < 1e-9) return amp * Math.log(b / a);
-  const p = 1 - alpha;
-  return (amp * (Math.pow(b, p) - Math.pow(a, p))) / p;
-}
-
-/**
- * Build the piecewise Kroupa CDF over [mMin, mMax]. `alphaHigh` is the high-mass
- * slope (default 2.3, Kroupa canonical) — the knob the IMF chapter varies to make a
- * cluster top- or bottom-heavy. The low-mass slope stays Kroupa's 1.3.
- */
-export function buildKroupaSegments(
-  mMin: number,
-  mMax: number,
-  alphaHigh: number = KROUPA_ALPHA_HIGH,
-): Segment[] {
-  const segs: Segment[] = [];
-  // Amplitudes: fix low segment at 1, match high segment at the break.
-  const ampLow = 1;
-  const ampHigh = ampLow * Math.pow(KROUPA_BREAK, alphaHigh - KROUPA_ALPHA_LOW);
-
-  const raw: Array<Omit<Segment, "weight" | "cum">> = [];
-  if (mMin < KROUPA_BREAK) {
-    raw.push({ lo: mMin, hi: Math.min(KROUPA_BREAK, mMax), alpha: KROUPA_ALPHA_LOW, amp: ampLow });
-  }
-  if (mMax > KROUPA_BREAK) {
-    raw.push({ lo: Math.max(KROUPA_BREAK, mMin), hi: mMax, alpha: alphaHigh, amp: ampHigh });
-  }
-
-  let cum = 0;
-  for (const s of raw) {
-    const weight = segmentIntegral(s.alpha, s.amp, s.lo, s.hi);
-    cum += weight;
-    segs.push({ ...s, weight, cum });
-  }
-  // Normalize cumulative to [0, 1].
-  const total = cum;
-  for (const s of segs) s.cum /= total;
-  return segs;
-}
-
-/** Inverse-CDF sample a single mass (M☉) from the Kroupa IMF. */
-export function sampleKroupaMass(u: number, segs: Segment[]): number {
-  let prevCum = 0;
-  for (const s of segs) {
-    if (u <= s.cum || s === segs[segs.length - 1]) {
-      const segU = (u - prevCum) / (s.cum - prevCum); // 0..1 within segment
-      const target = segU * s.weight;
-      const p = 1 - s.alpha;
-      if (Math.abs(p) < 1e-9) {
-        return s.lo * Math.exp(target / s.amp);
-      }
-      const base = Math.pow(s.lo, p) + (target * p) / s.amp;
-      return Math.pow(base, 1 / p);
-    }
-    prevCum = s.cum;
-  }
-  return segs[segs.length - 1].hi;
-}
-
-/**
- * Fraction of stars expected in [mLo, mHi] under the normalized Kroupa law —
- * the analytic curve the histogram overlays on the sampled counts. Integrates
- * ξ over the requested range, clipped to each segment, ÷ the total.
- */
-export function kroupaMassFraction(mLo: number, mHi: number, segs: Segment[]): number {
-  let acc = 0;
-  let total = 0;
-  for (const s of segs) {
-    total += s.weight;
-    const a = Math.max(mLo, s.lo);
-    const b = Math.min(mHi, s.hi);
-    if (b > a) acc += segmentIntegral(s.alpha, s.amp, a, b);
-  }
-  return total > 0 ? acc / total : 0;
-}
-
-/* ── Maschberger (2013) IMF ───────────────────────────────────────────
- * A single smooth formula bridging the low-mass turnover and the high-mass
- * power-law tail — no piecewise break, and an EXACT analytic quantile, so
- * sampling is one closed-form evaluation. Ported from progenax's
- * `progenax.imf.smooth.Maschberger` (verified against a progenax fixture by
- * scripts/check-imf.mjs). The high-mass slope is α; canonically α = 2.3 — the
- * Kroupa/Chabrier value, NOT Salpeter's 2.35.
- *
- *   pdf(m) ∝ (m/μ)^(-α) · [1 + (m/μ)^(1-α)]^(-β)
- *   primitive P(m) = μ / [(1-β)(1-α)] · [1 + (m/μ)^(1-α)]^(1-β)
- *
- * Source: Maschberger, T. (2013), MNRAS 429, 1725, Eq. (5); Table 1 canonical
- * single-star parameters μ = 0.2 M☉, β = 1.4. */
-export const MASCHBERGER_MU = 0.2; // scale parameter [M☉] (Maschberger 2013 Table 1)
-export const MASCHBERGER_BETA = 1.4; // low-mass turnover (Maschberger 2013 Table 1)
-
-export interface MaschbergerParams {
-  mMin: number;
-  mMax: number;
-  alpha: number; // high-mass slope
-  mu?: number;
-  beta?: number;
-}
-
-function maschbergerPrimitive(m: number, alpha: number, mu: number, beta: number): number {
-  const u = (m / mu) ** (1 - alpha);
-  const coeff = mu / ((1 - beta) * (1 - alpha));
-  return coeff * (1 + u) ** (1 - beta);
-}
-
-/** Inverse-CDF sample a mass (M☉) from the Maschberger IMF — exact, analytic. */
-export function maschbergerMass(uUniform: number, p: MaschbergerParams): number {
-  const mu = p.mu ?? MASCHBERGER_MU;
-  const beta = p.beta ?? MASCHBERGER_BETA;
-  const { alpha, mMin, mMax } = p;
-  const pMin = maschbergerPrimitive(mMin, alpha, mu, beta);
-  const pMax = maschbergerPrimitive(mMax, alpha, mu, beta);
-  const pTarget = pMin + uUniform * (pMax - pMin);
-  const coeff = mu / ((1 - beta) * (1 - alpha));
-  const onePlusU = (pTarget / coeff) ** (1 / (1 - beta));
-  const m = mu * (onePlusU - 1) ** (1 / (1 - alpha));
-  return Math.min(mMax, Math.max(mMin, m));
-}
-
-/** Fraction of stars in [mLo, mHi] under the normalized Maschberger law
- *  (exact, via the analytic primitive) — the histogram's overlay. */
-export function maschbergerMassFraction(mLo: number, mHi: number, p: MaschbergerParams): number {
-  const mu = p.mu ?? MASCHBERGER_MU;
-  const beta = p.beta ?? MASCHBERGER_BETA;
-  const { alpha, mMin, mMax } = p;
-  const a = Math.max(mLo, mMin);
-  const b = Math.min(mHi, mMax);
-  if (b <= a) return 0;
-  const norm = maschbergerPrimitive(mMax, alpha, mu, beta) - maschbergerPrimitive(mMin, alpha, mu, beta);
-  return (maschbergerPrimitive(b, alpha, mu, beta) - maschbergerPrimitive(a, alpha, mu, beta)) / norm;
-}
-
-/* ── Environment-dependent high-mass slope ────────────────────────────
- * The IMF is not universal: in dense, metal-poor clusters the high-mass slope
- * flattens (top-heavy). Ported from progenax's environment module
- * (`alpha3_jerabkova_mecl`): Jerabkova+2018 Eq. 6 with the 8π half-mass-density
- * convention (Marks+2012), assuming ε = 0.33.
- *
- *   x   = -0.14·[Fe/H] + 0.6039·log₁₀(M_ecl/10⁶) + 0.2161
- *   α₃  = 2.3                (x < -0.87, canonical)
- *       = -0.41·x + 1.94     (x ≥ -0.87, top-heavy),  clipped to [0.5, 2.3]
- *
- * Source: Jerabkova et al. (2018), A&A 620, A39; Marks et al. (2012), MNRAS 422,
- * 2246 (+ 2014 erratum). Validated against progenax by scripts/check-imf.mjs. */
-export function alpha3FromEnvironment(feh: number, mEcl: number): number {
-  const x = -0.14 * feh + 0.6039 * Math.log10(mEcl / 1e6) + 0.2161;
-  const a3 = x < -0.87 ? 2.3 : -0.41 * x + 1.94;
-  return Math.min(2.3, Math.max(0.5, a3));
-}
 
 /* ── Main-sequence relations ──────────────────────────────────────────
  * Physics-grounded ZAMS properties come from the shared stellar core
