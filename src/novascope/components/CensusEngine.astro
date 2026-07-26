@@ -208,7 +208,7 @@ const m = (tex: string, display = false) =>
     const store = createClusterStore({
       adapter: localStorageAdapter(),
       instance: "census",
-      identity: defaultIdentity({ sampling: { mode: "count", target: 1200 }, imf: { kind: "maschberger", mMin: 0.1, mMax: 100, alphaHigh: 2.3 } }),
+      identity: defaultIdentity({ sampling: { mode: "count", target: 1200 }, imf: { mMin: 0.1, mMax: 100, alphaHigh: 2.3 } }),
     });
 
     const camera = makeCamera(store.getView().toggles.threeD ? "3D" : "2D");

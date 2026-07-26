@@ -10,6 +10,39 @@ import { describe, expect, it } from "vitest";
 import { defaultIdentity, sampleCluster, serializeIdentity, deserializeIdentity } from "./index.ts";
 import { maschbergerMass, buildKroupaSegments, sampleKroupaMass } from "../imf/index.ts";
 
+describe("defaultIdentity merges one level deep, as its docstring says", () => {
+  /*
+   * The runtime always deep-merged — every nested field is spread over a complete literal. Only
+   * the TYPE disagreed: `Partial<ClusterIdentity>` makes each top-level key optional but demands
+   * a COMPLETE nested object, so changing one IMF field meant restating all four. Two call sites
+   * were restating defaults purely to satisfy that, which is the restated-fact problem the
+   * site-integrity discipline exists to prevent.
+   */
+  it("takes a partial nested object and fills the rest from defaults", () => {
+    const id = defaultIdentity({ imf: { alphaHigh: 1.8 } });
+    expect(id.imf).toEqual({ kind: "maschberger", mMin: 0.1, mMax: 100, alphaHigh: 1.8 });
+  });
+
+  it("does the same for sampling, profile and kinematics", () => {
+    expect(defaultIdentity({ sampling: { target: 60 } }).sampling).toEqual({ mode: "count", target: 60 });
+    expect(defaultIdentity({ profile: { scaleRadius: 3 } }).profile).toEqual({ kind: "eff", scaleRadius: 3, gamma: 5 });
+    expect(defaultIdentity({ kinematics: { virialRatio: 0.2 } }).kinematics).toEqual({ virialRatio: 0.2 });
+  });
+
+  it("merges ONE level only — the depth the spread actually implements", () => {
+    /* Stated as a test so the type cannot quietly promise recursion the runtime does not do. */
+    const id = defaultIdentity({ profile: { kind: "plummer", scaleRadius: 1 } });
+    expect(id.profile.gamma).toBe(5);
+  });
+
+  it("an explicitly undefined seed still takes the default", () => {
+    /* The old form was `..."seed" in over ? { seed: over.seed! } : {}`, which returned undefined
+     * for `{ seed: undefined }` — a latent bug behind a non-null assertion. */
+    expect(defaultIdentity({ seed: undefined }).seed).toBe(defaultIdentity().seed);
+    expect(defaultIdentity({ seed: 7 }).seed).toBe(7);
+  });
+});
+
 describe("the IMF law is part of the identity", () => {
   it("defaults to maschberger — what the code has always actually sampled", () => {
     expect(defaultIdentity().imf.kind).toBe("maschberger");

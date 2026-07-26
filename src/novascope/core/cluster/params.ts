@@ -62,18 +62,42 @@ export interface LatentStar {
   vz: number;
 }
 
-/** The baseline cluster; overrides deep-merge onto it. */
-export function defaultIdentity(over: Partial<ClusterIdentity> = {}): ClusterIdentity {
+/**
+ * Overrides for {@link defaultIdentity} — one level deep, which is what the merge actually does.
+ *
+ * `Partial<ClusterIdentity>` was the wrong type for this function. It makes each TOP-LEVEL key
+ * optional while still demanding a COMPLETE nested object, so changing one IMF field meant
+ * restating all four — and two call sites were restating defaults purely to satisfy it, which is
+ * a restated fact sitting there waiting to drift from the thing it copies.
+ *
+ * DELIBERATELY ONE LEVEL, not a recursive DeepPartial. `defaultIdentity` spreads each nested
+ * object exactly once, so a recursive type would promise a merge depth the implementation does not
+ * have — and the failure would be silent, since the inner value would simply be dropped. The type
+ * says what the function does and no more.
+ */
+export type ClusterIdentityOverrides = {
+  [K in keyof ClusterIdentity]?: ClusterIdentity[K] extends object
+    ? Partial<ClusterIdentity[K]>
+    : ClusterIdentity[K];
+};
+
+/** The baseline cluster; overrides deep-merge onto it, one level. */
+export function defaultIdentity(over: ClusterIdentityOverrides = {}): ClusterIdentity {
   return {
     schemaVersion: CLUSTER_SCHEMA_VERSION,
-    seed: 20260718,
+    /*
+     * `?? ` rather than the old `..."seed" in over ? { seed: over.seed! } : {}`. That form
+     * returned `undefined` for `defaultIdentity({ seed: undefined })` — a latent bug that the
+     * non-null assertion was hiding rather than preventing, and the reason the conventions
+     * discourage `!`.
+     */
+    seed: over.seed ?? 20260718,
     sampling: { mode: "count", target: 1200, ...over.sampling },
     imf: { kind: "maschberger", mMin: 0.1, mMax: 100, alphaHigh: 2.3, ...over.imf },
     Z: over.Z ?? 0.02,
     profile: { kind: "eff", scaleRadius: 1, gamma: 5, ...over.profile },
     segregation: over.segregation ?? 0,
     kinematics: { virialRatio: 0.5, ...over.kinematics },
-    ...("seed" in over ? { seed: over.seed! } : {}),
   };
 }
 
@@ -84,7 +108,7 @@ export const presets: Record<string, ClusterIdentity> = {
   starburst: defaultIdentity({
     seed: 42,
     sampling: { mode: "mass", target: 3e4 },
-    imf: { kind: "maschberger", mMin: 0.1, mMax: 120, alphaHigh: 2.0 }, // top-heavy
+    imf: { mMax: 120, alphaHigh: 2.0 }, // top-heavy
   }),
   diffuse: defaultIdentity({ seed: 99, profile: { kind: "eff", scaleRadius: 3, gamma: 5 } }),
   segregated: defaultIdentity({ seed: 11, segregation: 1, profile: { kind: "eff", scaleRadius: 1, gamma: 5 } }),
