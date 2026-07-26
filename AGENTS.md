@@ -145,14 +145,20 @@ vanishes.
   "Anna Rosen builds…". Names stay in metadata (`og:site_name`, `author`,
   `reviewedBy`) so provenance remains machine-readable.
 
-Three project skills carry the working discipline, each triggered at a
-different moment — read the skill, do not re-derive it here:
+Project skills carry the working discipline, each triggered at a different
+moment — read the skill, do not re-derive it here:
 
 - **site-claims** — honesty of every published claim (never invent a fact).
 - **site-integrity** — building safely: derive facts, gate drift, one source
   of truth per fact.
 - **site-verify** — shipping safely: verify in the browser at 1440px, and
   confirm the deploy went green, not just that the push succeeded.
+- **explore-authoring** — the "Lives & Deaths of Star Clusters" series: go
+  through the `star()` contract, store only latent state, state the model rung
+  on the page, never imply the browser runs the research codes.
+- **lab-measure** — measuring or diagnosing what `/star-render-lab` draws.
+  Its rule 0 is that Anna's eyes are the ground truth: when she says the image
+  looks wrong, it is wrong, and the job is to find out why.
 
 ## Analytics
 
