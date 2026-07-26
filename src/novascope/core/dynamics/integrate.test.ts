@@ -42,6 +42,15 @@ function harmonic(omega: number): ForceModel {
       }
       return u;
     },
+    potentials(pos: Vec3Array, mass: Float64Array, out: Float64Array): void {
+      // An external well, so no 1/2: Phi_i is the full potential each particle sits in.
+      for (let i = 0; i < mass.length; i++) {
+        const x = pos[i * 3];
+        const y = pos[i * 3 + 1];
+        const z = pos[i * 3 + 2];
+        out[i] = 0.5 * w2 * (x * x + y * y + z * z);
+      }
+    },
   };
 }
 

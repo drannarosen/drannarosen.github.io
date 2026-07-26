@@ -65,6 +65,21 @@ export interface ForceModel {
    * See the header — this requirement is the reason the method is here at all.
    */
   potentialEnergy(pos: Vec3Array, mass: Float64Array, t: number): number;
+
+  /**
+   * Potential per unit mass at each particle [(pc/Myr)^2], written into `out` (length n).
+   *
+   * REQUIRED rather than optional, because "is this star bound?" is the question the whole
+   * gas-expulsion story turns on, and it is answered by 1/2 v^2 + Phi_i < 0 — which needs
+   * the potential AT the star, not the system total. A model that cannot say how deep each
+   * star sits cannot answer it, and an optional method would let that failure be silent.
+   *
+   * Note the relationship, and that it is not an alternative definition:
+   * `potentialEnergy` = 1/2 sum_i m_i Phi_i for the SELF-gravitating part, because each pair
+   * is counted twice by summing over every star. An external background carries no such
+   * factor. Both models implement the pair accordingly.
+   */
+  potentials(pos: Vec3Array, mass: Float64Array, out: Float64Array, t: number): void;
 }
 
 /** The particles. `pos` and `vel` are mutated in place by the integrator. */

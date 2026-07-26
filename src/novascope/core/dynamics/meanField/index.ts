@@ -173,5 +173,17 @@ export function createMeanFieldForce(n: number, opts: MeanFieldOptions = {}): Me
       }
       return u;
     },
+
+    potentials(pos: Vec3Array, mass: Float64Array, out: Float64Array, t: number): void {
+      buildProfile(pos, mass);
+      for (let i = 0; i < n; i++) {
+        /* The FULL potential the star sits in, including the shells OUTSIDE it. Those exert
+           no net force — which is why `accelerations` ignores them — but they absolutely set
+           the escape energy, so boundness must count them. Getting this wrong makes a star
+           deep inside an extended gas cloud look unbound because only the interior mass was
+           holding it. */
+        out[i] = phiStarAt(binOf(radii[i])) + (external ? external.potential(radii[i], t) : 0);
+      }
+    },
   };
 }

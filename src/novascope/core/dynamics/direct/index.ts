@@ -127,5 +127,26 @@ export function createDirectForce(opts: DirectOptions): ForceModel {
       }
       return u;
     },
+
+    potentials(pos: Vec3Array, mass: Float64Array, out: Float64Array): void {
+      const n = mass.length;
+      out.fill(0);
+      // Pairs once, contributing to both members: Phi_i gets m_j and Phi_j gets m_i.
+      for (let i = 0; i < n; i++) {
+        const ix = i * 3;
+        const xi = pos[ix];
+        const yi = pos[ix + 1];
+        const zi = pos[ix + 2];
+        for (let j = i + 1; j < n; j++) {
+          const jx = j * 3;
+          const dx = pos[jx] - xi;
+          const dy = pos[jx + 1] - yi;
+          const dz = pos[jx + 2] - zi;
+          const invR = G / Math.sqrt(dx * dx + dy * dy + dz * dz + eps2);
+          out[i] -= invR * mass[j];
+          out[j] -= invR * mass[i];
+        }
+      }
+    },
   };
 }
