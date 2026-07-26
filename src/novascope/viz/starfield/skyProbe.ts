@@ -81,15 +81,28 @@ export interface SkyMeasurement {
 }
 
 /**
- * The percentile taken as "the sky".
+ * The percentile taken as "the sky" — and it is currently WRONG in a way worth recording.
  *
- * A LOW percentile, not the median: in a cluster frame a large minority of pixels carry real star
- * light, and the median drags upward with it in the core. 0.25 is low enough to sit on the
- * pedestal and high enough not to be reading the darkest corner of an unevenly filled frame.
+ * A low percentile, not the median, was the intent: in a cluster frame a large minority of pixels
+ * carry real star light and the median drags upward with it in the core.
  *
- * Deliberately a named constant rather than an argument, because a percentile that can be tuned
- * per call is a second exposure control by another name — and this project already has one
- * control meaning two things.
+ * ── WHY 0.25 DOES NOT WORK, MEASURED 2026-07-25 ──
+ *
+ * The sampled distribution has an ATOM AT EXACTLY ZERO, and it is large: 26.9% of pixels at bloom
+ * 0, 59.6% at 0.15, 76.5% at 0.35. Those are pixels outside every star's quad — they are not sky,
+ * they are empty. A 25th percentile therefore lands INSIDE that atom whenever the zero-fraction
+ * exceeds 25%, returns exactly 0, and flips to the first non-zero value the moment a rendering
+ * difference nudges the fraction across the boundary.
+ *
+ * That is the entire "1.17e-5, 5.91e-5, and once 0" instability. It was previously recorded here
+ * and in the roadmap as a bloom-versus-`setViewOffset` cropping bug — bloom being screen-space,
+ * its internal targets not cropping with the projection. THAT DIAGNOSIS WAS WRONG. The test that
+ * settled it: with bloom OFF the probe returns zero every time, which is not flakiness at all but
+ * the correct p25 of a distribution that is 82% zeros.
+ *
+ * The fix is to take the percentile over pixels that actually carry background — non-zero ones —
+ * rather than over the whole tile. Not yet done; it is the next change to this file, and this
+ * comment exists so the wrong diagnosis is not rediscovered and re-fixed.
  */
 export const SKY_PERCENTILE = 0.25;
 
@@ -131,7 +144,12 @@ export function createSkyProbe(
        */
       try {
         /*
-         * ONE DISCARDED WARM-UP RENDER, and it is not superstition.
+         * ONE DISCARDED WARM-UP RENDER.
+         *
+         * NOTE: this was added to fix an instability later shown to have a different cause
+         * entirely — see `SKY_PERCENTILE`. It is kept because a first render after a projection
+         * change is still the least trustworthy one, but it is NOT the fix for the zeros, and it
+         * should not be cited as evidence that the bloom-cropping theory was right.
          *
          * `litScene` includes the bloom pass, which carries internal render targets and mip
          * chains that are sized and populated lazily. The first render after a rebuild — or after

@@ -193,11 +193,19 @@ Ordered by dependency, not by appetite. One at a time.
    background to subtract" and is unfalsifiable from the readout alone. A discarded warm-up render
    reduced the zeros without fixing it.
 
-   **Cause, and it is architectural rather than a bug to poke at:** `bloom` is a SCREEN-SPACE
-   effect whose internal render targets and mip chain are sized to the renderer, not to the crop.
-   `setViewOffset` changes the projection, so the scene renders as a true-scale tile while bloom's
-   buffers do not crop coherently with it — the probe samples a glare texture that does not
-   correspond to the tile beneath it.
+   **That diagnosis was WRONG, corrected 2026-07-25.** It was recorded here as a bloom-versus-
+   `setViewOffset` cropping problem — bloom being screen-space, its internal targets not cropping
+   with the projection. The real cause is a degenerate percentile.
+
+   The sampled distribution has an ATOM AT EXACTLY ZERO holding 26.9% of pixels at bloom 0, 59.6%
+   at 0.15 and 76.5% at 0.35 — pixels outside every star's quad, which are not sky but empty. A
+   25th percentile lands inside that atom whenever the zero-fraction exceeds 25%, returns exactly
+   0, and flips to the first non-zero value when a small rendering difference nudges the fraction
+   across the boundary. The test that settled it: with bloom OFF the probe returns zero EVERY
+   time, which is not instability but the correct p25 of a distribution that is 82% zeros.
+
+   The fix is to take the percentile over pixels that carry background — non-zero ones — rather
+   than over the whole tile.
 
    Two ways out, not yet chosen:
 

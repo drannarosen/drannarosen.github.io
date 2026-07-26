@@ -792,7 +792,17 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     transfer: readValue("[data-scaling]", "") || TRANSFER_AUTO,
     depth: Number(readValue("[data-depth]", String(initialState.depth))),
     sky: Number(readValue("[data-sky]", "0")),
-    skyauto: document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? false,
+    /*
+     * FALLS BACK TO THE URL, because the checkbox does not exist.
+     *
+     * The "measure it" control was deliberately removed when the probe turned out not to be
+     * repeatable — but `readState` went on reading it from the DOM, so `?skyauto` decoded to true
+     * and was immediately re-encoded as false. The flag was silently dead and the probe
+     * unreachable, which is a worse outcome than either shipping the checkbox or removing the
+     * flag: the escape hatch existed in the docs and not in the code.
+     */
+    skyauto:
+      document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? initialState.skyauto,
     bloom: Number(readValue("[data-bloom]", "0.35")),
     exposure: Number(readValue("[data-exposure]", "1")),
     minmass: Number(readValue("[data-min-mass]", "0")),
@@ -936,7 +946,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       colorMode: inst ? ("photometric" as const) : ("population" as const),
       ...(scaling === "" ? {} : { scaling }),
       skyLevel: Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0),
-      skyAuto: document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? false,
+      skyAuto:
+        document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? initialState.skyauto,
       bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
       ...(depth === undefined ? {} : { starDepthMag: Number(depth) }),
       pixelDepthMag: Number(
@@ -1337,7 +1348,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
             lab.setDisplay({
               bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
               skyLevel: Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0),
-              skyAuto: document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? false,
+              skyAuto:
+        document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? initialState.skyauto,
             });
             show(lab.stats); // stats are unchanged; the readout still needs the new sky
           });
