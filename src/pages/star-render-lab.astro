@@ -723,46 +723,13 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     PASSTHROUGH_KEYS,
     TRANSFER_AUTO,
     labStateToPrepareOptions,
-    skyFractionFromSlider,
-    sliderFromSkyFraction,
     type LabState,
     type MotionChoice,
   } from "@novascope/viz/starfield/labParams";
-
-  /**
-   * How a sky level is spelled, in ONE place.
-   *
-   * It is shown in three spots (the slider's own readout, the measured readout, the claim
-   * sentence) and the three had drifted to two different precisions — `toFixed(2)` for the chosen
-   * value and `toFixed(3)` for the measured one, so the same number read differently depending on
-   * which produced it. At the low end that mattered: the useful settings start at 0.2% of white
-   * and the probe returns values near 0.001%, both of which print as "0.00%" at two decimals.
-   *
-   * Significant figures rather than fixed decimals, so 0.002% and 6.4% are each legible.
-   */
-  const skyPercent = (fraction: number): string => {
-    const s = (100 * fraction).toPrecision(fraction >= 0.001 ? 3 : 2);
-    /* Trailing zeros only ever come off a fractional part. Stripping them from "100" would leave
-     * "1", which the obvious one-line regex does — out of reach here, but not worth relying on. */
-    return `${s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s}%`;
-  };
-
-  /** The sky slider's current position, as the fraction of white it means. */
-  const readSky = (): number =>
-    skyFractionFromSlider(Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0));
-
-  /**
-   * Whether the sky is MEASURED rather than chosen — from the checkbox if one exists, else the URL.
-   *
-   * THE SAME BUG TWICE, so it now has one home. The "measure it" checkbox was removed while the
-   * probe was untrustworthy, and every site that asked the DOM for it kept asking. `readState`
-   * defaulted to `false` and re-encoded `?skyauto` away, which killed the escape hatch; the
-   * readout defaulted to `false` too, so with `?skyauto` genuinely on the page ran the probe,
-   * subtracted its answer, and displayed "none" — the reading being least true of the picture on
-   * screen. A `?? false` against a removed element is not a default, it is a wrong answer.
-   */
-  const readSkyAuto = (): boolean =>
-    document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? initialState.skyauto;
+  import {
+    createLabControls,
+    assertControlsPresent,
+  } from "@novascope/viz/starfield/labControls";
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-stage]");
   const status = document.querySelector<HTMLElement>("[data-status]");
@@ -836,85 +803,22 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     if (raw !== null) passthrough[key] = raw;
   }
 
-  const setValue = (selector: string, value: string): void => {
-    const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
-    if (el) el.value = value;
-  };
-
-  /**
-   * Push the decoded state into the controls, BEFORE the renderer starts.
+  /*
+   * THE CONTROLS, BOUND ONCE — see `viz/starfield/labControls`.
    *
-   * Order matters: `read()` below builds the renderer's options by reading the DOM, so the DOM
-   * has to be the state first. Setting the controls and letting one code path read them keeps a
-   * single source of truth — the alternative, passing the state to the renderer AND setting the
-   * controls separately, is two paths that can disagree, and the disagreement would show up as a
-   * link whose picture does not match its own sliders.
-   */
-  const applyState = (s: LabState): void => {
-    setValue("[data-instrument]", s.instrument);
-    setValue("[data-scheme]", s.scheme);
-    setValue("[data-band]", s.band);
-    setValue("[data-scaling]", s.transfer === TRANSFER_AUTO ? "" : s.transfer);
-    setValue("[data-depth]", String(s.depth));
-    /* The URL carries the FRACTION; the widget carries its cubic position. Same split as `dist`. */
-    setValue("[data-sky]", String(sliderFromSkyFraction(s.sky)));
-    setValue("[data-dist]", String(Math.log10(s.dist)));
-    setValue("[data-curve]", String(s.curve));
-    const skyAutoEl = document.querySelector<HTMLInputElement>("[data-sky-auto]");
-    if (skyAutoEl) skyAutoEl.checked = s.skyauto;
-    setValue("[data-bloom]", String(s.bloom));
-    setValue("[data-aureole]", String(s.aureole));
-    setValue("[data-spikes]", String(s.spikes));
-    setValue("[data-exposure]", String(s.exposure));
-    setValue("[data-min-mass]", String(s.minmass));
-  };
-
-  const readValue = (selector: string, fallback: string): string =>
-    document.querySelector<HTMLInputElement | HTMLSelectElement>(selector)?.value ?? fallback;
-
-  /**
-   * The current control state, for writing back to the URL.
+   * This was ninety lines here, and its readers sat hundreds of lines away inside the renderer
+   * callback. Two bugs came from exactly that distance: `?skyauto` decoded true and was re-encoded
+   * false, and the sky readout said "none" while the probe's answer was being subtracted from the
+   * picture — both because a reader asked for a checkbox the markup no longer had, and `?? false`
+   * turned a missing element into a plausible wrong answer instead of an error.
    *
-   * `motion` is passed in rather than read from the renderer, and that is the whole point of it
-   * being tri-state: `lab.drifting` reports what the renderer is DOING, which is not the same as
-   * what anyone CHOSE. Recording the former is what put `?spin` on every link and would have
-   * overridden a reduced-motion visitor's setting. Only a deliberate click moves this off `auto`.
+   * The module owns the query-string ↔ DOM ↔ `LabState` binding and lists every selector it binds,
+   * so `assertControlsPresent` can say out loud when the markup and the code have diverged.
    */
-  const readState = (motion: MotionChoice): LabState => ({
-    instrument: readValue("[data-instrument]", initialState.instrument),
-    scheme: readValue("[data-scheme]", initialState.scheme),
-    band: readValue("[data-band]", initialState.band),
-    transfer: readValue("[data-scaling]", "") || TRANSFER_AUTO,
-    depth: Number(readValue("[data-depth]", String(initialState.depth))),
-    sky: readSky(),
-    /* Falls back to the URL, because the checkbox does not exist — see `readSkyAuto`. */
-    skyauto: readSkyAuto(),
-    bloom: Number(readValue("[data-bloom]", "0.35")),
-    aureole: Number(readValue("[data-aureole]", "1")),
-    spikes: Number(readValue("[data-spikes]", "1")),
-    exposure: Number(readValue("[data-exposure]", "1")),
-    minmass: Number(readValue("[data-min-mass]", "0")),
-    /*
-     * ROUNDED TO WHOLE PARSECS on the way into the URL. The slider is logarithmic and its raw
-     * value carries more precision than the distance is known to; `dist=136` is a link someone can
-     * read and retype from a lecture note, `dist=136.4782` is machine exhaust.
-     */
-    dist: Math.round(10 ** Number(readValue("[data-dist]", String(Math.log10(D0_PC))))),
-    curve: Number(readValue("[data-curve]", String(DEFAULT_LUPTON_DEPTH_MAG))),
-    motion,
-  });
+  const { skyPercent, readSky, readSkyAuto, readValue, applyState, readState, syncUrl } =
+    createLabControls(initialState, passthrough);
 
-  /**
-   * Write the state to the address bar.
-   *
-   * `replaceState`, not `pushState`: a slider drag would otherwise stack one history entry per
-   * frame and make the back button unusable — the visitor would have to press it two hundred
-   * times to leave the page. The URL is a live description of the state, not a trail through it.
-   */
-  const syncUrl = (motion: MotionChoice): void => {
-    const query = encode(LAB_SCHEMA, readState(motion), passthrough);
-    history.replaceState(null, "", query === "" ? location.pathname : `?${query}`);
-  };
+  if (import.meta.env.DEV) assertControlsPresent();
 
   applyState(initialState);
 

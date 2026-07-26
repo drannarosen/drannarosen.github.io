@@ -99,6 +99,33 @@ becomes `(width >= 60rem)`), so grepping for the literal text you wrote reports
 a false negative. It also strips CSS comments, so a `/* PROBE */` marker
 vanishes.
 
+## Open it before you describe it
+
+**Never assert what this repo contains, builds, or renders without reading it in
+that same turn.** Not from memory, not from a filename, not from a plan document
+that describes an intention.
+
+This is the failure that costs Anna the most, and it is not a coding failure —
+it is narrating confidently about something unopened. Three in one session:
+
+- "nothing is built yet" about the explorables, while five `/explore` pages ship
+  and 23 spec files sit in `src/content/explore-plan/`;
+- a saturated frame reported as fixed, because a summary statistic moved;
+- a cause named for a rendering defect three times running, each time by
+  reasoning to a plausible culprit instead of switching one off.
+
+Its cost is not the wrong answer. It is that a confident wrong answer, delivered
+with numbers, makes Anna doubt what she can plainly see — and she has been right
+about the image every single time.
+
+**The rule:** if the sentence contains a claim about the code, open the code
+first. If a measurement disagrees with what she is looking at, the measurement is
+the suspect. Say "I don't know yet" rather than shipping a plausible story; it is
+worth more than a fast answer and costs far less than a wrong one.
+
+This is deliberately a standing rule and not a skill: a skill triggers on a task
+shape, and this applies to every turn, so it would be the skill that never fires.
+
 ## Conventions
 
 - Strict TypeScript everywhere; avoid `any` and unchecked assertions.

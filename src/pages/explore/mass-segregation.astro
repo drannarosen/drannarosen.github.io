@@ -61,7 +61,7 @@ import Math from "../../components/Math.astro";
 </BaseLayout>
 
 <script>
-  import { sceneFromParts, createEngine, attachInteraction, makeSegregator } from "../../lib/cluster";
+  import { sceneFromParts, createEngine, attachInteraction, makeSegregator } from "@novascope/viz/webgl";
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-cluster]");
   const slider = document.querySelector<HTMLInputElement>("[data-lam-input]");

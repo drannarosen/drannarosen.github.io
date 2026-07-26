@@ -56,11 +56,6 @@ export function labStateFromUrl(search: string): LabState {
   return decode(LAB_SCHEMA, search);
 }
 
-/** The render options a lab query string describes. */
-export function prepareOptionsFromUrl(search: string): PrepareOptions {
-  return labStateToPrepareOptions(labStateFromUrl(search));
-}
-
 /**
  * Build the field a lab URL describes.
  *

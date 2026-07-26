@@ -47,7 +47,7 @@ import Math from "../../components/Math.astro";
 </BaseLayout>
 
 <script>
-  import { loadScene, createEngine, attachInteraction } from "../../lib/cluster";
+  import { loadScene, createEngine, attachInteraction } from "@novascope/viz/webgl";
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-cluster]");
   const slider = document.querySelector<HTMLInputElement>("[data-expel-input]");
