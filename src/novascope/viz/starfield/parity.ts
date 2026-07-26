@@ -314,7 +314,14 @@ export async function runParity(opts: ParityOptions = {}): Promise<ParityResult>
       sumAbs += Math.abs(g - c);
       if (g > peakGpu) peakGpu = g;
       if (c > peakCpu) peakCpu = c;
-      if (opts.lupton) levelDiffs.push(Math.abs(g - c) * 255);
+      /*
+       * `isDisplay`, NOT `opts.lupton` — the scalar-stretch mode is a display mode too, and it
+       * was reporting `levels: {mean: 0, p999: 0, max: 0}` because this line never populated the
+       * array while the return block published it anyway. A zero that means "not measured" is
+       * indistinguishable from a zero that means "perfect", and it is the worse of the two: a gate
+       * asserting `levels.max < 1` on the stretch path would have passed vacuously forever.
+       */
+      if (isDisplay) levelDiffs.push(Math.abs(g - c) * 255);
       if (c > floor) {
         compared++;
         const rel = Math.abs(g - c) / c;

@@ -28,6 +28,7 @@
     "check:cv": "node scripts/cv/check.mjs",
     "check:stellar": "node --experimental-strip-types scripts/check-stellar.mjs",
     "check:novascope": "node scripts/check-novascope-boundary.mjs",
+    "check:parity": "node scripts/check-parity.mjs",
     "check:imf": "node --experimental-strip-types scripts/check-imf.mjs",
     "check:imf-surface": "node scripts/check-imf-surface.mjs",
     "check:cluster": "node --experimental-strip-types scripts/check-cluster.mjs",
@@ -65,6 +66,7 @@
     "@astrojs/check": "^0.9.9",
     "@types/katex": "^0.16.8",
     "@types/three": "0.185.1",
+    "playwright": "^1.62.0",
     "sharp": "^0.35.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"

@@ -1,0 +1,75 @@
+name: GPU parity
+
+# ── WHY THIS IS A SEPARATE WORKFLOW FROM THE DEPLOY ──
+#
+# ADR 0015 accepted writing every equation twice — pure TypeScript in Layer 0, a TSL graph for the
+# GPU — on the stated condition that a parity check makes divergence "detected rather than merely
+# unlikely". `viz/starfield/parity.ts` implemented the comparison and nothing ran it, so that
+# condition was met by someone remembering. This runs it.
+#
+# It is NOT part of `pnpm build`, deliberately. It needs Chromium and a dev server, and folding
+# that into the deploy would give the site a large new way to fail to ship for reasons that have
+# nothing to do with the site. A shader disagreement should block a MERGE, not a publish.
+#
+# ── WHAT THIS DOES AND DOES NOT PROVE ON A CI RUNNER ──
+#
+# GitHub's ubuntu runners have no GPU. Chromium may therefore fall back to `WebGPURenderer`'s own
+# WebGL 2 backend, in which case TSL is compiled to GLSL rather than WGSL. That is still a real
+# test — it exercises the graph, the CPU mirror, the profile and the transfers — but it is NOT the
+# WGSL codegen path that ~95% of real visitors take. The gate PRINTS which backend it obtained on
+# every run, and refuses to pass on a vacuous comparison, so the coverage is legible rather than
+# assumed. Measured locally on WebGPU (Apple M2 Max): median pixel error 0.09-0.28%.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/novascope/viz/starfield/**"
+      - "src/novascope/core/imaging/**"
+      - "src/novascope/core/optics/**"
+      - "scripts/check-parity.mjs"
+      - ".github/workflows/parity.yml"
+  pull_request:
+    paths:
+      - "src/novascope/viz/starfield/**"
+      - "src/novascope/core/imaging/**"
+      - "src/novascope/core/optics/**"
+      - "scripts/check-parity.mjs"
+  # The physics can also drift without those paths changing — a constant moves, a fit is
+  # retuned — so it runs weekly regardless, and can be kicked off by hand.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # --with-deps installs the system libraries headless Chromium needs on a bare runner.
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The gate starts its own dev server if none is running, and stops it afterwards.
+      # It exits non-zero when the browser cannot launch — it does NOT skip, because a parity
+      # gate that quietly does nothing reads as coverage while providing none.
+      - name: Check GPU/CPU parity
+        run: pnpm check:parity
