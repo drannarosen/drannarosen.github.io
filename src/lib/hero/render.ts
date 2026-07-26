@@ -1,17 +1,30 @@
 /*
- * clusterField.ts — renderer for the hero star-cluster visual.
+ * src/lib/hero/render.ts — renderer for the hero star-cluster visual. SITE CODE, FROZEN.
  *
  * Architecture mirrors Cosmic Playground's starfield: a single canvas driven
  * by requestAnimationFrame, DPR-capped, paused when the tab is hidden or the
  * canvas scrolls offscreen, and fully static under prefers-reduced-motion.
- * Physics (masses, colors, sizes, positions) come from imf.ts — this file only
+ * Physics (masses, colors, sizes, positions) come from ./sampler — this file only
  * draws and animates.
  *
  * The cluster is a 3D Plummer sphere rotated slowly about the vertical axis, so
  * bright massive stars swing gently between foreground and background. Motion
  * is deliberately near-subliminal ("felt, not noticed").
+ *
+ * ── WHY IT LIVES IN THE SITE AND NOT IN NOVASCOPE ──
+ *
+ * It used to be `src/novascope/viz/clusterHero.ts`, and its header still opened "clusterField.ts"
+ * — the name it had before a rename it was never updated for. It is a SPECIFIC composition for
+ * THIS homepage: the off-centre framing, the 240-second rotation, the twinkle, the glow radius.
+ * None of that generalises, so it is not a candidate for extraction (ADR 0015 already carves the
+ * hero out of the star-renderer work; this extends that from the look to the code).
+ *
+ * Moving it out is what let Layer 0 stop holding canvas pixels. Nothing about what it draws
+ * changed: only its import line and this header. `hero.test.ts` asserts all 520 stars against a
+ * fixture captured before the move — so if you edit ./sampler, that test is what tells you the
+ * homepage moved.
  */
-import { sampleCluster, type Star } from "../core/imf/index.ts";
+import { sampleCluster, type Star } from "./sampler.ts";
 
 export interface ClusterFieldConfig {
   canvas: HTMLCanvasElement;

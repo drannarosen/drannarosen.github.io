@@ -1,7 +1,7 @@
 ---
 /*
  * ClusterHero — the site's signature "first light".
- * A physically-sampled star cluster (see lib/imf.ts) rendered behind an
+ * A physically-sampled star cluster (see lib/hero/) rendered behind an
  * editorial hero statement. The canvas is decorative (aria-hidden) and the
  * page reads fully without it; a visible, persisted "pause motion" control
  * sits in the corner for anyone who wants stillness.
@@ -133,7 +133,7 @@ const { eyebrow, heading, lede } = Astro.props;
 </style>
 
 <script>
-  import { initClusterField } from "../lib/clusterField";
+  import { initClusterField } from "../lib/hero/render";
 
   const canvas = document.querySelector<HTMLCanvasElement>(".hero__canvas");
   const toggle = document.querySelector<HTMLButtonElement>("[data-motion-toggle]");

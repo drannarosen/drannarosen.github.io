@@ -14,8 +14,16 @@ export type { HistogramColors, IMFForm } from "./histogram.ts";
 export { renderHistogram } from "./histogram.ts";
 // WebGL volumetric cluster engine (Layer-2 backend; ADR 0013).
 export * from "./webgl/index.ts";
-// Canvas-2D hero (Plummer sphere) and gravoturb art renderers (ADR 0013).
-export type { ClusterFieldConfig } from "./clusterHero.ts";
-export { initClusterField } from "./clusterHero.ts";
+/*
+ * The gravoturb art renderer (ADR 0013).
+ *
+ * The canvas-2D HERO renderer used to be exported here too. It moved to `src/lib/hero/` — it is a
+ * specific composition for one homepage, not a general capability, and keeping it in the package
+ * meant Layer 0 had to keep a sampler that returned canvas pixels.
+ *
+ * NOTE the name collision it left behind, because it has caught people out: `./clusterField.ts`
+ * below exports `renderClusterField` and is a DIFFERENT module — a dumb renderer over a
+ * `RenderModel`. The hero's `initClusterField` is the one that left.
+ */
 export type { ClusterMeta, ClusterData, ClusterArtOptions } from "./clusterArt.ts";
 export { loadClusterData, initClusterArt } from "./clusterArt.ts";

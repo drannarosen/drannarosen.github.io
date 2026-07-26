@@ -4,7 +4,7 @@
  * ── WHAT IT RECORDS ──
  *
  * `ClusterHero.astro` calls `initClusterField({ canvas, reducedMotion })` with no count and no
- * seed, so `clusterHero.ts` falls back to `count: 520` and the sampler falls back to
+ * seed, so `src/lib/hero/render.ts` falls back to `count: 520` and the sampler falls back to
  * `seed: 20260718`. That exact call is what this records, so the fixture is the picture that
  * actually ships rather than a configuration nobody renders.
  *
@@ -30,7 +30,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sampleCluster } from "../../src/novascope/core/imf/index.ts";
 
-/* The homepage's own call — see `clusterHero.ts` (count) and the sampler (seed). */
+/* The homepage's own call — see `src/lib/hero/render.ts` (count) and `sampler.ts` (seed). */
 const CALL = { count: 520, seed: 20260718 };
 
 const stars = sampleCluster(CALL);

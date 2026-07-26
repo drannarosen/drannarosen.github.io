@@ -21,8 +21,9 @@
  */
 import { describe, expect, it } from "vitest";
 import baseline from "./__fixtures__/hero-baseline.json";
-// ← Task 5 changes THIS LINE ONLY, to `from "./sampler.ts"`. Everything else stays.
-import { sampleCluster } from "@novascope/core/imf";
+/* Task 5 changed THIS LINE ONLY, from `@novascope/core/imf` to `./sampler.ts`. Nothing else in
+ * this file moved — same call, same fixture, different home. That is the entire test. */
+import { sampleCluster } from "./sampler.ts";
 
 /** Same rounding the generator applied, so the two are compared at the same precision. */
 const round = (v: number): number => Number(v.toPrecision(15));
