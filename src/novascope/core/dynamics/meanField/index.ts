@@ -72,6 +72,15 @@ export interface MeanFieldOptions {
 }
 
 export interface MeanFieldForce extends ForceModel {
+  /**
+   * Rebuild the binned profile from the given positions.
+   *
+   * Explicit because `enclosedMass` and `radii` are only meaningful after a build, and every
+   * other entry point rebuilds as a SIDE EFFECT. A consumer reading those arrays would
+   * otherwise depend on having called something else first — the kind of ordering coupling
+   * that works until someone reorders two lines.
+   */
+  refreshProfile(pos: Vec3Array, mass: Float64Array): void;
   /** Enclosed STELLAR mass at each bin's outer edge, after the last force evaluation. */
   readonly enclosedMass: Float64Array;
   /** Outer edge radius [pc] of each bin. */
@@ -145,6 +154,7 @@ export function createMeanFieldForce(n: number, opts: MeanFieldOptions = {}): Me
     binEdges,
     radii,
     binOf,
+    refreshProfile: buildProfile,
 
     accelerations(pos: Vec3Array, mass: Float64Array, accOut: Vec3Array, t: number): void {
       buildProfile(pos, mass);
