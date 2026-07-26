@@ -254,6 +254,23 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           {INSTRUMENTS.map((i) => <option value={i.id}>{i.label}</option>)}
         </select>
       </label>
+      <!--
+        AN INSTRUMENT SETS THE FILTERS, NOT THE OPTICS — said out loud because the page implied
+        otherwise. `PSF_WIDTH_PX`, `DEFAULT_AUREOLE` and `DEFAULT_DIFFRACTION` are module constants,
+        identical for every entry in this list, so choosing "Rubin / LSST" changes which passbands
+        the flux is integrated through and nothing else. The claim sentence used to read "as Rubin /
+        LSST records it", which a reader would fairly take to include the telescope's real point
+        spread function, scattered-light halo and spider. It does not, and now says so.
+
+        Whether the optics SHOULD follow the instrument is a real open question — see the vision
+        roadmap. It needs measured wing profiles per telescope, which is a different kind of work
+        from the rest of this page.
+      -->
+      <p class="srl__hint srl__opticsNote">
+        An instrument sets the <strong>passbands only</strong>. The point spread function,
+        scattered-light halo and diffraction spikes are a stylised generic telescope, the same for
+        every choice here — not that observatory's measured optics.
+      </p>
       <label class="srl__ctl">Brightness band <span data-band-note></span>
         <select data-band>
           {BAND_GROUPS.map((g) => (
@@ -1151,8 +1168,18 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
             const pc = s.distancePc;
             const dist = pc >= 1000 ? `${(pc / 1000).toFixed(1)} kpc` : `${Math.round(pc)} pc`;
             const shown = s.shown.toLocaleString();
+            /*
+             * "THROUGH ITS FILTERS", NOT "AS IT RECORDS IT" — a narrower claim, and the only one
+             * that is true. An instrument here supplies passbands; the PSF, the scattered-light
+             * halo and the spider are module constants shared by every entry in the list. The old
+             * wording described the whole optical chain, which a reader would take to mean that
+             * observatory's measured optics, and none of that is modelled.
+             */
+            /* No possessive: several band labels already carry the instrument's name, so
+             * "Rubin / LSST's Rubin r filter" said it twice. "filters it" is also the precise
+             * verb — filtering is the whole of what the instrument does here. */
             const what = inst
-              ? `as ${inst.label} records it through ${bandLabelFor(inst.brightnessBand)}`
+              ? `as ${inst.label} filters it — ${bandLabelFor(inst.brightnessBand)}, on generic optics`
               : "by temperature at unit luminance — the population itself, not what a telescope sees";
             const cut = minMass > 0 ? ` above ${minMass.toFixed(2)} M☉` : "";
             claim.textContent =

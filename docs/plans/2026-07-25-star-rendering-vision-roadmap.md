@@ -277,5 +277,39 @@ expensive later.
   A coarse-grid median or low-order surface would subtract the pedestal without flattening the
   cluster. Not started; wants the probe explained first, since it would be built on the same
   sampling.
+- **The optics do not follow the instrument, and the aureole exponent is unsourced.** Two halves
+  of one question, deferred together on 2026-07-26 because the second only becomes answerable once
+  the first is decided.
+
+  **What is true today:** `PSF_WIDTH_PX = 2.2`, `DEFAULT_AUREOLE` and `DEFAULT_DIFFRACTION` are
+  module constants shared by every entry in the instrument list. Choosing "Rubin / LSST" changes
+  which passbands the flux is integrated through and nothing else. The page now SAYS so — the claim
+  sentence reads "through Rubin / LSST's r filter, on generic optics" and a note sits under the
+  instrument control — so this is a stated limitation rather than a false implication.
+
+  **(2) The aureole falloff `p = 3` has no source, and it matters.** Measured sensitivity: the halo
+  carries 3.5% of a star's light at `p = 4`, 10.1% at `p = 3`, 22.3% at `p = 2.5`; a star 1000x over
+  the display floor reaches 35, 97 or 213 core radii respectively. So a ~7x swing in the light
+  budget across a plausible range, feeding the quad extent, the diffuse background AND the white
+  point through `analyticMeanIntensity`.
+
+  **Why it was NOT fixed the way the spike exponent was.** The diffraction falloff had a universal
+  answer — a straight vane is a slit-like obstruction, so Fraunhofer gives sinc-squared and a 1/r^2
+  envelope, true of every telescope with straight vanes. Scattered light has no such answer: the
+  slope depends on the mechanism (atmospheric aerosols, mirror micro-roughness, detector
+  scattering), which differs by site, coating age, wavelength, and whether there is an atmosphere at
+  all. "Sourcing" it therefore means choosing a telescope and citing its measured PSF wings, not
+  deriving a constant. Re-tuning it by eye is exactly how `p = 1.6` got into the spike.
+
+  **(3) So the real question is whether the optics should follow the instrument** — per-telescope
+  PSF width, halo and spider. That is a feature, not a fix, and it needs measured wing profiles per
+  instrument. There is a classical literature on stellar image profiles showing the outer halo as a
+  power law; NO reference is cited here because none has been verified, and an unverified citation
+  in a comment is worse than an admitted gap.
+
+  **Order if this is ever picked up:** decide (3) first. If the lab stays deliberately generic,
+  (2) needs only a comment saying the value is stylised and why. If the optics follow the
+  instrument, (2) dissolves into "cite each telescope's measured wings" and the search has a target.
+
 - **Sky and bloom re-prepare needlessly.** Both are pure display uniforms; making them skip
   `prepareStarField` would make those sliders instant. A change to `StarLab`'s surface.
