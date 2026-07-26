@@ -17,9 +17,20 @@
  *
  * ── THE TWO TRAPS, both of which produce a LARGE spatial error with CORRECT total energy ──
  *
- * TRAP 1 — ROW ORDER. `readRenderTargetPixelsAsync` returns TOP-DOWN on the WebGPU backend,
- * the same order the CPU rasteriser writes. Reading it bottom-up (the WebGL habit) reported an
- * 83% energy error and a 36x worst case while the PEAK VALUES still agreed to 0.02%.
+ * TRAP 1 — ROW ORDER, AND IT IS BACKEND-DEPENDENT. `readRenderTargetPixelsAsync` returns
+ * TOP-DOWN on the WebGPU backend, the same order the CPU rasteriser writes. Reading it bottom-up
+ * (the WebGL habit) reported an 83% energy error and a 36x worst case while the PEAK VALUES still
+ * agreed to 0.02%.
+ *
+ * The WebGL 2 backend returns BOTTOM-UP — OpenGL's origin is the lower left. This file assumed
+ * one convention for months because it was only ever driven on a machine with a GPU; the first
+ * run on a CI runner without one gave, with the backend as the only variable:
+ *
+ *     webgpu   energyRatio 0.999306   median  0.092%
+ *     webgl2   energyRatio 0.999306   median 94.806%
+ *
+ * `flipRows` normalises it, and `check:parity` now runs BOTH backends so a future divergence
+ * cannot hide on whichever one the author happens to have.
  *
  * TRAP 2 — ROW ALIGNMENT. WebGPU requires a readback's `bytesPerRow` to be a multiple of 256,
  * so a width whose `W * 16` bytes (RGBA float32) is unaligned comes back SHEARED. 300 px gives
@@ -64,6 +75,14 @@ export interface ParityOptions {
   scaling?: StretchId;
   /** White point for the scalar path. Population mode uses 1, since its signal is pre-normalised. */
   whitePoint?: number;
+  /**
+   * Force `WebGPURenderer`'s own WebGL 2 backend, the path ~5% of visitors take.
+   *
+   * Worth exercising deliberately (ADR 0015 says the fallback is "verified first, before the star
+   * graph is built on it, rather than assumed") and worth exercising HERE in particular, because
+   * the two backends disagree about readback row order — see TRAP 1 and `flipRowsIfNeeded`.
+   */
+  forceWebGL?: boolean;
 }
 
 export interface ParityResult {
@@ -123,6 +142,40 @@ function isWebGPUBackend(b: unknown): b is { isWebGPUBackend: true } {
   return typeof b === "object" && b !== null && "isWebGPUBackend" in b;
 }
 
+/**
+ * Flip an RGBA readback vertically, in place.
+ *
+ * ── TRAP 1, THE OTHER HALF ──
+ *
+ * The header's TRAP 1 says the readback is TOP-DOWN, matching the CPU rasteriser. That is true of
+ * the WebGPU backend and FALSE of the WebGL 2 one, which returns bottom-up — OpenGL's origin is
+ * the lower left. The harness was only ever driven on WebGPU, so it hardcoded one convention and
+ * nobody noticed there were two.
+ *
+ * Measured on one machine, same code, backend the only variable:
+ *
+ *     backend   energyRatio   median pixel error
+ *     webgpu    0.999306       0.092%
+ *     webgl2    0.999306      94.806%
+ *
+ * Identical total light, a catastrophic spatial disagreement — which is precisely the signature
+ * the header tells you to blame on the harness rather than the renderer. It surfaced the first
+ * time this ran on a machine with no GPU, which is the argument for running it somewhere other
+ * than the laptop it was written on.
+ */
+function flipRows(buf: Float32Array, width: number, height: number): Float32Array {
+  const rowFloats = width * 4; // RGBA
+  const row = new Float32Array(rowFloats);
+  for (let y = 0; y < Math.floor(height / 2); y++) {
+    const top = y * rowFloats;
+    const bottom = (height - 1 - y) * rowFloats;
+    row.set(buf.subarray(top, top + rowFloats));
+    buf.copyWithin(top, bottom, bottom + rowFloats);
+    buf.set(row, bottom);
+  }
+  return buf;
+}
+
 function assertAligned(width: number): void {
   if ((width * 16) % 256 !== 0) {
     throw new Error(
@@ -177,7 +230,7 @@ export async function runParity(opts: ParityOptions = {}): Promise<ParityResult>
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const renderer = new WebGPURenderer({ canvas, antialias: false, alpha: false });
+  const renderer = new WebGPURenderer({ canvas, antialias: false, alpha: false, forceWebGL: opts.forceWebGL ?? false });
   renderer.setPixelRatio(1);
   renderer.setSize(width, height, false);
   // NO tone mapping in either mode: in linear mode it would hide the disagreement, and in
@@ -257,6 +310,15 @@ export async function runParity(opts: ParityOptions = {}): Promise<ParityResult>
     gpu = (await renderer.readRenderTargetPixelsAsync(rt, 0, 0, width, height)) as Float32Array;
     renderer.setRenderTarget(null);
   }
+
+  /*
+   * NORMALISE ROW ORDER BEFORE COMPARING ANYTHING.
+   *
+   * The CPU rasteriser writes top-down. The WebGPU backend reads back top-down; the WebGL 2
+   * backend reads back bottom-up. Comparing without this gives identical total energy and a ~95%
+   * median error — see `flipRows`, and note that the header's TRAP 1 described only half of this.
+   */
+  if (!isWebGPUBackend(renderer.backend)) flipRows(gpu, width, height);
 
   /*
    * The CPU half must mirror WHICHEVER GPU stage is being compared.

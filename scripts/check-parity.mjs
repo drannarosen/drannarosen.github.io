@@ -75,6 +75,24 @@ const CASES = [
     opts: { scaling: "asinh", whitePoint: 1 },
     why: "createStretchNode shipped unverified while the Lupton node was checked; this closes that",
   },
+  /*
+   * BOTH BACKENDS, and this case earned its place the hard way.
+   *
+   * TSL compiles to WGSL and to GLSL, and `WebGPURenderer` falls back to its own WebGL 2 backend
+   * where WebGPU is unavailable — roughly 5% of real visitors, and every CI runner without a GPU.
+   * ADR 0015 says that fallback is "verified first, before the star graph is built on it, rather
+   * than assumed", and it was not: the harness read the framebuffer top-down, which is right for
+   * WebGPU and wrong for WebGL 2, and nobody saw it because it was only ever run on a laptop with
+   * a GPU. The first CI run reported a 94.8% median error with total energy correct to 0.077%.
+   *
+   * Running the fallback explicitly means the next backend-specific divergence cannot hide on
+   * whichever path the author happens to have.
+   */
+  {
+    name: "linear radiance (WebGL 2 fallback)",
+    opts: { forceWebGL: true },
+    why: "~5% of visitors and every GPU-less CI runner take this path; ADR 0015 says verify it",
+  },
 ];
 
 /** Bounds. Each is far above the measured value, and each states what it is protecting. */
