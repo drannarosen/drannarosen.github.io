@@ -25,8 +25,41 @@ import baseline from "./__fixtures__/hero-baseline.json";
  * this file moved — same call, same fixture, different home. That is the entire test. */
 import { sampleCluster } from "./sampler.ts";
 
-/** Same rounding the generator applied, so the two are compared at the same precision. */
-const round = (v: number): number => Number(v.toPrecision(15));
+/*
+ * ── WHY THIS COMPARES WITH A TOLERANCE, AND WHY THAT IS NOT A LOOSENED TEST ──
+ *
+ * The first version asserted exact equality at 15 significant figures and PASSED LOCALLY BUT
+ * FAILED THE DEPLOY. The CI runner disagreed with this laptop in the last digit:
+ *
+ *     teff  3735.45112581403  (macOS arm64)  vs  3735.45112581402  (CI x64 Linux)
+ *     blue  0.601152784683429                vs  0.601152784683428
+ *
+ * That is one ulp, ~3e-16 relative. ECMAScript deliberately leaves `Math.pow`, `Math.log`, `exp`
+ * and the trig functions IMPLEMENTATION-DEFINED, and `zamsLuminosity` evaluates M**5.5, M**11 and
+ * M**19.5 — so the last bit is a property of the CPU and libm, not of this code.
+ *
+ * So the old assertion was not strict, it was WRONG: it claimed bit-identical transcendental
+ * arithmetic across architectures, which no one ever intended to promise. The actual claim is
+ * "the homepage does not change", and the tolerance below is chosen against that claim rather
+ * than against the failure:
+ *
+ *     platform noise floor      ~3e-16 relative   (measured, above)
+ *     THIS TOLERANCE             1e-10 relative   (~300,000x above the noise)
+ *     one 8-bit colour level      4e-3  relative   (1/255 — the smallest VISIBLE change)
+ *
+ * There are seven orders of magnitude between this tolerance and anything a pixel could show.
+ * A change that actually moved the hero would exceed it by a factor of tens of millions.
+ */
+const REL_TOL = 1e-10;
+
+/** Worst relative difference seen, so the margin is reported rather than assumed. */
+let worstRel = 0;
+
+const close = (actual: number, expected: number): boolean => {
+  const rel = Math.abs(actual - expected) / Math.max(Math.abs(expected), 1e-300);
+  if (Number.isFinite(rel)) worstRel = Math.max(worstRel, rel);
+  return rel <= REL_TOL;
+};
 
 describe("the homepage hero is frozen", () => {
   const stars = sampleCluster({ count: baseline.call.count, seed: baseline.call.seed });
@@ -36,18 +69,36 @@ describe("the homepage hero is frozen", () => {
   });
 
   it("draws the SAME stars — every mass, position, colour, size and opacity", () => {
-    const actual = stars.map((s) => ({
-      x: round(s.x),
-      y: round(s.y),
-      z: round(s.z),
-      mass: round(s.mass),
-      teff: round(s.teff),
-      color: s.color.map(round),
-      sizePx: round(s.sizePx),
-      baseOpacity: round(s.baseOpacity),
-      twinkles: s.twinkles,
-    }));
-    expect(actual).toEqual(baseline.stars);
+    const mismatches: string[] = [];
+
+    stars.forEach((s, i) => {
+      const b = baseline.stars[i]!;
+      const numeric: Array<[string, number, number]> = [
+        ["x", s.x, b.x],
+        ["y", s.y, b.y],
+        ["z", s.z, b.z],
+        ["mass", s.mass, b.mass],
+        ["teff", s.teff, b.teff],
+        ["sizePx", s.sizePx, b.sizePx],
+        ["baseOpacity", s.baseOpacity, b.baseOpacity],
+        ["color[0]", s.color[0], b.color[0]!],
+        ["color[1]", s.color[1], b.color[1]!],
+        ["color[2]", s.color[2], b.color[2]!],
+      ];
+      for (const [field, got, want] of numeric) {
+        if (!close(got, want)) mismatches.push(`star ${i} ${field}: ${got} vs ${want}`);
+      }
+      /* `twinkles` is a BOOLEAN and gets no tolerance — it is a threshold decision, so a flip is
+       * a real change in what is drawn however small the underlying difference was. */
+      if (s.twinkles !== b.twinkles) {
+        mismatches.push(`star ${i} twinkles: ${s.twinkles} vs ${b.twinkles}`);
+      }
+    });
+
+    expect(mismatches.slice(0, 5)).toEqual([]);
+    /* Reported, not just used: if the margin ever creeps toward the tolerance, that is worth
+     * seeing BEFORE it fails a deploy — which is how this test's first version was found. */
+    expect(worstRel).toBeLessThanOrEqual(REL_TOL);
   });
 
   it("is painter-ordered, faint first", () => {
