@@ -19,7 +19,7 @@
     "sync:pubs:check": "node scripts/publications/sync_orcid.mjs --check",
     "check:figures": "node scripts/figures/check.mjs",
     "og": "node scripts/og/generate.mjs",
-    "prebuild": "astro check && node --experimental-strip-types scripts/check-constants.mjs && node --experimental-strip-types scripts/check-sun.mjs && node --experimental-strip-types scripts/check-stellar.mjs && node --experimental-strip-types scripts/check-imf.mjs && node --experimental-strip-types scripts/check-cluster.mjs && node --experimental-strip-types scripts/check-feedback.mjs &&node --experimental-strip-types scripts/check-store.mjs && node --experimental-strip-types scripts/check-render.mjs && node --experimental-strip-types scripts/check-star-optics.mjs && node --experimental-strip-types scripts/check-passbands.mjs && node --experimental-strip-types scripts/check-completeness.mjs && node --experimental-strip-types scripts/check-lupton.mjs && node --experimental-strip-types scripts/check-calibrate.mjs && node --experimental-strip-types scripts/check-stretch.mjs && node --experimental-strip-types scripts/check-transfers.mjs && node --experimental-strip-types scripts/check-url-state.mjs && node --experimental-strip-types scripts/check-lab-field.mjs && node scripts/check-novascope-boundary.mjs && node scripts/check-imf-surface.mjs && node scripts/check-type.mjs && node scripts/figures/check.mjs && node scripts/cv/check.mjs --check && node scripts/og/generate.mjs && pnpm test",
+    "prebuild": "astro check && node --experimental-strip-types scripts/check-constants.mjs && node --experimental-strip-types scripts/check-sun.mjs && node --experimental-strip-types scripts/check-stellar.mjs && node --experimental-strip-types scripts/check-imf.mjs && node --experimental-strip-types scripts/check-cluster.mjs && node --experimental-strip-types scripts/check-dynamics.mjs && node --experimental-strip-types scripts/check-feedback.mjs &&node --experimental-strip-types scripts/check-store.mjs && node --experimental-strip-types scripts/check-render.mjs && node --experimental-strip-types scripts/check-star-optics.mjs && node --experimental-strip-types scripts/check-passbands.mjs && node --experimental-strip-types scripts/check-completeness.mjs && node --experimental-strip-types scripts/check-lupton.mjs && node --experimental-strip-types scripts/check-calibrate.mjs && node --experimental-strip-types scripts/check-stretch.mjs && node --experimental-strip-types scripts/check-transfers.mjs && node --experimental-strip-types scripts/check-url-state.mjs && node --experimental-strip-types scripts/check-lab-field.mjs && node scripts/check-novascope-boundary.mjs && node scripts/check-imf-surface.mjs && node scripts/check-type.mjs && node scripts/figures/check.mjs && node scripts/cv/check.mjs --check && node scripts/og/generate.mjs && pnpm test",
     "check:type": "node scripts/check-type.mjs",
     "cv:pdf": "typst compile --root . cv/cv_rosen.typ public/documents/cv-anna-rosen.pdf",
     "check:links": "node scripts/check-links.mjs",
@@ -49,7 +49,9 @@
     "check:stretch": "node --experimental-strip-types scripts/check-stretch.mjs",
     "check:transfers": "node --experimental-strip-types scripts/check-transfers.mjs",
     "check:url-state": "node --experimental-strip-types scripts/check-url-state.mjs",
-    "check:lab-field": "node --experimental-strip-types scripts/check-lab-field.mjs"
+    "check:lab-field": "node --experimental-strip-types scripts/check-lab-field.mjs",
+    "check:dynamics": "node --experimental-strip-types scripts/check-dynamics.mjs",
+    "gen:dynamics-ref": "node --experimental-strip-types scripts/reference/gen-dynamics-ref.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.2.1",
