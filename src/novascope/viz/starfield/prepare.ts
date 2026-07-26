@@ -468,7 +468,26 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const count = Math.floor(stars.length / STAR_STRIDE);
   const band = resolveBand(opts.band);
   const scheme = getScheme(opts.scheme ?? "true");
-  // A stated DEPTH wins over a raw softening: it says the same thing physically.
+  /*
+   * RESOLVED ONCE, HERE, because two things below need it and they must not disagree: the depth
+   * fallback immediately after, and the display path further down. It used to be derived twice —
+   * inline inside the `softening` ternary, and again as a named `colorMode` forty lines later.
+   */
+  const colorMode = opts.colorMode ?? (opts.bandTriple ? "photometric" : "population");
+  /*
+   * The depth default is PER MODE, because `depthMag` drives a different parameter in each:
+   * Lupton's Q per pixel, or the per-star asinh softening. One shared default put population
+   * mode's median star at a signal of 1e-4 against a 0.02 threshold — see
+   * `DEFAULT_POPULATION_DEPTH_MAG`.
+   *
+   * THIS BINDING USED TO BE DEAD. It sat forty lines below, named and carrying this comment, while
+   * the live derivation was buried inside the ternary under it — so the copy that READ as
+   * authoritative was the one nothing used. Anyone changing the per-mode rule would have edited
+   * the wrong one, run the build, seen it stay green (the type checker that flags an unused local
+   * was not gated) and shipped no change at all.
+   */
+  const defaultDepthMag =
+    colorMode === "photometric" ? DEFAULT_LUPTON_DEPTH_MAG : DEFAULT_POPULATION_DEPTH_MAG;
   /*
    * A stated DEPTH wins over a raw softening: it says the same thing physically.
    *
@@ -480,14 +499,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
   const softening =
     opts.starDepthMag !== undefined
       ? softeningForLimit(fluxRatioForMagnitudes(opts.starDepthMag))
-      : (opts.softening ??
-        softeningForLimit(
-          fluxRatioForMagnitudes(
-            (opts.colorMode ?? (opts.bandTriple ? "photometric" : "population")) === "photometric"
-              ? DEFAULT_LUPTON_DEPTH_MAG
-              : DEFAULT_POPULATION_DEPTH_MAG,
-          ),
-        ));
+      : (opts.softening ?? softeningForLimit(fluxRatioForMagnitudes(defaultDepthMag)));
   const exposure = opts.exposure ?? 1;
   const percentile = opts.whitePercentile ?? DEFAULT_WHITE_PERCENTILE;
   const dpr = opts.pixelRatio ?? 1;
@@ -504,7 +516,6 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
    * a star's billboard has to reach. Derived from the same `depthMag` the asinh path uses, so
    * one control still drives the depth, but through the transfer that is actually applied.
    */
-  const colorMode = opts.colorMode ?? (opts.bandTriple ? "photometric" : "population");
   /*
    * ASINH IS THE DEFAULT IN BOTH MODES — Anna's call, made by looking at the three side by side
    * on the real cluster (2026-07-25), against the previous per-mode defaults of `lupton` for
@@ -519,13 +530,6 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
    * differs.
    */
   const scaling = opts.scaling ?? "asinh";
-  /*
-   * The depth default is PER MODE, because `depthMag` drives a different parameter in each: Lupton's
-   * Q per pixel, or the per-star asinh softening. One shared default put population mode's median
-   * star at a signal of 1e-4 against a 0.02 threshold — see `DEFAULT_POPULATION_DEPTH_MAG`.
-   */
-  const defaultDepthMag =
-    colorMode === "photometric" ? DEFAULT_LUPTON_DEPTH_MAG : DEFAULT_POPULATION_DEPTH_MAG;
   /*
    * The faintest amplitude the chosen transfer can still show, which is what decides how far a
    * star's billboard has to reach. It CANNOT be a constant: across the twelve transfers the input

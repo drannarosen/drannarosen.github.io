@@ -724,8 +724,6 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
 <script>
   import { initStarLab } from "@novascope/viz/starfield/scene";
   import { decode, encode } from "@novascope/core/params/urlState";
-  import { D0_PC } from "@novascope/core/photometry";
-  import { DEFAULT_LUPTON_DEPTH_MAG } from "@novascope/core/imaging/lupton";
   import { LAB_PRESETS } from "@novascope/viz/starfield/labPresets";
   import { TRANSFERS, type TransferId } from "@novascope/core/imaging/transfers";
 
@@ -738,7 +736,6 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   import {
     LAB_SCHEMA,
     PASSTHROUGH_KEYS,
-    TRANSFER_AUTO,
     labStateToPrepareOptions,
     type LabState,
     type MotionChoice,
@@ -832,7 +829,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
    * The module owns the query-string ↔ DOM ↔ `LabState` binding and lists every selector it binds,
    * so `assertControlsPresent` can say out loud when the markup and the code have diverged.
    */
-  const { skyPercent, readSky, readSkyAuto, readValue, applyState, readState, syncUrl } =
+  const { skyPercent, readSky, readSkyAuto, applyState, readState, syncUrl } =
     createLabControls(initialState, passthrough);
 
   if (import.meta.env.DEV) assertControlsPresent();

@@ -32,7 +32,7 @@
 import { decode } from "../../core/params/urlState.ts";
 import { LAB_SCHEMA, POPULATION_ID, labStateToPrepareOptions, type LabState } from "./labParams.ts";
 import { clusterStarTable } from "./source.ts";
-import { prepareStarField, type StarField, type PrepareOptions } from "./prepare.ts";
+import { prepareStarField, type StarField } from "./prepare.ts";
 
 /**
  * The lab's own default population size.
