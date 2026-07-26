@@ -154,8 +154,20 @@ deficit is derived rather than fitted: (1+ε²/r²)^{−3/2} ≈ 1 − (3/2)(ε/
 the property, set the bound above it, record the measured value in a comment.
 
 **Cross-check.** On an equal-mass Plummer sphere the two force models must agree to the
-discreteness noise, which scales as 1/√N. The bound comes from the scaling, not from the
-measurement.
+discreteness noise.
+
+**Corrected 2026-07-26 by measuring it.** This said the noise scales as 1/√N. It does not.
+Measured median per-star radial disagreement: 0.1012 / 0.0710 / 0.0472 at N = 200 / 1000 /
+4000 — a 20× increase in N shrinks it 2.15×, against 4.47× for N^(−1/2) and 2.71× for
+**N^(−1/3)**. The difference is dominated by a star's NEAREST NEIGHBOUR, not by bin
+statistics, which is the Holtsmark result. A bound set from the 1/√N argument would have been
+wrong by more than a factor of two.
+
+The consequence for the test is better than the original plan: the per-star assertion is
+two-sided. It must be at least ~1%, because two models that agreed closely per star would mean
+one of them was not doing what it claims; and it must shrink with N. The quantity that *does*
+average out is the total potential energy, which agrees to under 1% (measured ratio 1.0085 at
+N = 2000), and that is where the tight bound goes.
 
 **Run it somewhere other than home.** All of this is pure node, no GPU — the integrator runs on
 the CPU and the GPU only draws, so **no new parity case is needed**. The hero-fixture lesson
