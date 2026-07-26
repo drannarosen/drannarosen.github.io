@@ -61,6 +61,7 @@
 import { createLeapfrog, type Leapfrog } from "../integrate.ts";
 import { createMeanFieldForce, type MeanFieldForce } from "../meanField/index.ts";
 import { createState, type State } from "../types.ts";
+import { lagrangianRadii } from "../diagnostics.ts";
 
 /* Grid and softening are the values this model was measured with; `../meanField/` defaults to
    the same, and they are restated here because they are THIS model's calibration, not the
@@ -123,8 +124,7 @@ export interface Diagnostics {
   boundFraction: number;
   /** Fraction of stellar MASS that is bound — the quantity the literature quotes. */
   boundMassFraction: number;
-  /** Half-mass radius [pc]. See the note in `diagnostics()` — this is not yet restricted to
-   *  the bound stars, despite what it is measuring half of. */
+  /** Half-mass radius of the BOUND stars [pc], interpolated in cumulative mass. */
   rHalf: number;
   /** Total energy of the stellar component [Msun (pc/Myr)^2] — for drift checks. */
   energy: number;
@@ -178,6 +178,7 @@ export function createDynamics(init: DynamicsInit): Dynamics {
 
   const posOut = new Float32Array(n * 3); // what the renderer reads
   const phi = new Float64Array(n); // scratch for per-star potentials
+  const isBound = new Uint8Array(n); // scratch: which stars are bound, for the r_h subset
 
   // ── parameters and run state ──
   const params: DynamicsParams = { sfe: 0.3, tauOverTCross: 1, qTarget: 0.5 };
@@ -346,25 +347,27 @@ export function createDynamics(init: DynamicsInit): Dynamics {
       const v2 = vx * vx + vy * vy + vz * vz;
       kinetic += 0.5 * state.mass[i] * v2;
       // Boundness uses the FULL potential the star actually sits in, exterior shells included.
-      if (0.5 * v2 + phi[i] < 0) {
+      isBound[i] = 0.5 * v2 + phi[i] < 0 ? 1 : 0;
+      if (isBound[i]) {
         boundN++;
         boundM += state.mass[i];
       }
     }
 
-    /* HALF-MASS RADIUS — reproduced exactly as it was before the refactor, INCLUDING a defect.
-       The target is half the BOUND mass but the cumulation runs over ALL stars, so when a
-       large unbound population sits at small radii the result is biased low. It is preserved
-       here because this commit is a move: the frozen fixture certifies that nothing changed,
-       and a fix bundled into a move is a fix nothing can verify. Corrected separately. */
-    const target = 0.5 * boundM;
-    let rHalf = 0;
-    for (let k = 0; k < NBINS && boundM > 0; k++) {
-      if (force.enclosedMass[k] >= target) {
-        rHalf = force.binEdges[k];
-        break;
-      }
-    }
+    /* HALF-MASS RADIUS OF THE BOUND STARS — and it now actually is that.
+     *
+     * Before, the target was half the BOUND mass while the cumulation ran over the profile of
+     * ALL stars, so unbound members sitting at small radii counted toward reaching it and the
+     * result came out biased LOW. The bias grows as the cluster loses mass, which is to say
+     * it was largest exactly where the number is being read.
+     *
+     * Delegated to `../diagnostics.ts` rather than fixed in place: that function is tested,
+     * interpolates in cumulative mass instead of returning a bin edge, and a second
+     * half-mass radius in the package is the duplication that drifts. The interpolation also
+     * removes the bin-edge quantization, which is why the numbers move a little even where
+     * the bound/unbound distinction is negligible.
+     */
+    const rHalf = lagrangianRadii(state, [0.5], (i) => isBound[i] === 1)[0];
 
     return {
       t,
