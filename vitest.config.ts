@@ -22,7 +22,18 @@ export default defineConfig({
      * `src/lib` is included for the hero's frozen sampler: it is site code, but it is pure and
      * node-runnable (only its renderer touches the DOM), and it is the thing a fixture must pin.
      */
-    include: ["src/novascope/{core,state}/**/*.test.ts", "src/lib/**/*.test.ts"],
+    /*
+     * `viz/` is included for modules that are themselves PURE — `viz/webgl/shaders.ts` is GLSL in
+     * template strings and imports nothing; `viz/webgl/camera.ts` is arithmetic. ADR 0017 scopes
+     * this layer to node-runnable code, and the unit of that scope is the MODULE, not the
+     * directory: a test here must not reach `three` or the DOM, and the ones that need a GPU
+     * belong in `check:parity` instead.
+     */
+    include: [
+      "src/novascope/{core,state}/**/*.test.ts",
+      "src/novascope/viz/**/*.test.ts",
+      "src/lib/**/*.test.ts",
+    ],
     environment: "node",
   },
 });
