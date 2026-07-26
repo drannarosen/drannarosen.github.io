@@ -86,20 +86,41 @@ export interface CameraView {
   zoom: number;
 }
 
-/** Rotate a model-space point into view space: `rotX(-pitch) * rotY(-yaw) * p`, as both shaders do. */
+/**
+ * Rotate a model-space point into view space: `rotX(-pitch) * rotY(-yaw) * p`, as both shaders do.
+ *
+ * ── GLSL `mat3` IS COLUMN-MAJOR, AND THE FIRST VERSION OF THIS FUNCTION WAS NOT ──
+ *
+ * The shaders build the rotations as
+ *
+ *     rotY(a) = mat3( c, 0., s,   0., 1., 0.,   -s, 0., c)
+ *     rotX(a) = mat3(1., 0., 0.,  0., c, -s,    0., s, c)
+ *
+ * and those argument triples are COLUMNS, not rows. Read as rows they give the TRANSPOSE, which
+ * for a rotation is its inverse — so the error is invisible at yaw = pitch = 0 and grows with
+ * angle. Measured against the compiled shader before the fix: 0 px at no rotation, 13.4 px at
+ * yaw 0.6, 11.3 px at pitch 0.4.
+ *
+ * It survived a node test that was supposed to be independent, because the reference in
+ * `camera.test.ts` was written in the same sitting and reproduced the same misreading on both
+ * sides. Only rendering it on a GPU and looking at where the star actually landed caught it. That
+ * test now builds the matrices from explicit COLUMNS so the convention is visible rather than
+ * remembered.
+ */
 function toViewSpace(
   p: readonly [number, number, number],
   yaw: number,
   pitch: number,
 ): [number, number, number] {
+  const [x, y, z] = p;
+  // rotY(-yaw), column-major: x' = c·x − s·z, z' = s·x + c·z
   const cy = Math.cos(-yaw), sy = Math.sin(-yaw);
+  const x1 = cy * x - sy * z;
+  const y1 = y;
+  const z1 = sy * x + cy * z;
+  // rotX(-pitch), column-major: y' = c·y + s·z, z' = −s·y + c·z
   const cx = Math.cos(-pitch), sx = Math.sin(-pitch);
-  // rotY(-yaw)
-  const x1 = cy * p[0] + sy * p[2];
-  const y1 = p[1];
-  const z1 = -sy * p[0] + cy * p[2];
-  // rotX(-pitch)
-  return [x1, cx * y1 - sx * z1, sx * y1 + cx * z1];
+  return [x1, cx * y1 + sx * z1, -sx * y1 + cx * z1];
 }
 
 /**

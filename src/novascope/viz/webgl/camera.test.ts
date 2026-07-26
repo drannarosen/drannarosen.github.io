@@ -44,14 +44,47 @@ function rayHitsAt(
   return { x: dx * t, y: dy * t };
 }
 
-/** Model-space point → view space, matching the shaders' `rotX(-pitch) * rotY(-yaw)`. */
+/**
+ * A GLSL `mat3` times a vec3 — with the arguments given as COLUMNS, exactly as GLSL reads them.
+ *
+ * Written this way on purpose. The first version of this helper spelled the rotations out as
+ * scalar arithmetic and got the convention backwards, matching a matching error in `camera.ts` —
+ * so the "independent" reference agreed with the thing it was checking, both were the transpose of
+ * the shader, and the test passed while the projection was wrong by up to 13 px at large angles.
+ * Only rendering on a GPU caught it.
+ *
+ * Taking columns means the transcription from GLSL is mechanical: the three triples below are the
+ * three triples in the shader, in order, with nothing to re-derive.
+ */
+function mat3MulColumns(
+  c0: readonly [number, number, number],
+  c1: readonly [number, number, number],
+  c2: readonly [number, number, number],
+  v: readonly [number, number, number],
+): [number, number, number] {
+  return [
+    c0[0] * v[0] + c1[0] * v[1] + c2[0] * v[2],
+    c0[1] * v[0] + c1[1] * v[1] + c2[1] * v[2],
+    c0[2] * v[0] + c1[2] * v[1] + c2[2] * v[2],
+  ];
+}
+
+/** `rotY(a)` — the shader's `mat3(c,0.,s,  0.,1.,0.,  -s,0.,c)`, columns verbatim. */
+const rotY = (a: number, v: readonly [number, number, number]) => {
+  const c = Math.cos(a), s = Math.sin(a);
+  return mat3MulColumns([c, 0, s], [0, 1, 0], [-s, 0, c], v);
+};
+
+/** `rotX(a)` — the shader's `mat3(1.,0.,0.,  0.,c,-s,  0.,s,c)`, columns verbatim. */
+const rotX = (a: number, v: readonly [number, number, number]) => {
+  const c = Math.cos(a), s = Math.sin(a);
+  return mat3MulColumns([1, 0, 0], [0, c, -s], [0, s, c], v);
+};
+
+/** Model-space point → view space, matching the shaders' `rotX(-pitch) * rotY(-yaw) * p`. */
 function viewSpace(p: readonly [number, number, number], yaw: number, pitch: number) {
-  const cy = Math.cos(-yaw), sy = Math.sin(-yaw);
-  const cx = Math.cos(-pitch), sx = Math.sin(-pitch);
-  const x1 = cy * p[0] + sy * p[2];
-  const y1 = p[1];
-  const z1 = -sy * p[0] + cy * p[2];
-  return { x: x1, y: cx * y1 - sx * z1, z: sx * y1 + cx * z1 };
+  const [x, y, z] = rotX(-pitch, rotY(-yaw, p));
+  return { x, y, z };
 }
 
 describe("the star projection inverts the volume's ray march", () => {

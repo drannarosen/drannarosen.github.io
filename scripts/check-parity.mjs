@@ -44,11 +44,7 @@
  *   pnpm check:parity                 # reuses a dev server on :4321, or starts one
  *   PW_CHROME=/path/to/chrome pnpm check:parity   # explicit browser binary
  */
-import { spawn, spawnSync } from "node:child_process";
-import { chromium } from "playwright";
-
-const PORT = Number(process.env.PARITY_PORT ?? 4321);
-const ORIGIN = `http://localhost:${PORT}`;
+import { withBrowserPage, makeReporter } from "./lib/browser-harness.mjs";
 
 /*
  * Measured on WebGPU (Apple M2 Max, Chrome for Testing 1234) on 2026-07-26, at 320x320 with 4,000
@@ -129,84 +125,10 @@ const LIMITS = {
   minCompared: 1000,
 };
 
-const log = (s = "") => console.log(s);
-let failures = 0;
-const ok = (cond, msg) => {
-  log(`  ${cond ? "ok  " : "FAIL"}  ${msg}`);
-  if (!cond) failures++;
-};
+const r = makeReporter("parity (the GPU shader against the CPU reference)");
+const { ok, log } = r;
 
-/* ── The dev server. `parity.ts` is dev-only by design (the production build tree-shakes it away),
- * and it needs Vite to resolve `three`, so `dist/` cannot serve it. ── */
-async function serverUp() {
-  try {
-    const r = await fetch(ORIGIN, { signal: AbortSignal.timeout(2000) });
-    return r.ok;
-  } catch {
-    return false;
-  }
-}
-
-let startedByUs = false;
-async function ensureServer() {
-  if (await serverUp()) {
-    log(`  reusing the dev server already on ${ORIGIN}`);
-    return;
-  }
-  log(`  starting a dev server on ${ORIGIN}…`);
-  spawn("pnpm", ["exec", "astro", "dev", "--background", "--port", String(PORT)], {
-    stdio: "ignore",
-    detached: false,
-  });
-  startedByUs = true;
-  const deadline = Date.now() + 90_000;
-  while (Date.now() < deadline) {
-    if (await serverUp()) return;
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  throw new Error(
-    `the dev server did not come up on ${ORIGIN} within 90s.\n` +
-      `Start one yourself with 'pnpm dev' and re-run, or set PARITY_PORT.`,
-  );
-}
-
-function stopServerIfWeStartedIt() {
-  if (!startedByUs) return;
-  spawnSync("pnpm", ["exec", "astro", "dev", "stop"], { stdio: "ignore" });
-}
-
-log("parity (the GPU shader against the CPU reference):");
-
-await ensureServer();
-
-let browser;
-try {
-  browser = await chromium.launch({
-    headless: true,
-    /*
-     * PW_CHROME exists because `npx playwright install` cannot always fetch a binary (a locked-down
-     * or offline machine). Pointing at an existing Chrome/Chromium is the escape hatch. There is
-     * deliberately NO silent skip when the browser is missing: a parity gate that quietly does
-     * nothing is worse than no parity gate, because it reads as coverage.
-     */
-    ...(process.env.PW_CHROME ? { executablePath: process.env.PW_CHROME } : {}),
-  });
-} catch (e) {
-  console.error(
-    `\n✗ parity — could not launch Chromium: ${String(e).split("\n")[0]}\n` +
-      `  Install it with 'npx playwright install chromium', or set PW_CHROME to a browser binary.\n` +
-      `  This gate does NOT skip when the browser is missing — see its header.`,
-  );
-  stopServerIfWeStartedIt();
-  process.exit(1);
-}
-
-try {
-  const page = await browser.newPage();
-  const pageErrors = [];
-  page.on("pageerror", (e) => pageErrors.push(String(e)));
-  await page.goto(ORIGIN, { waitUntil: "domcontentloaded" });
-
+const { pageErrors } = await withBrowserPage(async (page) => {
   /*
    * The backend is REPORTED, not asserted to be WebGPU. Both are legitimate — TSL compiles to WGSL
    * and to GLSL, and `WebGPURenderer` falls back to its own WebGL 2 backend where WebGPU is
@@ -217,9 +139,9 @@ try {
   let backendSeen = null;
 
   for (const c of CASES) {
-    let r;
+    let res;
     try {
-      r = await page.evaluate(async (opts) => {
+      res = await page.evaluate(async (opts) => {
         const mod = await import("/src/novascope/viz/starfield/parity.ts");
         return await mod.runParity({ width: 320, height: 320, starCount: 4000, ...opts });
       }, c.opts);
@@ -227,62 +149,55 @@ try {
       ok(false, `${c.name}: the harness threw — ${String(e).slice(0, 200)}`);
       continue;
     }
-    backendSeen = r.backend;
+    backendSeen = res.backend;
 
-    log(`\n  ${c.name} [${r.backend}] — ${c.why}`);
+    log(`\n  ${c.name} [${res.backend}] — ${c.why}`);
     ok(
-      r.compared >= LIMITS.minCompared,
-      `${r.compared.toLocaleString()} pixels compared (a near-empty frame would agree trivially)`,
+      res.compared >= LIMITS.minCompared,
+      `${res.compared.toLocaleString()} pixels compared (a near-empty frame would agree trivially)`,
     );
     ok(
-      Math.abs(1 - r.energyRatio) <= LIMITS.energy,
-      `total light agrees to ${(100 * Math.abs(1 - r.energyRatio)).toFixed(3)}% ` +
+      Math.abs(1 - res.energyRatio) <= LIMITS.energy,
+      `total light agrees to ${(100 * Math.abs(1 - res.energyRatio)).toFixed(3)}% ` +
         `(limit ${100 * LIMITS.energy}%)`,
     );
     const p50Limit = c.p50 ?? LIMITS.p50;
     ok(
-      r.percentiles.p50 <= p50Limit,
-      `median pixel error ${(100 * r.percentiles.p50).toFixed(4)}% (limit ${100 * p50Limit}%) ` +
-        `— p90 ${(100 * r.percentiles.p90).toFixed(3)}%, p99 ${(100 * r.percentiles.p99).toFixed(2)}%, ` +
-        `max ${(100 * r.percentiles.max).toFixed(1)}% (tail NOT asserted; see header)`,
+      res.percentiles.p50 <= p50Limit,
+      `median pixel error ${(100 * res.percentiles.p50).toFixed(4)}% (limit ${100 * p50Limit}%) ` +
+        `— p90 ${(100 * res.percentiles.p90).toFixed(3)}%, p99 ${(100 * res.percentiles.p99).toFixed(2)}%, ` +
+        `max ${(100 * res.percentiles.max).toFixed(1)}% (tail NOT asserted; see header)`,
     );
-    if (r.levels) {
+    if (res.levels) {
       ok(
-        r.levels.mean <= LIMITS.levelsMean,
-        `mean display error ${r.levels.mean.toFixed(4)} of one 8-bit level (limit ${LIMITS.levelsMean})`,
+        res.levels.mean <= LIMITS.levelsMean,
+        `mean display error ${res.levels.mean.toFixed(4)} of one 8-bit level (limit ${LIMITS.levelsMean})`,
       );
       ok(
-        r.levels.p999 <= LIMITS.levelsP999,
-        `99.9th-percentile display error ${r.levels.p999.toFixed(3)} levels (limit ${LIMITS.levelsP999})`,
+        res.levels.p999 <= LIMITS.levelsP999,
+        `99.9th-percentile display error ${res.levels.p999.toFixed(3)} levels (limit ${LIMITS.levelsP999})`,
       );
     }
-    if (r.blueFraction) {
-      const d = Math.abs(r.blueFraction.gpu - r.blueFraction.cpu);
+    if (res.blueFraction) {
+      const d = Math.abs(res.blueFraction.gpu - res.blueFraction.cpu);
       ok(
         d <= LIMITS.blueDelta,
         `blue fraction agrees to ${d.toFixed(5)} ` +
-          `(gpu ${r.blueFraction.gpu.toFixed(4)} vs cpu ${r.blueFraction.cpu.toFixed(4)}, ` +
+          `(gpu ${res.blueFraction.gpu.toFixed(4)} vs cpu ${res.blueFraction.cpu.toFixed(4)}, ` +
           `limit ${LIMITS.blueDelta}) — a swizzle would show here and nowhere else`,
       );
     }
   }
 
-  if (pageErrors.length) {
-    ok(false, `the page logged ${pageErrors.length} error(s): ${pageErrors[0].slice(0, 200)}`);
-  }
   ok(backendSeen !== null, `a GPU backend was obtained (${backendSeen ?? "none"})`);
-} finally {
-  await browser.close();
-  stopServerIfWeStartedIt();
-}
+  return null;
+}, { log });
 
-if (failures) {
-  console.error(`\n✗ parity — ${failures} failure(s). The TSL graph and the TS reference disagree.`);
-  console.error(
-    `  Before suspecting the renderer, read parity.ts's header: a LARGE spatial error with\n` +
-      `  CORRECT total energy means the harness, not the shader (row order, or a readback width\n` +
-      `  whose bytes-per-row is not a multiple of 256).`,
-  );
-  process.exit(1);
-}
-console.log(`\n✓ parity ok — the GPU and the CPU reference agree across ${CASES.length} modes.`);
+ok(pageErrors.length === 0, `no page errors${pageErrors.length ? `: ${pageErrors[0].slice(0, 160)}` : ""}`);
+
+r.finish(
+  `parity ok — the GPU and the CPU reference agree across ${CASES.length} modes.`,
+  "  Before suspecting the renderer, read parity.ts's header: a LARGE spatial error with\n" +
+    "  CORRECT total energy means the harness, not the shader (row order, or a readback width\n" +
+    "  whose bytes-per-row is not a multiple of 256).",
+);

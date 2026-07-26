@@ -29,6 +29,7 @@
     "check:stellar": "node --experimental-strip-types scripts/check-stellar.mjs",
     "check:novascope": "node scripts/check-novascope-boundary.mjs",
     "check:parity": "node scripts/check-parity.mjs",
+    "check:webgl-camera": "node scripts/check-webgl-camera.mjs",
     "check:imf": "node --experimental-strip-types scripts/check-imf.mjs",
     "check:imf-surface": "node scripts/check-imf-surface.mjs",
     "check:cluster": "node --experimental-strip-types scripts/check-cluster.mjs",

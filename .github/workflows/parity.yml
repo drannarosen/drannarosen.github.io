@@ -1,4 +1,4 @@
-name: GPU parity
+name: GPU gates
 
 # ── WHY THIS IS A SEPARATE WORKFLOW FROM THE DEPLOY ──
 #
@@ -25,16 +25,22 @@ on:
     branches: [main]
     paths:
       - "src/novascope/viz/starfield/**"
+      - "src/novascope/viz/webgl/**"
       - "src/novascope/core/imaging/**"
       - "src/novascope/core/optics/**"
       - "scripts/check-parity.mjs"
+      - "scripts/check-webgl-camera.mjs"
+      - "scripts/lib/browser-harness.mjs"
       - ".github/workflows/parity.yml"
   pull_request:
     paths:
       - "src/novascope/viz/starfield/**"
+      - "src/novascope/viz/webgl/**"
       - "src/novascope/core/imaging/**"
       - "src/novascope/core/optics/**"
       - "scripts/check-parity.mjs"
+      - "scripts/check-webgl-camera.mjs"
+      - "scripts/lib/browser-harness.mjs"
   # The physics can also drift without those paths changing — a constant moves, a fit is
   # retuned — so it runs weekly regardless, and can be kicked off by hand.
   schedule:
@@ -49,7 +55,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  parity:
+  gpu-gates:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -73,3 +79,10 @@ jobs:
       # gate that quietly does nothing reads as coverage while providing none.
       - name: Check GPU/CPU parity
         run: pnpm check:parity
+
+      # The volume raymarch and the star pass must agree about where the camera is. Runs even if
+      # parity failed, because they cover different subsystems and one result should not hide the
+      # other.
+      - name: Check the webgl camera registration
+        if: always()
+        run: pnpm check:webgl-camera
