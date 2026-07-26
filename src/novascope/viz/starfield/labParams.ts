@@ -159,9 +159,13 @@ export type MotionChoice = LabState["motion"];
 /**
  * Query-string keys this schema does NOT own but a URL should keep.
  *
- * `stars` and `forceWebGL` are harness affordances rather than controls — they change the
- * population size and the render backend, which are not part of "what the image shows". A
- * round trip that dropped them would make a shared debugging link useless the moment it was
- * copied back, which is the whole point of a debugging link.
+ * `stars`, `forceWebGL` and `project` are affordances rather than controls: they change the
+ * population size, the render backend, and how the PAGE is laid out — none of which is part of
+ * "what the image shows". A round trip that dropped them would make a shared debugging link
+ * useless the moment it was copied back, which is the whole point of a debugging link.
+ *
+ * `project` earned its place here by failing without it: projector mode applied on load and then
+ * vanished from the address bar at the first control change, so the link a talk depends on
+ * survived exactly until someone touched a slider.
  */
-export const PASSTHROUGH_KEYS = ["stars", "forceWebGL"] as const;
+export const PASSTHROUGH_KEYS = ["stars", "forceWebGL", "project"] as const;

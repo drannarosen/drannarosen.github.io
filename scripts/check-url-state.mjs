@@ -213,8 +213,14 @@ console.log("\n  a link of the kind a lecture would use:");
     !q.includes("bloom") && !q.includes("exposure") && !q.includes("minmass"),
     "…while untouched controls stay out of it entirely (depth excepted, by design)",
   );
+  /*
+   * EVERY passthrough key must survive an encode, not just the one that was thought of first.
+   * `project` was added after projector mode vanished from the address bar at the first control
+   * change — the link a talk depends on survived until someone touched a slider.
+   */
+  const withAll = encode(LAB_SCHEMA, state, { stars: "1500", forceWebGL: "", project: "" });
   for (const k of PASSTHROUGH_KEYS) {
-    if (k === "stars") ok(q.includes("stars=1500"), `passthrough key "${k}" survives`);
+    ok(withAll.includes(k), `passthrough key "${k}" survives an encode`);
   }
 }
 

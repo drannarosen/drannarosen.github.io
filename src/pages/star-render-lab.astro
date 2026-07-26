@@ -10,6 +10,7 @@ import { PASSBANDS, bolometricCorrection } from "@novascope/core/photometry/pass
 import { SURVEYS } from "@novascope/core/photometry/surveys";
 import { INSTRUMENTS } from "@novascope/core/photometry/instruments";
 import { TRANSFERS, type TransferFamily } from "@novascope/core/imaging/transfers";
+import { LAB_PRESETS } from "@novascope/viz/starfield/labPresets";
 import { clusterStarTable } from "@novascope/viz/starfield/source";
 import { prepareStarField } from "@novascope/viz/starfield/prepare";
 
@@ -358,6 +359,25 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       so it cannot describe a configuration the renderer is not in — which is the failure mode of
       every hand-written caption.
     -->
+    <!--
+      PRESETS ARE URLS, which is the entire payoff of putting every control in the query string:
+      no preset format, no serialisation, and no way for one to express a state the controls
+      cannot. Each states something MEASURED — a preset that merely looked nice would be
+      decoration on an instrument.
+
+      Left/Right step through them, so a lecture is a sequence rather than a hunt through eleven
+      controls. The buttons are real buttons: reachable by keyboard, announced as pressed.
+    -->
+    <div class="srl__presets" role="group" aria-label="Preset states">
+      {LAB_PRESETS.map((p, i) => (
+        <button type="button" class="srl__preset" data-preset={p.id} aria-pressed="false">
+          <span class="srl__presetKey">{i + 1}</span>{p.label}
+        </button>
+      ))}
+      <span class="srl__hint srl__presetHint">← → to step</span>
+    </div>
+    <p class="srl__presetNote" data-preset-note></p>
+
     <p class="srl__claim" data-claim></p>
 
     <div class="srl__stage">
@@ -623,6 +643,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   import { decode, encode } from "@novascope/core/params/urlState";
   import { D0_PC } from "@novascope/core/photometry";
   import { DEFAULT_LUPTON_DEPTH_MAG } from "@novascope/core/imaging/lupton";
+  import { LAB_PRESETS } from "@novascope/viz/starfield/labPresets";
   import {
     LAB_SCHEMA,
     PASSTHROUGH_KEYS,
@@ -681,6 +702,20 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
    * This file owns only `location` and `history`, which is the part that cannot be node-tested.
    */
   const initialState: LabState = decode(LAB_SCHEMA, location.search);
+
+  /*
+   * ?project — PROJECTOR MODE: the frame, the claim and the presets, nothing else.
+   *
+   * A URL flag rather than a button, for the same reason presets are URLs: a talk is a set of
+   * links, and the thing you least want to do live is hunt for a toggle. It hides the controls
+   * and the long documentation below, leaving what a room can actually read from the back.
+   *
+   * Not in `LAB_SCHEMA` on purpose. It changes how the page is DISPLAYED, not what the renderer
+   * computes — the same reason `stars` and `forceWebGL` are passthrough keys — so it must not
+   * appear in a state comparison or make an otherwise-default link look non-default.
+   */
+  const projector = params.has("project");
+  if (projector) document.documentElement.dataset.project = "";
 
   /** The harness keys, preserved verbatim so a debugging link survives being copied back. */
   const passthrough: Record<string, string> = {};
@@ -1097,6 +1132,76 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         onSkyLanded = () => show(lab.stats);
 
         /*
+         * PRESETS. Applying one is: encode its partial state over the defaults, push that to the
+         * address bar, then re-read the controls from it — the same path a pasted link takes. So a
+         * preset cannot reach a state a URL could not, and there is exactly one code path from
+         * "some state" to "the controls and the renderer agree".
+         */
+        const presetBtns = [...document.querySelectorAll<HTMLButtonElement>("[data-preset]")];
+        const presetNote = document.querySelector<HTMLElement>("[data-preset-note]");
+        let activePreset = -1;
+
+        const markActive = () => {
+          presetBtns.forEach((b, i) => b.setAttribute("aria-pressed", String(i === activePreset)));
+          if (presetNote) {
+            presetNote.textContent = activePreset >= 0 ? (LAB_PRESETS[activePreset]?.note ?? "") : "";
+          }
+        };
+
+        const applyPreset = (i: number) => {
+          const preset = LAB_PRESETS[i];
+          if (!preset) return;
+          /*
+           * MOTION SURVIVES A PRESET, everything else is reset.
+           *
+           * A preset is a complete statement about the IMAGE, so fields it does not name go back
+           * to their defaults — otherwise stepping through a talk would carry stray settings from
+           * whatever was fiddled with three presets ago. But motion is not part of the image: it
+           * is a presenter's or a viewer's choice, in the same class as `stars` and `forceWebGL`,
+           * and resetting it would restart the drift mid-talk for someone who had deliberately
+           * stopped it — or override a reduced-motion preference on every keypress.
+           */
+          const next = { ...decode(LAB_SCHEMA, ""), ...preset.state, motion: motionChoice };
+          history.replaceState(null, "", `?${encode(LAB_SCHEMA, next, passthrough)}`);
+          applyState(next);
+          // The mode-following controls have to catch up before anything reads them.
+          lastMode = null;
+          syncDepthForMode();
+          syncBandControl();
+          showInputs();
+          activePreset = i;
+          markActive();
+          show(lab.update(read()));
+        };
+
+        presetBtns.forEach((b, i) => b.addEventListener("click", () => applyPreset(i)));
+
+        /*
+         * ARROW KEYS STEP, so a demo needs no mouse — and NUMBER KEYS jump, so a slide can name
+         * one directly. Ignored while a control has focus, because Left/Right on a focused slider
+         * already means something and stealing it would make the sliders unusable by keyboard,
+         * which is precisely the audience this feature is for.
+         */
+        addEventListener("keydown", (e) => {
+          const t = e.target as HTMLElement | null;
+          if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+          if (e.metaKey || e.ctrlKey || e.altKey) return;
+          if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+            const step = e.key === "ArrowRight" ? 1 : -1;
+            const n = LAB_PRESETS.length;
+            applyPreset(((activePreset < 0 ? (step > 0 ? -1 : 0) : activePreset) + step + n) % n);
+            e.preventDefault();
+          } else if (/^[1-9]$/.test(e.key)) {
+            const i = Number(e.key) - 1;
+            if (i < LAB_PRESETS.length) {
+              applyPreset(i);
+              e.preventDefault();
+            }
+          }
+        });
+        markActive();
+
+        /*
          * ONE REBUILD PER FRAME, COALESCED — and this is a hang fix, not a polish item.
          *
          * `lab.update` re-runs `prepareStarField`, which is 180-425 ms for 10,000 stars (413 ms
@@ -1295,6 +1400,51 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     border-inline-start: 3px solid var(--spec-teal-bright, #4fd6c4);
     padding-inline-start: var(--space-2xs);
   }
+  /* Presets: a row of real buttons, sized for a lecture rather than for a mouse. */
+  .srl__presets { display: flex; flex-wrap: wrap; gap: var(--space-2xs); align-items: center; }
+  .srl__preset {
+    display: inline-flex; align-items: center; gap: 0.45em;
+    padding: 0.3rem 0.7rem;
+    font-family: var(--font-mono); font-size: var(--step--2);
+    color: var(--ink-dim);
+    background: transparent;
+    border: 1px solid var(--border); border-radius: 999px;
+    cursor: pointer;
+  }
+  .srl__preset:hover { border-color: var(--spec-teal-bright, #4fd6c4); color: var(--ink); }
+  .srl__preset:focus-visible { outline: 2px solid var(--spec-teal-bright, #4fd6c4); outline-offset: 2px; }
+  .srl__preset[aria-pressed="true"] {
+    color: var(--spec-teal-bright, #4fd6c4);
+    border-color: currentColor;
+    background: color-mix(in oklab, var(--spec-teal-bright, #4fd6c4) 10%, transparent);
+  }
+  .srl__presetKey {
+    display: inline-grid; place-items: center;
+    inline-size: 1.4em; block-size: 1.4em;
+    border-radius: 999px; background: color-mix(in oklab, var(--ink) 12%, transparent);
+    font-size: var(--step--3); /* type-scale-exempt: numeric key badge inside a button */
+  }
+  .srl__presetHint { margin-inline-start: var(--space-2xs); }
+  .srl__presetNote {
+    margin: 0; max-inline-size: var(--width-prose);
+    font-size: var(--step--2); color: var(--ink-faint); min-block-size: 2.4em;
+  }
+  /*
+   * PROJECTOR MODE. Everything that is not the image, its claim, or the way to change it goes
+   * away, and what is left grows. Driven by a data attribute on <html> set from `?project`, so a
+   * talk carries it in the link rather than needing a toggle found live.
+   *
+   * The claim line grows most, because in a room it is the only text that will be read at all —
+   * and a screenshot from a talk carries it and nothing else.
+   */
+  :global(html[data-project]) .srl__group,
+  :global(html[data-project]) .srl__schemes,
+  :global(html[data-project]) .srl__doc { display: none; }
+  :global(html[data-project]) .srl__claim { font-size: var(--step-1); color: var(--ink); }
+  :global(html[data-project]) .srl__preset { font-size: var(--step--1); padding: 0.45rem 0.9rem; }
+  :global(html[data-project]) .srl__presetNote { font-size: var(--step--1); }
+  :global(html[data-project]) .srl__status { font-size: var(--step--2); }
+
   .srl__group { margin-block-start: var(--space-s); }
   .srl__grouph {
     font-family: var(--font-mono); font-size: var(--step--2); font-weight: 500;
