@@ -1,6 +1,23 @@
 /*
  * skyProbe.ts — measure the sky by reading the frame that was actually drawn (Layer 2).
  *
+ * ══ DEFERRED INDEFINITELY, 2026-07-26. DO NOT PICK THIS UP AS A WARM-UP TASK. ══
+ *
+ * Anna's call, in her words: "it's annoying and a huge pain… I wasted too much time on that stupid
+ * option, others are better." It is reachable only as `?skyauto`, off by default, and nothing on
+ * the page depends on it.
+ *
+ * The estimator below is FIXED and sound (see `SKY_PERCENTILE`). What is still broken is the
+ * frame it reads: at identical settings eight probes returned three results, each repeating
+ * bit-for-bit, which is a synchronisation defect between `renderAsync` and the readback rather
+ * than noise. There is also an untested suspicion that `probeSky` passes CSS pixels where device
+ * pixels are meant — the same class of error as the dpr^2 bug found in the exposure — which would
+ * make every tile sample the wrong sub-rectangle and could explain the whole thing.
+ *
+ * ALL OF IT, INCLUDING THE MEASUREMENTS, IS WRITTEN UP IN THE VISION ROADMAP under "THE SKY PROBE
+ * IS DEFERRED INDEFINITELY". Read that before touching this file, and test the CSS/device
+ * hypothesis first — it is one navigation. Resuming should be a decision, not a drift.
+ *
  * `skyLevel` has been a knob defaulting to 0 since it was added, with the honest note that the
  * right value "is a percentile of the RENDERED pixels" and is not derivable a priori — measured
  * 97x spread across configurations, against 1.45x for the white point. This measures it.

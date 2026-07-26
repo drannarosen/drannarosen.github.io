@@ -277,6 +277,44 @@ expensive later.
   A coarse-grid median or low-order surface would subtract the pedestal without flattening the
   cluster. Not started; wants the probe explained first, since it would be built on the same
   sampling.
+- **THE SKY PROBE (`?skyauto`) IS DEFERRED INDEFINITELY.** Anna's call, 2026-07-26: "it's annoying
+  and a huge pain… I wasted too much time on that stupid option, others are better." Do not pick
+  this up as a warm-up task. It is written down in full here so that a future session can decide
+  whether to resume it *deliberately*, not so that someone re-derives it by accident.
+
+  **What it is.** A GPU readback that measures the background from the rendered frame and feeds
+  `skyLevel` automatically, instead of the visitor setting it. Reachable only as `?skyauto`; there
+  is deliberately no checkbox, and `labControls.INTENTIONALLY_ABSENT` records why.
+
+  **What was fixed.** The estimator. It took a 25th percentile over the whole tile, but 27–77% of
+  sampled pixels are exactly zero — outside every star's quad, so not sky at all — and the
+  percentile landed inside that atom and flipped between 0 and the first non-zero value. It now
+  runs over covered pixels only, and `sampled` comes back at 0.2500–0.2502 every run.
+
+  **What is still wrong, in order of how much is known:**
+
+  1. **The frame it reads varies between identical renders.** Motion off, bloom off, eight probes at
+     one setting returned three distinct results, each repeating BIT-FOR-BIT — (1.51e-6, `empty`
+     0.7924, 17,007 px) three times, (1.89e-6, 0.6133, 31,677) twice. Exact repeats are not noise;
+     they are a small set of discrete states, which is what a tile readback reflecting a
+     neighbouring tile's render would produce. So the defect is synchronisation between
+     `renderAsync` and `readRenderTargetPixelsAsync`, not statistics. The single discarded warm-up
+     render is per-probe, not per-tile, which is likely why it never helped.
+  2. **`empty` rises with bloom and then falls** — 26.9% / 59.6% / 76.5% at bloom 0 / 0.15 / 0.35,
+     then below 25% at 0.7. Bloom adds light, so it should fall. Unexplained.
+  3. **SUSPECTED, NOT MEASURED: the same CSS-versus-device pixel error that was found in the
+     exposure.** `probeSky` passes `bufW`/`bufH` (CSS px) to `skyProbe.measure`, which uses them
+     for `camera.setViewOffset` while `TILE_W`/`TILE_H` are device px sizing a render target. That
+     is the same shape as the dpr^2 bug fixed in `recalibrate`, and it would make every tile sample
+     the wrong sub-rectangle. **This is a hypothesis. Nobody has tested it.** If this is ever
+     resumed, test it first — it is one navigation and it may explain (1).
+
+  **Why it is not simply deleted:** the machinery is correct in the parts that were measured (the
+  256-byte row alignment, the top-down readback order, the percentile), the honest background really
+  is a percentile of rendered pixels, and a scalar hand-set sky cannot follow a background that is
+  brightest in the core. The idea is right and the plumbing is not. Deleting it would throw away the
+  measurements above along with the code.
+
 - **The optics do not follow the instrument, and the aureole exponent is unsourced.** Two halves
   of one question, deferred together on 2026-07-26 because the second only becomes answerable once
   the first is decided.
