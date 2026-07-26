@@ -771,3 +771,55 @@ Stated rather than inferred, per the standing rule.
 - **Whether `/model-path` is still wanted.** `StageInitialConditions` exists only for it, and
   the page is excluded from the sitemap. P2 #11 assumes it stays; if it does not, the fix is a
   deletion instead.
+
+---
+
+# Addendum — what was executed, same day
+
+The plan in `docs/plans/2026-07-26-novascope-core-consolidation.md` was executed in full, plus
+two follow-on pieces of work. 22 commits, three deploys, all green.
+
+## Grades, revised
+
+| axis | was | now | what moved it |
+| --- | --- | --- | --- |
+| **Architecture** | A− | **A** | Layer 0 holds no pixels; one cluster sampler; the `star()` contract is genuinely un-bypassed; `viz/webgl`'s camera is single-homed. |
+| **DRY** | B+ | **A−** | The legacy sampler and the duplicated camera are gone. `core/feedback`'s constants remain by explicit ADR 0015 decision, not by neglect. |
+| **Gate coverage** | B | **A−** | ADR 0015's stated condition is finally met — `check:parity` runs. Plus `check:webgl-camera`, `check:imf-surface`, `astro check` in `prebuild`, and a Vitest layer (49 tests). `core/dynamics` and the volume shader's maths remain uncovered. |
+| **Extraction readiness** | A− | **A−** | Unchanged, honestly. The hero leaving helps, but the packaging blockers — no `package.json` inside `src/novascope`, no `exports` map, `three` pinned only in the site — are untouched. |
+
+## What the gates found that reading did not
+
+Three bugs, all the same species: **a claim verified only in the environment where it was
+written.**
+
+1. **`toPrecision(15)` on the hero fixture** — asserted bit-identical `Math.pow` across CPU
+   architectures. Passed locally, failed the deploy, left the site stale for three minutes.
+2. **A 1% parity bound** — measured on Metal, applied to CI's SwiftShader. And underneath it, a
+   real bug: `parity.ts` read the framebuffer top-down on *both* backends, which is correct for
+   WebGPU and wrong for WebGL 2. ~5% of visitors take that path and ADR 0015 claimed it was
+   "verified rather than assumed". It was assumed, for months.
+3. **`camera.ts`'s rotation** — GLSL `mat3` read as rows when it is columns, giving the transpose.
+   Zero error at yaw = pitch = 0, 48 px at ZOOM_MIN. The node test passed because its "independent"
+   reference was written in the same sitting and carried the same misreading.
+
+In each case the fix was not a better check. It was **running the check somewhere else.**
+
+## Corrections to this audit
+
+- **"Two colour models" overstated the problem.** Measured: the Helland fit and the CIE
+  integration agree to 7/255 across 2500–40000 K — invisible. The visible difference is the 2.4×
+  chroma stretch in `viz/spectral.ts` (166/255 at 4000 K), which is a deliberate presentation
+  choice. Acting on the original framing would have unified the models and changed nothing.
+- **Task 7's grep in the plan was wrong** — it matched the symbol `sampleCluster`, and there were
+  two functions with that name. Caught while verifying the plan against the code, before execution.
+
+## Still open, with triggers rather than deadlines
+
+| item | trigger |
+| --- | --- |
+| `core/dynamics` (481 lines, no callers, no gates) | **Parked deliberately** — Anna is adding a real leapfrog integrator. Do not delete. |
+| Retire `teffToRGB` for `blackbodyLinearRGB` | The first page that needs a **reddened** star. A Teff→RGB fit cannot express extinction at all. |
+| Extraction packaging | A second consumer. |
+| `core/feedback` shared constants | Its own session, per ADR 0015 — the channels are mutually consistent only because they share rounded values. |
+| Volume-shader maths (dilution, colorbar) | Testable now that a browser harness exists. |
