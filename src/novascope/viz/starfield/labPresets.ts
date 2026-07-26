@@ -52,13 +52,13 @@ export const LAB_PRESETS: ReadonlyArray<LabPreset> = [
     id: "fog",
     label: "Why depth alone fails",
     note: "Photometric at maximum star reach with nothing subtracted. All 10,000 stars are above the display floor and the background sits at 2.84% of white — because that background IS the summed PSF wings of those same stars, so raising the depth lifts the sky with them and the frame fills rather than deepens.",
-    state: { instrument: "rubin", transfer: "lupton", curve: 20, depth: 24, sky: 0 },
+    state: { instrument: "rubin", transfer: "lupton", curve: 8, depth: 24, sky: 0 },
   },
   {
     id: "subtracted",
     label: "…and what it costs",
     note: "The same state with 0.5% of white removed PER BAND, because the sky has a colour. Measured: the surviving stars' red share falls from 95% to 72%, so subtraction is the one lever that treats a smooth pedestal differently from a compact peak AND the faint red majority is what it costs. Subtracting a scalar instead left 0% red at all.",
-    state: { instrument: "rubin", transfer: "lupton", curve: 20, depth: 24, sky: 0.005 },
+    state: { instrument: "rubin", transfer: "lupton", curve: 8, depth: 24, sky: 0.005 },
   },
   {
     id: "distance",

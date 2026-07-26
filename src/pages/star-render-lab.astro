@@ -345,7 +345,14 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       <label class="srl__ctl">Star reach <span data-depth-val>{depthStart.toFixed(2)}</span> mag below white
         <input type="range" min={DEPTH_MIN} max={DEPTH_MAX} step={DEPTH_STEP} value={depthStart} data-depth />
       </label>
-      <label class="srl__ctl">Transfer span <span data-curve-val></span>
+      <!--
+        THE SPAN REPORTS WHAT IT COSTS, in a SECOND span updated by `show` rather than
+        `showInputs`. The split is deliberate: the control's own number must track the thumb
+        instantly, but the background level is a RESULT and is only correct after the rebuild.
+        Printing both from the instant half would show the previous frame's background beside the
+        current span — a readout that is wrong exactly while someone is dragging and reading it.
+      -->
+      <label class="srl__ctl">Transfer span <span data-curve-val></span><span data-curve-bg></span>
         <input type="range" min={DEPTH_MIN} max={DEPTH_MAX} step={DEPTH_STEP} value={LUPTON_DEPTH_START} data-curve />
       </label>
       <!--
@@ -715,6 +722,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     LAB_SCHEMA,
     PASSTHROUGH_KEYS,
     TRANSFER_AUTO,
+    labStateToPrepareOptions,
     skyFractionFromSlider,
     sliderFromSkyFraction,
     type LabState,
@@ -986,59 +994,23 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
   const bandLabelFor = (id: string): string =>
     document.querySelector<HTMLOptionElement>(`[data-band] option[value="${id}"]`)?.textContent ?? id;
 
-  const read = () => {
-    // Depth is OMITTED when its control is missing, so core/imaging's tuned default
-    // applies. A fallback number here would be a second place the same fact lives,
-    // and the previous one silently disagreed with it.
-    const depth = document.querySelector<HTMLInputElement>("[data-depth]")?.value;
-    const minMass = Number(document.querySelector<HTMLInputElement>("[data-min-mass]")?.value ?? 0);
-    const instrumentId = document.querySelector<HTMLSelectElement>("[data-instrument]")?.value ?? "population";
-    /*
-     * Empty means "follow mode", so it is OMITTED rather than defaulted here — `prepare` owns the
-     * per-mode default and a second copy of it would be a second thing to keep true.
-     *
-     * VALIDATED against the registry rather than cast. The select is generated from `TRANSFERS`,
-     * so a bad value can only arise from a stale cached page or a hand-edited DOM — and in that
-     * case falling back to "follow mode" is right, while `as never` would have handed `prepare` an
-     * id it has no node for.
-     */
-    const rawScaling = document.querySelector<HTMLSelectElement>("[data-scaling]")?.value ?? "";
-    /*
-     * VALIDATED BY THE SCHEMA'S OWN FIELD, so "which transfer ids are legal" has exactly one
-     * home — the registry that generated both the options above and the URL codec. An
-     * independent Set here would be a third copy, and the one that silently kept accepting a
-     * transfer after it was removed.
-     */
-    const parsed = LAB_SCHEMA.transfer.parse(rawScaling);
-    const scaling: TransferId | "" =
-      parsed === undefined || parsed === TRANSFER_AUTO ? "" : (parsed as TransferId);
-    const inst = INSTRUMENT_TABLE[instrumentId];
-    /*
-     * An instrument supplies BOTH the composite and the brightness band; "population" supplies
-     * neither, and that omission is what selects the temperature-ramp path in `prepare`. Passing an
-     * invented triple for it would turn "this is a temperature ramp" into a false claim that three
-     * named filters recorded something.
-     */
-    return {
-      scheme: document.querySelector<HTMLSelectElement>("[data-scheme]")?.value ?? "true",
-      band: inst ? inst.brightnessBand : (document.querySelector<HTMLSelectElement>("[data-band]")?.value ?? "V"),
-      ...(inst ? { bandTriple: inst.composite } : {}),
-      colorMode: inst ? ("photometric" as const) : ("population" as const),
-      ...(scaling === "" ? {} : { scaling }),
-      skyLevel: readSky(),
-      skyAuto: readSkyAuto(),
-      bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
-      aureoleStrength: Number(document.querySelector<HTMLInputElement>("[data-aureole]")?.value ?? 1),
-      spikeStrength: Number(document.querySelector<HTMLInputElement>("[data-spikes]")?.value ?? 1),
-      ...(depth === undefined ? {} : { starDepthMag: Number(depth) }),
-      pixelDepthMag: Number(
-        document.querySelector<HTMLInputElement>("[data-curve]")?.value ?? DEFAULT_LUPTON_DEPTH_MAG,
-      ),
-      exposure: Number(document.querySelector<HTMLInputElement>("[data-exposure]")?.value ?? 1),
-      distancePc: 10 ** Number(document.querySelector<HTMLInputElement>("[data-dist]")?.value ?? Math.log10(D0_PC)),
-      minMass,
-    };
-  };
+  /**
+   * The renderer's options for the current controls.
+   *
+   * READS THE DOM ONCE, THROUGH `readState`, AND MAPS IT ONCE, THROUGH `labStateToPrepareOptions`.
+   * This function used to do both inline, which meant anything else wanting to reproduce this
+   * image — a measurement script, a gate — had to rebuild the mapping by hand from the option
+   * names. One did, passed `instrument` (which is not an option) instead of `bandTriple`, and so
+   * silently measured POPULATION mode while reporting photometric colour statistics.
+   *
+   * Now the page reaches `prepare` by the same road an offline caller does (`viz/starfield/
+   * labField`), so a shared link, the live controls and a script cannot mean three different
+   * `readState` wants a motion choice because it reports one; the mapping DROPS it, since motion
+   * never reaches `prepare`. `initialState.motion` is passed rather than a literal so no value is
+   * invented here — the field is discarded either way, and a made-up "auto" would read as a
+   * decision this function is not making.
+   */
+  const read = () => labStateToPrepareOptions(readState(initialState.motion));
 
   if (canvas) {
     /*
@@ -1230,6 +1202,31 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
            */
           const r = lab.reach;
           const reachPct = ((100 * r.count) / lab.starCount).toFixed(1);
+          /*
+           * THE SPAN'S TRUE COST, reported beside the span rather than only in the status line.
+           *
+           * This control has a failure mode invisible from its own number: past the point where
+           * the span already reveals every star the sky subtraction left, more span adds NOTHING
+           * but a brighter floor. Measured on the shipped population at reach 24 with 0.5%
+           * subtracted — 1,655 stars visible at span 14, and the identical 1,655 at 16, 20 and 24,
+           * while the background climbed 64% -> 70% -> 77% -> 81%.
+           *
+           * That cost a full session to find, because the frame it produces looks like a
+           * BACKGROUND problem: a saturated plateau with a hard edge. Two other explanations were
+           * built and nearly acted on — an over-strong aureole, then a spatially-varying background
+           * model — before simply turning the span down fixed it. The number was in the status line
+           * the whole time, describing the whole frame; it was just not next to the control that
+           * sets it.
+           *
+           * `meanLevel` is the analytic background AFTER the transfer: what grey empty sky comes
+           * out as. Above roughly half, the frame is a plateau.
+           */
+          const curveBg = document.querySelector<HTMLElement>("[data-curve-bg]");
+          if (curveBg) {
+            curveBg.textContent =
+              ` · background renders at ${(100 * r.meanLevel).toFixed(0)}%` +
+              (r.meanLevel > 0.5 ? " — a plateau; more span adds no stars" : "");
+          }
           const skyNote = ` · mean frame level ${(100 * r.meanLevel).toFixed(0)}%`;
           /*
            * THE CLAIM SENTENCE. Ordered along the ladder — population, then distance, then

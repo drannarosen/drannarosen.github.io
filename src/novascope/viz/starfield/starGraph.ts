@@ -31,7 +31,9 @@ import {
   atan,
   screenSize,
 } from "three/tsl";
-import { DEFAULT_AUREOLE, DEFAULT_DIFFRACTION } from "../../core/optics/index.ts";
+/* Only the spider shape survives here, as the null-spider stand-in; the aureole comes from the
+ * field now, which is the point of `field.optics`. See the uniforms below. */
+import { DEFAULT_DIFFRACTION } from "../../core/optics/index.ts";
 import { PSF_BETA } from "./sizing.ts";
 import type { StarField } from "./prepare.ts";
 

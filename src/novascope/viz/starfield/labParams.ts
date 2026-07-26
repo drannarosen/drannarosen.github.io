@@ -40,6 +40,7 @@ import { PASSBANDS } from "../../core/photometry/passbands.ts";
 import { DEPTH_MAG_RANGE, DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
 import { D0_PC, DISTANCE_PC_RANGE } from "../../core/photometry/index.ts";
 import { SKY_FRACTION_RANGE } from "../../core/imaging/index.ts";
+import type { PrepareOptions } from "./prepare.ts";
 
 /**
  * The sky slider's position (0…1) to the fraction of white it subtracts, and back.
@@ -242,3 +243,54 @@ export type MotionChoice = LabState["motion"];
  * survived exactly until someone touched a slider.
  */
 export const PASSTHROUGH_KEYS = ["stars", "forceWebGL", "project"] as const;
+
+/**
+ * A lab state, as the options `prepareStarField` needs — THE ONE MAPPING.
+ *
+ * ── WHY THIS EXISTS, WHICH IS A BUG AND NOT A TIDY-UP ──
+ *
+ * The page built these options inline from the DOM, so anything else wanting to measure "what is
+ * on screen" had to rebuild the mapping by hand. That is two homes for one fact, and the drift was
+ * not hypothetical: a measurement script passed `instrument: "rubin"` — a plausible option name
+ * that `PrepareOptions` does not have — so it was silently ignored, the field came back in
+ * POPULATION mode, and a whole analysis of photometric colour was run on the wrong image. The
+ * numbers were self-consistent and completely wrong, which is the worst kind.
+ *
+ * The subtle part is `instrument`, and it is subtle in a way worth stating. There is no
+ * `instrument` option. An instrument supplies TWO things — a band triple and a brightness band —
+ * and it is the ABSENCE of a triple that selects the temperature-ramp path. So "population" is not
+ * a value to pass; it is a value to withhold. Any hand-written mapping has to know that, and one
+ * that does not produces a working call that renders the wrong physics.
+ *
+ * Deliberately NOT given a `motion` or `stars` input: neither reaches `prepare`. Motion is the
+ * viewer's preference and star count is `initStarLab`'s own option, so including them here would
+ * imply this function decides them.
+ *
+ * The return type NARROWS `band` to required. `PrepareOptions` has it optional — omitting it means
+ * bolometric — but this function always supplies one, and saying so lets the readout name the band
+ * without a `?? ""` that would print an empty label if the reasoning were ever wrong.
+ */
+export function labStateToPrepareOptions(
+  state: Omit<LabState, "motion">,
+): PrepareOptions & { band: string } {
+  const inst = INSTRUMENTS.find((i) => i.id === state.instrument) ?? null;
+  return {
+    scheme: state.scheme,
+    /* An instrument drives its own brightness band; only population mode honours the control. */
+    band: inst ? inst.brightnessBand : state.band,
+    ...(inst ? { bandTriple: inst.composite } : {}),
+    colorMode: inst ? ("photometric" as const) : ("population" as const),
+    /* "auto" means FOLLOW THE MODE, which `prepare` owns — so it is withheld, not defaulted. */
+    ...(state.transfer === TRANSFER_AUTO ? {} : { scaling: state.transfer as never }),
+    starDepthMag: state.depth,
+    pixelDepthMag: state.curve,
+    skyLevel: state.sky,
+    skyAuto: state.skyauto,
+    bloom: state.bloom,
+    aureoleStrength: state.aureole,
+    spikeStrength: state.spikes,
+    exposure: state.exposure,
+    minMass: state.minmass,
+    distancePc: state.dist,
+  };
+}
