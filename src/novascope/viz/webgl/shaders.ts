@@ -5,7 +5,17 @@
  * absorption with a yt-style log colorbar + homologous gas-expulsion.
  * STARS: 3D points sharing the SAME analytic camera (yaw/pitch/zoom/pan) as the
  * volume so gas and stars stay registered at any view.
+ *
+ * THE CAMERA'S THREE NUMBERS COME FROM `./camera`, not from here. They used to be written out
+ * twice — once as the volume's ray parameterisation, once as the star pass's inverse projection —
+ * with only a comment asking them to agree. See camera.ts for the derivation showing the two are
+ * exact inverses, and camera.test.ts for the assertion that they still are.
  */
+import { VOLUME_CAMERA as CAM, glslFloat as f } from "./camera.ts";
+
+const EYE_Z = f(CAM.eyeZ);
+const FOCAL = f(CAM.focal);
+const FOV = f(CAM.fovScale);
 
 export const FULLSCREEN_VS = `#version 300 es
 precision highp float;
@@ -35,8 +45,8 @@ mat3 rotX(float a){ float c=cos(a),s=sin(a); return mat3(1.,0.,0., 0.,c,-s, 0.,s
 
 void main(){
   vec2 uv = (gl_FragCoord.xy - 0.5*uRes)/uRes.y - uPan;   // pan shifts the view
-  vec3 ro = vec3(0.,0.,1.7);
-  vec3 rd = normalize(vec3(uv*1.15*uZoom, -1.6));   // uZoom>1 => cube smaller, more frame
+  vec3 ro = vec3(0.,0.,${EYE_Z});
+  vec3 rd = normalize(vec3(uv*${FOV}*uZoom, -${FOCAL}));   // uZoom>1 => cube smaller, more frame
   // rotate ray into the (static) volume's model space (yaw about Y, pitch about X)
   mat3 Rinv = rotX(-uPitch)*rotY(-uYaw);
   vec3 rom = Rinv*ro, rdm = Rinv*rd;
@@ -96,9 +106,9 @@ mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,s, 0.,1.,0., -s,0.
 mat3 rotX(float a){ float c=cos(a),s=sin(a); return mat3(1.,0.,0., 0.,c,-s, 0.,s,c); }
 void main(){
   vec3 P = rotX(-uPitch)*rotY(-uYaw) * (aPos / uBox);   // same rotation as the volume
-  float denom = 1.7 - P.z;
-  float clipx = (P.x*1.6/(1.15*uZoom))/denom;   // match the volume's zoom
-  float clipy = (P.y*1.6/(1.15*uZoom))/denom;
+  float denom = ${EYE_Z} - P.z;
+  float clipx = (P.x*${FOCAL}/(${FOV}*uZoom))/denom;   // match the volume's zoom
+  float clipy = (P.y*${FOCAL}/(${FOV}*uZoom))/denom;
   // + uPan to match the volume FS (which subtracts uPan from uv); *2 => clip space.
   // x is divided by uAspect because uv spans +-aspect/2 horizontally but clip spans +-1.
   gl_Position = vec4((clipx + uPan.x)*2.0/uAspect, (clipy + uPan.y)*2.0, 0.0, 1.0);
