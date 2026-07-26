@@ -25,6 +25,9 @@ import {
   T_SUN_K,
   PC_CM,
   AU_CM,
+  MYR_S,
+  KM_S_TO_PC_MYR,
+  G_PC3_MSUN_MYR2,
 } from "../src/novascope/core/constants/index.ts";
 import { effectiveTemperature } from "../src/novascope/core/stellar/index.ts";
 
@@ -67,6 +70,46 @@ ok(Math.abs(T_SUN_K - 5772) < 0.01, "T_sun derives to the IAU nominal 5772 K");
 ok(
   effectiveTemperature(1, 1) === T_SUN_K,
   "core/stellar's Stefan-Boltzmann anchor IS constants.T_SUN_K (bit-for-bit)",
+);
+
+/* ── 2b. the dynamics units, against an INDEPENDENT derivation ──
+ *
+ * These three are derived inside novascope, so asserting they equal their own formula would
+ * be a tautology. progenax computes G in the same units for the gravoturb export and ships
+ * it in meta.json, which makes it the one external reference available — the same shape as
+ * check-imf pinning Maschberger to a progenax fixture.
+ *
+ * WHAT THIS IS ACTUALLY FOR: catching a wrong YEAR. It is not policing the last few digits.
+ * The two derivations differ by 5.0e-6, which nobody should care about — novascope is
+ * teaching-grade and its star data is float32 to begin with, so precision beyond about six
+ * digits is not a claim it makes. Swapping the Julian year for a tropical one, however, makes
+ * this assertion read 3.8e-5 and fail, and THAT is a genuine mistake that would otherwise sit
+ * silently in every energy the integrators report.
+ *
+ * So the bound sits above the honest residual and below the cheapest real error. It was
+ * established by breaking it rather than by predicting it — reasoning gave 4.3e-5 (the
+ * isolated effect on G) and the measurement gave 3.8e-5, because progenax's own offset runs
+ * the other way and partly cancels. The predicted number was in this comment until the break
+ * test was run.
+ */
+ok(MYR_S === 3.15576e13, "Myr = 365.25 d x 86400 s x 1e6 = 3.15576e13 s (IAU Julian year)");
+
+const gravoturbMetaPath = resolve(ROOT, "public/data/gravoturb/meta.json");
+const gravoturbG = JSON.parse(readFileSync(gravoturbMetaPath, "utf8")).G_pc3_msun_myr2;
+const gRel = Math.abs(G_PC3_MSUN_MYR2 / gravoturbG - 1);
+ok(
+  gRel < 2e-5,
+  `G = ${G_PC3_MSUN_MYR2.toExponential(6)} pc^3/Msun/Myr^2 agrees with progenax's export ` +
+    `to ${gRel.toExponential(1)} (< 2e-5; a tropical-year error reads 3.8e-5 and fails)`,
+);
+
+// The two conversions must be the same fact seen twice: G in pc (km/s)^2 / Msun is exactly
+// G_PC3_MSUN_MYR2 / KM_S_TO_PC_MYR^2, and that equals GM_sun / (pc x 1e10) directly.
+const gKmsViaConversion = G_PC3_MSUN_MYR2 / KM_S_TO_PC_MYR ** 2;
+const gKmsDirect = GM_SUN_CGS / (PC_CM * 1e10);
+ok(
+  Math.abs(gKmsViaConversion / gKmsDirect - 1) < 1e-12,
+  "…and KM_S_TO_PC_MYR is consistent with it: G/k^2 === GM_sun/(pc x 1e10) to 1e-12",
 );
 
 /* ── 3. nobody else declares a physical constant ── */

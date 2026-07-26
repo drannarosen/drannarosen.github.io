@@ -103,3 +103,50 @@ export const AU_CM = 1.495978707e13;
  */
 export const AB_ZERO_JY = 3631;
 export const AB_ZERO_CGS = AB_ZERO_JY * 1e-23;
+
+/* ── Dynamics units ──
+ *
+ * An N-body integrator does not want CGS. Its natural units are parsecs, solar masses and
+ * megayears, and the conversions between those and the CGS constants above are the kind of
+ * fact that gets hand-typed once per solver and then disagrees with itself.
+ *
+ * All three below are DERIVED from `GM_SUN_CGS` and `PC_CM`. That is worth more than
+ * accuracy: it makes them mutually consistent BY CONSTRUCTION. Two independently typed
+ * conversion factors can disagree; two computed from one root cannot.
+ */
+
+/**
+ * Megayear [s], from the IAU Julian year of exactly 365.25 days.
+ *
+ * Written as the product so both halves stay visible, and so the year DEFINITION is the
+ * thing on the page rather than the number it produces (3.15576e13 s). Which year is meant
+ * matters more than it looks: a tropical year (365.2422 d) would move this by 2.1e-5, and
+ * G below by twice that — small enough to pass a loose check and large enough to be wrong.
+ */
+export const MYR_S = 365.25 * 86_400 * 1e6;
+
+/**
+ * Velocity conversion: 1 km/s expressed in pc/Myr.
+ *
+ * Comes out at 1.02271…, which is close enough to 1 to be genuinely dangerous. `LatentStar`
+ * stores velocities in km/s (a stellar-kinematics convention) while the integrators work in
+ * pc/Myr, so this factor sits on the boundary between them. Dropping it is a 2.3% error in
+ * every velocity and a 4.6% error in every kinetic energy — which looks like a mediocre
+ * integrator rather than like a units bug.
+ */
+export const KM_S_TO_PC_MYR = (1e5 * MYR_S) / PC_CM;
+
+/**
+ * Gravitational constant in the integrator's units [pc^3 M_sun^-1 Myr^-2].
+ *
+ * G is never measured directly to useful precision; GM_sun is, and IAU 2015 B3 fixes the
+ * nominal value this derives from. So this is a unit conversion of `GM_SUN_CGS`, not an
+ * independent constant, and writing it as one is what keeps it honest.
+ *
+ * Derives to 4.4985e-3, against progenax's exported 4.4984798e-3 — a 5e-6 difference that
+ * does not matter and is not worth reconciling. novascope is teaching-grade and its star
+ * data is float32; the research codes are the ones carrying float64 and a precision claim.
+ * `check-constants` compares the two anyway, because it is the only external reference
+ * available, and because the comparison catches a wrong YEAR — which does matter.
+ */
+export const G_PC3_MSUN_MYR2 = (GM_SUN_CGS * MYR_S ** 2) / PC_CM ** 3;
