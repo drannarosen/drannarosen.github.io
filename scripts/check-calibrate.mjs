@@ -271,18 +271,43 @@ for (const run of CALIBRATION_RUNS) {
   ok(aureoleIntegral(0, DEFAULT_AUREOLE) === 0, "a zero-extent aureole integrates to zero");
   ok(profileIntegral(0, 10, DEFAULT_AUREOLE, 3.2) === 0, "zero amplitude integrates to zero");
   ok(profileIntegral(1, 0, DEFAULT_AUREOLE, 3.2) === 0, "a zero-extent quad integrates to zero");
-  for (const [label, fn] of [
-    ["aureole", () => aureoleIntegral(10, { amp: 0.012, scale: 2, p: 2 })],
-    ["diffraction", () => diffractionIntegral(10, { ...DEFAULT_DIFFRACTION, p: 1 })],
-  ]) {
+  /*
+   * THE TWO WINGS NOW DIFFER HERE, DELIBERATELY, and the asymmetry is the thing to record.
+   *
+   * Both closed forms have exponents where the general expression divides by zero while the
+   * integral is finite — the antiderivative turns into a logarithm. The question is what to do
+   * about a removable singularity, and the answer depends on whether it is REACHABLE:
+   *
+   *   - The AUREOLE's exponent is fixed at 3 and is not a control. Its singular cases stay a
+   *     throw, because an unreachable branch that silently returns a number is a branch nobody
+   *     will ever check; a throw says "you have moved somewhere unverified".
+   *   - The DIFFRACTION exponent is 2 — one of the singular values — since it was derived from
+   *     Fraunhofer. So it needs the limit form, which `check:star-optics` verifies against
+   *     numerical integration at every exponent including this one.
+   *
+   * What this asserts is the property that matters to the white point either way: no NaN and no
+   * Infinity reaches the exposure. A NaN there does not crash, it makes the whole frame black.
+   */
+  {
     let threw = false;
     try {
-      fn();
+      aureoleIntegral(10, { amp: 0.012, scale: 2, p: 2 });
     } catch {
       threw = true;
     }
-    ok(threw, `a singular ${label} exponent throws rather than returning NaN into the white point`);
+    ok(threw, "a singular AUREOLE exponent throws rather than returning NaN into the white point");
   }
+  for (const p of [1, 2]) {
+    const v = diffractionIntegral(10, { ...DEFAULT_DIFFRACTION, p });
+    ok(
+      Number.isFinite(v) && v > 0,
+      `the DIFFRACTION integral is finite and positive at its logarithmic exponent p = ${p} (${v.toExponential(3)})`,
+    );
+  }
+  ok(
+    Number.isFinite(diffractionIntegral(10, DEFAULT_DIFFRACTION)),
+    `…and the SHIPPED exponent p = ${DEFAULT_DIFFRACTION.p} is one of them, which is why it is no longer a throw`,
+  );
 }
 
 if (failures) {

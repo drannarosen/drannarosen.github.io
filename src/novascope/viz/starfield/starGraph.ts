@@ -125,18 +125,28 @@ export function createStarGraph(field: StarField): StarGraph {
    * from the field that was just prepared (already in DEVICE px, so the shader
    * does no unit conversion of its own).
    */
+  /*
+   * FROM THE FIELD, NOT FROM `core/optics`. These used to read the module defaults directly, which
+   * meant the shader and the quad-sizing solved against two independently-sourced copies of the
+   * same instrument — fine while both were constants, and wrong the moment either became a
+   * control. `field.optics` is what `prepare` actually sized the quads with, so the profile
+   * evaluated here cannot drift from the box it is evaluated in. `DEFAULT_DIFFRACTION` survives
+   * below only as the shape to feed the graph when there is no spider; its amplitude is zeroed,
+   * so the term compiles and contributes nothing.
+   */
+  const spider = field.optics.diffraction ?? { ...DEFAULT_DIFFRACTION, amp: 0 };
   const uBeta = uniform(PSF_BETA);
-  const uAurAmp = uniform(DEFAULT_AUREOLE.amp);
-  const uAurScale = uniform(DEFAULT_AUREOLE.scale);
-  const uAurP = uniform(DEFAULT_AUREOLE.p);
+  const uAurAmp = uniform(field.optics.aureole.amp);
+  const uAurScale = uniform(field.optics.aureole.scale);
+  const uAurP = uniform(field.optics.aureole.p);
   const uGain = uniform(1);
   const uPsfWidth = uniform(field.stats.psfWidthPx);
-  const uSpikeCount = uniform(DEFAULT_DIFFRACTION.spikes);
-  const uSpikeAmp = uniform(DEFAULT_DIFFRACTION.amp);
-  const uSpikeSharp = uniform(DEFAULT_DIFFRACTION.sharpness);
-  const uSpikeScale = uniform(DEFAULT_DIFFRACTION.scale);
-  const uSpikeP = uniform(DEFAULT_DIFFRACTION.p);
-  const uSpikeAngle = uniform(DEFAULT_DIFFRACTION.angle);
+  const uSpikeCount = uniform(spider.spikes);
+  const uSpikeAmp = uniform(spider.amp);
+  const uSpikeSharp = uniform(spider.sharpness);
+  const uSpikeScale = uniform(spider.scale);
+  const uSpikeP = uniform(spider.p);
+  const uSpikeAngle = uniform(spider.angle);
   const uniforms: StarGraphUniforms = {
     beta: uBeta,
     aureoleAmp: uAurAmp,

@@ -49,6 +49,8 @@ import {
   DEFAULT_AUREOLE,
   diffraction,
   DEFAULT_DIFFRACTION,
+  diffractionIntegral,
+  diffractionAzimuthalMean,
 } from "../src/novascope/core/optics/index.ts";
 import {
   robustWhiteFlux,
@@ -1006,6 +1008,51 @@ ok(real.stats.visible > nStars * 0.9, "the sampled cluster renders visible, not 
   ok(
     diffractionExtentRadii(25, DEFAULT_DIFFRACTION) > aureoleExtentRadii(25, DEFAULT_AUREOLE),
     "a bright star's spikes need more room than its halo",
+  );
+
+  /*
+   * THE AREA INTEGRAL, AGAINST BRUTE-FORCE NUMERICAL INTEGRATION.
+   *
+   * `diffractionIntegral` is a closed form with THREE branches, because p = 1 and p = 2 make its
+   * general expression divide by zero at values where the integral itself is finite (the
+   * antiderivative becomes a logarithm). It used to throw on both, correctly, while both were
+   * unreachable; p = 2 became the shipped exponent when the falloff was derived from Fraunhofer,
+   * and this is what stops the limit forms from being wrong in a way nothing would notice.
+   *
+   * The consequence of a wrong integral is not a crash. It is a mis-calibrated exposure: this
+   * function is how `analyticMeanIntensity` predicts the light a star puts into its billboard
+   * without rasterising, and an earlier error in exactly that quantity — evaluating the spike
+   * lobe at its peak — overcounted by 12.4x and biased a display white point by a third.
+   */
+  const bruteIntegral = (edge, d, N = 200_000) => {
+    const k = d.amp * diffractionAzimuthalMean(d.sharpness);
+    let s = 0;
+    const h = edge / N;
+    for (let i = 0; i < N; i++) {
+      const rho = (i + 0.5) * h;
+      s += ((2 * Math.PI * rho * k) / (1 + rho / d.scale) ** d.p) * h;
+    }
+    return s;
+  };
+  for (const p of [1, 1.6, 2, 2.5, 3]) {
+    let worst = 0;
+    for (const edge of [3, 20, 200]) {
+      const d = { ...DEFAULT_DIFFRACTION, p };
+      const closed = diffractionIntegral(edge, d);
+      const numeric = bruteIntegral(edge, d);
+      worst = Math.max(worst, Math.abs(closed - numeric) / Math.abs(numeric));
+    }
+    ok(
+      worst < 1e-7,
+      `diffractionIntegral at p = ${p} matches numerical integration (worst ${worst.toExponential(1)})${
+        p === 1 || p === 2 ? " — the logarithmic branch" : ""
+      }`,
+    );
+  }
+  ok(
+    diffractionIntegral(20, { ...DEFAULT_DIFFRACTION, p: 2 }) <
+      diffractionIntegral(20, { ...DEFAULT_DIFFRACTION, p: 1.6 }),
+    "…and the branches stay ordered in p: a steeper falloff puts LESS light in the quad",
   );
   // And the profile must actually apply it only to Tier 3. The reference gates on
   // tier; assert the shape difference is real rather than trusting the flag.

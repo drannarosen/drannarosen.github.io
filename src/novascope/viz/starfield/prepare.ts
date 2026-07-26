@@ -39,7 +39,12 @@ import {
   softeningForLimit,
 } from "../../core/imaging/index.ts";
 import { getScheme } from "../../core/colorimetry/schemes.ts";
-import { DEFAULT_AUREOLE, DEFAULT_DIFFRACTION } from "../../core/optics/index.ts";
+import {
+  DEFAULT_AUREOLE,
+  DEFAULT_DIFFRACTION,
+  type AureoleParams,
+  type DiffractionParams,
+} from "../../core/optics/index.ts";
 import { unitLuminanceChroma } from "../../core/colorimetry/index.ts";
 import {
   computeTiers,
@@ -222,6 +227,28 @@ export interface PrepareOptions {
    */
   skyAuto?: boolean;
   /**
+   * Strength of the scattered-light aureole, as a MULTIPLE of `DEFAULT_AUREOLE.amp`. 0 turns it
+   * off; 1 is the shipped instrument.
+   *
+   * A multiplier rather than an amplitude, so the default lives in `core/optics` and this says
+   * "more or less of that" instead of restating the number — the same discipline that keeps
+   * `DEPTH_MAG_RANGE` out of the slider markup. Zero needs no separate toggle: `aureoleExtentRadii`
+   * already returns 0 when the peak falls below the floor, so a strength of 0 removes the term from
+   * the sizing and the shading by the same route it would take if the star were faint.
+   */
+  aureoleStrength?: number;
+  /**
+   * Strength of the diffraction spikes, as a multiple of `DEFAULT_DIFFRACTION.amp`. 0 turns them
+   * off; 1 is the shipped instrument.
+   *
+   * Worth being able to turn off specifically. Spikes are the most recognisable instrument
+   * signature there is, they are the thing most easily mistaken for a claim about the star, and
+   * they were measured owning 58.2% of the drawn quad area from SEVEN stars of 1200 — so being
+   * able to see the frame without them is the difference between judging the cluster and judging
+   * the spider.
+   */
+  spikeStrength?: number;
+  /**
    * Distance to the cluster CENTRE [pc]. Defaults to `D0_PC`.
    *
    * Rung 4 of the theory-to-observation ladder, and the rung where theory becomes observation:
@@ -303,6 +330,20 @@ export interface StarField {
   halo: Float32Array;
   /** Billboard half-extent per star [device px]; the PSF width is fixed. */
   sizePx: Float32Array;
+  /**
+   * The optics this field was SIZED with — the one record both consumers read.
+   *
+   * `starGraph` builds its uniforms from here rather than from `core/optics`'s defaults, so the
+   * profile the shader evaluates is by construction the profile the quads were solved against.
+   * See the resolution site in `prepareStarField` for why that coupling is load-bearing.
+   *
+   * `diffraction` is null when the spikes are off, which is a different statement from an
+   * amplitude of zero: no spider at all, rather than a spider contributing nothing.
+   */
+  optics: {
+    aureole: AureoleParams;
+    diffraction: DiffractionParams | null;
+  };
   /** Render tier per star (1, 2 or 3). */
   tier: Uint8Array;
   /** Diagnostics worth showing in a lab readout. */
@@ -504,6 +545,36 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
    */
   const pixelDepthMag = opts.pixelDepthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
   const displayFloor = transferFloor(scaling, pixelDepthMag);
+
+  /*
+   * THE INSTRUMENT'S OPTICS, RESOLVED ONCE AND CARRIED ON THE FIELD.
+   *
+   * These are used in two places that MUST agree: the quad extent solved below, and the profile
+   * the shader evaluates inside that quad (`starGraph`, which used to read the module defaults
+   * independently). Disagreement is not a cosmetic bug — the shader subtracts the profile's value
+   * at the quad EDGE from the whole star, so a wing sized against one amplitude and shaded with
+   * another dims the core and truncates the halo, silently.
+   *
+   * That exact bug is already recorded on `DEFAULT_AUREOLE`: `amp: 0.06` lived in `core/optics`
+   * while the shader used `0.012`, which made "does the GPU match the CPU reference?" unanswerable
+   * by construction. Putting the resolved values on the field is what stops a strength control
+   * reintroducing it — there is now one record, and both consumers read it.
+   */
+  const aureoleStrength = Math.max(0, opts.aureoleStrength ?? 1);
+  const spikeStrength = Math.max(0, opts.spikeStrength ?? 1);
+  const aureoleParams: AureoleParams = {
+    ...DEFAULT_AUREOLE,
+    amp: DEFAULT_AUREOLE.amp * aureoleStrength,
+  };
+  /*
+   * NULL, not a zero amplitude, when the spikes are off. `sizePx` already branches on whether a
+   * star is in the top tier at all, so "no spider" and "a spider contributing nothing" want to be
+   * the same absence rather than two paths that have to agree numerically.
+   */
+  const diffractionParams: DiffractionParams | null =
+    spikeStrength > 0
+      ? { ...DEFAULT_DIFFRACTION, amp: DEFAULT_DIFFRACTION.amp * spikeStrength }
+      : null;
 
   const position = new Float32Array(count * 3);
   const color = new Float32Array(count * 3);
@@ -769,10 +840,10 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
       bandFluxOut[i * 3 + 1] ?? 0,
       bandFluxOut[i * 3 + 2] ?? 0,
     );
-    const spikeParams = (tier[i] ?? 1) >= 3 ? DEFAULT_DIFFRACTION : undefined;
+    const spikeParams = (tier[i] ?? 1) >= 3 ? (diffractionParams ?? undefined) : undefined;
     const reachRadii = Math.max(
       coreExtentRadii(ampPeak, displayFloor),
-      aureoleExtentRadii(ampPeak, DEFAULT_AUREOLE),
+      aureoleExtentRadii(ampPeak, aureoleParams),
       spikeParams ? diffractionExtentRadii(ampPeak, spikeParams) : 0,
     );
     /*
@@ -810,6 +881,7 @@ export function prepareStarField(stars: Float32Array, opts: PrepareOptions = {})
     halo,
     sizePx,
     tier,
+    optics: { aureole: aureoleParams, diffraction: diffractionParams },
     stats: {
       whiteFlux,
       visible,

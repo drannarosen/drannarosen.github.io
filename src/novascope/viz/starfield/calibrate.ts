@@ -71,9 +71,15 @@ import type { StarField } from "./prepare.ts";
  * silence. Prose is a second home for a fact, and it drifts like any other.
  *
  * The one number worth stating, because the gate checks it and it is what bounds the method, is
- * the SPREAD IN MAGNITUDES: 0.41. Against an 8 magnitude stretch that is about 5% of the dynamic
+ * the SPREAD IN MAGNITUDES: 0.47. Against an 8 magnitude stretch that is about 6% of the dynamic
  * range, which is why one constant is enough here and a per-frame histogram pass is not worth its
  * cost.
+ *
+ * The constant moved 33.91 -> 35.16 when the diffraction falloff was derived from Fraunhofer
+ * (p 1.6 -> 2). That is the mechanism working rather than a surprise: a steeper spike puts less
+ * light in each quad, so the analytic mean falls and the ratio to the true white point rises. The
+ * fixture was regenerated deliberately, with the digest confirming the ONLY input that changed was
+ * that exponent.
  *
  * WHERE THE SPREAD COMES FROM, because it bounds what this can ever do: most of it is FIELD OF
  * VIEW. The analytic mean counts a star's total light and divides by the pixel count, so it does
@@ -88,7 +94,7 @@ import type { StarField } from "./prepare.ts";
  * constant absorbs any stable systematic, and what has to be gated is the stability, not
  * the value.
  */
-export const WHITE_FROM_ANALYTIC_MEAN = 33.91;
+export const WHITE_FROM_ANALYTIC_MEAN = 35.16;
 
 /*
  * `WHITE_FROM_ANALYTIC_MEAN_SPREAD` USED TO LIVE HERE and is gone.
@@ -252,6 +258,14 @@ export function calibrationFingerprint(): string {
 }
 
 export interface CalibrateOptions {
+  /**
+   * Override the optics. DEFAULTS TO THE FIELD'S OWN (`field.optics`), not to `core/optics`.
+   *
+   * That default is the point: this function reproduces analytically what the shader rasterises,
+   * so it has to use the instrument the field was SIZED with. Falling back to the module constants
+   * meant a field prepared with the aureole turned down was still calibrated as though it had not
+   * been — an exposure computed for a different instrument than the one on screen.
+   */
   aureole?: AureoleParams;
   diffraction?: DiffractionParams;
   beta?: number;
@@ -307,8 +321,8 @@ export function analyticMeanIntensity(
   opts: CalibrateOptions,
 ): number {
   if (!(widthPx > 0) || !(heightPx > 0)) return 0;
-  const aureole = opts.aureole ?? DEFAULT_AUREOLE;
-  const spikeParams = opts.diffraction ?? DEFAULT_DIFFRACTION;
+  const aureole = opts.aureole ?? field.optics.aureole;
+  const spikeParams = opts.diffraction ?? field.optics.diffraction ?? undefined;
   const beta = opts.beta ?? PSF_BETA;
   const psf = field.stats.psfWidthPx;
   let total = 0;

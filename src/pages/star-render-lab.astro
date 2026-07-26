@@ -279,6 +279,27 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       <label class="srl__ctl">Bloom <span data-bloom-val>0.35</span>
         <input type="range" min="0" max="1" step="0.01" value="0.35" data-bloom />
       </label>
+      <!--
+        THE TWO OPTICAL TERMS, rung 7, each as a multiple of the instrument's own amplitude. 1 is
+        the instrument as modelled; 0 removes the term entirely.
+
+        WHY THEY ARE CONTROLS AND NOT CONSTANTS. A quad is sized by SOLVING for where its profile
+        drops below one display level, so a term's falloff exponent governs its reach far more
+        than its amplitude does — which makes these terms much more consequential than their
+        amplitudes suggest, and impossible to judge without being able to switch them off.
+        Measured before the spike exponent was corrected: SEVEN stars of 1200 held 58.2% of all
+        drawn quad area, at 121 px against 22 px for the other 1193. All seven were blue, because
+        the seven brightest stars are the hottest.
+
+        These change quad SIZE, so unlike bloom and the sky they are physics and pay for a full
+        rebuild rather than being pipeline uniforms.
+      -->
+      <label class="srl__ctl">Scattered-light halo <span data-aureole-val>1.00x</span>
+        <input type="range" min="0" max="2" step="0.05" value="1" data-aureole />
+      </label>
+      <label class="srl__ctl">Diffraction spikes <span data-spikes-val>1.00x</span>
+        <input type="range" min="0" max="2" step="0.05" value="1" data-spikes />
+      </label>
       </div>
     </div>
 
@@ -825,6 +846,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     const skyAutoEl = document.querySelector<HTMLInputElement>("[data-sky-auto]");
     if (skyAutoEl) skyAutoEl.checked = s.skyauto;
     setValue("[data-bloom]", String(s.bloom));
+    setValue("[data-aureole]", String(s.aureole));
+    setValue("[data-spikes]", String(s.spikes));
     setValue("[data-exposure]", String(s.exposure));
     setValue("[data-min-mass]", String(s.minmass));
   };
@@ -850,6 +873,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     /* Falls back to the URL, because the checkbox does not exist — see `readSkyAuto`. */
     skyauto: readSkyAuto(),
     bloom: Number(readValue("[data-bloom]", "0.35")),
+    aureole: Number(readValue("[data-aureole]", "1")),
+    spikes: Number(readValue("[data-spikes]", "1")),
     exposure: Number(readValue("[data-exposure]", "1")),
     minmass: Number(readValue("[data-min-mass]", "0")),
     /*
@@ -994,6 +1019,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       skyLevel: readSky(),
       skyAuto: readSkyAuto(),
       bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
+      aureoleStrength: Number(document.querySelector<HTMLInputElement>("[data-aureole]")?.value ?? 1),
+      spikeStrength: Number(document.querySelector<HTMLInputElement>("[data-spikes]")?.value ?? 1),
       ...(depth === undefined ? {} : { starDepthMag: Number(depth) }),
       pixelDepthMag: Number(
         document.querySelector<HTMLInputElement>("[data-curve]")?.value ?? DEFAULT_LUPTON_DEPTH_MAG,
@@ -1040,6 +1067,22 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
           const bloomEl = document.querySelector<HTMLInputElement>("[data-bloom]");
           const bloomVal = document.querySelector<HTMLElement>("[data-bloom-val]");
           if (bloomVal && bloomEl) bloomVal.textContent = Number(bloomEl.value).toFixed(2);
+          /*
+           * "off", not "0.00x". Zero removes the term from the model rather than scaling it to
+           * nothing, and the readout should say which of those happened — it is the difference
+           * between an instrument without a spider and one whose spikes are too faint to see.
+           */
+          for (const [sel, out] of [
+            ["[data-aureole]", "[data-aureole-val]"],
+            ["[data-spikes]", "[data-spikes-val]"],
+          ] as const) {
+            const el = document.querySelector<HTMLInputElement>(sel);
+            const val = document.querySelector<HTMLElement>(out);
+            if (el && val) {
+              const n = Number(el.value);
+              val.textContent = n === 0 ? "off" : `${n.toFixed(2)}x`;
+            }
+          }
           if (massVal) massVal.textContent = minMass > 0 ? `${minMass.toFixed(2)} M☉` : "all";
           const expEl = document.querySelector<HTMLInputElement>("[data-exposure]");
           const expVal = document.querySelector<HTMLElement>("[data-exposure-val]");
@@ -1409,7 +1452,7 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         };
 
         for (const el of document.querySelectorAll<HTMLElement>(
-          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-sky-auto],[data-bloom],[data-depth],[data-exposure],[data-min-mass],[data-dist],[data-curve]",
+          "[data-instrument],[data-scheme],[data-band],[data-scaling],[data-sky],[data-sky-auto],[data-bloom],[data-depth],[data-exposure],[data-min-mass],[data-dist],[data-curve],[data-aureole],[data-spikes]",
         )) {
           /*
            * DISPLAY-ONLY CONTROLS SKIP THE FIELD REBUILD.
@@ -1422,6 +1465,14 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
            * The split is by DATA ATTRIBUTE rather than by a list of ids kept somewhere else,
            * because the two facts — "this control is display-only" and "this control is wired to
            * setDisplay" — must not be able to drift apart.
+           *
+           * THE OPTICS STRENGTHS ARE DELIBERATELY NOT HERE, and they look like they should be —
+           * `starGraph` drives the aureole and spike amplitudes as live uniforms, so changing them
+           * without a rebuild would visibly work. It would also be wrong: those amplitudes set how
+           * far each profile reaches, and the quad is SOLVED against that reach. Shading a wider
+           * wing inside a quad sized for a narrower one does not merely clip it — the shader
+           * subtracts the profile's value at the quad EDGE across the whole star, so the core dims
+           * and the halo truncates. They pay for the rebuild because they change the geometry.
            */
           const displayOnly = el.matches("[data-sky],[data-bloom],[data-sky-auto]");
           el.addEventListener("input", () => {

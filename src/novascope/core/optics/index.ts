@@ -166,13 +166,42 @@ export interface DiffractionParams {
  * in this renderer to overdo — a bright cross reads as a lens-flare sticker rather
  * than as optics, and it is the artifact most likely to be mistaken for a claim
  * about the star. It earns its place only on sources bright enough to show it.
+ *
+ * ── WHY p = 2, AND WHY IT IS DERIVED RATHER THAN CHOSEN ──
+ *
+ * `p` was 1.6, and unlike `amp` above it carried no reason. It turned out to be the
+ * single most consequential number in the renderer's appearance, because a quad is
+ * sized by SOLVING for where its profile drops below one display level — so a term's
+ * falloff exponent governs its reach far more than its amplitude does. At p = 1.6 the
+ * spike falls off more slowly than any other term (the aureole is p = 3, scale 2;
+ * this is scale 6), so despite being 8x fainter at the core it reached ~5x further,
+ * and the measured consequence was extreme: SEVEN stars of 1200 held 58.2% of all
+ * drawn quad area, at 121 px against 22 px for the other 1193. Anna reported it as
+ * "the spread for the blue is horrible" — the seven are the seven brightest, hence
+ * the hottest, hence blue.
+ *
+ * The physical answer is standard Fraunhofer diffraction. A straight vane is a slit-
+ * like aperture obstruction, whose far-field amplitude is a sinc and whose intensity
+ * is therefore sinc^2 = sin^2(x)/x^2. Averaged over its oscillation the envelope goes
+ * as 1/x^2, so the intensity along a spike falls as the SQUARE of the distance:
+ *
+ *     p = 2
+ *
+ * That is the exponent this profile's `(1 + rho/scale)^-p` should carry, and it is a
+ * derivation rather than a look — which matters because the value it replaces was
+ * arrived at by looking, and looking is what got it wrong. The remaining parameters
+ * (`amp`, `sharpness`, `scale`) are still phenomenological: this is a stylised spider,
+ * not a pupil-plane calculation, and only the radial falloff is claimed from theory.
+ *
+ * Measured effect of the change on the shipped population, star reach 16: largest quad
+ * 121 -> 71 px, and the seven spiked stars' share of drawn area 58.2% -> 33.1%.
  */
 export const DEFAULT_DIFFRACTION: DiffractionParams = {
   spikes: 4,
   amp: 1.5e-3,
   sharpness: 24,
   scale: 6,
-  p: 1.6,
+  p: 2,
   angle: 0,
 };
 
@@ -270,15 +299,37 @@ export function diffractionAngleAveraged(rho: number, d: DiffractionParams): num
  */
 export function diffractionIntegral(edge: number, d: DiffractionParams): number {
   if (!(edge > 0) || !(d.scale > 0) || !(d.p > 0)) return 0;
-  if (d.p === 1 || d.p === 2) {
-    throw new Error(`diffraction exponent p = ${d.p} is singular in the area integral`);
-  }
   const U = 1 + edge / d.scale;
+  /*
+   * p = 1 AND p = 2 ARE SINGULAR IN THE FORMULA, NOT IN THE INTEGRAL.
+   *
+   * Substituting u = 1 + rho/scale turns the area integral into
+   *
+   *     2 pi scale^2 * integral from 1 to U of (u^(1-p) - u^-p) du
+   *
+   * and each term integrates to a POWER except where its exponent is exactly -1 — which is
+   * p = 2 for the first and p = 1 for the second. There the antiderivative is a logarithm, so
+   * the general closed form below divides by zero at values where the integral itself is
+   * perfectly finite. Taking the limit gives:
+   *
+   *     p = 2:   2 pi scale^2 * (ln U + 1/U - 1)
+   *     p = 1:   2 pi scale^2 * (U - 1 - ln U)
+   *
+   * This function used to THROW on both, which was the right call while they were unreachable —
+   * a wrong number is worse than a stopped build. p = 2 stopped being unreachable when the
+   * spike falloff was derived from Fraunhofer (see `DEFAULT_DIFFRACTION`), and the gate caught
+   * it immediately, which is the gate working exactly as intended.
+   *
+   * NOT A GENERAL CURE: the closed form is still ill-CONDITIONED near these values, so a p of
+   * 1.9999 loses precision to cancellation even though it does not divide by zero. Both
+   * exponents in use are exact, so that is a limitation worth naming rather than papering over.
+   */
+  const s2 = 2 * Math.PI * d.scale * d.scale;
   const radial =
-    2 *
-    Math.PI *
-    d.scale *
-    d.scale *
-    ((U ** (2 - d.p) - 1) / (2 - d.p) - (U ** (1 - d.p) - 1) / (1 - d.p));
+    d.p === 2
+      ? s2 * (Math.log(U) + 1 / U - 1)
+      : d.p === 1
+        ? s2 * (U - 1 - Math.log(U))
+        : s2 * ((U ** (2 - d.p) - 1) / (2 - d.p) - (U ** (1 - d.p) - 1) / (1 - d.p));
   return d.amp * diffractionAzimuthalMean(d.sharpness) * radial;
 }

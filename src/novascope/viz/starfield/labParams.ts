@@ -179,6 +179,21 @@ export const LAB_SCHEMA = {
    */
   skyauto: boolField(false),
   bloom: numberField(0, 1, 0.35, 2),
+  /*
+   * THE OPTICAL TERMS, each as a multiple of the instrument's own amplitude. 0 is off, 1 is the
+   * shipped instrument, 2 is twice as much.
+   *
+   * A multiplier rather than an amplitude because the amplitude has a home already
+   * (`core/optics`), and a URL carrying `aureole=0.006` would be a second copy of a physical
+   * constant — the failure this file's header is about. `aureole=0.5` says "half the instrument's
+   * scattered light" and stays meaningful if that instrument is ever re-measured.
+   *
+   * ZERO NEEDS NO SEPARATE TOGGLE. Both terms fall out of the quad sizing on their own when their
+   * peak drops below the display floor, so a strength of 0 removes them by the same route a faint
+   * star takes. One control per effect instead of a checkbox and a slider that can disagree.
+   */
+  aureole: numberField(0, 2, 1, 2),
+  spikes: numberField(0, 2, 1, 2),
   exposure: numberField(0.25, 4, 1, 2),
   minmass: numberField(0, 2, 0, 2),
   /*

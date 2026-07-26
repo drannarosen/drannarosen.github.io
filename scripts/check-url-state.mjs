@@ -292,6 +292,33 @@ console.log("\n  the sky control (a cubic widget over a fractional unit):");
   ok(lo > 0.15, `…and "off to 0.20% of white" still gets ${(lo * 100).toFixed(0)}% of it`);
 }
 
+/* ── 5. THE OPTICAL TERMS, which are multipliers and not amplitudes ── */
+/*
+ * The point of gating these is the UNIT. A URL carrying `aureole=0.006` would be a second copy of
+ * a physical constant that already lives in `core/optics`, and it would silently stop meaning what
+ * it said the first time that instrument was re-measured. A multiplier is a statement about the
+ * instrument rather than a restatement of it, so `aureole=0.5` still means "half the modelled
+ * scattered light" whatever the model says.
+ */
+console.log("\n  the optical terms (multipliers of the instrument, not amplitudes):");
+{
+  const s = decode(LAB_SCHEMA, "");
+  ok(s.aureole === 1 && s.spikes === 1, "both default to 1 — the instrument as modelled");
+  ok(
+    encode(LAB_SCHEMA, s) === `depth=${LAB_SCHEMA.depth.default}`,
+    "…so a default link says nothing about them",
+  );
+  ok(decode(LAB_SCHEMA, "spikes=0").spikes === 0, "0 is expressible — the term removed entirely");
+  ok(
+    decode(LAB_SCHEMA, "aureole=99").aureole === 2 && decode(LAB_SCHEMA, "spikes=-1").spikes === 0,
+    "…and both clamp rather than throwing, so a stale link still opens",
+  );
+  ok(
+    decode(LAB_SCHEMA, encode(LAB_SCHEMA, { ...s, aureole: 0, spikes: 0 })).aureole === 0,
+    "a both-off link round-trips — the state that isolates the cluster from the instrument",
+  );
+}
+
 if (failures) {
   console.error(`\n✗ url-state — ${failures} failure(s)`);
   process.exit(1);
