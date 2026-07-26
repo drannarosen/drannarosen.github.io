@@ -2,7 +2,8 @@
 /*
  * StageInitialConditions — Step 1 of the "model a cluster from first
  * principles" explorable. Samples a real cluster from the Kroupa IMF
- * (lib/imf.ts) and shows two honest views of the SAME stars:
+ * (src/lib/hero/sampler.ts, the same frozen sampler the homepage hero uses)
+ * and shows two honest views of the SAME stars:
  *   • left  — the cluster in space (a Plummer sphere), colored by spectral type
  *   • right — the mass histogram: the initial mass function itself
  * Controls let the reader resample and change N. Everything is computed live;
@@ -45,7 +46,16 @@
 </div>
 
 <script>
-  import { sampleCluster, massToTeff, teffToRGB, type Star } from "@novascope/core/imf";
+  /*
+   * The FROZEN sampler, shared with the homepage hero — not novascope's canonical one.
+   *
+   * Deliberate: the canonical `core/cluster.sampleCluster` draws from named RNG sub-streams where
+   * this draws from a single stream, so adopting it would reshuffle this page's stars for no
+   * reader-visible gain. Migrating this stage to the canonical cluster is a separate decision
+   * about what /model-path should teach, not a side effect of tidying Layer 0.
+   */
+  import { sampleCluster, type Star } from "../../lib/hero/sampler";
+  import { star } from "@novascope/core/stellar";
 
   const root = document.querySelector<HTMLElement>(".ic");
   if (root) initStage(root);
@@ -138,7 +148,10 @@
       for (let i = 0; i < nbins; i++) {
         const lm = lmMin + ((i + 0.5) / nbins) * (lmMax - lmMin);
         const m = Math.pow(10, lm);
-        const [r, g, b] = teffToRGB(massToTeff(m));
+        /* Through the star() contract rather than the retired massToTeff/teffToRGB pair.
+         * Identical output, not merely similar: star() clamps to the same [0.1, 100] and its
+         * `.color` IS teffToRGB(Teff) — verified equal to max diff 0 across 0.05-150 M☉. */
+        const [r, g, b] = star(m, 0.02).color;
         const bh = (bins[i] / maxCount) * plotH;
         const x = padL + i * bw;
         const y = padT + plotH - bh;
