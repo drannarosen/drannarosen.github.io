@@ -314,6 +314,69 @@ for (const run of CALIBRATION_RUNS) {
   );
 }
 
+/* ── THE EXPOSURE MUST NOT DEPEND ON THE DEVICE PIXEL RATIO ── */
+/*
+ * THE BUG THIS GATES, WHICH SHIPPED AND WAS FOUND BY LOOKING AT THE IMAGE.
+ *
+ * `analyticMeanIntensity` sums `profileIntegral(...) * psf^2` and divides by a pixel COUNT. `psf`
+ * is `field.stats.psfWidthPx`, which is `PSF_WIDTH_PX * pixelRatio` — DEVICE pixels. `scene.ts`
+ * passed `canvas.clientWidth/Height`, which are CSS pixels, so on any HiDPI display it divided
+ * device-pixel light by a CSS-pixel area and returned a white point exactly dpr^2 too high.
+ *
+ * Measured at dpr 2 on a 780x487 CSS canvas: white point 9.408e-1 against the correct 2.352e-1.
+ * The consequence was not uniform — 637 stars cleared the display floor instead of 985, and the RED
+ * ones fell 553 -> 247, because a too-bright white point crushes the faint end and the faint stars
+ * are the red ones. The reported symptom was "all I see is blue".
+ *
+ * Nothing caught it because every fixture is internally consistent about its own grid: the bug
+ * lived in the units of ONE call site. What is invariant, and therefore gateable, is the physics —
+ * doubling the pixel ratio doubles the PSF in pixels AND doubles the grid, so psf^2 and the pixel
+ * count both scale by dpr^2 and the mean is unchanged.
+ *
+ * The tolerance is 5% rather than exact: `MAX_QUAD_PX` caps a billboard in CSS px times dpr, so a
+ * few of the brightest stars clip slightly more at high dpr. Measured drift across dpr 1/2/3 is
+ * 1.6%, against the bug's 300%, so this catches it with a wide margin and does not fail on the
+ * legitimate second-order effect.
+ */
+console.log("\n  the exposure is dpr-invariant (same scene, same angular frame):");
+{
+  const stars = clusterStarTable({ sampling: { mode: "count", target: 2000 } });
+  const base = {
+    scheme: "true",
+    band: "LSST_r",
+    bandTriple: ["LSST_i", "LSST_r", "LSST_g"],
+    starDepthMag: 24,
+    pixelDepthMag: 8,
+    scaling: "lupton",
+    distancePc: 400,
+  };
+  const opts = { floor: transferFloor("lupton", 8) };
+  const W = 800;
+  const H = 500;
+  const whites = [1, 2, 3].map((dpr) =>
+    whitePixelIntensity(prepareStarField(stars, { ...base, pixelRatio: dpr }), W * dpr, H * dpr, opts),
+  );
+  const spread = Math.max(...whites) / Math.min(...whites);
+  ok(
+    spread < 1.05,
+    `white point across dpr 1/2/3 at matched DEVICE area varies ${((spread - 1) * 100).toFixed(1)}% ` +
+      `(${whites.map((x) => x.toExponential(2)).join(", ")})`,
+  );
+
+  /* And the failure mode, asserted as a failure — a CSS grid at dpr 2 must be visibly wrong. */
+  const wrong = whitePixelIntensity(
+    prepareStarField(stars, { ...base, pixelRatio: 2 }),
+    W,
+    H,
+    opts,
+  );
+  const ratio = wrong / whites[0];
+  ok(
+    ratio > 3.5 && ratio < 4.5,
+    `…and passing a CSS grid at dpr 2 is ${ratio.toFixed(2)}x too high — the dpr^2 error, still detectable`,
+  );
+}
+
 /* ── THE SKY HAS A COLOUR, AND THE PER-BAND SUBTRACTION MUST REDUCE TO THE SCALAR ONE ── */
 /*
  * The renderer subtracted ONE scalar from three channels, which changes their ratios and is

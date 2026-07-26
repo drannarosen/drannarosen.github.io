@@ -107,6 +107,28 @@ export function asinhResponse(flux: number, exposure: number, k: number, whiteFl
 export const VISIBILITY_THRESHOLD = 0.02;
 
 /**
+ * Display signal at which a star is actually LEGIBLE, as opposed to merely non-zero.
+ *
+ * `VISIBILITY_THRESHOLD` is 0.02, which at 8 bits is 5/255 — indistinguishable from black on any
+ * screen, and certainly on a projector. It is the right number for "does this transfer put the
+ * star above zero at all", and it is the wrong number for a readout that says how many stars
+ * REACH THE DISPLAY, because it counts hundreds nobody can see.
+ *
+ * That mattered in a specific, measured way. On the shipped population in Rubin i/r/g at maximum
+ * star reach, the stars above the threshold split into two populations: the blue ones sit at a
+ * median 75% of white, the red ones at 11%, and only 12% of the red ones clear 25%. So the count
+ * was dominated by stars that render as near-black, and those were exactly the red majority —
+ * which is why the frame reads "all blue" while the readout claims hundreds of stars. Anna saw
+ * the image correctly and the number disagreed with her.
+ *
+ * 0.25 is a JUDGEMENT, not a derivation, and is labelled as such: 64/255, about a quarter of the
+ * way up an 8-bit ramp, comfortably visible on a projected frame. Reported ALONGSIDE the threshold
+ * count rather than replacing it, because the two answer different questions and collapsing them
+ * would just move the dishonesty.
+ */
+export const LEGIBILITY_LEVEL = 0.25;
+
+/**
  * The flux (relative to white) that lands exactly on the visibility threshold:
  * the faintest thing this transfer shows.
  *

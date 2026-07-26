@@ -1187,9 +1187,17 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
               `Shown with ${s.scaling}, reaching ${s.depthMag.toFixed(0)} magnitudes below white.`;
           }
           setStatus(
+            /*
+             * TWO COUNTS, because one of them was answering a question nobody asked. "Reach the
+             * display" uses a 2%-of-white threshold, which is 5/255 — black. On this population
+             * that count is dominated by the faint RED majority, so the readout claimed hundreds of
+             * stars while the frame read as entirely blue, and Anna was right about the frame.
+             * `legible` is the same stars above 25% of white; see `LEGIBILITY_LEVEL`.
+             */
             `${label}${forceWebGL ? " (forced)" : ""} · ${s.shown.toLocaleString()} of ` +
-              `${lab.starCount.toLocaleString()} drawn · ${r.count.toLocaleString()} reach the ` +
-              `display (${reachPct}%) · ${s.clipping} clipping · depth ${s.depthMag.toFixed(1)} mag` +
+              `${lab.starCount.toLocaleString()} drawn · ${r.legible.toLocaleString()} clearly ` +
+              `visible, ${r.count.toLocaleString()} above the floor (${reachPct}%) · ` +
+              `${s.clipping} clipping · depth ${s.depthMag.toFixed(1)} mag` +
               `${limit}${abs}${skyNote}`,
           );
         };

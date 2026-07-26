@@ -35,7 +35,7 @@ import {
 } from "./calibrate.ts";
 import { transferFloor, transferDisplayGrey } from "../../core/imaging/transfers.ts";
 import { DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
-import { VISIBILITY_THRESHOLD } from "../../core/imaging/index.ts";
+import { VISIBILITY_THRESHOLD, LEGIBILITY_LEVEL } from "../../core/imaging/index.ts";
 
 export type RenderBackend = "webgpu" | "webgl2";
 
@@ -79,6 +79,17 @@ export type StarLabStats = StarField["stats"];
 export interface StarReach {
   /** Stars whose peak clears the visibility threshold through the APPLIED transfer. */
   count: number;
+  /**
+   * Stars bright enough to actually SEE — peak above `LEGIBILITY_LEVEL` (25% of white).
+   *
+   * Reported beside `count` because `count`'s threshold is 2% of white, which is 5/255 and reads
+   * as black. On the shipped population the two differ by a factor of a few AND they differ by
+   * COLOUR: the blue stars sit at a median 75% of white, the red ones at 11%, so `count` is
+   * dominated by stars a viewer cannot see and those are the red majority. That is why the frame
+   * reads "all blue" while `count` claims hundreds — the number was not wrong, it was answering a
+   * question nobody was asking.
+   */
+  legible: number;
   /**
    * The displayed level of the frame's ANALYTIC MEAN, 0-1 — an upper bound on the background,
    * not the background itself.
@@ -345,7 +356,7 @@ export async function initStarLab(
   let stats: StarLabStats = prepareStarField(new Float32Array(0)).stats;
 
   let lastField: StarField | null = null;
-  let reach: StarReach = { count: 0, meanLevel: 0 };
+  let reach: StarReach = { count: 0, legible: 0, meanLevel: 0 };
   /*
    * The PIXEL depth — Lupton's Q and the display floor. Named for what it drives now that
    * `depthMag`'s two meanings have been separated; the per-star depth never reaches this file,
@@ -385,8 +396,29 @@ export async function initStarLab(
    */
   const recalibrate = (): void => {
     if (!lastField) return;
-    const w = bufW || canvas.clientWidth;
-    const h = bufH || canvas.clientHeight;
+    /*
+     * DEVICE PIXELS, NOT CSS PIXELS — and the difference was a factor of dpr^2 in the exposure.
+     *
+     * `bufW`/`bufH` are `canvas.clientWidth/Height`, i.e. CSS px, because that is what
+     * `renderer.setSize(w, h, false)` takes. Three then multiplies by the pixel ratio to size the
+     * drawing buffer, so the grid actually rendered is `bufW * dpr` by `bufH * dpr`.
+     *
+     * `analyticMeanIntensity` divides total light by a PIXEL COUNT, and the light it sums is
+     * `profileIntegral(...) * psf^2` where `psf = field.stats.psfWidthPx` is in DEVICE px. Feeding
+     * it the CSS count therefore divided device-pixel light by a CSS-pixel area and returned a mean
+     * — and so a white point — exactly dpr^2 too high.
+     *
+     * Measured on a dpr-2 display at 780x487 CSS: white point 9.408e-1 against the correct
+     * 2.352e-1, exactly 4.00x. The consequence was not subtle and it was not uniform: 637 stars
+     * cleared the display floor instead of 985, and the RED ones fell 553 -> 247, because a
+     * too-bright white point crushes the faint end and the faint stars are the red ones. Anna
+     * reported the frame as "all I see is blue", which is what a 4x over-exposure of this
+     * population looks like. It affected every HiDPI screen and no 1x screen, which is why nothing
+     * in the fixtures caught it — those are internally consistent about their own grid.
+     */
+    const dpr = renderer.getPixelRatio();
+    const w = (bufW || canvas.clientWidth) * dpr;
+    const h = (bufH || canvas.clientHeight) * dpr;
     if (!(w > 0) || !(h > 0)) return; // before layout; guessing a size mis-exposes the frame
     /*
      * The white point comes from the SAME analytic mean either way, but what it means differs: for
@@ -509,6 +541,7 @@ export async function initStarLab(
      */
     const level = Math.max(0, skyFraction) * white;
     let count = 0;
+    let legible = 0;
     for (let i = 0; i < field.count; i++) {
       const peak = Math.max(
         (field.bandFlux[i * 3] ?? 0) - level * (skyWeights[0] ?? 1),
@@ -516,9 +549,13 @@ export async function initStarLab(
         (field.bandFlux[i * 3 + 2] ?? 0) - level * (skyWeights[2] ?? 1),
       );
       if (peak <= 0) continue;
-      if (transferDisplayGrey(id, peak, white, lastDepthMag) > VISIBILITY_THRESHOLD) count++;
+      /* ONE transfer evaluation, two thresholds — see `LEGIBILITY_LEVEL` for why both are
+       * reported. Computing them in one pass keeps them describing the same star set. */
+      const display = transferDisplayGrey(id, peak, white, lastDepthMag);
+      if (display > VISIBILITY_THRESHOLD) count++;
+      if (display > LEGIBILITY_LEVEL) legible++;
     }
-    return { count, meanLevel };
+    return { count, legible, meanLevel };
   }
 
   /*
@@ -577,9 +614,16 @@ export async function initStarLab(
 
   async function renderContactSheet(ids: readonly TransferId[]): Promise<ContactTile[]> {
     if (!lastField) return [];
+    /*
+     * DEVICE PIXELS here too — same dpr^2 error as `recalibrate`, and it had to be fixed in both or
+     * the sheet would be exposed differently from the canvas it is meant to be compared against.
+     * `TILE_W`/`TILE_H` are already device px (they size a render target), so only the canvas
+     * fallback needs scaling.
+     */
+    const sheetDpr = renderer.getPixelRatio();
     const white =
       lastField.stats.colorMode === "photometric"
-        ? whitePixelIntensity(lastField, bufW || TILE_W, bufH || TILE_H, {
+        ? whitePixelIntensity(lastField, (bufW || TILE_W) * sheetDpr, (bufH || TILE_H) * sheetDpr, {
             floor: transferFloor(lastField.stats.scaling, lastDepthMag),
           })
         : 1;
