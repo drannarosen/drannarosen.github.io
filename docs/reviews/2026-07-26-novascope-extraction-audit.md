@@ -62,7 +62,7 @@ The other three pages you named do **not** go through it — they import Novasco
 
 So retiring the shim is a **one-line edit plus one file deletion**, not a four-site migration.
 
-****`clusterHero` is site-specific, and that is settled** (Anna, 2026-07-26). It renders *this
+**`clusterHero` is site-specific, and that is settled** (Anna, 2026-07-26). It renders *this
 site's* homepage hero — a specific composition, a specific centre offset, a specific "felt, not
 noticed" rotation period — and it is not a general-purpose renderer. It is therefore **not a
 candidate for extraction, not to be generalised, and not to be re-platformed onto the newer
@@ -70,7 +70,7 @@ starfield engine.** ADR 0015 already carves the hero out of the star-renderer wo
 homepage hero stays as it is"); this extends that from the *look* to the *code*. Any
 recommendation below that touches it is about naming and stale comments only.
 
-A trap sits on top of it, though.** There are two different modules whose names collide:
+**A trap sits on top of it, though.** There are two different modules whose names collide:
 
 - `src/novascope/viz/clusterField.ts` → exports `renderClusterField` (canvas-2D, consumes a
   `RenderModel`)
