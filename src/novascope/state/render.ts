@@ -8,7 +8,7 @@
  * is what lets a backend swap (ZAMS → tracks) reach every renderer for free.
  */
 import { star } from "../core/stellar/index.ts";
-import { maschbergerMassFraction } from "../core/imf/index.ts";
+import { maschbergerMassFraction, buildKroupaSegments, kroupaMassFraction } from "../core/imf/index.ts";
 import type { ClusterIdentity, LatentStar } from "../core/cluster/index.ts";
 import type { ClusterView } from "./store.ts";
 
@@ -102,7 +102,7 @@ export interface IMFBin {
   logMhi: number;
   logMc: number; // bin centre (log10 M☉)
   count: number; // sampled stars in this bin
-  expected: number; // stars the analytic Kroupa law predicts here
+  expected: number; // stars the identity's OWN analytic law predicts here
 }
 
 export interface IMFModel {
@@ -111,18 +111,32 @@ export interface IMFModel {
 }
 
 /**
- * The IMF as sampled vs as prescribed: logarithmic mass bins with the sampled
- * count and the analytic Maschberger (2013) expectation. The gap between them —
- * ragged, sparse high-mass bins straying from the smooth law — is sampling noise
- * made visible, the whole point of the Census.
+ * The IMF as sampled vs as prescribed: logarithmic mass bins with the sampled count and the
+ * analytic expectation of THE LAW THIS CLUSTER WAS DRAWN FROM. The gap between them — ragged,
+ * sparse high-mass bins straying from the smooth line — is sampling noise made visible, which is
+ * the whole point of the Census.
+ *
+ * That gap only means anything if both halves describe the same law. The expectation used to be
+ * Maschberger unconditionally, under a comment that called it "the analytic Kroupa law" — so once
+ * Kroupa became selectable, the bars and the line over them would have come from different
+ * distributions, and the figure would have asserted a mismatch that was an artefact rather than
+ * sampling noise.
  */
 export function toIMFHistogram(latent: LatentStar[], id: ClusterIdentity, nBins = 22): IMFModel {
   const { mMin, mMax, alphaHigh } = id.imf;
   const lo = log10(mMin);
   const hi = log10(mMax);
   const width = (hi - lo) / nBins;
-  const imf = { mMin, mMax, alpha: alphaHigh };
   const N = latent.length;
+
+  /*
+   * Resolved ONCE, outside the bin loop: Kroupa's segments are an inverse-CDF table that costs a
+   * build, and `nBins` of them would be 22 rebuilds per render. Same reasoning as `sample.ts`.
+   */
+  const imf = { mMin, mMax, alpha: alphaHigh };
+  const segments = id.imf.kind === "kroupa" ? buildKroupaSegments(mMin, mMax, alphaHigh) : null;
+  const massFraction = (a: number, b: number): number =>
+    segments === null ? maschbergerMassFraction(a, b, imf) : kroupaMassFraction(a, b, segments);
 
   const counts = new Array(nBins).fill(0);
   for (const s of latent) {
@@ -134,7 +148,7 @@ export function toIMFHistogram(latent: LatentStar[], id: ClusterIdentity, nBins 
   const bins: IMFBin[] = counts.map((count, k) => {
     const logMlo = lo + k * width;
     const logMhi = logMlo + width;
-    const expected = N * maschbergerMassFraction(10 ** logMlo, 10 ** logMhi, imf);
+    const expected = N * massFraction(10 ** logMlo, 10 ** logMhi);
     maxCount = Math.max(maxCount, count, expected);
     return { logMlo, logMhi, logMc: logMlo + width / 2, count, expected };
   });
