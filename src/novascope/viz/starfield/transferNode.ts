@@ -53,10 +53,17 @@ import {
  * identity-bearing object, and the same pattern `scene.ts` already uses for `NoToneMapping`.
  */
 import { SRGBColorSpace } from "three";
-import type { Node } from "three/webgpu";
+/*
+ * `Vector3` comes from `three/webgpu`, NOT from `three` — unlike `SRGBColorSpace` above, which is
+ * safe there precisely because it is a plain string. A class is identity-bearing, and the renderer
+ * in play is the WebGPU bundle's, so importing the constructor from the other bundle would hand a
+ * uniform a value of a type the renderer does not recognise as its own.
+ */
+import { Vector3, type Node } from "three/webgpu";
 import { getTransfer, isToneMapId, type TransferId } from "../../core/imaging/transfers.ts";
 import type { ToneMapId } from "../../core/imaging/toneMap.ts";
 import { createLuptonNode, createStretchNode } from "./luptonNode.ts";
+import { NEUTRAL_SKY, type SkyWeights } from "./calibrate.ts";
 
 type Vec3Node = Node<"vec3">;
 
@@ -83,7 +90,14 @@ export interface Transfer {
    */
   node: Node;
   setDepth(depthMag: number, white: number): void;
-  setSky(fraction: number, white: number): void;
+  /**
+   * Subtract the sky, as a fraction of white, DISTRIBUTED BY THE BACKGROUND'S COLOUR.
+   *
+   * `weights` are unit-mean, so `[1,1,1]` is exactly the scalar subtraction this replaced and the
+   * total light removed does not depend on them — only where it is removed from. Optional so a
+   * caller with no colour estimate still gets the old, neutral behaviour rather than a wrong one.
+   */
+  setSky(fraction: number, white: number, weights?: SkyWeights): void;
 }
 
 /**
@@ -142,7 +156,8 @@ function encodeSRGB(rgb: Node): Node {
  */
 function createToneMapNode(radiance: Vec3Node, id: ToneMapId): Transfer {
   const uWhite = uniform(1);
-  const uSky = uniform(0);
+  // A vec3, like the other two families: the sky has a colour. See `luptonNode`'s `setSky`.
+  const uSky = uniform(new Vector3(0, 0, 0));
   // Sky first, then normalise — the same order as the Lupton path and as a real reduction.
   const scene = vec3(radiance).sub(uSky).max(float(0)).div(uWhite);
   const mapped = TONE_MAP_FN[id](scene, float(1));
@@ -174,8 +189,9 @@ function createToneMapNode(radiance: Vec3Node, id: ToneMapId): Transfer {
     setDepth(_depthMag: number, whitePoint: number): void {
       uWhite.value = Math.max(Number.MIN_VALUE, whitePoint);
     },
-    setSky(fraction: number, whitePoint: number): void {
-      uSky.value = Math.max(0, fraction) * Math.max(Number.MIN_VALUE, whitePoint);
+    setSky(fraction: number, whitePoint: number, weights: SkyWeights = NEUTRAL_SKY): void {
+      const level = Math.max(0, fraction) * Math.max(Number.MIN_VALUE, whitePoint);
+      uSky.value.set(level * weights[0], level * weights[1], level * weights[2]);
     },
   };
 }

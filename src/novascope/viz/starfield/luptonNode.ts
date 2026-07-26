@@ -21,7 +21,8 @@
  * class of mistake that produces a plausible image.
  */
 import { float, vec3, asinh, uniform } from "three/tsl";
-import type { Node } from "three/webgpu";
+import { Vector3, type Node } from "three/webgpu";
+import { NEUTRAL_SKY, type SkyWeights } from "./calibrate.ts";
 import { ASINH_A, SINH_A, type StretchId } from "../../core/imaging/stretch.ts";
 import {
   LUPTON_Q,
@@ -87,11 +88,20 @@ export function createLuptonNode(radiance: Vec3Node) {
    * 0.35. Subtracting the median first took the frame from 0.7% black to 41% black, raised the hue
    * spread from 0.225 to 0.349, and cut the blue fraction from 0.249 to 0.148.
    *
-   * NOT DERIVED, and that is deliberate rather than lazy. The right level is a percentile of the
-   * RENDERED pixels, and unlike the white point it is not a stable fraction of anything computable
-   * without them — measured across composites, frame sizes, fields of view and exposures it spans
-   * 97x, against 1.45x for the white point. A default would therefore be wrong nearly everywhere,
-   * so it defaults to ZERO (subtract nothing) and is a control.
+   * THE LEVEL IS NOT DERIVED; THE COLOUR IS. That split is the point. How MUCH to subtract is a
+   * percentile of the rendered pixels and is not a stable fraction of anything computable without
+   * them — measured across composites, frame sizes, fields of view and exposures it spans 97x,
+   * against 1.45x for the white point — so it defaults to ZERO and is a control. But how that
+   * amount is DISTRIBUTED across the three channels is a property of the background itself, which
+   * `skyChannelWeights` computes exactly from the same profile integral the exposure already
+   * trusts.
+   *
+   * This uniform is a vec3 for that reason, and it used to be a scalar. Subtracting one number
+   * from three unequal channels changes their RATIOS, so it was silently a colour operation: it
+   * under-removed the blue the background has and over-removed red it never had. Measured at a
+   * 6.43%-of-white subtraction on the shipped population, 100% of blue stars survived against
+   * 3.3% of red ones, and every survivor came out more saturated. The frame went uniformly blue
+   * by arithmetic rather than by astronomy.
    */
   /*
    * The uniforms are created HERE, beside the arithmetic that consumes them, and handed back to
@@ -103,7 +113,7 @@ export function createLuptonNode(radiance: Vec3Node) {
   const uStretch = uniform(1);
   const uQ = uniform(LUPTON_Q);
   const uSlope = uniform(luptonSlope(LUPTON_Q));
-  const uSky = uniform(0);
+  const uSky = uniform(new Vector3(0, 0, 0));
 
   // Subtract the sky, then clamp up: a per-channel minimum can push one channel negative while the
   // mean intensity stays positive, which is the same order astropy uses.
@@ -136,9 +146,17 @@ export function createLuptonNode(radiance: Vec3Node) {
       uSlope.value = luptonSlope(uQ.value);
       uStretch.value = Math.max(Number.MIN_VALUE, whitePixel) * luptonStretchForWhite(uQ.value);
     },
-    /** Sky level to subtract, as a FRACTION of the white point. 0 subtracts nothing. */
-    setSky(fraction: number, whitePixel: number): void {
-      uSky.value = Math.max(0, fraction) * Math.max(Number.MIN_VALUE, whitePixel);
+    /**
+     * Sky to subtract, as a FRACTION of the white point, distributed by the background's colour.
+     *
+     * `weights` are unit-mean (see `skyChannelWeights`), so `fraction` still means the same total
+     * amount of light and a grey background reduces this to exactly the scalar subtraction it
+     * replaced. What changes is images whose background has a colour — which, in a young cluster,
+     * is all of them.
+     */
+    setSky(fraction: number, whitePixel: number, weights: SkyWeights = NEUTRAL_SKY): void {
+      const level = Math.max(0, fraction) * Math.max(Number.MIN_VALUE, whitePixel);
+      uSky.value.set(level * weights[0], level * weights[1], level * weights[2]);
     },
   };
 }
@@ -164,7 +182,7 @@ export function createLuptonNode(radiance: Vec3Node) {
  */
 export function createStretchNode(radiance: Vec3Node, id: StretchId) {
   const uWhite = uniform(1);
-  const uSky = uniform(0);
+  const uSky = uniform(new Vector3(0, 0, 0));
   // Sky first, then normalise — the same order as the Lupton path and as a real reduction.
   const x = vec3(radiance).sub(uSky).max(float(0)).div(uWhite).clamp(0, 1);
 
@@ -194,9 +212,10 @@ export function createStretchNode(radiance: Vec3Node, id: StretchId) {
     setDepth(_depthMag: number, whitePoint: number): void {
       uWhite.value = Math.max(Number.MIN_VALUE, whitePoint);
     },
-    /** Sky level to subtract, as a FRACTION of the white point. 0 subtracts nothing. */
-    setSky(fraction: number, whitePoint: number): void {
-      uSky.value = Math.max(0, fraction) * Math.max(Number.MIN_VALUE, whitePoint);
+    /** Sky to subtract, per band — see `createLuptonNode`'s `setSky`. */
+    setSky(fraction: number, whitePoint: number, weights: SkyWeights = NEUTRAL_SKY): void {
+      const level = Math.max(0, fraction) * Math.max(Number.MIN_VALUE, whitePoint);
+      uSky.value.set(level * weights[0], level * weights[1], level * weights[2]);
     },
   };
 }

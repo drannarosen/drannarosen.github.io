@@ -26,6 +26,9 @@ import { fileURLToPath } from "node:url";
 import { clusterStarTable } from "../src/novascope/viz/starfield/source.ts";
 import { prepareStarField } from "../src/novascope/viz/starfield/prepare.ts";
 import {
+  analyticChannelMeans,
+  skyChannelWeights,
+  NEUTRAL_SKY,
   analyticMeanIntensity,
   whitePixelIntensity,
   profileIntegral,
@@ -35,6 +38,7 @@ import {
   WHITE_FROM_ANALYTIC_MEAN,
 } from "../src/novascope/viz/starfield/calibrate.ts";
 import { starProfile } from "../src/novascope/viz/starfield/profile.ts";
+import { transferFloor } from "../src/novascope/core/imaging/transfers.ts";
 import {
   DEFAULT_AUREOLE,
   DEFAULT_DIFFRACTION,
@@ -307,6 +311,77 @@ for (const run of CALIBRATION_RUNS) {
   ok(
     Number.isFinite(diffractionIntegral(10, DEFAULT_DIFFRACTION)),
     `…and the SHIPPED exponent p = ${DEFAULT_DIFFRACTION.p} is one of them, which is why it is no longer a throw`,
+  );
+}
+
+/* ── THE SKY HAS A COLOUR, AND THE PER-BAND SUBTRACTION MUST REDUCE TO THE SCALAR ONE ── */
+/*
+ * The renderer subtracted ONE scalar from three channels, which changes their ratios and is
+ * therefore a colour operation wearing a brightness operation's name. Measured on the shipped
+ * population at a 6.43%-of-white subtraction: 100% of blue stars survived against 3.3% of red
+ * ones. What is gated here is the property that made the fix safe to make — unit-mean weights, so
+ * a grey background reproduces the old behaviour EXACTLY and only coloured backgrounds change.
+ */
+console.log("\n  the sky's colour (per-band subtraction):");
+{
+  const field = prepareStarField(clusterStarTable({ sampling: { mode: "count", target: 4000 } }), {
+    scheme: "true",
+    band: "LSST_r",
+    bandTriple: ["LSST_i", "LSST_r", "LSST_g"],
+    starDepthMag: 24,
+    pixelDepthMag: 20,
+    scaling: "lupton",
+    distancePc: 400,
+  });
+  const opts = { floor: transferFloor("lupton", 20) };
+  const means = analyticChannelMeans(field, 1600, 1000, opts);
+  const w = skyChannelWeights(field, 1600, 1000, opts);
+
+  /* The scalar mean must still be exactly the mean of the three, or the two have forked. */
+  const scalar = analyticMeanIntensity(field, 1600, 1000, opts);
+  const fromChannels = (means[0] + means[1] + means[2]) / 3;
+  ok(
+    Math.abs(scalar - fromChannels) <= 1e-12 * Math.max(scalar, 1e-30),
+    "analyticMeanIntensity IS the mean of the per-channel means — one derivation, not two",
+  );
+
+  ok(
+    Math.abs((w[0] + w[1] + w[2]) / 3 - 1) < 1e-12,
+    `the weights are unit-mean (${w.map((x) => x.toFixed(3)).join(", ")}) — so the TOTAL light removed does not depend on them`,
+  );
+  ok(
+    w[2] > w[1] && w[1] > w[0],
+    "…and ordered blue > green > red, because the background IS the summed wings of the hot stars",
+  );
+  /*
+   * The reduction property, stated as a test rather than as a comment: a GREY field must produce
+   * neutral weights, so introducing this could not change any image whose sky had no colour.
+   */
+  const grey = {
+    ...field,
+    bandFlux: (() => {
+      const a = new Float32Array(field.bandFlux.length);
+      for (let i = 0; i < field.count; i++) {
+        const m =
+          ((field.bandFlux[i * 3] ?? 0) +
+            (field.bandFlux[i * 3 + 1] ?? 0) +
+            (field.bandFlux[i * 3 + 2] ?? 0)) /
+          3;
+        a[i * 3] = m;
+        a[i * 3 + 1] = m;
+        a[i * 3 + 2] = m;
+      }
+      return a;
+    })(),
+  };
+  const gw = skyChannelWeights(grey, 1600, 1000, opts);
+  ok(
+    gw.every((x) => Math.abs(x - 1) < 1e-9),
+    "a GREY background returns [1,1,1] — the per-band subtraction reduces exactly to the scalar one",
+  );
+  ok(
+    NEUTRAL_SKY.every((x) => x === 1),
+    "…and that neutral value is the documented fallback, not a coincidence",
   );
 }
 

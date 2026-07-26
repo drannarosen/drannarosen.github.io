@@ -26,7 +26,13 @@ import { createStarGraph, type StarGraph } from "./starGraph.ts";
 import { createTransferNode, type Transfer } from "./transferNode.ts";
 import { createSkyProbe, NO_SKY_MEASUREMENT, type SkyMeasurement } from "./skyProbe.ts";
 import type { TransferId } from "../../core/imaging/transfers.ts";
-import { whitePixelIntensity, analyticMeanIntensity } from "./calibrate.ts";
+import {
+  whitePixelIntensity,
+  analyticMeanIntensity,
+  skyChannelWeights,
+  NEUTRAL_SKY,
+  type SkyWeights,
+} from "./calibrate.ts";
 import { transferFloor, transferDisplayGrey } from "../../core/imaging/transfers.ts";
 import { DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
 import { VISIBILITY_THRESHOLD } from "../../core/imaging/index.ts";
@@ -346,6 +352,8 @@ export async function initStarLab(
    * because it is consumed inside `prepare` where the star signal is computed.
    */
   let lastDepthMag = DEFAULT_LUPTON_DEPTH_MAG;
+  /* The background's colour, unit-mean. Re-derived on every recalibration; see `recalibrate`. */
+  let skyWeights: SkyWeights = NEUTRAL_SKY;
   let lastSkyLevel = 0;
   let skyAuto = false;
   let sky: SkyMeasurement = NO_SKY_MEASUREMENT;
@@ -428,8 +436,19 @@ export async function initStarLab(
      * conversion, at the boundary, rather than a probe that has to know about exposure.
      */
     const skyFraction = skyAuto && sky.pixels > 0 ? sky.level / white : lastSkyLevel;
-    transfer.setSky(skyFraction, white);
-    reach = measureReach(lastField, white, w, h);
+    /*
+     * THE BACKGROUND'S COLOUR, derived per frame alongside its level.
+     *
+     * Computed here rather than in `prepare` because it depends on the FRAME SIZE — a star's
+     * contribution is its flux over the pixel count, and the quad extents that weight it are in
+     * pixels. It is the same integral `measureReach` below already runs, so this is one extra
+     * traversal per recalibration, not a new model of the sky.
+     */
+    skyWeights = skyChannelWeights(lastField, w, h, {
+      floor: transferFloor(lastField.stats.scaling, lastDepthMag),
+    });
+    transfer.setSky(skyFraction, white, skyWeights);
+    reach = measureReach(lastField, white, w, h, skyFraction);
   };
 
   /*
@@ -444,7 +463,13 @@ export async function initStarLab(
    * The threshold is `VISIBILITY_THRESHOLD`, unchanged, so this is the SAME criterion the old
    * count used — only the curve it is applied to is different, which is precisely the bug.
    */
-  function measureReach(field: StarField, white: number, w: number, h: number): StarReach {
+  function measureReach(
+    field: StarField,
+    white: number,
+    w: number,
+    h: number,
+    skyFraction: number,
+  ): StarReach {
     const id = field.stats.scaling;
     /*
      * THE BACKGROUND IS MEASURED, NOT READ OFF THE SUBTRACTION CONTROL.
@@ -466,12 +491,29 @@ export async function initStarLab(
       white,
       lastDepthMag,
     );
+    /*
+     * THE SUBTRACTION IS APPLIED TO EACH STAR, and leaving it out was a lie measured at 13x.
+     *
+     * The line above already removes the sky from the frame MEAN. This loop did not remove it from
+     * the stars, so it answered "how many would clear the floor if nothing were subtracted" while
+     * reporting itself as what the display shows. At a 6.43%-of-white subtraction the readout said
+     * 10,000 of 10,000 reached the display (100.0%) against 779 that actually survived — and that
+     * number is what a person judges every other change by.
+     *
+     * The THIRD instance of this shape in this one function, which is why it is spelled out: a
+     * count taken on the wrong curve, a background read off the subtraction control instead of
+     * being measured, and now a threshold applied before the subtraction. Each read plausibly.
+     *
+     * PER CHANNEL, because the sky is per channel now — a star survives if any channel does, so
+     * the max is taken AFTER subtracting each channel's own level, not before.
+     */
+    const level = Math.max(0, skyFraction) * white;
     let count = 0;
     for (let i = 0; i < field.count; i++) {
       const peak = Math.max(
-        field.bandFlux[i * 3] ?? 0,
-        field.bandFlux[i * 3 + 1] ?? 0,
-        field.bandFlux[i * 3 + 2] ?? 0,
+        (field.bandFlux[i * 3] ?? 0) - level * (skyWeights[0] ?? 1),
+        (field.bandFlux[i * 3 + 1] ?? 0) - level * (skyWeights[1] ?? 1),
+        (field.bandFlux[i * 3 + 2] ?? 0) - level * (skyWeights[2] ?? 1),
       );
       if (peak <= 0) continue;
       if (transferDisplayGrey(id, peak, white, lastDepthMag) > VISIBILITY_THRESHOLD) count++;
@@ -547,7 +589,7 @@ export async function initStarLab(
       for (const id of ids) {
         const t = createTransferNode(litScene, id);
         t.setDepth(lastDepthMag, white);
-        t.setSky(skyAuto && sky.pixels > 0 ? sky.level / white : lastSkyLevel, white);
+        t.setSky(skyAuto && sky.pixels > 0 ? sky.level / white : lastSkyLevel, white, skyWeights);
         pipeline.outputNode = vec4(t.node as never, 1);
         pipeline.needsUpdate = true;
         renderer.setRenderTarget(sheetTarget);

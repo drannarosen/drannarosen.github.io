@@ -320,12 +320,49 @@ export function analyticMeanIntensity(
   heightPx: number,
   opts: CalibrateOptions,
 ): number {
-  if (!(widthPx > 0) || !(heightPx > 0)) return 0;
+  const [r, g, b] = analyticChannelMeans(field, widthPx, heightPx, opts);
+  // Lupton's intensity is the MEAN of the three channels, not their sum.
+  return (r + g + b) / 3;
+}
+
+/**
+ * The same background, PER CHANNEL — and the reason it is a separate export.
+ *
+ * ── THE SKY HAS A COLOUR, AND SUBTRACTING IT AS A SCALAR IS A COLOUR OPERATION ──
+ *
+ * The background in a cluster frame is the summed wings of every star, so its colour is the
+ * population's LIGHT-WEIGHTED colour — which in a young cluster is strongly blue, because ten
+ * hot stars outshine ten thousand cool ones. Measured on the shipped 10,000-star population in
+ * Rubin i/r/g: 24.0% / 30.2% / 45.8% of the light, a hue of 223 degrees at saturation 0.476.
+ *
+ * The renderer used to subtract ONE scalar from all three channels. Subtracting a constant from
+ * unequal channels changes their RATIOS, so that is not a brightness operation — it under-removes
+ * the blue the background actually has and over-removes red the background never had. Measured
+ * consequence at a 6.43%-of-white subtraction: 100% of blue stars survived and 3.3% of red ones,
+ * and every one of the 779 survivors came out MORE saturated (median 0.244 -> 0.317). The frame
+ * went uniformly, purely blue for a reason that was arithmetic rather than astronomy.
+ *
+ * A real reduction subtracts a sky level per band, because the sky is measured per band. This is
+ * that quantity.
+ *
+ * NOT APPROXIMATED BY THE SUMMED BAND FLUX, which is the tempting shortcut and is wrong in the
+ * direction that matters: each star's contribution is its flux times the area of ITS quad, and a
+ * bright star gets a much larger quad. Bright stars are the blue ones, so a plain flux ratio
+ * understates how blue the background is. This integrates the same profile the mean already
+ * trusts, per channel, so the two cannot disagree.
+ */
+export function analyticChannelMeans(
+  field: StarField,
+  widthPx: number,
+  heightPx: number,
+  opts: CalibrateOptions,
+): [number, number, number] {
+  if (!(widthPx > 0) || !(heightPx > 0)) return [0, 0, 0];
   const aureole = opts.aureole ?? field.optics.aureole;
   const spikeParams = opts.diffraction ?? field.optics.diffraction ?? undefined;
   const beta = opts.beta ?? PSF_BETA;
   const psf = field.stats.psfWidthPx;
-  let total = 0;
+  const totals: [number, number, number] = [0, 0, 0];
 
   for (let i = 0; i < field.count; i++) {
     const f0 = field.bandFlux[i * 3] ?? 0;
@@ -350,12 +387,43 @@ export function analyticMeanIntensity(
     for (let k = 0; k < 3; k++) {
       const amp = field.bandFlux[i * 3 + k] ?? 0;
       if (amp <= 0) continue;
-      const sum = profileIntegral(amp, edge, aureole, beta, spikes);
-      // /3 because Lupton's intensity is the MEAN of the three channels, not their sum.
-      total += (sum * psf * psf) / 3;
+      totals[k] += profileIntegral(amp, edge, aureole, beta, spikes) * psf * psf;
     }
   }
-  return total / (widthPx * heightPx);
+  return [
+    totals[0] / (widthPx * heightPx),
+    totals[1] / (widthPx * heightPx),
+    totals[2] / (widthPx * heightPx),
+  ];
+}
+
+/**
+ * The background's colour as UNIT-MEAN channel weights — what a per-band subtraction scales by.
+ *
+ * Unit mean is the property that makes this safe to introduce: a grey background returns
+ * `[1, 1, 1]` and the per-band subtraction reduces EXACTLY to the scalar one it replaces, so the
+ * change alters only images whose background actually has a colour. It also keeps the control's
+ * meaning intact — "6.43% of white" still removes that much light in total, just distributed the
+ * way the background actually distributes it.
+ *
+ * Falls back to `[1, 1, 1]` on an empty or dark field rather than dividing by zero: with no light
+ * there is no colour to preserve, and a neutral subtraction of nothing is the honest no-op.
+ */
+export type SkyWeights = readonly [number, number, number];
+
+/** Neutral weights — a grey sky, and the value that makes a per-band subtraction a scalar one. */
+export const NEUTRAL_SKY: SkyWeights = [1, 1, 1];
+
+export function skyChannelWeights(
+  field: StarField,
+  widthPx: number,
+  heightPx: number,
+  opts: CalibrateOptions,
+): SkyWeights {
+  const m = analyticChannelMeans(field, widthPx, heightPx, opts);
+  const mean = (m[0] + m[1] + m[2]) / 3;
+  if (!(mean > 0)) return NEUTRAL_SKY;
+  return [m[0] / mean, m[1] / mean, m[2] / mean];
 }
 
 /**

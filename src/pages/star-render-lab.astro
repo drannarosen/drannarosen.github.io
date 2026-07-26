@@ -351,8 +351,17 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       <!--
         SKY is the lever that produces a black background, and depth cannot substitute for it: depth
         lifts stars and sky together, because the background here is the summed PSF wings of every
-        star rather than noise. Measured at star reach 20, subtracting 0.5% took the frame from 0%
-        black to 76.4% black AND gave the highest faint-peak count of any setting tried.
+        star rather than noise. Measured at star reach 24 in Rubin i/r/g, that background sits at
+        2.84% of white.
+
+        IT IS SUBTRACTED PER BAND, because the sky has a colour — the wings of hot stars, so blue
+        (channel weights 0.72 / 0.90 / 1.38 about a unit mean). Removing one scalar from three
+        unequal channels changes their ratios, which made this silently a colour control: at a
+        large subtraction 100% of blue stars survived against 3.3% of red ones. Now the amount
+        removed follows the colour of what is being removed.
+
+        IT STILL COSTS THE FAINT MAJORITY, and the readout says so honestly. 0.5% of white takes
+        10,000 stars above the floor down to 1,655.
 
         THE SLIDER IS CUBIC, not linear, and its top is 20% of white rather than 5%. Both were
         wrong for the quantity: the measured background's 25th percentile is 0.20% of white and its
