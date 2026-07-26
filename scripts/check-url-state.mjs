@@ -23,7 +23,10 @@ import {
   LAB_SCHEMA,
   PASSTHROUGH_KEYS,
   POPULATION_ID,
+  skyFractionFromSlider,
+  sliderFromSkyFraction,
 } from "../src/novascope/viz/starfield/labParams.ts";
+import { SKY_FRACTION_RANGE } from "../src/novascope/core/imaging/index.ts";
 import { TRANSFER_IDS } from "../src/novascope/core/imaging/transfers.ts";
 import { INSTRUMENTS } from "../src/novascope/core/photometry/instruments.ts";
 import { COLOR_SCHEMES } from "../src/novascope/core/colorimetry/schemes.ts";
@@ -222,6 +225,71 @@ console.log("\n  a link of the kind a lecture would use:");
   for (const k of PASSTHROUGH_KEYS) {
     ok(withAll.includes(k), `passthrough key "${k}" survives an encode`);
   }
+}
+
+/* ── 4. THE SKY CONTROL, whose widget scale is not its unit ── */
+/*
+ * TWO THINGS ARE PINNED HERE, and each is a bug that already happened somewhere in this repo.
+ *
+ * THE RANGE HAS ONE HOME. It used to have two — the schema said 0.05 and the slider's `max`
+ * attribute said 0.05, with nothing comparing them. That is the figure-caption bug and the
+ * search-page-list bug in miniature: a hand-kept copy of a fact that drifts silently. Both now
+ * import `SKY_FRACTION_RANGE`, and this asserts the schema really did.
+ *
+ * THE PRECISION HAS TO REACH THE MEASUREMENT. The probe returns background levels near 1e-5 of
+ * white; at the old four decimals those encode as `sky=0`, so the link would assert "no
+ * subtraction" about a state that had one — a shared picture that differs from the sender's, which
+ * is exactly the failure `alwaysWrite` exists for on `depth`.
+ */
+console.log("\n  the sky control (a cubic widget over a fractional unit):");
+{
+  ok(
+    LAB_SCHEMA.sky.default === 0,
+    "sky defaults to 0 — no subtraction is the baseline every other setting is judged against",
+  );
+  ok(
+    decode(LAB_SCHEMA, `sky=${SKY_FRACTION_RANGE.max + 1}`).sky === SKY_FRACTION_RANGE.max,
+    `sky clamps to SKY_FRACTION_RANGE.max (${SKY_FRACTION_RANGE.max}) — the range is imported, not restated`,
+  );
+  ok(decode(LAB_SCHEMA, "sky=-1").sky === SKY_FRACTION_RANGE.min, "…and to its min");
+
+  /* The measured regime must survive a round trip. 1.17e-5 and 5.91e-5 are real probe returns. */
+  for (const f of [1.17e-5, 5.91e-5, 0.002, 0.0643]) {
+    const rt = decode(LAB_SCHEMA, encode(LAB_SCHEMA, { ...decode(LAB_SCHEMA, ""), sky: f })).sky;
+    ok(rt === f, `a measured background of ${f} of white survives the URL (got ${rt})`);
+  }
+
+  /*
+   * THE WIDGET MAPPING IS INVERTIBLE. The page sets the slider from a URL and reads the URL back
+   * from the slider, so a mapping that is not its own inverse makes a link drift a little every
+   * time it is reopened — silently, and only at the low end where it matters most.
+   */
+  ok(skyFractionFromSlider(0) === 0, "slider 0 is EXACTLY zero — the reason it is a cube and not a log");
+  ok(
+    skyFractionFromSlider(1) === SKY_FRACTION_RANGE.max,
+    "slider 1 reaches the full range, so the top of the control is the top of the range",
+  );
+  let worst = 0;
+  for (let i = 0; i <= 100; i++) {
+    const f = skyFractionFromSlider(i / 100);
+    const rt = skyFractionFromSlider(sliderFromSkyFraction(f));
+    worst = Math.max(worst, Math.abs(rt - f));
+  }
+  ok(worst < 1e-12, `fraction -> slider -> fraction is lossless (worst drift ${worst.toExponential(1)})`);
+
+  /*
+   * AND IT SPENDS ITS TRAVEL WHERE THE MEASUREMENTS ARE. This is the whole reason for the curve,
+   * so it is asserted rather than left to the comment: the span between the background's measured
+   * 25th percentile and its mean must occupy a usable share of the slider. On the old linear
+   * control it was the first four steps of eighty.
+   */
+  const lo = sliderFromSkyFraction(0.002);
+  const hi = sliderFromSkyFraction(0.0643);
+  ok(
+    hi - lo > 0.4,
+    `p25 (0.20% of white) to mean (6.43%) spans ${((hi - lo) * 100).toFixed(0)}% of the slider's travel`,
+  );
+  ok(lo > 0.15, `…and "off to 0.20% of white" still gets ${(lo * 100).toFixed(0)}% of it`);
 }
 
 if (failures) {

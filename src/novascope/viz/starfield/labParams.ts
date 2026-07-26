@@ -39,6 +39,46 @@ import { COLOR_SCHEMES } from "../../core/colorimetry/schemes.ts";
 import { PASSBANDS } from "../../core/photometry/passbands.ts";
 import { DEPTH_MAG_RANGE, DEFAULT_LUPTON_DEPTH_MAG } from "../../core/imaging/lupton.ts";
 import { D0_PC, DISTANCE_PC_RANGE } from "../../core/photometry/index.ts";
+import { SKY_FRACTION_RANGE } from "../../core/imaging/index.ts";
+
+/**
+ * The sky slider's position (0…1) to the fraction of white it subtracts, and back.
+ *
+ * ── WHY A CUBE AND NOT A LOGARITHM ──
+ *
+ * The need is logarithmic: the useful settings span 0.002 to 0.064 of white (the measured 25th
+ * percentile and mean of the background), a factor of 32, inside a control whose top is 0.2 —
+ * so a linear slider spends 99% of its travel above everything that matters. That was the old
+ * control's real defect, more than its range: at 5% linear with a 0.05% step, the entire
+ * interesting region was the first four steps.
+ *
+ * But a logarithm CANNOT EXPRESS ZERO, and zero is this control's default and its most-used
+ * value — "no subtraction" is the honest baseline every other setting is judged against. A log
+ * slider needs a special-cased minimum position meaning "off", which is a discontinuity at
+ * exactly the value people return to.
+ *
+ * A cube is the compromise, and it is a compromise, stated rather than hidden: it is 0 at 0,
+ * smooth throughout, and puts the interesting decade where a hand can work. The travel it gives:
+ *
+ *     slider 0.000 -> 0        (off, exactly)
+ *     slider 0.215 -> 0.199%   the measured 25th percentile
+ *     slider 0.685 -> 6.428%   the measured mean
+ *     slider 1.000 -> 20%      deliberate over-subtraction
+ *
+ * So roughly a fifth of the travel covers "nothing to a fifth of a percent", and half of it
+ * covers the span between the two measurements. A true log would spread the low end further
+ * still; it would also make the default unreachable, and that trade is not worth it here.
+ */
+export function skyFractionFromSlider(t: number): number {
+  const clamped = Math.min(1, Math.max(0, t));
+  return SKY_FRACTION_RANGE.max * clamped ** 3;
+}
+
+/** Inverse of {@link skyFractionFromSlider}, for putting the widget back where a URL says. */
+export function sliderFromSkyFraction(fraction: number): number {
+  const clamped = Math.min(SKY_FRACTION_RANGE.max, Math.max(0, fraction));
+  return (clamped / SKY_FRACTION_RANGE.max) ** (1 / 3);
+}
 
 /**
  * "Follow the mode" — the transfer control's empty option, spelled for a URL.
@@ -110,7 +150,25 @@ export const LAB_SCHEMA = {
     true,
   ),
   curve: numberField(DEPTH_MAG_RANGE.min, DEPTH_MAG_RANGE.max, DEFAULT_LUPTON_DEPTH_MAG, 2),
-  sky: numberField(0, 0.05, 0, 4),
+  /*
+   * A FRACTION OF WHITE, always — never the slider's own position. Same discipline as `dist`,
+   * which carries parsecs while its widget works in log10: a link reads `sky=0.005` and means
+   * "half a percent of white", which is a quantity someone can check against a measurement.
+   *
+   * EIGHT DECIMALS, and the count is derived from a measurement rather than picked. The probe has
+   * returned backgrounds of 1.17e-5 and 5.91e-5 of white. At the original FOUR both encode as
+   * `sky=0`, so the link asserts "no subtraction" about a state that had one. At six they survive
+   * but round — 1.17e-5 becomes 1.2e-5, a 2.6% error — because fixed decimals bound the ABSOLUTE
+   * error, which turns into an unbounded RELATIVE error as the value approaches zero, and this
+   * control's interesting values are the ones near zero.
+   *
+   * Eight holds the relative error under 0.1% across the whole range, and sits about a hundred
+   * times finer than the slider's own resolution near the low end (~1e-6 of white per pixel of
+   * travel), so the URL is never the thing losing information. Trailing zeros are stripped on the
+   * way out, so a plain setting still reads `sky=0.002`. Gated in `check:url-state`, which is what
+   * caught six being insufficient.
+   */
+  sky: numberField(SKY_FRACTION_RANGE.min, SKY_FRACTION_RANGE.max, 0, 8),
   /*
    * MEASURE the sky from the rendered frame rather than using the slider.
    *

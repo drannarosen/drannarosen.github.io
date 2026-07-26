@@ -123,6 +123,28 @@ export function limitingFluxRatio(k: number, threshold = VISIBILITY_THRESHOLD): 
   return Math.sinh(threshold * Math.asinh(k)) / k;
 }
 
+/**
+ * How much background a subtraction may remove, as a fraction of the white point.
+ *
+ * ONE HOME for the bound, because it had two: the schema said `numberField(0, 0.05, …)` and the
+ * slider said `max="0.05"`, and nothing compared them. Two copies of a range are two claims that
+ * can disagree — the shape of bug this repo has been bitten by repeatedly (see the figure
+ * captions, the search page list). Both now import this.
+ *
+ * ── WHY 20% AND NOT 5% ──
+ *
+ * The old 5% could not reach the value the frame actually needs. Measured on the shipped
+ * population in photometric mode at maximum star reach: the sampled background's 25th percentile
+ * sits at 0.20% of white and its MEAN at 6.43% of white — already above the old maximum. A
+ * control whose top end is below the measured quantity cannot be used to test the measurement,
+ * which is the one thing this page exists for.
+ *
+ * 20% is roughly three times that mean. Past the mean a subtraction is deliberately
+ * over-subtracting — clipping the majority of the frame to black — which is worth being able to
+ * demonstrate, and worth not being able to reach by accident.
+ */
+export const SKY_FRACTION_RANGE = { min: 0, max: 0.2 } as const;
+
 /** Bracket for the softening search: 10 to 1e12 covers every sane exposure. */
 const K_MIN = 10;
 const K_MAX = 1e12;

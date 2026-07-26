@@ -333,15 +333,32 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
         star rather than noise. Measured at star reach 20, subtracting 0.5% took the frame from 0%
         black to 76.4% black AND gave the highest faint-peak count of any setting tried.
 
+        THE SLIDER IS CUBIC, not linear, and its top is 20% of white rather than 5%. Both were
+        wrong for the quantity: the measured background's 25th percentile is 0.20% of white and its
+        MEAN is 6.43%, so the old maximum sat BELOW the frame's own mean, and on a linear scale
+        every useful setting was inside the first four steps. `skyFractionFromSlider` maps position
+        to fraction and says why a cube rather than a logarithm — the short answer is that this
+        control's default is exactly zero, which a logarithm cannot express.
+
         NO "measure it" CHECKBOX YET, deliberately. The probe (`viz/starfield/skyProbe`) works and
-        is reachable as `?skyauto`, but its answer is not yet repeatable — at identical settings it
-        returned 1.17e-5, 5.91e-5 and once 0, and a silent zero reads as "there is no background to
-        subtract", the opposite of the truth. Cause understood (bloom is screen-space; its internal
-        targets do not crop with `setViewOffset`); see the roadmap.
+        is reachable as `?skyauto`. Its degenerate-percentile bug is fixed — the estimator now
+        returns exactly the 25th percentile every run — but the FRAME IT READS still varies: at
+        identical settings with motion and bloom off, eight probes gave three bit-identical
+        results rather than eight noisy ones, which points at a tile readback that does not always
+        reflect its own render. Until that is fixed the probe reports rather than decides.
       -->
       <label class="srl__ctl">Sky subtracted <span data-sky-val>none</span>
-        <input type="range" min="0" max="0.05" step="0.0005" value="0" data-sky />
+        <input type="range" min="0" max="1" step="any" value="0" data-sky />
       </label>
+      <!--
+        A READOUT, NOT A CONTROL. There is no "measure it" checkbox — `?skyauto` is the only way
+        in, and it stays that way until the probe's unexplained zero-fraction is understood. But
+        the flag already worked and reported NOTHING: this element did not exist, so the page ran
+        the probe, subtracted its answer, and displayed "none". Shipping the numbers without the
+        checkbox is the honest half — the estimate is visible and checkable, and nobody can reach
+        it by mis-clicking.
+      -->
+      <p class="srl__hint" data-sky-auto-note></p>
       </div>
     </div>
 
@@ -668,9 +685,46 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     LAB_SCHEMA,
     PASSTHROUGH_KEYS,
     TRANSFER_AUTO,
+    skyFractionFromSlider,
+    sliderFromSkyFraction,
     type LabState,
     type MotionChoice,
   } from "@novascope/viz/starfield/labParams";
+
+  /**
+   * How a sky level is spelled, in ONE place.
+   *
+   * It is shown in three spots (the slider's own readout, the measured readout, the claim
+   * sentence) and the three had drifted to two different precisions — `toFixed(2)` for the chosen
+   * value and `toFixed(3)` for the measured one, so the same number read differently depending on
+   * which produced it. At the low end that mattered: the useful settings start at 0.2% of white
+   * and the probe returns values near 0.001%, both of which print as "0.00%" at two decimals.
+   *
+   * Significant figures rather than fixed decimals, so 0.002% and 6.4% are each legible.
+   */
+  const skyPercent = (fraction: number): string => {
+    const s = (100 * fraction).toPrecision(fraction >= 0.001 ? 3 : 2);
+    /* Trailing zeros only ever come off a fractional part. Stripping them from "100" would leave
+     * "1", which the obvious one-line regex does — out of reach here, but not worth relying on. */
+    return `${s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s}%`;
+  };
+
+  /** The sky slider's current position, as the fraction of white it means. */
+  const readSky = (): number =>
+    skyFractionFromSlider(Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0));
+
+  /**
+   * Whether the sky is MEASURED rather than chosen — from the checkbox if one exists, else the URL.
+   *
+   * THE SAME BUG TWICE, so it now has one home. The "measure it" checkbox was removed while the
+   * probe was untrustworthy, and every site that asked the DOM for it kept asking. `readState`
+   * defaulted to `false` and re-encoded `?skyauto` away, which killed the escape hatch; the
+   * readout defaulted to `false` too, so with `?skyauto` genuinely on the page ran the probe,
+   * subtracted its answer, and displayed "none" — the reading being least true of the picture on
+   * screen. A `?? false` against a removed element is not a default, it is a wrong answer.
+   */
+  const readSkyAuto = (): boolean =>
+    document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? initialState.skyauto;
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-stage]");
   const status = document.querySelector<HTMLElement>("[data-status]");
@@ -764,7 +818,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     setValue("[data-band]", s.band);
     setValue("[data-scaling]", s.transfer === TRANSFER_AUTO ? "" : s.transfer);
     setValue("[data-depth]", String(s.depth));
-    setValue("[data-sky]", String(s.sky));
+    /* The URL carries the FRACTION; the widget carries its cubic position. Same split as `dist`. */
+    setValue("[data-sky]", String(sliderFromSkyFraction(s.sky)));
     setValue("[data-dist]", String(Math.log10(s.dist)));
     setValue("[data-curve]", String(s.curve));
     const skyAutoEl = document.querySelector<HTMLInputElement>("[data-sky-auto]");
@@ -791,18 +846,9 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
     band: readValue("[data-band]", initialState.band),
     transfer: readValue("[data-scaling]", "") || TRANSFER_AUTO,
     depth: Number(readValue("[data-depth]", String(initialState.depth))),
-    sky: Number(readValue("[data-sky]", "0")),
-    /*
-     * FALLS BACK TO THE URL, because the checkbox does not exist.
-     *
-     * The "measure it" control was deliberately removed when the probe turned out not to be
-     * repeatable — but `readState` went on reading it from the DOM, so `?skyauto` decoded to true
-     * and was immediately re-encoded as false. The flag was silently dead and the probe
-     * unreachable, which is a worse outcome than either shipping the checkbox or removing the
-     * flag: the escape hatch existed in the docs and not in the code.
-     */
-    skyauto:
-      document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? initialState.skyauto,
+    sky: readSky(),
+    /* Falls back to the URL, because the checkbox does not exist — see `readSkyAuto`. */
+    skyauto: readSkyAuto(),
     bloom: Number(readValue("[data-bloom]", "0.35")),
     exposure: Number(readValue("[data-exposure]", "1")),
     minmass: Number(readValue("[data-min-mass]", "0")),
@@ -945,9 +991,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
       ...(inst ? { bandTriple: inst.composite } : {}),
       colorMode: inst ? ("photometric" as const) : ("population" as const),
       ...(scaling === "" ? {} : { scaling }),
-      skyLevel: Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0),
-      skyAuto:
-        document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? initialState.skyauto,
+      skyLevel: readSky(),
+      skyAuto: readSkyAuto(),
       bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
       ...(depth === undefined ? {} : { starDepthMag: Number(depth) }),
       pixelDepthMag: Number(
@@ -1066,22 +1111,31 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
            */
           const skyVal = document.querySelector<HTMLElement>("[data-sky-val]");
           const skyEl = document.querySelector<HTMLInputElement>("[data-sky]");
-          const autoOn = document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? false;
+          const autoOn = readSkyAuto();
           if (skyEl) skyEl.disabled = autoOn;
+          const chosenSky = readSky();
           if (skyVal) {
             skyVal.textContent = autoOn
               ? lab.sky.pixels > 0
-                ? `measured ${(100 * lab.sky.level).toFixed(3)}% of white`
+                ? `measured ${skyPercent(lab.sky.level)} of white`
                 : "measuring…"
-              : Number(skyEl?.value ?? 0) > 0
-                ? `${(100 * Number(skyEl?.value ?? 0)).toFixed(2)}% of white`
+              : chosenSky > 0
+                ? `${skyPercent(chosenSky)} of white`
                 : "none";
           }
           const autoNote = document.querySelector<HTMLElement>("[data-sky-auto-note]");
           if (autoNote) {
+            /*
+             * `empty` IS REPORTED, not just used. It is the fraction of sampled pixels no quad
+             * reached, and excluding those from the percentile is the fix that made this probe
+             * repeatable at all — so the number that governs the estimate has to be visible next
+             * to the estimate. It is also the one measurement here still unexplained (it rises
+             * with bloom, then falls), and a diagnostic you have to re-instrument to see is a
+             * diagnostic nobody checks.
+             */
             autoNote.textContent = autoOn
               ? lab.sky.pixels > 0
-                ? `${(100 * lab.sky.sampled).toFixed(0)}% of ${lab.sky.pixels.toLocaleString()} px at or below · ${lab.reach.count.toLocaleString()} stars reach`
+                ? `${(100 * lab.sky.sampled).toFixed(0)}% of ${lab.sky.pixels.toLocaleString()} covered px at or below · ${(100 * lab.sky.empty).toFixed(0)}% of the sample uncovered · ${lab.reach.count.toLocaleString()} stars reach`
                 : ""
               : "";
           }
@@ -1347,9 +1401,8 @@ const schemeRows = COLOR_SCHEMES.map((s) => ({
             }
             lab.setDisplay({
               bloom: Number(document.querySelector<HTMLInputElement>("[data-bloom]")?.value ?? 0.35),
-              skyLevel: Number(document.querySelector<HTMLInputElement>("[data-sky]")?.value ?? 0),
-              skyAuto:
-        document.querySelector<HTMLInputElement>("[data-sky-auto]")?.checked ?? initialState.skyauto,
+              skyLevel: readSky(),
+              skyAuto: readSkyAuto(),
             });
             show(lab.stats); // stats are unchanged; the readout still needs the new sky
           });

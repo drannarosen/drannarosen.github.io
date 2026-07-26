@@ -204,17 +204,35 @@ Ordered by dependency, not by appetite. One at a time.
    across the boundary. The test that settled it: with bloom OFF the probe returns zero EVERY
    time, which is not instability but the correct p25 of a distribution that is 82% zeros.
 
-   The fix is to take the percentile over pixels that carry background — non-zero ones — rather
-   than over the whole tile.
+   **Fixed 2026-07-25.** The percentile now runs over the COVERED pixels — those a quad reached —
+   and `SkyMeasurement.empty` reports the rest. The justification is not merely statistical: a
+   zero pixel is one no quad reached, and since the background *is* the summed PSF wings and a
+   wing is drawn only inside its star's finite quad, zero means "the model says nothing here", not
+   "the model says darkness here". Pooling the two answers a question nobody asked.
 
-   Two ways out, not yet chosen:
+   **THE ESTIMATOR IS NOW SOUND AND THE PROBE IS STILL NOT REPEATABLE, which is progress: the two
+   were confounded before.** `sampled` comes back at 0.2500–0.2502 on every run, so the percentile
+   is doing exactly what it says. What still moves is the FRAME being read.
 
-   - **Measure the pre-bloom scene** (drop bloom from the probe's pipeline) and treat glare
-     separately. Cheap and repeatable, but then the estimate omits the term that dominates.
-   - **Probe at full frame size** rather than by cropping, so bloom is coherent. Correct, and costs
-     a full-resolution render plus a larger readback per rebuild.
+   Measured with motion off and bloom off, eight consecutive probes at identical settings returned
+   only **three distinct results, each repeating bit-for-bit** — (1.51e-6, `empty` 0.7924, 17,007
+   px) three times, (1.89e-6, 0.6133, 31,677) twice. Exact repeats are not noise and not sampling
+   error; they are a small number of discrete states, which is what you get when a tile's readback
+   sometimes reflects a neighbouring tile's render rather than its own.
 
-   The control is deliberately NOT exposed in the UI until this is settled — a flaky sky estimate
+   Bloom widens it by more than an order of magnitude — `level` spans 1.4e-6 to 2.2e-6 without it
+   and 2.7e-6 to 7.2e-5 with it — and only with bloom on does a probe return `empty === 0` with all
+   81,920 sampled pixels lit, which no correct crop of this scene produces. Consistent with bloom's
+   internal targets adding another frame of lag.
+
+   **So the remaining defect is synchronisation between `renderAsync` and
+   `readRenderTargetPixelsAsync`, not statistics.** The one discarded warm-up render is evidently
+   not enough, and it is per-probe rather than per-tile. Untested next steps, cheapest first: warm
+   up per TILE rather than once; render each tile twice; check whether `renderAsync`'s returned
+   promise actually awaits GPU completion or only submission.
+
+   `empty` is now in the readout, so the next look at this starts from the number rather than from
+   re-instrumenting. The checkbox stays out of the UI until it is fixed — a flaky sky estimate
    presented as a checkbox is the same confident-and-wrong readout that task #16 was.
 3. **Pixel-integrated PSF.** The visual ceiling, and better physics.
 4. **Motion.** Parallax default, spin optional.
@@ -247,11 +265,17 @@ expensive later.
   photographic shoulder. Measured motivation: hue spread from faint to near-white pixels rises
   1.60× under Lupton and falls to 0.36× under AgX. Lupton's weak point is its *ending* — a hard
   `rgb / max(peak, 1)` clip where a film shoulder would roll off — not its curve.
-- **Lupton still looks wrong, and the sky slider cannot reach far enough** (Anna, 2026-07-25,
-  deferred). `?transfer=lupton&curve=20` reads "bad and weird", and the sky-subtraction range
-  (0 to 0.05 of white) tops out below what that image needs. Both point the same way: the measured
-  background at high depth is bloom-dominated (25% of pixels at zero with bloom on, 82% with it
-  off), so a subtraction bounded at 5% of white cannot clear it. Likely wants the range widened
-  AND the sky probe finished, since a hand-set value at that magnitude is guesswork.
+- **Lupton still looks wrong** (Anna, 2026-07-25). `?transfer=lupton&curve=20` reads "bad and
+  weird". Judging it was blocked on the background, and half of that block is now cleared: the
+  sky control ran 0 to 0.05 of white on a linear scale, which topped out BELOW the frame's own
+  measured mean (6.43% of white) and spent its first four steps on everything that mattered. It is
+  now 0 to 0.2 on a cubic scale — see `skyFractionFromSlider` for why a cube and not a logarithm.
+  **Lupton has not been re-judged against a clean background yet**; that is the next thing to do,
+  and it is a look, not a measurement.
+- **The background is not uniform, and a scalar subtraction assumes it is.** The one lever the lab
+  has is a single number removed everywhere, while the summed PSF wings are brightest in the core.
+  A coarse-grid median or low-order surface would subtract the pedestal without flattening the
+  cluster. Not started; wants the probe explained first, since it would be built on the same
+  sampling.
 - **Sky and bloom re-prepare needlessly.** Both are pure display uniforms; making them skip
   `prepareStarField` would make those sliders instant. A change to `StarLab`'s surface.

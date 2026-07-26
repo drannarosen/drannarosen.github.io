@@ -60,49 +60,102 @@ const TILE_SITES: ReadonlyArray<readonly [number, number]> = [
   [0.8, 0.75],
 ];
 
+/**
+ * What the probe read.
+ *
+ * EVERY FIELD BUT `empty` DESCRIBES THE COVERED PIXELS — those that received light from at least
+ * one star's quad. `empty` describes the rest. Mixing the two populations is what broke the
+ * percentile (see `SKY_PERCENTILE`), so the type keeps them apart by construction.
+ */
 export interface SkyMeasurement {
   /** The measured background, in the same units as the scene radiance the transfer consumes. */
-  level: number;
-  /** Fraction of sampled pixels at or below `level` — a sanity handle on the percentile. */
-  sampled: number;
-  /** How many pixels the estimate is built from. Zero means the probe did not run. */
-  pixels: number;
+  readonly level: number;
+  /** Fraction of COVERED pixels at or below `level` — a sanity handle on the percentile. */
+  readonly sampled: number;
+  /** How many COVERED pixels the estimate is built from. Zero means nothing was drawn at all. */
+  readonly pixels: number;
   /**
-   * Raw spread of the sampled radiance — diagnostic, and load-bearing.
+   * Fraction of sampled pixels that were exactly zero — outside every quad, so not sky.
+   *
+   * Reported rather than merely used, because it is the number that overturned this file's
+   * previous diagnosis AND the one that localises what is still wrong. With the percentile fixed,
+   * `sampled` comes back at 0.2500-0.2502 every run — the estimator is sound — while `empty` and
+   * `level` still move between renders of an IDENTICAL scene.
+   *
+   * ── WHAT THAT VARIATION IS, MEASURED 2026-07-25 ──
+   *
+   * With motion off and bloom off, eight consecutive probes returned only three distinct results,
+   * and each repeated EXACTLY — (1.51e-6, empty 0.7924, 17,007 px) three times, (1.89e-6, 0.6133,
+   * 31,677) twice. Bit-identical repeats are not noise and not sampling error; they are a small
+   * number of discrete states. The natural reading is that a tile's readback does not always
+   * reflect the render just issued for it, so some tiles come back holding a neighbour's contents
+   * — five tiles giving a handful of possible totals.
+   *
+   * Bloom widens it by more than an order of magnitude: `level` spans 1.4e-6 to 2.2e-6 without it
+   * and 2.7e-6 to 7.2e-5 with it, and only with bloom on does a probe ever return `empty === 0`
+   * with all 81,920 sampled pixels lit — which no correct crop of this scene produces. Consistent
+   * with bloom's own internal targets adding a further frame of lag on top.
+   *
+   * So the remaining defect is a SYNCHRONISATION one between `renderAsync` and
+   * `readRenderTargetPixelsAsync`, not a statistical one. Until it is fixed the probe reports and
+   * does not decide, and `empty` is in the readout so the next look starts from the number.
+   */
+  readonly empty: number;
+  /**
+   * Raw spread of the covered radiance — diagnostic, and load-bearing.
    *
    * A probe that silently reads black is indistinguishable from a genuinely dark sky in the
    * percentile alone, and both produce a confident zero. Carrying min/max/mean makes the two
    * separable at a glance: an all-zero max means the readback or the render target is wrong, not
    * the sky.
    */
-  min: number;
-  max: number;
-  mean: number;
+  readonly min: number;
+  readonly max: number;
+  readonly mean: number;
 }
 
 /**
- * The percentile taken as "the sky" — and it is currently WRONG in a way worth recording.
+ * "The probe has not run." ONE literal, exported, because there were three of it.
  *
- * A low percentile, not the median, was the intent: in a cluster frame a large minority of pixels
+ * Every consumer that resets the measurement wrote its own zero object, so adding a field meant
+ * finding all of them — and the type would not have complained about a stale one that happened to
+ * be assignable. `pixels === 0` is the agreed signal for "no answer yet", and it is spelled here.
+ */
+export const NO_SKY_MEASUREMENT: SkyMeasurement = Object.freeze({
+  level: 0,
+  sampled: 0,
+  pixels: 0,
+  empty: 0,
+  min: 0,
+  max: 0,
+  mean: 0,
+});
+
+/**
+ * The percentile taken as "the sky", over the COVERED pixels only.
+ *
+ * A low percentile, not the median, is the intent: in a cluster frame a large minority of pixels
  * carry real star light and the median drags upward with it in the core.
  *
- * ── WHY 0.25 DOES NOT WORK, MEASURED 2026-07-25 ──
+ * ── WHY IT IS TAKEN OVER A SUBSET, MEASURED 2026-07-25 ──
  *
  * The sampled distribution has an ATOM AT EXACTLY ZERO, and it is large: 26.9% of pixels at bloom
- * 0, 59.6% at 0.15, 76.5% at 0.35. Those are pixels outside every star's quad — they are not sky,
- * they are empty. A 25th percentile therefore lands INSIDE that atom whenever the zero-fraction
- * exceeds 25%, returns exactly 0, and flips to the first non-zero value the moment a rendering
- * difference nudges the fraction across the boundary.
+ * 0, 59.6% at 0.15, 76.5% at 0.35. Taken over the whole tile, a 25th percentile therefore lands
+ * INSIDE that atom whenever the zero-fraction exceeds 25%, returns exactly 0, and flips to the
+ * first non-zero value the moment a rendering difference nudges the fraction across the boundary.
+ * That was the entire "1.17e-5, 5.91e-5, and once 0" instability.
  *
- * That is the entire "1.17e-5, 5.91e-5, and once 0" instability. It was previously recorded here
- * and in the roadmap as a bloom-versus-`setViewOffset` cropping bug — bloom being screen-space,
- * its internal targets not cropping with the projection. THAT DIAGNOSIS WAS WRONG. The test that
- * settled it: with bloom OFF the probe returns zero every time, which is not flakiness at all but
- * the correct p25 of a distribution that is 82% zeros.
+ * A ZERO PIXEL IS NOT A DARK SKY, it is a pixel no quad reached. The background this control
+ * subtracts is the summed PSF wings of the stars, and a wing is drawn only inside its star's
+ * quad, which is finite. So zero means "the model says nothing here", not "the model says
+ * darkness here" — and averaging the two together answers a question nobody asked. The
+ * percentile runs over the covered pixels; `empty` reports how many were not.
  *
- * The fix is to take the percentile over pixels that actually carry background — non-zero ones —
- * rather than over the whole tile. Not yet done; it is the next change to this file, and this
- * comment exists so the wrong diagnosis is not rediscovered and re-fixed.
+ * THE PREVIOUS DIAGNOSIS IN THIS COMMENT WAS WRONG, and is recorded so it is not rediscovered:
+ * it blamed bloom being screen-space and its internal targets not cropping with `setViewOffset`.
+ * The test that settled it — with bloom OFF the probe returns zero EVERY time, which is not
+ * flakiness at all but the correct p25 of a distribution that is 82% zeros. A theory predicting
+ * maximum noise where there is perfect repeatability is refuted.
  */
 export const SKY_PERCENTILE = 0.25;
 
@@ -134,7 +187,7 @@ export function createSkyProbe(
 
   return {
     async measure(bufW: number, bufH: number): Promise<SkyMeasurement> {
-      if (!(bufW > 0) || !(bufH > 0)) return { level: 0, sampled: 0, pixels: 0, min: 0, max: 0, mean: 0 };
+      if (!(bufW > 0) || !(bufH > 0)) return NO_SKY_MEASUREMENT;
       const samples: number[] = [];
       /*
        * The camera's view offset is restored in a `finally`. If a readback rejects — a lost
@@ -210,24 +263,34 @@ export function createSkyProbe(
         renderer.setRenderTarget(null);
       }
 
-      if (samples.length === 0) return { level: 0, sampled: 0, pixels: 0, min: 0, max: 0, mean: 0 };
-      samples.sort((a, b) => a - b);
+      if (samples.length === 0) return NO_SKY_MEASUREMENT;
+      /*
+       * SPLIT BEFORE SORTING. The covered pixels are the measurement; the zeros are a count.
+       * Filtering rather than clamping the percentile index matters because the atom's size
+       * MOVES with bloom (see `empty`), so any index computed against the full population is a
+       * different statistic from one render to the next.
+       */
+      const covered = samples.filter((v) => v > 0);
+      const empty = (samples.length - covered.length) / samples.length;
+      if (covered.length === 0) return { ...NO_SKY_MEASUREMENT, empty };
+      covered.sort((a, b) => a - b);
       const idx = Math.min(
-        samples.length - 1,
-        Math.max(0, Math.round(SKY_PERCENTILE * (samples.length - 1))),
+        covered.length - 1,
+        Math.max(0, Math.round(SKY_PERCENTILE * (covered.length - 1))),
       );
-      const level = samples[idx] ?? 0;
+      const level = covered[idx] ?? 0;
       let atOrBelow = 0;
-      for (const v of samples) if (v <= level) atOrBelow++;
+      for (const v of covered) if (v <= level) atOrBelow++;
       let sum = 0;
-      for (const v of samples) sum += v;
+      for (const v of covered) sum += v;
       return {
         level,
-        sampled: atOrBelow / samples.length,
-        pixels: samples.length,
-        min: samples[0] ?? 0,
-        max: samples[samples.length - 1] ?? 0,
-        mean: sum / samples.length,
+        sampled: atOrBelow / covered.length,
+        pixels: covered.length,
+        empty,
+        min: covered[0] ?? 0,
+        max: covered[covered.length - 1] ?? 0,
+        mean: sum / covered.length,
       };
     },
     dispose() {

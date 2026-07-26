@@ -24,7 +24,7 @@ import { prepareStarField, STAR_STRIDE, type PrepareOptions, type StarField } fr
 import { clusterStarTable } from "./source.ts";
 import { createStarGraph, type StarGraph } from "./starGraph.ts";
 import { createTransferNode, type Transfer } from "./transferNode.ts";
-import { createSkyProbe, type SkyMeasurement } from "./skyProbe.ts";
+import { createSkyProbe, NO_SKY_MEASUREMENT, type SkyMeasurement } from "./skyProbe.ts";
 import type { TransferId } from "../../core/imaging/transfers.ts";
 import { whitePixelIntensity, analyticMeanIntensity } from "./calibrate.ts";
 import { transferFloor, transferDisplayGrey } from "../../core/imaging/transfers.ts";
@@ -348,7 +348,7 @@ export async function initStarLab(
   let lastDepthMag = DEFAULT_LUPTON_DEPTH_MAG;
   let lastSkyLevel = 0;
   let skyAuto = false;
-  let sky: SkyMeasurement = { level: 0, sampled: 0, pixels: 0, min: 0, max: 0, mean: 0 };
+  let sky: SkyMeasurement = NO_SKY_MEASUREMENT;
   /*
    * Rebuilds race the probe: it is async, and a slider drag can start three before the first
    * resolves. A token means only the newest result is ever applied — without it a stale
@@ -608,7 +608,7 @@ export async function initStarLab(
     lastDepthMag = o.pixelDepthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
     lastSkyLevel = o.skyLevel ?? 0;
     skyAuto = o.skyAuto ?? false;
-    if (!skyAuto) sky = { level: 0, sampled: 0, pixels: 0, min: 0, max: 0, mean: 0 };
+    if (!skyAuto) sky = NO_SKY_MEASUREMENT;
     uBloom.value = o.bloom ?? 0.35;
     // The field RESOLVED which transfer it expects (the default depends on the colour mode), so the
     // pipeline follows the field rather than the caller — they cannot disagree.
@@ -729,7 +729,7 @@ export async function initStarLab(
         skyAuto = next.skyAuto;
         // Turning auto OFF must drop the measurement, or the manual slider would be ignored while
         // appearing to be in charge.
-        if (!skyAuto) sky = { level: 0, sampled: 0, pixels: 0, min: 0, max: 0, mean: 0 };
+        if (!skyAuto) sky = NO_SKY_MEASUREMENT;
       }
       recalibrate();
       probeSky();
