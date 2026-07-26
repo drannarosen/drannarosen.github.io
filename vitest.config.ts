@@ -18,7 +18,11 @@ export default defineConfig({
     alias: { "@novascope": resolve(import.meta.dirname, "src/novascope") },
   },
   test: {
-    include: ["src/novascope/{core,state}/**/*.test.ts"],
+    /*
+     * `src/lib` is included for the hero's frozen sampler: it is site code, but it is pure and
+     * node-runnable (only its renderer touches the DOM), and it is the thing a fixture must pin.
+     */
+    include: ["src/novascope/{core,state}/**/*.test.ts", "src/lib/**/*.test.ts"],
     environment: "node",
   },
 });
