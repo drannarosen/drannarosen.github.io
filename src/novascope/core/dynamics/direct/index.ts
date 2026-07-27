@@ -147,21 +147,47 @@ export const DIRECT_STEPS_PER_TCROSS = 128;
  *      0.011        4.54       512   1.11e+0   -0.0359 +/- 0.0295   2.372
  *      0.005        5.23       724   8.41e+0   +0.0104 +/- 0.0272   4.923
  *
- * Segregation strengthens 1.8x from eps/r_h 0.171 to 0.043, while ln(r_h/eps) grows 1.77 to
- * 3.15 — also 1.8x. The Coulomb-log prediction tracks quantitatively, which is the evidence
- * that the mechanism is understood rather than merely observed.
- *
- * Below eps/r_h ~ 0.04 it collapses: the energy error passes 10% and the cluster inflates,
- * so the falling correlation there is numerical destruction, not relaxation.
- *
- * HONEST LIMIT ON THE CLAIM: the individual differences between adjacent rows are within
- * their standard errors. What is solid is the monotone trend over the first three, its
- * agreement with the log prediction, and the unambiguous breakdown below 0.04.
+ * Below eps/r_h ~ 0.04 this arm collapses: the energy error passes 10% and the cluster inflates.
  *
  * fraction 0.5 is chosen as the largest step down from the old default that keeps the energy
- * excellent (9.8e-6) while recovering a measurable part of the relaxation, and it carries the
- * tightest error bar in the scan. fraction 0.25 buys the strongest segregation at 300x worse
- * energy and is available for a run that wants it.
+ * excellent (9.8e-6), and it carries the tightest error bar in the scan. It remains the default
+ * FOR A FIXED-STEP SCHEME, which is what this constant governs.
+ *
+ * ── RE-MEASURED 2026-07-27 WITH ADAPTIVE HERMITE, AND ONE CLAIM ABOVE DID NOT SURVIVE ──
+ *
+ * The scan above could not distinguish "the step is too coarse" from "no fixed step works",
+ * because every arm of it was fixed-step. `../hermite.ts` exists to answer that, and does:
+ * adaptive Hermite (eta = 0.01), N = 200, 15 crossing times, SIX seeds.
+ *
+ *     eps/r_h   |dE/E|     d_rho +/- SE       r_h/r_h0   force evals / t_cross
+ *      0.0855   8.17e-7   -0.0961 +/- 0.0243    1.410            718
+ *      0.0427   4.60e-6   -0.0707 +/- 0.0311    1.412           1251
+ *      0.0214   2.44e-5   -0.0808 +/- 0.0472    1.727           1834
+ *      0.0107   1.19e-4   -0.0534 +/- 0.0158    1.933           2602
+ *      0.0053   1.64e-4   -0.0797 +/- 0.0382    1.991           3159
+ *      0.0027   3.24e-4   -0.0551 +/- 0.0413    2.022           4885
+ *
+ * THE FLOOR WAS THE TIMESTEP. At eps/r_h = 0.0107 the fixed-step arms give 9.2e-1 (this
+ * function's own policy) and 2.6e-1 (FSI4 brute-forced to 1024 steps/t_cross); adaptive Hermite
+ * gives 1.2e-4 — three to four orders better — and never breaks down anywhere in the range. Cost
+ * grows only 7x across a 32x reduction in eps, close to the eps^(-1/2) the Courant criterion
+ * predicts. So eps ~ 0.04 r_h is a limit of FIXED-STEP INTEGRATION, not of the model.
+ *
+ * AND THE SEGREGATION CLAIM ABOVE IS NOT REPRODUCED. This scan previously read "segregation
+ * strengthens 1.8x ... the Coulomb-log prediction tracks quantitatively". With the energy held
+ * at 1e-4 or better throughout, d_rho shows NO trend: six values spanning -0.053 to -0.096, every
+ * one negative, all within about one standard error of each other. The earlier apparent trend was
+ * measured partly where that arm's own energy error was 2.6e-1 to 8.4 — i.e. in a regime it
+ * itself identifies as numerical destruction — so it should not have been read as physics.
+ *
+ * What DOES track the Coulomb log is the EXPANSION: r_h/r_h0 rises monotonically 1.41 -> 2.02 as
+ * eps falls, a 43% change over the range, with the energy error never exceeding 3e-4. Relaxation
+ * drives halo expansion as well as segregation, and at N = 200 over 15 crossing times the
+ * expansion is measurable while the rank correlation is swamped by realization noise.
+ *
+ * The honest summary: relaxation strengthens as the softening falls, shown by r_h; the mass-radius
+ * correlation is too noisy at this N and duration to show it, and was previously reported as
+ * though it had.
  */
 export function softeningForCluster(rHalfPc: number, n: number, fraction = 0.5): number {
   return (fraction * rHalfPc) / Math.cbrt(Math.max(n, 1));
