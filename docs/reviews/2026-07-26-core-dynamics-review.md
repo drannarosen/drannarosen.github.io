@@ -24,8 +24,8 @@ check:dynamics   69 quantities, exact
 | **Physics correctness** | **A** | Every claim is gated against something external — Kepler, an analytic oscillator, a frozen fixture, progenax's G. Three of my own arithmetic errors were caught by measurement rather than shipped. |
 | **Test quality** | **A** | Contract tests with proven teeth (170,000× and 2.1e53 margins), bounds derived rather than fitted, and a two-sided assertion that the models must DIFFER. |
 | **Architecture** | **A−** | The ForceModel seam is right and `potentialEnergy` is correctly placed. Two misplacements and one TDZ landmine. |
-| **DRY / one home per fact** | **B** | Four kinetic-energy implementations and four duplicated grid constants. Both are exactly the species this repo's discipline exists to prevent, and I introduced them. |
-| **Performance** | **B−** | `diagnostics()` costs 4.1× a physics sub-step, for a readout. |
+| **DRY / one home per fact** | **B → A** | Four kinetic-energy implementations and four duplicated grid constants — exactly the species this repo's discipline exists to prevent, and I introduced them. **All fixed 2026-07-26**, fixture bit-for-bit exact throughout. |
+| **Performance** | **B− → A−** | `diagnostics()` cost 4.1× a physics sub-step for a readout. **Fixed**, though not by the cause this review first named — see the correction in §2a. |
 
 **Headline: the physics and the testing are strong; the plumbing has four DRY defects I
 introduced and should not have.** None is a correctness bug today. All four are the shape that
@@ -102,6 +102,30 @@ and the honest consequence is that every entry point now rebuilds defensively.
 **Fix:** rebuild once at the top of `diagnostics()` and give `MeanFieldForce` a way to say
 "already current for these positions" — a generation counter, not a boolean, so a stale flag
 cannot silently pass.
+
+> **CORRECTION, 2026-07-26 — this diagnosis was incomplete, and the fix proved it.**
+>
+> The three rebuilds are real and were removed. The ratio did not move: 4.0× against 4.1×.
+> Profiling the parts instead of reasoning about them:
+>
+> ```
+> lagrangianRadii (sort)   2.295 ms   <- 67%
+> buildProfile             0.194 ms
+> potentials               0.167 ms
+> potentialEnergy          0.199 ms
+> accelerations            0.335 ms
+> ```
+>
+> The redundant rebuilds were **0.4 ms of 3.44**. What dominates is `idx.sort()` with a
+> closure comparator over 10,301 elements — twelve times a whole profile rebuild. Naming the
+> rebuilds as the cause was reasoning to a plausible culprit; the measurement says otherwise.
+>
+> A comparator-free `Float64Array.sort()` is 3.8× faster (0.58 ms against 2.19 ms) but cannot
+> be used, because the masses must stay paired with the radii. The proportionate fix was
+> therefore not a faster sort but **not doing it on the common path**: `measure()` bundled an
+> O(n log n) quantity into a struct that is otherwise O(n), so every caller paid for a radius
+> it might never read. It now returns the `bound` mask and the caller composes
+> `lagrangianRadii` when it actually wants one.
 
 ### 2b. `momentum()` and `angularMomentum()` are on the wrong object (read + measured)
 
@@ -186,3 +210,18 @@ Stated so a later pass does not undo it.
 | 5 | Fix the TDZ ordering and delete the `maxStep: Infinity` initializer | 20 min |
 | 6 | `gasExpulsion.test.ts` — the cheap properties the 7.8 s gate does not reach | 45 min |
 | 7 | One test driving both force models through the same integrator | 20 min |
+
+**All seven done, 2026-07-26.** 89 tests (was 77), boundary gate clean on 95 files, build green
+at 38.3 s, and `check:dynamics` reproduced all 69 quantities BIT-FOR-BIT through the whole
+refactor — which is the evidence that a cleanup of this size changed nothing.
+
+Two things the fixes taught that the review had not:
+
+1. **§2a named the wrong dominant cause** (see the correction there). The redundant rebuilds
+   were 12% of the cost; a sort was 67%.
+2. **The interchangeability test failed first, and was right to.** Stepping `meanField` with an
+   arbitrary velocity draw moved its energy by 238% — because an arbitrary draw is deeply
+   sub-virial, and `gasExpulsion`'s own header names a collapse as "exactly the regime this
+   solver cannot conserve energy through". `direct` survived the same setup, since its force IS
+   the gradient of its potential. The fix was to build the initial conditions the way a real
+   caller does, not to loosen the bound until the pathological case fitted underneath it.

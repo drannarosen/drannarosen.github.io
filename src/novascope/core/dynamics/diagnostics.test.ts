@@ -8,7 +8,8 @@
  * deeper the well is. That is precisely the regime `../gasExpulsion/` runs in.
  */
 import { describe, expect, it } from "vitest";
-import { lagrangianRadii, measure, radii } from "./diagnostics.ts";
+import { lagrangianRadii, measure } from "./diagnostics.ts";
+import { radii } from "./quantities.ts";
 import { createMeanFieldForce } from "./meanField/index.ts";
 import { createDirectForce } from "./direct/index.ts";
 import { createState } from "./types.ts";

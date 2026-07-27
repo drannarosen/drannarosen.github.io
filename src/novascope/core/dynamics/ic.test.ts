@@ -10,18 +10,18 @@ import {
   clusterState,
   combineStates,
   drawMaxwellian,
-  kineticEnergy,
   removeBulkMotion,
   scaleToVirial,
   toLatent,
   toState,
 } from "./ic.ts";
+import { kineticEnergy } from "./quantities.ts";
 import { createDirectForce } from "./direct/index.ts";
 import { createState } from "./types.ts";
 import { KM_S_TO_PC_MYR } from "../constants/index.ts";
 import { defaultIdentity } from "../cluster/params.ts";
 import { mulberry32 } from "../random/index.ts";
-import { measure } from "./diagnostics.ts";
+import { lagrangianRadii, measure } from "./diagnostics.ts";
 
 const G = 1;
 
@@ -135,7 +135,7 @@ describe("clusterState", () => {
     expect(d.virialRatio).toBeCloseTo(0.5, 8);
     // A virialized cluster is mostly bound; this is a sanity floor, not a physics claim.
     expect(d.boundMassFraction).toBeGreaterThan(0.5);
-    expect(d.halfMassRadius).toBeGreaterThan(0);
+    expect(lagrangianRadii(s, [0.5], (i) => d.bound[i] === 1)[0]).toBeGreaterThan(0);
 
     // Same seed, same cluster — ADR 0012's "one canonical cluster = (seed, params, t)".
     const again = clusterState(id, createDirectForce({ softening: 0.02, G }));

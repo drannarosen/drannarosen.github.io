@@ -52,6 +52,58 @@ export interface ExternalSpherical {
   potential(r: number, t: number): number;
 }
 
+/**
+ * The default radial grid and softening.
+ *
+ * Exported because they were being restated: `gasExpulsion/` declared its own NBINS / R_MIN /
+ * R_MAX / SOFTENING with IDENTICAL values, so tuning one home left the other silently
+ * disagreeing about what the default was, with no gate able to see it (2026-07-26 review
+ * §1b). One home now; a caller states only what it genuinely overrides.
+ *
+ * These are a CALIBRATION, not a law: log-spaced from 0.01 to 200 pc gives 3.14% resolution
+ * per bin, which is what the gas-expulsion model was measured against. Note the deliberate
+ * asymmetry with `../direct/`, which refuses to default its softening at all — there, a
+ * softening length is the whole physics of how close two stars may get, while here it only
+ * regularizes r -> 0 in a binned profile and there are no pairs for it to affect.
+ */
+export const MEAN_FIELD_DEFAULTS = Object.freeze({
+  softening: 0.02,
+  nBins: 320,
+  rMin: 0.01,
+  rMax: 200,
+});
+
+/**
+ * The log-spaced radial grid, as two standalone functions.
+ *
+ * Exported so a consumer can tabulate something on the SAME grid without owning a force —
+ * `../gasExpulsion/` precomputes the gas profile per bin and needs the bin edges before the
+ * force exists. Deriving them here rather than reading them off a constructed force is what
+ * removes the initialization-order trap that used to sit in that file.
+ */
+export function radialBinEdges(nBins: number, rMin: number, rMax: number): Float64Array {
+  const logRMin = Math.log(rMin);
+  const invDlog = nBins / (Math.log(rMax) - logRMin);
+  const edges = new Float64Array(nBins);
+  for (let k = 0; k < nBins; k++) edges[k] = Math.exp(logRMin + (k + 1) / invDlog);
+  return edges;
+}
+
+/** Bin index for a radius on that grid, clamped at both ends. */
+export function radialBinIndex(
+  nBins: number,
+  rMin: number,
+  rMax: number,
+): (r: number) => number {
+  const logRMin = Math.log(rMin);
+  const invDlog = nBins / (Math.log(rMax) - logRMin);
+  return (r: number): number => {
+    if (r <= rMin) return 0;
+    const k = Math.floor((Math.log(r) - logRMin) * invDlog);
+    return k >= nBins ? nBins - 1 : k;
+  };
+}
+
 export interface MeanFieldOptions {
   /** Gravitational constant [pc^3 Msun^-1 Myr^-2]. Defaults to the derived IAU value. */
   G?: number;
@@ -81,6 +133,14 @@ export interface MeanFieldForce extends ForceModel {
    * that works until someone reorders two lines.
    */
   refreshProfile(pos: Vec3Array, mass: Float64Array): void;
+  /**
+   * Mark the profile stale, so the next read rebuilds it.
+   *
+   * Needed only when something writes `pos` from outside — the integrator's own moves are
+   * always followed by `accelerations`, which rebuilds unconditionally. Mirrors
+   * `Leapfrog.invalidateAcceleration()` on purpose: one rule for both caches.
+   */
+  invalidateProfile(): void;
   /** Enclosed STELLAR mass at each bin's outer edge, after the last force evaluation. */
   readonly enclosedMass: Float64Array;
   /** Outer edge radius [pc] of each bin. */
@@ -93,25 +153,17 @@ export interface MeanFieldForce extends ForceModel {
 
 export function createMeanFieldForce(n: number, opts: MeanFieldOptions = {}): MeanFieldForce {
   const G = opts.G ?? G_PC3_MSUN_MYR2;
-  const softening = opts.softening ?? 0.02;
-  const nBins = opts.nBins ?? 320;
-  const rMin = opts.rMin ?? 0.01;
-  const rMax = opts.rMax ?? 200;
+  const softening = opts.softening ?? MEAN_FIELD_DEFAULTS.softening;
+  const nBins = opts.nBins ?? MEAN_FIELD_DEFAULTS.nBins;
+  const rMin = opts.rMin ?? MEAN_FIELD_DEFAULTS.rMin;
+  const rMax = opts.rMax ?? MEAN_FIELD_DEFAULTS.rMax;
   const external = opts.external;
 
   /* Log-spaced: the core needs the resolution and escapers run to large radii where it does
-     not matter. Same grid as the shell code this model was extracted from. */
-  const logRMin = Math.log(rMin);
-  const invDlog = nBins / (Math.log(rMax) - logRMin);
-
-  const binOf = (r: number): number => {
-    if (r <= rMin) return 0;
-    const k = Math.floor((Math.log(r) - logRMin) * invDlog);
-    return k >= nBins ? nBins - 1 : k;
-  };
-
-  const binEdges = new Float64Array(nBins);
-  for (let k = 0; k < nBins; k++) binEdges[k] = Math.exp(logRMin + (k + 1) / invDlog);
+     not matter. The grid itself is built by the exported helpers, so a consumer tabulating
+     onto the same bins uses the same code rather than a copy of it. */
+  const binOf = radialBinIndex(nBins, rMin, rMax);
+  const binEdges = radialBinEdges(nBins, rMin, rMax);
 
   const radii = new Float64Array(n);
   const binMass = new Float64Array(nBins);
@@ -120,6 +172,15 @@ export function createMeanFieldForce(n: number, opts: MeanFieldOptions = {}): Me
      by mass exterior to a star, which exerts no net force but does set the escape energy.
      Bin k's own mass is already carried by enclosedMass[k]/edge[k] and must not appear twice. */
   const phiOuter = new Float64Array(nBins);
+
+  /* Profile freshness. `accelerations` is called by the integrator immediately after every
+     position change, so the profile it leaves behind is current — and a diagnostics pass that
+     follows a step can read it without rebuilding. Before this, `diagnostics()` rebuilt three
+     times and cost 3.44 ms against 0.85 ms for a physics sub-step (2026-07-26 review §2a).
+
+     The contract mirrors `Leapfrog.invalidateAcceleration()` deliberately, so there is one
+     rule to remember rather than two: WRITE TO `pos` FROM OUTSIDE AND YOU MUST SAY SO. */
+  let profileStale = true;
 
   function buildProfile(pos: Vec3Array, mass: Float64Array): void {
     binMass.fill(0);
@@ -142,7 +203,12 @@ export function createMeanFieldForce(n: number, opts: MeanFieldOptions = {}): Me
       const rMid = k === 0 ? binEdges[0] * 0.5 : 0.5 * (binEdges[k] + binEdges[k - 1]);
       outer += binMass[k] / Math.max(rMid, softening);
     }
+    profileStale = false;
   }
+
+  const ensureProfile = (pos: Vec3Array, mass: Float64Array): void => {
+    if (profileStale) buildProfile(pos, mass);
+  };
 
   /** Stellar potential per unit mass at bin k. Includes the exterior shells. */
   const phiStarAt = (k: number): number =>
@@ -154,9 +220,13 @@ export function createMeanFieldForce(n: number, opts: MeanFieldOptions = {}): Me
     binEdges,
     radii,
     binOf,
-    refreshProfile: buildProfile,
+      refreshProfile: buildProfile,
+    invalidateProfile(): void {
+      profileStale = true;
+    },
 
     accelerations(pos: Vec3Array, mass: Float64Array, accOut: Vec3Array, t: number): void {
+      // Unconditional: the integrator calls this precisely because the particles have moved.
       buildProfile(pos, mass);
       for (let i = 0; i < n; i++) {
         const r = radii[i];
@@ -171,7 +241,7 @@ export function createMeanFieldForce(n: number, opts: MeanFieldOptions = {}): Me
     },
 
     potentialEnergy(pos: Vec3Array, mass: Float64Array, t: number): number {
-      buildProfile(pos, mass);
+      ensureProfile(pos, mass);
       let u = 0;
       for (let i = 0; i < n; i++) {
         const k = binOf(radii[i]);
@@ -185,7 +255,7 @@ export function createMeanFieldForce(n: number, opts: MeanFieldOptions = {}): Me
     },
 
     potentials(pos: Vec3Array, mass: Float64Array, out: Float64Array, t: number): void {
-      buildProfile(pos, mass);
+      ensureProfile(pos, mass);
       for (let i = 0; i < n; i++) {
         /* The FULL potential the star sits in, including the shells OUTSIDE it. Those exert
            no net force — which is why `accelerations` ignores them — but they absolutely set

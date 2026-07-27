@@ -59,17 +59,21 @@
  * across the whole SFE range.
  */
 import { createLeapfrog, type Leapfrog } from "../integrate.ts";
-import { createMeanFieldForce, type MeanFieldForce } from "../meanField/index.ts";
+import {
+  createMeanFieldForce,
+  MEAN_FIELD_DEFAULTS,
+  radialBinEdges,
+  radialBinIndex,
+  type MeanFieldForce,
+} from "../meanField/index.ts";
 import { createState, type State } from "../types.ts";
 import { lagrangianRadii } from "../diagnostics.ts";
 
-/* Grid and softening are the values this model was measured with; `../meanField/` defaults to
-   the same, and they are restated here because they are THIS model's calibration, not the
-   force module's opinion. */
-const NBINS = 320;
-const R_MIN = 0.01; // pc
-const R_MAX = 200.0; // pc
-const SOFTENING = 0.02; // pc — far below the ~0.03 pc mean spacing at r_h
+/* The grid and softening this model was measured against ARE `meanField`'s defaults, so they
+   are imported rather than restated. They were declared here too, with identical values, until
+   the 2026-07-26 review pointed out that tuning one home would leave the other silently
+   disagreeing with no gate able to see it. */
+const { nBins: NBINS, softening: SOFTENING } = MEAN_FIELD_DEFAULTS;
 
 /* Leapfrog sub-steps per crossing time. Measured, not guessed: with the cluster virial-scaled
    to Q=0.5 the total-energy drift over 10 crossing times is -4.9e-3 at 100 sub-steps,
@@ -198,23 +202,19 @@ export function createDynamics(init: DynamicsInit): Dynamics {
   /* The gas profile's SHAPE is static — only its mass decays — so the per-bin enclosed
      fraction and the potential per unit gas mass are computed once and scaled by M_gas(t).
      Both are evaluated at BIN EDGES rather than at each star's own radius, which is what the
-     pre-refactor code did and what the frozen fixture therefore records. */
-  const force: MeanFieldForce = createMeanFieldForce(n, {
-    G,
-    softening: SOFTENING,
-    nBins: NBINS,
-    rMin: R_MIN,
-    rMax: R_MAX,
-    external: {
-      enclosedMass: (r, t) => gasMassAt(t) * fEncBin[force.binOf(r)],
-      potential: (r, t) => gasMassAt(t) * phiGasUnit[force.binOf(r)],
-    },
-  });
-
+     pre-refactor code did and what the frozen fixture therefore records.
+     
+     BUILT BEFORE THE FORCE, deliberately. An earlier version declared `force` first and let
+     its `external` closures reference `force`, `fEncBin` and `phiGasUnit` — none of which
+     existed yet. It worked only because `createMeanFieldForce` never invokes `external`
+     during construction, and the day it did (to precompute a table, say) it would have thrown
+     a ReferenceError pointing at the wrong file. The grid is derived here instead, from the
+     same parameters the force will use, so nothing is referenced before it exists. */
   const fEncBin = new Float64Array(NBINS);
   const phiGasUnit = new Float64Array(NBINS);
+  const gasBinOf = radialBinIndex(NBINS, MEAN_FIELD_DEFAULTS.rMin, MEAN_FIELD_DEFAULTS.rMax);
   {
-    const edge = force.binEdges;
+    const edge = radialBinEdges(NBINS, MEAN_FIELD_DEFAULTS.rMin, MEAN_FIELD_DEFAULTS.rMax);
     const dr = gasMencRMax / (gasMenc.length - 1);
     const fAt = (r: number): number => {
       if (r <= 0) return 0;
@@ -235,7 +235,19 @@ export function createDynamics(init: DynamicsInit): Dynamics {
     }
   }
 
-  let leap: Leapfrog = createLeapfrog(state, force, { maxStep: Infinity });
+  const force: MeanFieldForce = createMeanFieldForce(n, {
+    G,
+    external: {
+      enclosedMass: (r, t) => gasMassAt(t) * fEncBin[gasBinOf(r)],
+      potential: (r, t) => gasMassAt(t) * phiGasUnit[gasBinOf(r)],
+    },
+  });
+
+  /* Assigned by the `reset()` at the end of this factory, which is also what sets `maxStep`
+     from the crossing time. It used to be initialised with `maxStep: Infinity` purely to
+     satisfy definite assignment — a value that was both dead and, had it ever been reached,
+     catastrophic (one unbounded step). `undefined` until reset is the honest state. */
+  let leap!: Leapfrog;
 
   /* Has the cluster settled? The tolerance matters: t accumulates one sub-step at a time, so
      an exact >= comparison can sit a few ulps short after integrating precisely RELAX_TCROSS

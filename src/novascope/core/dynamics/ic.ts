@@ -31,6 +31,7 @@ import { sampleCluster } from "../cluster/sample.ts";
 import { subStream } from "../random/index.ts";
 import { KM_S_TO_PC_MYR } from "../constants/index.ts";
 import { createState, type ForceModel, type State } from "./types.ts";
+import { centreOfMass, kineticEnergy, totalMass } from "./quantities.ts";
 
 /** Positions and masses from latent stars; velocities converted km/s -> pc/Myr. */
 export function toState(stars: readonly LatentStar[]): State {
@@ -93,40 +94,15 @@ export function drawMaxwellian(state: State, rng: () => number): void {
  * since its whole force law is defined about that point.
  */
 export function removeBulkMotion(state: State): void {
-  const { n, mass, pos, vel } = state;
-  let mTot = 0;
-  const com = [0, 0, 0];
-  const mom = [0, 0, 0];
-  for (let i = 0; i < n; i++) {
-    mTot += mass[i];
-    for (let k = 0; k < 3; k++) {
-      com[k] += mass[i] * pos[i * 3 + k];
-      mom[k] += mass[i] * vel[i * 3 + k];
-    }
-  }
-  if (!(mTot > 0)) return;
-  for (let k = 0; k < 3; k++) {
-    com[k] /= mTot;
-    mom[k] /= mTot;
-  }
+  const { n, pos, vel } = state;
+  if (!(totalMass(state) > 0)) return;
+  const { position, velocity } = centreOfMass(state);
   for (let i = 0; i < n; i++) {
     for (let k = 0; k < 3; k++) {
-      pos[i * 3 + k] -= com[k];
-      vel[i * 3 + k] -= mom[k];
+      pos[i * 3 + k] -= position[k];
+      vel[i * 3 + k] -= velocity[k];
     }
   }
-}
-
-/** Kinetic energy [Msun (pc/Myr)^2]. */
-export function kineticEnergy(state: State): number {
-  let t = 0;
-  for (let i = 0; i < state.n; i++) {
-    const vx = state.vel[i * 3];
-    const vy = state.vel[i * 3 + 1];
-    const vz = state.vel[i * 3 + 2];
-    t += 0.5 * state.mass[i] * (vx * vx + vy * vy + vz * vz);
-  }
-  return t;
 }
 
 /**

@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { createDirectForce, softeningForCluster } from "./index.ts";
 import { createLeapfrog } from "../integrate.ts";
 import { createState } from "../types.ts";
+import { angularMomentum, momentum } from "../quantities.ts";
 
 const G = 1; // test units: G = 1 keeps the analytic algebra readable.
 
@@ -65,9 +66,9 @@ describe("createDirectForce", () => {
       s.vel[i * 3 + 1] = 0.1 * Math.cos(i * 0.7);
     }
     const lf = createLeapfrog(s, createDirectForce({ softening: 0.05, G }), { maxStep: 0.01 });
-    const p0 = lf.momentum();
+    const p0 = momentum(s);
     for (let i = 0; i < 200; i++) lf.step(0.01);
-    const p1 = lf.momentum();
+    const p1 = momentum(s);
     // Round-off only: the pair loop makes sum(m a) identically zero, not approximately zero.
     for (let k = 0; k < 3; k++) expect(Math.abs(p1[k] - p0[k])).toBeLessThan(1e-10);
   });
@@ -84,9 +85,9 @@ describe("createDirectForce", () => {
       s.vel[i * 3 + 1] = Math.cos((i / n) * 2 * Math.PI) * 0.5;
     }
     const lf = createLeapfrog(s, createDirectForce({ softening: 0.05, G }), { maxStep: 0.005 });
-    const l0 = lf.angularMomentum();
+    const l0 = angularMomentum(s);
     for (let i = 0; i < 400; i++) lf.step(0.005);
-    const l1 = lf.angularMomentum();
+    const l1 = angularMomentum(s);
     const mag = Math.hypot(...l0);
     for (let k = 0; k < 3; k++) expect(Math.abs(l1[k] - l0[k])).toBeLessThan(1e-9 * (1 + mag));
   });

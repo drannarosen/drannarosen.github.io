@@ -30,6 +30,7 @@
  * time as its accuracy plateau — so the integrator enforces a limit it does not choose.
  */
 import type { Energy, ForceModel, State } from "./types.ts";
+import { kineticEnergy } from "./quantities.ts";
 
 export interface Leapfrog {
   /** Advance by `dt` [Myr], subdividing so no internal step exceeds `maxStep`. */
@@ -40,10 +41,6 @@ export interface Leapfrog {
   readonly force: ForceModel;
   /** Kinetic, potential and total energy at the CURRENT synchronized state. */
   energy(): Energy;
-  /** Total linear momentum [Msun pc/Myr], as an (x,y,z) triple. */
-  momentum(): [number, number, number];
-  /** Total angular momentum [Msun pc^2/Myr] about the origin, as an (x,y,z) triple. */
-  angularMomentum(): [number, number, number];
   /** Call after writing `state.pos` from outside. Velocity changes do NOT need this. */
   invalidateAcceleration(): void;
 }
@@ -101,45 +98,10 @@ export function createLeapfrog(
     state,
     force,
     energy(): Energy {
-      let kinetic = 0;
-      for (let i = 0; i < n; i++) {
-        const vx = vel[i * 3];
-        const vy = vel[i * 3 + 1];
-        const vz = vel[i * 3 + 2];
-        kinetic += 0.5 * mass[i] * (vx * vx + vy * vy + vz * vz);
-      }
-      // The potential comes from the force model — see the note in types.ts on why.
+      // T from `./quantities.ts` and U from the force model — neither is restated here.
+      const kinetic = kineticEnergy(state);
       const potential = force.potentialEnergy(pos, mass, t);
       return { kinetic, potential, total: kinetic + potential };
-    },
-    momentum(): [number, number, number] {
-      let px = 0;
-      let py = 0;
-      let pz = 0;
-      for (let i = 0; i < n; i++) {
-        px += mass[i] * vel[i * 3];
-        py += mass[i] * vel[i * 3 + 1];
-        pz += mass[i] * vel[i * 3 + 2];
-      }
-      return [px, py, pz];
-    },
-    angularMomentum(): [number, number, number] {
-      let lx = 0;
-      let ly = 0;
-      let lz = 0;
-      for (let i = 0; i < n; i++) {
-        const m = mass[i];
-        const x = pos[i * 3];
-        const y = pos[i * 3 + 1];
-        const z = pos[i * 3 + 2];
-        const vx = vel[i * 3];
-        const vy = vel[i * 3 + 1];
-        const vz = vel[i * 3 + 2];
-        lx += m * (y * vz - z * vy);
-        ly += m * (z * vx - x * vz);
-        lz += m * (x * vy - y * vx);
-      }
-      return [lx, ly, lz];
     },
     invalidateAcceleration(): void {
       accValid = false;

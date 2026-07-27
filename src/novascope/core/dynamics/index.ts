@@ -43,21 +43,37 @@ export type { DirectOptions } from "./direct/index.ts";
 export { createDirectForce, softeningForCluster } from "./direct/index.ts";
 
 export type { MeanFieldForce, MeanFieldOptions, ExternalSpherical } from "./meanField/index.ts";
-export { createMeanFieldForce } from "./meanField/index.ts";
+export {
+  createMeanFieldForce,
+  MEAN_FIELD_DEFAULTS,
+  radialBinEdges,
+  radialBinIndex,
+} from "./meanField/index.ts";
+
+/* Quantities of a State — no force law, no integrator, no time. They live in their own module
+   because kinetic energy was implemented four times before the 2026-07-26 review found it. */
+export {
+  angularMomentum,
+  centreOfMass,
+  kineticEnergy,
+  momentum,
+  radii,
+  rmsSpeed,
+  totalMass,
+} from "./quantities.ts";
 
 export type { ClusterStateOptions, ClumpPlacement } from "./ic.ts";
 export {
   clusterState,
   combineStates,
   drawMaxwellian,
-  kineticEnergy,
   removeBulkMotion,
   scaleToVirial,
   toLatent,
   toState,
 } from "./ic.ts";
 
-export { lagrangianRadii, measure, radii } from "./diagnostics.ts";
+export { lagrangianRadii, measure } from "./diagnostics.ts";
 /* Renamed on the way out: `gasExpulsion` already owns the name `Diagnostics` in this barrel,
    because `viz/webgl` and the shipped /explore pages import it from here. */
 export type { Diagnostics as StateDiagnostics } from "./diagnostics.ts";

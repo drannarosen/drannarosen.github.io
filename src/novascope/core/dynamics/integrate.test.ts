@@ -18,6 +18,10 @@
 import { describe, expect, it } from "vitest";
 import { createLeapfrog } from "./integrate.ts";
 import { createState, type ForceModel, type State, type Vec3Array } from "./types.ts";
+import { createDirectForce } from "./direct/index.ts";
+import { createMeanFieldForce } from "./meanField/index.ts";
+import { mulberry32 } from "../random/index.ts";
+import { removeBulkMotion, scaleToVirial } from "./ic.ts";
 
 /**
  * A 3-D isotropic harmonic oscillator, a = -omega^2 x, with U = 1/2 m omega^2 r^2.
@@ -173,4 +177,83 @@ describe("createLeapfrog", () => {
     lf.step(0.25);
     expect(lf.t).toBeCloseTo(0.5, 12);
   });
+});
+
+describe("the ForceModel seam", () => {
+  /* The whole reason `direct/` and `meanField/` are separate modules behind one interface is
+     that the integrator can step either without knowing which. Nothing asserted that, so the
+     seam was a claim rather than a tested property (2026-07-26 review, P3). */
+  /* VIRIALIZED before stepping, and that is not a convenience.
+   *
+   * An arbitrary velocity draw is deeply sub-virial, and a sub-virial cluster collapses —
+   * which `../gasExpulsion/`'s header names as "exactly the regime this solver cannot
+   * conserve energy through". An earlier draft of this test skipped the scaling and watched
+   * meanField's energy move by 238%, which is the documented behaviour of a binned profile
+   * changing faster than its grid resolves, not a bug in the seam. `direct` survives the same
+   * setup because its force IS the gradient of its potential; meanField's is not.
+   *
+   * So the fix was to build the initial conditions the way a real caller does, rather than to
+   * loosen the bound until the pathological case fitted under it. */
+  const cluster = (force: ForceModel): State => {
+    const rng = mulberry32(31415);
+    const s = createState(400);
+    for (let i = 0; i < s.n; i++) {
+      s.mass[i] = 0.5 + rng();
+      const u = Math.max(rng(), 1e-4);
+      const r = 1 / Math.sqrt(u ** (-2 / 3) - 1);
+      const cosT = 2 * rng() - 1;
+      const sinT = Math.sqrt(Math.max(0, 1 - cosT * cosT));
+      const phi = 2 * Math.PI * rng();
+      s.pos[i * 3] = r * sinT * Math.cos(phi);
+      s.pos[i * 3 + 1] = r * sinT * Math.sin(phi);
+      s.pos[i * 3 + 2] = r * cosT;
+      for (let k = 0; k < 3; k++) s.vel[i * 3 + k] = rng() - 0.5;
+    }
+    removeBulkMotion(s);
+    scaleToVirial(s, force, 0.5);
+    return s;
+  };
+
+  const models = [
+    { id: "direct", make: () => createDirectForce({ softening: 0.05, G: 1 }) },
+    { id: "meanField", make: () => createMeanFieldForce(400, { G: 1, rMin: 1e-3, rMax: 100 }) },
+  ];
+
+  for (const { id, make } of models) {
+    it(`steps '${id}' through the same integrator with no special-casing`, () => {
+      const force = make();
+      const s = cluster(force);
+      expect(force.id).toBe(id);
+
+      /* maxStep is t_cross/200, the sub-step density gasExpulsion measured as its accuracy
+         plateau. t_cross ~ 2 r_h / sqrt(G M / r_h) ~ 0.15 here. */
+      const lf = createLeapfrog(s, force, { maxStep: 0.15 / 200 });
+      const e0 = lf.energy();
+      expect(Number.isFinite(e0.total)).toBe(true);
+      expect(e0.potential).toBeLessThan(0); // gravity is attractive, in both models
+
+      for (let i = 0; i < 200; i++) lf.step(0.15 / 200);
+      const e1 = lf.energy();
+      expect(Number.isFinite(e1.total)).toBe(true);
+      /* A loose bound on purpose. meanField's force is NOT the gradient of its potential
+         (binned M(<r) is a step function), so it carries a spatial-discretization drift that
+         no timestep removes — this asserts the run stays physical, not that both conserve
+         equally. The tight conservation claims live in each model's own test file. */
+      expect(Math.abs(e1.total - e0.total) / Math.abs(e0.total)).toBeLessThan(0.2);
+
+      // Every particle still has a finite position: neither model has blown up.
+      for (let i = 0; i < s.pos.length; i++) expect(Number.isFinite(s.pos[i])).toBe(true);
+    });
+
+    it(`'${id}' satisfies the potentials/potentialEnergy relationship the interface requires`, () => {
+      const force = make();
+      const s = cluster(force);
+      const phi = new Float64Array(s.n);
+      force.potentials(s.pos, s.mass, phi, 0);
+      let half = 0;
+      for (let i = 0; i < s.n; i++) half += 0.5 * s.mass[i] * phi[i];
+      // U = 1/2 sum m_i Phi_i for a self-gravitating system, in BOTH models.
+      expect(half).toBeCloseTo(force.potentialEnergy(s.pos, s.mass, 0), 8);
+    });
+  }
 });

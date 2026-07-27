@@ -12,7 +12,7 @@
  * invisible — a plausible energy that drifts.
  */
 import type { ForceModel, State } from "./types.ts";
-import { kineticEnergy } from "./ic.ts";
+import { kineticEnergy, radii, rmsSpeed, totalMass } from "./quantities.ts";
 
 export interface Diagnostics {
   /** Kinetic energy [Msun (pc/Myr)^2]. */
@@ -26,20 +26,23 @@ export interface Diagnostics {
   boundFraction: number;
   /** Fraction of stellar MASS that is bound — the quantity the literature quotes. */
   boundMassFraction: number;
-  /** Half-mass radius of the BOUND stars [pc]. */
-  halfMassRadius: number;
   /** Root-mean-square speed [pc/Myr]. */
   rmsSpeed: number;
-}
-
-/** Distance of each particle from the origin [pc], written into `out`. */
-export function radii(state: State, out: Float64Array): void {
-  for (let i = 0; i < state.n; i++) {
-    const x = state.pos[i * 3];
-    const y = state.pos[i * 3 + 1];
-    const z = state.pos[i * 3 + 2];
-    out[i] = Math.sqrt(x * x + y * y + z * z);
-  }
+  /**
+   * Which stars are bound, 1 or 0 per particle.
+   *
+   * Returned rather than a half-mass radius, and that is a deliberate API choice. Every
+   * quantity above is O(n); a Lagrangian radius needs a SORT, and measured at n = 10,301 that
+   * sort is 2.30 ms against 0.19 ms for a whole profile rebuild — 67% of what this function
+   * used to cost. Bundling it in meant a caller wanting energy each frame paid for a radius
+   * it never read.
+   *
+   * So the expensive thing is now explicit at the call site:
+   *
+   *     const d = measure(state, force);
+   *     const rHalf = lagrangianRadii(state, [0.5], (i) => d.bound[i] === 1)[0];
+   */
+  bound: Uint8Array;
 }
 
 /**
@@ -120,24 +123,18 @@ export function measure(state: State, force: ForceModel, t = 0): Diagnostics {
 
   let boundN = 0;
   let boundM = 0;
-  let mTot = 0;
-  let v2Sum = 0;
   const isBound = new Uint8Array(state.n);
   for (let i = 0; i < state.n; i++) {
     const vx = state.vel[i * 3];
     const vy = state.vel[i * 3 + 1];
     const vz = state.vel[i * 3 + 2];
-    const v2 = vx * vx + vy * vy + vz * vz;
-    v2Sum += v2;
-    mTot += state.mass[i];
-    if (0.5 * v2 + phi[i] < 0) {
+    if (0.5 * (vx * vx + vy * vy + vz * vz) + phi[i] < 0) {
       isBound[i] = 1;
       boundN++;
       boundM += state.mass[i];
     }
   }
-
-  const [halfMassRadius] = lagrangianRadii(state, [0.5], (i) => isBound[i] === 1);
+  const mTot = totalMass(state);
 
   return {
     kinetic,
@@ -146,7 +143,7 @@ export function measure(state: State, force: ForceModel, t = 0): Diagnostics {
     virialRatio: potential !== 0 ? kinetic / Math.abs(potential) : 0,
     boundFraction: state.n > 0 ? boundN / state.n : 0,
     boundMassFraction: mTot > 0 ? boundM / mTot : 0,
-    halfMassRadius,
-    rmsSpeed: state.n > 0 ? Math.sqrt(v2Sum / state.n) : 0,
+    rmsSpeed: rmsSpeed(state),
+    bound: isBound,
   };
 }
