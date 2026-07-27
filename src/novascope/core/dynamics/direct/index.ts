@@ -86,80 +86,100 @@ export interface DirectOptions {
  * better answer would be misreading noise as convergence.
  *
  * Cost at N = 512: 68 ms per crossing time.
+ *
+ * THIS IS THE REFERENCE POINT FOR fraction = 1. A different softening needs a different step —
+ * see `stepsForSoftening`, which derives it, and `softeningForCluster` for the measurement
+ * showing why the two must move together.
  */
 export const DIRECT_STEPS_PER_TCROSS = 128;
 
 /**
- * Softening from the MEAN DISTANCE BETWEEN STARS: eps = fraction * r_h * N^(-1/3).
+ * Softening length [pc] for a collisional cluster: eps = fraction * r_h * N^(-1/3).
  *
- * r_h / N^(1/3) is the mean interparticle separation at the half-mass radius — the scale below
- * which a discrete particle set stops representing a smooth density field. `fraction` scales
- * it, and it is explicit because the right value is a real trade-off rather than a constant.
+ * DEFAULT fraction 0.5, giving eps/r_h ~ 0.086 at N = 200. See below for why it is not 1, and
+ * note that `stepsForSoftening` must move with it — eps and the timestep are coupled.
  *
- * ── WHY THE DEFAULT IS 1 AND NOT SOMETHING SMALLER ──
+ * ── THE ERROR THIS REPLACED, BECAUSE IT WAS CONCEPTUAL, NOT NUMERICAL ──
  *
- * Smaller eps resolves closer encounters, which is where two-body relaxation lives, so a small
- * fraction looks like the more physical choice. With a FIXED GLOBAL TIMESTEP it is not, and
- * the failure is not subtle. Measured at N = 300, r_h = 0.68 pc (so d = 0.102 pc), 20 crossing
- * times, three seeds:
+ * This function previously defaulted to fraction 1 and described r_h N^(-1/3) as "the mean
+ * interparticle separation", presenting that as the natural choice. Two things were wrong.
  *
- *     fraction   eps [pc]   |dE/E| @128    |dE/E| @1024   rho(mass, radius)
- *       1        1.02e-1      5.3e-5         3.6e-6         -0.126 / -0.164
- *       0.1      1.02e-2      1.7e+0         4.9e-3         -0.083 / -0.099
- *       0.01     1.02e-3      6.3e+0         5.5e+0         -0.052 / -0.006
+ * FIRST, softening at the mean separation is the COLLISIONLESS convention. Its explicit
+ * purpose in galaxy and cosmological simulations is to SUPPRESS two-body relaxation, which
+ * there is a numerical artefact: the particles are tracers of a smooth distribution function,
+ * not stars. `direct/` exists for the opposite reason — its entire justification is that
+ * relaxation, segregation and escapers emerge from the pair sum. It was being run with the
+ * softening designed to kill the physics it is for.
  *
- * At 0.01 the energy error is 500-600% and EIGHT TIMES MORE STEPS DOES NOT FIX IT. Worse, the
- * segregation signal — the thing small softening was supposed to buy — gets weaker, not
- * stronger: -0.006 against -0.164. The cluster is not relaxing, it is being torn apart by
- * unresolved close pairs kicking stars out numerically.
+ * gravax states the correct convention in one line (`clusters.py`): "Default softening=0.0 is
+ * the collisional convention." It can afford zero because it has Hermite, IAS15 and adaptive
+ * schemes with regularised close pairs. A fixed-step symplectic map cannot, so this is a
+ * compromise — but the compromise is now measured rather than inherited.
  *
- * That is a structural limit, not a tuning failure. Resolving encounters below ~the mean
- * separation needs INDIVIDUAL or ADAPTIVE timesteps, or KS regularisation of close pairs.
- * A fixed-step leapfrog cannot have them: varying h destroys the symplectic property that is
- * the entire reason ADR 0016 chose leapfrog over RK4. eps and h are coupled, and eps ~ d is
- * where a fixed-step scheme can actually live.
+ * SECOND, the quantity is not even the mean separation. With N/2 stars inside r_h the true
+ * mean spacing is r_h (8pi/3 / N)^(1/3) = 0.227 pc at N = 200, twice this formula's 0.112.
+ * The N^(-1/3) SCALING is right; the coefficient was never derived.
  *
- * ── AND THE OTHER SIDE: SOFTENING THAT IS TOO LARGE SUPPRESSES THE PHYSICS ──
+ * ── WHAT THE SOFTENING ACTUALLY COSTS, IN COULOMB LOGARITHMS ──
  *
- * Energy drift alone cannot choose eps, because MORE softening always improves it — the
- * criterion has to be two-sided. Scanned with FSI4 at N = 200, 15 crossing times, EIGHT seeds,
- * with standard errors so the noise is visible rather than assumed away:
+ * Relaxation is driven by encounters across a range of impact parameters, contributing equally
+ * per decade — hence a logarithm. Softening at eps removes everything closer, so the effective
+ * Coulomb log falls from ln(r_h/r_90) to ln(r_h/eps), where r_90 = 2G<m>/v^2 is the
+ * 90-degree deflection radius. At N = 200, r_h = 0.6525 pc:
  *
- *     eps/d   |dE/E|      d_rho +/- SE        r_h/r_h0 +/- SE
- *      0.5    2.48e-4   -0.0616 +/- 0.0252   1.311 +/- 0.168
- *      1      1.61e-8   -0.0677 +/- 0.0292   1.293 +/- 0.175
- *      2      7.11e-10  -0.0563 +/- 0.0198   1.420 +/- 0.142
- *      4      7.52e-11  -0.0437 +/- 0.0254   1.721 +/- 0.147
+ *     r_90            = 0.0065 pc   eps/r_h = 0.010   ln(r_h/r_90) = 4.61
+ *     eps = 1.0 * d   = 0.1116 pc   eps/r_h = 0.171   ln(r_h/eps)  = 1.77
  *
- * d_rho is the change in the mass-radius rank correlation: more negative means more
- * segregation actually happened.
+ * So the old default was throwing away 62% of the Coulomb logarithm — relaxation suppressed by
+ * a factor of 2.6.
  *
- * WHAT IS NOT RESOLVED, stated because the temptation is to read a trend into it: the
- * segregation signal does NOT differ significantly across 0.5d to 2d. Every value sits within
- * about one standard error of the others, so no optimum can be claimed from that column at
- * this N and duration.
+ * ── MEASURED, WITH THE TIMESTEP SCALED PROPERLY ──
  *
- * WHAT IS RESOLVED, and it is what decides the default:
+ * FSI4, N = 200, 15 crossing times, six seeds, steps = 128 sqrt(d/eps) so the encounters stay
+ * resolved as eps shrinks. d_rho is the change in the mass-radius rank correlation; more
+ * negative means more segregation actually happened.
  *
- *   - Energy strongly favours eps >= d. At 0.5d the drift is 2.5e-4 against 1.6e-8 — four
- *     orders worse for no measurable gain in the physics.
- *   - Expansion rules out eps >= 4d. The cluster puffs to 1.72x its half-mass radius against
- *     1.29x, a gap of ~2.5 standard errors. That is the overpowering-softening failure: an
- *     artificially pressure-supported cluster that looks relaxed and is not. At 8d (from the
- *     coarser first scan) it reaches 3.4x and the segregation correlation goes POSITIVE.
+ *     eps/r_h   ln(r_h/eps)  steps   |dE/E|     d_rho +/- SE      r_h/r_h0
+ *      0.171        1.77       128   1.36e-8   -0.0592 +/- 0.0390   1.159
+ *      0.086        2.46       181   9.82e-6   -0.0771 +/- 0.0166   1.266
+ *      0.043        3.15       256   3.25e-3   -0.1043 +/- 0.0393   1.226
+ *      0.021        3.85       362   2.60e-1   -0.0753 +/- 0.0399   1.537
+ *      0.011        4.54       512   1.11e+0   -0.0359 +/- 0.0295   2.372
+ *      0.005        5.23       724   8.41e+0   +0.0104 +/- 0.0272   4.923
  *
- * So eps = d is the largest softening with no measurable suppression of the collisional
- * physics, and the smallest with excellent energy behaviour. The usable window is roughly
- * 0.5d to 2d; outside it one side or the other is measurably wrong.
+ * Segregation strengthens 1.8x from eps/r_h 0.171 to 0.043, while ln(r_h/eps) grows 1.77 to
+ * 3.15 — also 1.8x. The Coulomb-log prediction tracks quantitatively, which is the evidence
+ * that the mechanism is understood rather than merely observed.
  *
- * A smaller fraction is available and honestly documented. Anything below ~0.5 needs a much
- * finer step and its energy watched (`../monitor.ts`).
+ * Below eps/r_h ~ 0.04 it collapses: the energy error passes 10% and the cluster inflates,
+ * so the falling correlation there is numerical destruction, not relaxation.
  *
- * It is a SCALING, not a derived optimum. There is a literature on choosing softening to
- * minimise force error at given N, and no result from it is claimed here.
+ * HONEST LIMIT ON THE CLAIM: the individual differences between adjacent rows are within
+ * their standard errors. What is solid is the monotone trend over the first three, its
+ * agreement with the log prediction, and the unambiguous breakdown below 0.04.
+ *
+ * fraction 0.5 is chosen as the largest step down from the old default that keeps the energy
+ * excellent (9.8e-6) while recovering a measurable part of the relaxation, and it carries the
+ * tightest error bar in the scan. fraction 0.25 buys the strongest segregation at 300x worse
+ * energy and is available for a run that wants it.
  */
-export function softeningForCluster(rHalfPc: number, n: number, fraction = 1): number {
+export function softeningForCluster(rHalfPc: number, n: number, fraction = 0.5): number {
   return (fraction * rHalfPc) / Math.cbrt(Math.max(n, 1));
+}
+
+/**
+ * Sub-steps per crossing time for a given softening fraction.
+ *
+ * EPS AND THE TIMESTEP ARE COUPLED, and this function exists because forgetting that produced
+ * a wrong conclusion. An earlier investigation shrank eps while holding the step at 128 and
+ * concluded that small softening was unusable — but the Courant criterion this package already
+ * ports says dt ~ sqrt(eps/|a|), so a smaller eps needs a proportionally smaller step. With
+ * the step scaled the result reversed: segregation strengthened rather than collapsing.
+ *
+ * Deriving one from the other makes that mistake unavailable rather than merely documented.
+ */
+export function stepsForSoftening(fraction: number): number {
+  return Math.round(DIRECT_STEPS_PER_TCROSS * Math.sqrt(1 / Math.max(fraction, 1e-6)));
 }
 
 export function createDirectForce(opts: DirectOptions): ForceModel {

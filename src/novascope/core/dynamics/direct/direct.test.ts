@@ -152,9 +152,11 @@ describe("createDirectForce", () => {
     expect(worstSep).toBeLessThan(1e-4);
   });
 
-  it("softeningForCluster states the r_h / N^(1/3) scaling", () => {
-    // 1 pc half-mass radius, 1000 stars -> 0.1 pc. Checks the scaling, not a magic value.
-    expect(softeningForCluster(1, 1000)).toBeCloseTo(0.1, 12);
-    expect(softeningForCluster(2, 8)).toBeCloseTo(1, 12);
+  it("softeningForCluster scales as r_h N^(-1/3), at the COLLISIONAL fraction", () => {
+    /* Default 0.5 rather than 1: eps ~ the mean separation is the collisionless convention,
+       whose purpose is suppressing the two-body relaxation this model exists to produce. */
+    expect(softeningForCluster(1, 1000)).toBeCloseTo(0.05, 12);
+    expect(softeningForCluster(1, 1000, 1)).toBeCloseTo(0.1, 12);
+    expect(softeningForCluster(2, 8, 1)).toBeCloseTo(1, 12);
   });
 });

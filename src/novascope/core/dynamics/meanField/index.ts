@@ -6,6 +6,20 @@
  * standard semi-analytic treatment of cluster gas expulsion (Hills 1980; Lada, Margulis &
  * Dearborn 1984; Baumgardt & Kroupa 2007), and `../gasExpulsion/` is built on it.
  *
+ * ── SCOPE: THIS IS NOT A STAR-DYNAMICS MODEL (Anna, 2026-07-26) ──
+ *
+ * It exists to serve `../gasExpulsion/`, where a spherically-averaged potential IS the cited
+ * treatment for a draining natal cloud at N = 10,301 and direct summation is infeasible. Star
+ * cluster dynamics uses `../direct/`, full stop.
+ *
+ * That boundary was learned the expensive way. A test spent four rewrites trying to
+ * demonstrate that `direct` segregates by mass "and meanField does not", benchmarking the
+ * correct model against one that should not have been modelling stars at all. Every rewrite
+ * surfaced a different confound. What replaced it is the deterministic fact below — two stars
+ * at the same position with different masses get IDENTICAL accelerations here, so mass and
+ * radius cannot become correlated by the dynamics, at any resolution and for any duration.
+ * `meanField.test.ts` proves that in four lines and cannot be flaky.
+ *
  * ── WHAT IS ABSENT BY CONSTRUCTION, NOT BY RESOLUTION ──
  *
  * Every acceleration is parallel to the position vector, so there is no torque anywhere in

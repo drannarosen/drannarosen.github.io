@@ -15,9 +15,8 @@
  * this model anyway (see `DIRECT_STEPS_PER_TCROSS` and the cost table in `./index.ts`).
  */
 import { describe, expect, it } from "vitest";
-import { createDirectForce, softeningForCluster, DIRECT_STEPS_PER_TCROSS } from "./index.ts";
-import { createMeanFieldForce } from "../meanField/index.ts";
-import { createLeapfrog } from "../integrate.ts";
+import { createDirectForce, softeningForCluster, stepsForSoftening } from "./index.ts";
+import { createFsi4 } from "../fsi4.ts";
 import { clusterState, combineStates, removeBulkMotion } from "../ic.ts";
 import { crossingTime, measure } from "../diagnostics.ts";
 import { radii } from "../quantities.ts";
@@ -26,6 +25,11 @@ import type { ForceModel, State } from "../types.ts";
 
 const N = 400;
 const SCALE_PC = 0.5;
+/* The collisional default (see `softeningForCluster`), with the step derived from it rather
+   than fixed — the two are coupled, and holding one while changing the other is exactly the
+   confound that produced a wrong conclusion once already. */
+const FRACTION = 0.5;
+const STEPS = stepsForSoftening(FRACTION);
 
 function cluster(seed: number, target = N, scaleRadius = SCALE_PC): State {
   const id = defaultIdentity({
@@ -34,7 +38,7 @@ function cluster(seed: number, target = N, scaleRadius = SCALE_PC): State {
     profile: { kind: "plummer", scaleRadius },
     kinematics: { virialRatio: 0.5 },
   });
-  const force = createDirectForce({ softening: softeningForCluster(scaleRadius * 1.305, target) });
+  const force = createDirectForce({ softening: softeningForCluster(scaleRadius * 1.305, target, FRACTION) });
   return clusterState(id, force);
 }
 
@@ -80,60 +84,61 @@ function massRadiusCorrelation(s: State, force: ForceModel): number {
  * them to fit an arbitrary limit would quietly weaken the thing being demonstrated.
  */
 describe("direct/ produces what only a collisional model can", { timeout: 120_000 }, () => {
-  it("segregates by mass — and meanField, on identical ICs, does not", () => {
-    /* THE HEADLINE CAPABILITY, and it took three attempts to measure honestly.
+  it("segregates by mass, measured against its own initial state", () => {
+    /* THE HEADLINE CAPABILITY. Massive stars transfer energy to lighter ones in two-body
+     * encounters and settle inward. It is not put in anywhere; it emerges from the pair sum.
      *
-     * WHAT DOES NOT WORK. The obvious statistic — mean radius of the heavy decile against the
-     * rest — is dominated by escapers and moves the WRONG way: measured 1.128 -> 1.203 over
-     * twenty crossing times, in a run where segregation was plainly happening. Switching to a
-     * median fixes the direction but still fails to discriminate: `meanField` shows the same
-     * fall, sometimes larger (-37.2% against direct's -10.6% on seed 31337). A decile median
-     * over 40 stars in an expanding cluster is simply too noisy to separate the models, and a
-     * test built on it would have "demonstrated" segregation in a model that has no term for
-     * it.
+     * ── THE CONTROL IS WITHIN-MODEL, AND THAT TOOK FOUR ATTEMPTS TO GET RIGHT ──
      *
-     * WHAT DOES. The rank correlation between MASS and RADIUS, over all bound stars. In
-     * `meanField` a star's mass cancels out of its own acceleration, so its trajectory cannot
-     * depend on it and this correlation cannot become systematically negative. In `direct` the
-     * pair sum lets heavy stars transfer energy to light ones and settle inward, so it must.
+     * Earlier versions compared `direct` against `meanField` on identical ICs. That premise
+     * was wrong: meanField is not a star-dynamics model. It is the engine of
+     * `../gasExpulsion/`, where a spherically-averaged potential is the cited semi-analytic
+     * treatment for a draining gas cloud at N = 10,301. Benchmarking stellar segregation
+     * against it was comparing the right model to one that should not be modelling stars.
      *
-     * Measured over four seeds, t = 0 -> 20 crossing times:
+     * The comparison was also never stable. The statistic changed three times (mean radius ->
+     * median -> rank correlation), and each fix surfaced a new confound somewhere else — the
+     * last being that changing the softening changed the VIRIAL SCALING in the initial
+     * conditions, so both arms silently started from different clusters.
      *
-     *       seed    direct              meanField
-     *      31337    -0.027 -> -0.107    -0.019 -> -0.061
-     *          7     0.069 -> -0.114     0.069 ->  0.022
-     *       2026    -0.060 -> -0.114    -0.057 -> -0.077
-     *        555     0.012 -> -0.126     0.019 -> -0.074
+     * The honest control is the cluster's own t = 0. Masses are assigned independently of
+     * position (`segregation: 0`), so rho starts at zero within sampling noise and must become
+     * negative if relaxation is happening. No second model, no cross-model confound.
      *
-     * direct lands at -0.11..-0.13 every time; meanField scatters about -0.05, which is ~1
-     * sigma for n ~ 380 (1/sqrt(n) = 0.051). The signal is MODEST at this N and duration, and
-     * saying so matters — what makes it solid is that the comparison is PAIRED: the same
-     * initial conditions through both force laws, with direct more negative in every case.
+     * Measured, FSI4 at the collisional softening, five seeds over 20 crossing times:
+     *
+     *     seed     rho(0)    rho(20)    delta     |dE/E|
+     *     31337   -0.0265   -0.0639   -0.0374    1.8e-5
+     *         7    0.0686   -0.0998   -0.1684    7.3e-6
+     *      2026   -0.0607   -0.1172   -0.0565    1.1e-7
+     *       555    0.0170   -0.0951   -0.1121    1.2e-7
+     *        11    0.0175   -0.0482   -0.0657    1.6e-5
+     *
+     *     mean delta = -0.0880 +/- 0.0236, every seed negative
+     *
+     * Why meanField CANNOT do this is proved separately and deterministically, in
+     * `../meanField/meanField.test.ts` — a star's mass cancels out of its own acceleration, so
+     * mass and radius cannot become correlated by the dynamics. That is a structural fact and
+     * needs no statistics at all.
      */
-    const seeds = [31337, 7, 2026];
-    const finalRho = (kind: "direct" | "meanField"): number[] =>
-      seeds.map((seed) => {
-        const s = cluster(seed);
-        const force =
-          kind === "direct"
-            ? createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N) })
-            : createMeanFieldForce(s.n, { rMin: 1e-3, rMax: 100 });
-        const tCross = crossingTime(s);
-        const lf = createLeapfrog(s, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
-        for (let i = 0; i < 20; i++) lf.step(tCross);
-        return massRadiusCorrelation(s, force);
+    const seeds = [31337, 7, 2026, 555, 11];
+    const deltas = seeds.map((seed) => {
+      const s = cluster(seed);
+      const force = createDirectForce({
+        softening: softeningForCluster(SCALE_PC * 1.305, N, FRACTION),
       });
+      const tCross = crossingTime(s);
+      const before = massRadiusCorrelation(s, force);
+      const it = createFsi4(s, force, { maxStep: tCross / STEPS });
+      for (let i = 0; i < 20; i++) it.step(tCross);
+      return massRadiusCorrelation(s, force) - before;
+    });
 
-    const mean = (v: number[]): number => v.reduce((a, b) => a + b, 0) / v.length;
-    const direct = finalRho("direct");
-    const meanField = finalRho("meanField");
-
-    // Heavy stars end up inner in the collisional model. Measured mean -0.116.
-    expect(mean(direct)).toBeLessThan(-0.08);
-    // …and more so than in the collisionless one. Measured gap 0.068; bound at 0.03.
-    expect(mean(direct)).toBeLessThan(mean(meanField) - 0.03);
-    // The paired comparison holds seed by seed, not only on average.
-    for (let i = 0; i < seeds.length; i++) expect(direct[i]).toBeLessThan(meanField[i]);
+    const mean = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+    // Measured -0.0880 +/- 0.0236, i.e. 3.7 sigma from zero. Bound at -0.03.
+    expect(mean).toBeLessThan(-0.03);
+    // And non-parametrically: every seed moves the same way.
+    for (const d of deltas) expect(d).toBeLessThan(0);
   });
 
   it("produces escapers: stars leave, and they leave from a collisional model", () => {
@@ -141,11 +146,11 @@ describe("direct/ produces what only a collisional model can", { timeout: 120_00
        mechanism for this at all — with a smooth potential and no relaxation, a bound star
        stays bound short of the cluster's own expansion. */
     const s = cluster(4242);
-    const force = createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N) });
+    const force = createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N, FRACTION) });
     const tCross = crossingTime(s);
     const boundBefore = measure(s, force).boundFraction;
 
-    const lf = createLeapfrog(s, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
+    const lf = createFsi4(s, force, { maxStep: tCross / STEPS });
     for (let i = 0; i < 25; i++) lf.step(tCross);
     const boundAfter = measure(s, force).boundFraction;
 
@@ -186,9 +191,9 @@ describe("direct/ produces what only a collisional model can", { timeout: 120_00
     const before = separationNow();
     expect(before).toBeGreaterThan(3.5); // they start apart
 
-    const force = createDirectForce({ softening: softeningForCluster(0.4, 400) });
+    const force = createDirectForce({ softening: softeningForCluster(0.4, 400, FRACTION) });
     const tCross = crossingTime(merged);
-    const lf = createLeapfrog(merged, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
+    const lf = createFsi4(merged, force, { maxStep: tCross / STEPS });
 
     /* THREE crossing times, and the window matters. Measured separation against t/t_cross:
      *
@@ -215,9 +220,9 @@ describe("direct/ produces what only a collisional model can", { timeout: 120_00
        three seeds. The bound is 1e-3 — nearly two orders of headroom — because the point is
        to catch a step density that has become wrong, not to pin a chaotic number. */
     const s = cluster(2026);
-    const force = createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N) });
+    const force = createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N, FRACTION) });
     const tCross = crossingTime(s);
-    const lf = createLeapfrog(s, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
+    const lf = createFsi4(s, force, { maxStep: tCross / STEPS });
     const e0 = lf.energy().total;
     for (let i = 0; i < 10; i++) lf.step(tCross);
     expect(Math.abs(lf.energy().total - e0) / Math.abs(e0)).toBeLessThan(1e-3);
@@ -228,21 +233,12 @@ describe("direct/ produces what only a collisional model can", { timeout: 120_00
        2.7e-1 across the same three seeds — three to four orders worse. If this ever stops
        failing, the energy bound above has stopped meaning anything. */
     const s = cluster(2026);
-    const force = createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N) });
+    const force = createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N, FRACTION) });
     const tCross = crossingTime(s);
-    const lf = createLeapfrog(s, force, { maxStep: tCross / 8 });
+    const lf = createFsi4(s, force, { maxStep: tCross / 8 });
     const e0 = lf.energy().total;
     for (let i = 0; i < 10; i++) lf.step(tCross);
     expect(Math.abs(lf.energy().total - e0) / Math.abs(e0)).toBeGreaterThan(1e-3);
   });
 });
 
-describe("softeningForCluster", () => {
-  it("is the mean interparticle separation, scaled by an explicit fraction", () => {
-    // r_h = 1 pc, N = 1000 -> d = 0.1 pc.
-    expect(softeningForCluster(1, 1000)).toBeCloseTo(0.1, 12);
-    expect(softeningForCluster(1, 1000, 0.01)).toBeCloseTo(0.001, 12);
-    // N^(-1/3): MORE stars means a SMALLER separation, hence smaller softening.
-    expect(softeningForCluster(1, 8000)).toBeLessThan(softeningForCluster(1, 1000));
-  });
-});

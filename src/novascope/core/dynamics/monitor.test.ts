@@ -9,7 +9,8 @@
 import { describe, expect, it } from "vitest";
 import { createConservationMonitor } from "./monitor.ts";
 import { createLeapfrog } from "./integrate.ts";
-import { createDirectForce, softeningForCluster, DIRECT_STEPS_PER_TCROSS } from "./direct/index.ts";
+import { createFsi4 } from "./fsi4.ts";
+import { createDirectForce, softeningForCluster, stepsForSoftening } from "./direct/index.ts";
 import { createMeanFieldForce } from "./meanField/index.ts";
 import { clusterState } from "./ic.ts";
 import { crossingTime } from "./diagnostics.ts";
@@ -18,6 +19,8 @@ import type { State } from "./types.ts";
 
 const N = 300;
 const SCALE_PC = 0.5;
+const FRACTION = 0.5;
+const STEPS = stepsForSoftening(FRACTION);
 
 function cluster(seed: number): State {
   return clusterState(
@@ -27,19 +30,26 @@ function cluster(seed: number): State {
       profile: { kind: "plummer", scaleRadius: SCALE_PC },
       kinematics: { virialRatio: 0.5 },
     }),
-    createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N) }),
+    createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N, FRACTION) }),
   );
 }
 
 const directForce = (): ReturnType<typeof createDirectForce> =>
-  createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N) });
+  createDirectForce({ softening: softeningForCluster(SCALE_PC * 1.305, N, FRACTION) });
 
-describe("createConservationMonitor", () => {
-  it("reports a healthy run at the measured step density", () => {
+/* These integrate real clusters, and the healthy-run case now uses FSI4 — four pairwise passes
+   per step. It measured 6.4 s under parallel load against vitest's 5 s default, i.e. flaky for
+   reasons unrelated to the monitor. Same treatment as `direct/phenomena.test.ts`. */
+describe("createConservationMonitor", { timeout: 120_000 }, () => {
+  it("reports a healthy run in the DEFAULT configuration", () => {
+    /* FSI4 at the coupled step, which is what `chooseIntegrator` returns for a direct force.
+       Testing the leapfrog here would test a configuration that no longer ships: at
+       fraction 0.5 the second-order scheme drifts 5.5e-4 against FSI4's 8.5e-6, because the
+       smaller softening is affordable only to the fourth-order map. */
     const s = cluster(2026);
     const force = directForce();
     const tCross = crossingTime(s);
-    const lf = createLeapfrog(s, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
+    const lf = createFsi4(s, force, { maxStep: tCross / STEPS });
     const monitor = createConservationMonitor(lf);
 
     for (let i = 0; i < 10; i++) {
@@ -105,7 +115,7 @@ describe("createConservationMonitor", () => {
     const s = cluster(7);
     const force = directForce();
     const tCross = crossingTime(s);
-    const lf = createLeapfrog(s, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
+    const lf = createLeapfrog(s, force, { maxStep: tCross / STEPS });
     const monitor = createConservationMonitor(lf);
 
     for (let i = 0; i < 5; i++) {
@@ -141,7 +151,7 @@ describe("createConservationMonitor", () => {
     const s = cluster(2026);
     const force = createMeanFieldForce(s.n, { rMin: 1e-3, rMax: 100 });
     const tCross = crossingTime(s);
-    const lf = createLeapfrog(s, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
+    const lf = createLeapfrog(s, force, { maxStep: tCross / STEPS });
     const monitor = createConservationMonitor(lf);
 
     for (let i = 0; i < 5; i++) {
@@ -157,15 +167,20 @@ describe("createConservationMonitor", () => {
        here: 2048 steps per crossing time is no better than 128. Nor do more bins. What works
        is matching the softening to the cluster — eps ~ r_h/N^(1/3), the mean interparticle
        separation, which for this cluster is 0.098 pc against the 0.02 pc default calibrated
-       for gasExpulsion's much denser one. Measured 3.6e-1 -> 3.9e-2 on this seed. */
+       for gasExpulsion's much denser one. Measured 3.6e-1 -> 3.9e-2 on this seed.
+
+       FRACTION 1 HERE, NOT THE COLLISIONAL DEFAULT. meanField is collisionless: softening at
+       the mean separation is the CORRECT convention for it, because suppressing two-body
+       relaxation is what that model wants. direct/ defaults to half of it for exactly the
+       opposite reason. The two models genuinely want different values. */
     const s = cluster(2026);
     const force = createMeanFieldForce(s.n, {
       rMin: 1e-3,
       rMax: 100,
-      softening: softeningForCluster(SCALE_PC * 1.305, N),
+      softening: softeningForCluster(SCALE_PC * 1.305, N, 1),
     });
     const tCross = crossingTime(s);
-    const lf = createLeapfrog(s, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
+    const lf = createLeapfrog(s, force, { maxStep: tCross / STEPS });
     const monitor = createConservationMonitor(lf, { energyTolerance: 0.1 });
     for (let i = 0; i < 5; i++) {
       lf.step(tCross);
@@ -182,7 +197,7 @@ describe("createConservationMonitor", () => {
     const s = cluster(555);
     const force = createMeanFieldForce(s.n, { rMin: 1e-3, rMax: 100 });
     const tCross = crossingTime(s);
-    const lf = createLeapfrog(s, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
+    const lf = createLeapfrog(s, force, { maxStep: tCross / STEPS });
     const monitor = createConservationMonitor(lf, { energyTolerance: 0.1 });
 
     for (let i = 0; i < 5; i++) {
@@ -201,7 +216,7 @@ describe("createConservationMonitor", () => {
        rather than being collapsed into one verdict. */
     const s = cluster(2026);
     const force = createMeanFieldForce(s.n, { rMin: 1e-3, rMax: 100 });
-    const lf = createLeapfrog(s, force, { maxStep: crossingTime(s) / DIRECT_STEPS_PER_TCROSS });
+    const lf = createLeapfrog(s, force, { maxStep: crossingTime(s) / STEPS });
     const monitor = createConservationMonitor(lf);
     lf.step(crossingTime(s));
     const sample = monitor.sample();
@@ -213,7 +228,7 @@ describe("createConservationMonitor", () => {
     const s = cluster(555);
     const force = directForce();
     const tCross = crossingTime(s);
-    const lf = createLeapfrog(s, force, { maxStep: tCross / DIRECT_STEPS_PER_TCROSS });
+    const lf = createLeapfrog(s, force, { maxStep: tCross / STEPS });
     const monitor = createConservationMonitor(lf);
 
     lf.step(tCross * 2.5);
@@ -244,7 +259,7 @@ describe("createConservationMonitor", () => {
   it("reports a virial ratio that starts at the value the ICs were built for", () => {
     const s = cluster(2026);
     const force = directForce();
-    const lf = createLeapfrog(s, force, { maxStep: crossingTime(s) / DIRECT_STEPS_PER_TCROSS });
+    const lf = createLeapfrog(s, force, { maxStep: crossingTime(s) / STEPS });
     const monitor = createConservationMonitor(lf);
     expect(monitor.sample().virialRatio).toBeCloseTo(0.5, 6);
   });

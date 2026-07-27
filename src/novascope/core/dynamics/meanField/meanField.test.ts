@@ -62,6 +62,43 @@ function radialScatter(n: number): number {
 }
 
 describe("createMeanFieldForce", () => {
+  it("CANNOT segregate: mass cancels out of a star's own acceleration", () => {
+    /* The structural reason this model has no mass segregation, proved exactly rather than
+     * statistically. Two stars at the SAME RADIUS with DIFFERENT masses get the same
+     * acceleration MAGNITUDE, because a = -G M(<r) r / (r^2+eps^2)^{3/2} contains no m_i. A
+     * star's trajectory cannot depend on its mass, so mass and radius cannot become correlated
+     * by the dynamics — at any resolution, for any duration.
+     *
+     * `../direct/` must differ, and does: each star feels the OTHER's mass, so a 100-fold mass
+     * ratio gives a 100-fold acceleration ratio.
+     *
+     * SAME RADIUS, NOT SAME POSITION. The first version of this test put both stars at the
+     * same point, where the separation vector is zero and they exert NO force on each other —
+     * so `direct` returned identical accelerations too and the test failed. A degenerate
+     * configuration proves nothing about either model.
+     *
+     * This replaced a statistical comparison of the two models that needed four rewrites and
+     * still could not separate them reliably. A mechanism true by construction should be
+     * tested by construction.
+     */
+    const s = createState(2);
+    s.mass[0] = 0.2;
+    s.mass[1] = 20; // a hundredfold mass ratio…
+    s.pos[0] = 1; // …at equal radius, on opposite sides, so only mass distinguishes them.
+    s.pos[3] = -1;
+
+    const magnitude = (a: Float64Array, i: number): number =>
+      Math.hypot(a[i * 3], a[i * 3 + 1], a[i * 3 + 2]);
+
+    const acc = new Float64Array(6);
+    createMeanFieldForce(2, { G, rMin: 1e-3, rMax: 100 }).accelerations(s.pos, s.mass, acc, 0);
+    expect(magnitude(acc, 0)).toBe(magnitude(acc, 1));
+
+    createDirectForce({ softening: 0.05, G }).accelerations(s.pos, s.mass, acc, 0);
+    // a_0 goes as m_1 and a_1 as m_0, so the ratio is the mass ratio: 100.
+    expect(magnitude(acc, 0) / magnitude(acc, 1)).toBeCloseTo(100, 6);
+  });
+
   it("produces a strictly RADIAL force — there is no torque in this model at all", () => {
     const n = 400;
     const s = plummer(n);

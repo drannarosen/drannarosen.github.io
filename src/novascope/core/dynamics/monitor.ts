@@ -34,7 +34,7 @@
  * REPORTED — they catch a different class of bug from energy, and a `direct` run whose
  * momentum starts moving is genuinely broken — but only energy sets `healthy`.
  */
-import type { Leapfrog } from "./integrate.ts";
+import type { Integrator } from "./choose.ts";
 import type { Energy } from "./types.ts";
 import { crossingTime, lagrangianRadii } from "./diagnostics.ts";
 import { angularMomentum, momentum, rmsSpeed, totalMass } from "./quantities.ts";
@@ -88,7 +88,7 @@ export interface MonitorOptions {
 }
 
 export function createConservationMonitor(
-  lf: Leapfrog,
+  lf: Integrator,
   opts: MonitorOptions = {},
 ): ConservationMonitor {
   const energyTolerance = opts.energyTolerance ?? 1e-3;

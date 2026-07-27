@@ -52,7 +52,12 @@ export type { TimestepAdvice } from "./timestep.ts";
 export { softenAccelTimestep, DEFAULT_ETA } from "./timestep.ts";
 
 export type { DirectOptions } from "./direct/index.ts";
-export { createDirectForce, softeningForCluster } from "./direct/index.ts";
+export {
+  createDirectForce,
+  softeningForCluster,
+  stepsForSoftening,
+  DIRECT_STEPS_PER_TCROSS,
+} from "./direct/index.ts";
 
 export type { MeanFieldForce, MeanFieldOptions, ExternalSpherical } from "./meanField/index.ts";
 export {
