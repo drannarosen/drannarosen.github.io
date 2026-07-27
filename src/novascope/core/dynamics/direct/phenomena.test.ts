@@ -68,7 +68,18 @@ function massRadiusCorrelation(s: State, force: ForceModel): number {
   return 1 - (6 * sd) / (rm.length * (rm.length ** 2 - 1));
 }
 
-describe("direct/ produces what only a collisional model can", () => {
+/*
+ * These integrate real clusters for tens of crossing times, so they cost SECONDS, not
+ * milliseconds — the segregation case alone runs six 400-star clusters for twenty crossing
+ * times each. Vitest's 5 s default put it right on the boundary: it passed alone at 4.7 s and
+ * failed under parallel load at 5.8 s, which is a flaky test that would fail intermittently in
+ * CI for reasons having nothing to do with the physics.
+ *
+ * The timeout is raised rather than the work reduced. N and the duration were chosen to make
+ * the segregation signal measurable at all (see the table in the first test), and trimming
+ * them to fit an arbitrary limit would quietly weaken the thing being demonstrated.
+ */
+describe("direct/ produces what only a collisional model can", { timeout: 120_000 }, () => {
   it("segregates by mass — and meanField, on identical ICs, does not", () => {
     /* THE HEADLINE CAPABILITY, and it took three attempts to measure honestly.
      *
