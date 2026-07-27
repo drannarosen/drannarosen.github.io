@@ -1,0 +1,417 @@
+---
+/*
+ * extinction-lab.astro — rung 5 of the theory-to-observation ladder, on a bench.
+ *
+ * noindex and unlinked. What it is FOR is the one operation that is easy to get wrong and
+ * impossible to see wrong: extinction must multiply the INTEGRAND, wavelength by wavelength,
+ * before the spectrum is integrated through a passband. Applying A(lambda_eff) to an already-
+ * integrated flux gives a number of the right order that is not the right number, and no picture
+ * on this page would look different.
+ *
+ * So the page computes both, side by side, and shows the difference. That is the content.
+ *
+ * A_V IS A FREE PARAMETER HERE AND THE PAGE SAYS SO. Nothing on this site yet derives it from a
+ * gas density field; that is the next rung. Presenting a slider as though it were a measurement
+ * would be exactly the kind of quiet overclaim the site rules forbid.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+---
+
+<BaseLayout
+  title="Extinction lab — Anna Rosen"
+  description="Development surface: dust reddening curves, and why you redden before you integrate."
+  path="/extinction-lab"
+  noindex
+>
+  <PageHeader
+    eyebrow="Development surface · not linked"
+    title="Redden the integrand, not the answer"
+    lede="Two published extinction laws, a star behind a dust screen, and the arithmetic that separates a correct magnitude from a plausible one."
+  />
+
+  <div class="wrap-wide lab">
+    <div class="lab__stage">
+      <canvas
+        class="lab__canvas"
+        data-curve
+        aria-label="Extinction curve: A(lambda) over A_V against inverse wavelength."></canvas>
+      <p class="lab__note" data-curve-note aria-live="polite"></p>
+    </div>
+
+    <div class="lab__side flow">
+      <fieldset class="ctl">
+        <legend>Law</legend>
+        <label class="ctl__row">
+          <input type="radio" name="law" value="g23" checked />
+          <span><strong>G23</strong> — Gordon et al. 2023, ApJ 950, 86</span>
+        </label>
+        <label class="ctl__row">
+          <input type="radio" name="law" value="ccm89" />
+          <span><strong>CCM89</strong> — Cardelli, Clayton &amp; Mathis 1989, ApJ 345, 245</span>
+        </label>
+      </fieldset>
+
+      <fieldset class="ctl">
+        <legend>A<sub>V</sub> <span class="ctl__val" data-av-label>1.00 mag</span></legend>
+        <input type="range" data-av min="0" max="10" step="0.05" value="1" />
+        <p class="ctl__hint">
+          A free parameter. Nothing here derives it from a gas field yet — see below.
+        </p>
+      </fieldset>
+
+      <fieldset class="ctl">
+        <legend>R<sub>V</sub> <span class="ctl__val" data-rv-label>3.10</span></legend>
+        <input type="range" data-rv min="2.3" max="5.6" step="0.05" value="3.1" />
+        <p class="ctl__hint">
+          A<sub>V</sub>/E(B−V). 3.1 is the Milky Way diffuse average; dense clouds run higher.
+        </p>
+      </fieldset>
+
+      <fieldset class="ctl">
+        <legend>T<sub>eff</sub> <span class="ctl__val" data-teff-label>20000 K</span></legend>
+        <input type="range" data-teff min="3000" max="40000" step="500" value="20000" />
+      </fieldset>
+
+      <div class="swatch">
+        <div class="swatch__cell">
+          <div class="swatch__chip" data-chip-bare></div>
+          <span>no dust</span>
+        </div>
+        <div class="swatch__cell">
+          <div class="swatch__chip" data-chip-red></div>
+          <span>reddened</span>
+        </div>
+      </div>
+      <p class="ctl__hint">
+        Chromaticity only, normalised to a peak of 1 — this shows the colour SHIFT, not the
+        dimming. Extinction does both; a swatch can only carry one.
+      </p>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="prose flow">
+      <h2>The error this page exists to make visible</h2>
+      <p>
+        Extinction is wavelength-dependent, so it has to be applied inside the passband integral:
+        multiply the spectrum by 10<sup>−0.4A(λ)</sup> at every λ, <em>then</em> integrate. The
+        tempting shortcut is to integrate the clean spectrum, then dim the result by
+        A(λ<sub>eff</sub>) — one number instead of a curve.
+      </p>
+      <p>
+        How wrong is it? Measured here, and the answer has a shape worth knowing: <strong
+          >the shortcut is nearly harmless when the dust is thin and badly wrong when it is
+          thick</strong
+        >. For a 20 000 K star, the B-band error runs 0.002 mag at A<sub>V</sub> = 1, 0.021 at
+        A<sub>V</sub> = 3, 0.083 at A<sub>V</sub> = 5 and 0.417 at A<sub>V</sub> = 10 — it grows
+        faster than linearly, because the more the band is reddened the further its effective
+        wavelength slides from the one the shortcut assumed.
+      </p>
+      <p>
+        So this is not a mistake that announces itself. At the extinctions of a diffuse sightline
+        it hides inside the photometric errors; at the extinctions of an embedded cluster — which
+        is where this site's science actually is — it is several tenths of a magnitude, and it
+        biases colours rather than just dimming them. Drag A<sub>V</sub> and watch the last column.
+      </p>
+    </div>
+
+    <table class="tbl" data-table>
+      <caption>AB magnitudes at 10 pc for a 1 R<sub>⊙</sub> star.</caption>
+      <thead>
+        <tr>
+          <th scope="col">Band</th>
+          <th scope="col">λ<sub>eff</sub></th>
+          <th scope="col">no dust</th>
+          <th scope="col">reddened correctly</th>
+          <th scope="col">shortcut</th>
+          <th scope="col">error</th>
+        </tr>
+      </thead>
+      <tbody data-rows></tbody>
+    </table>
+
+    <div class="prose flow">
+      <h2>Where A<sub>V</sub> comes from, and where it doesn't</h2>
+      <p>
+        On this page it comes from a slider. That is honest for a bench and dishonest for a
+        result: a real A<sub>V</sub> is a line integral of dust density along the sightline, so it
+        differs star by star and is the mechanism behind differential reddening across a young
+        cluster. The seam is already built for it — attenuation enters per star — but nothing
+        computes it from the gas yet.
+      </p>
+      <p>
+        Note the two laws disagree outside the optical, and CCM89 returns nothing at all beyond
+        its published domain rather than extrapolating. That is deliberate: a curve quietly
+        extended past where it was fit is a fabricated measurement.
+      </p>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    attenuationFor,
+    ccm89Covers,
+    colourExcess,
+    extinctionLaw,
+    g23Covers,
+    type ExtinctionLawId,
+  } from "@novascope/core/extinction";
+  import { PASSBANDS, absoluteAbMagnitude } from "@novascope/core/photometry/passbands";
+  import { blackbodyLinearRGB, linearToSrgbRGB } from "@novascope/core/colorimetry";
+
+  const el = <T extends Element>(sel: string): T => {
+    const found = document.querySelector<T>(sel);
+    if (!found) throw new Error(`extinction-lab: ${sel} missing`);
+    return found;
+  };
+
+  const canvas = el<HTMLCanvasElement>("[data-curve]");
+  const maybeCtx = canvas.getContext("2d");
+  if (!maybeCtx) throw new Error("extinction-lab: no 2d context");
+  const ctx: CanvasRenderingContext2D = maybeCtx;
+
+  const avInput = el<HTMLInputElement>("[data-av]");
+  const rvInput = el<HTMLInputElement>("[data-rv]");
+  const teffInput = el<HTMLInputElement>("[data-teff]");
+  const rows = el<HTMLTableSectionElement>("[data-rows]");
+
+  /* A representative ladder rather than every band in the catalogue: one UV, the optical
+     Johnson set, and one near-IR, so the curve's slope is visible across the table. */
+  const BAND_IDS = ["U", "B", "V", "R", "I", "J"];
+  const RADIUS_RSUN = 1;
+
+  const css = (rgb: readonly [number, number, number]): string => {
+    const [r, g, b] = linearToSrgbRGB(rgb);
+    const to255 = (v: number): number => Math.round(Math.max(0, Math.min(1, v)) * 255);
+    return `rgb(${to255(r)} ${to255(g)} ${to255(b)})`;
+  };
+
+  function settings(): { aV: number; rv: number; law: ExtinctionLawId; teff: number } {
+    return {
+      aV: Number(avInput.value),
+      rv: Number(rvInput.value),
+      law: (document.querySelector<HTMLInputElement>('input[name="law"]:checked')?.value ??
+        "g23") as ExtinctionLawId,
+      teff: Number(teffInput.value),
+    };
+  }
+
+  function drawCurve(): void {
+    const { rv, law } = settings();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    /* Plotted against 1/lambda [1/um], which is the axis both papers use and the one on which
+       the 217.5 nm bump sits where a reader expects it (x = 4.6). */
+    const X_MIN = 0.3;
+    const X_MAX = 8.5;
+    const Y_MAX = 7;
+    const px = (x: number): number => ((x - X_MIN) / (X_MAX - X_MIN)) * (w - 60) + 45;
+    const py = (y: number): number => h - 30 - (y / Y_MAX) * (h - 50);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.lineWidth = dpr;
+    ctx.font = `${11 * dpr}px ui-monospace, monospace`;
+    for (let y = 0; y <= Y_MAX; y += 1) {
+      ctx.beginPath();
+      ctx.moveTo(px(X_MIN), py(y));
+      ctx.lineTo(px(X_MAX), py(y));
+      ctx.stroke();
+      ctx.fillText(String(y), 12 * dpr, py(y) + 4 * dpr);
+    }
+    for (let x = 1; x <= 8; x += 1) {
+      ctx.fillText(String(x), px(x) - 3 * dpr, h - 10 * dpr);
+    }
+
+    // Both laws always drawn: the selected one solid, the other faint, so they can be compared.
+    for (const id of ["g23", "ccm89"] as const) {
+      const curve = extinctionLaw(id);
+      const covers = id === "g23" ? g23Covers : ccm89Covers;
+      ctx.strokeStyle =
+        id === law ? (id === "g23" ? "#4fd6c4" : "#e58fb4") : "rgba(255,255,255,0.18)";
+      ctx.lineWidth = (id === law ? 2 : 1) * dpr;
+      ctx.beginPath();
+      let pen = false;
+      for (let i = 0; i <= 600; i++) {
+        const invUm = X_MIN + ((X_MAX - X_MIN) * i) / 600;
+        const nm = 1000 / invUm;
+        /* A gap rather than a line where the law has no value. CCM89 stops at its published
+           domain and returns NaN; drawing through that would invent a measurement. */
+        if (!covers(nm)) {
+          pen = false;
+          continue;
+        }
+        const y = curve.aOverAv(nm, rv);
+        if (!Number.isFinite(y)) {
+          pen = false;
+          continue;
+        }
+        if (pen) ctx.lineTo(px(invUm), py(y));
+        else ctx.moveTo(px(invUm), py(y));
+        pen = true;
+      }
+      ctx.stroke();
+    }
+
+    el<HTMLElement>("[data-curve-note]").textContent =
+      `A(λ)/A_V against 1/λ [µm⁻¹] at R_V = ${rv.toFixed(2)} · selected law solid, the other faint · ` +
+      `gaps are where a law has no published value`;
+  }
+
+  function update(): void {
+    const { aV, rv, law, teff } = settings();
+    el<HTMLElement>("[data-av-label]").textContent = `${aV.toFixed(2)} mag`;
+    el<HTMLElement>("[data-rv-label]").textContent = rv.toFixed(2);
+    el<HTMLElement>("[data-teff-label]").textContent = `${teff} K`;
+
+    const atten = attenuationFor({ aV, rv, law });
+    const curve = extinctionLaw(law);
+
+    el<HTMLElement>("[data-chip-bare]").style.background = css(blackbodyLinearRGB(teff));
+    el<HTMLElement>("[data-chip-red]").style.background = css(blackbodyLinearRGB(teff, atten));
+
+    const cells: string[] = [];
+    for (const id of BAND_IDS) {
+      const band = PASSBANDS[id];
+      if (!band) continue;
+      const bare = absoluteAbMagnitude(teff, RADIUS_RSUN, band);
+      // CORRECT: attenuation multiplies the integrand, inside bandFluxDensityCgs.
+      const right = absoluteAbMagnitude(teff, RADIUS_RSUN, band, atten);
+      /* THE SHORTCUT, computed deliberately so its error can be shown: one A(lambda_eff)
+         applied to the already-integrated magnitude. */
+      const ratio = curve.aOverAv(band.lambdaEffNm, rv);
+      const shortcut = Number.isFinite(ratio) ? bare + aV * ratio : NaN;
+      const err = right - shortcut;
+      const f = (v: number): string => (Number.isFinite(v) ? v.toFixed(3) : "—");
+      cells.push(
+        `<tr><th scope="row">${band.id}</th><td>${band.lambdaEffNm.toFixed(0)} nm</td>` +
+          `<td>${f(bare)}</td><td>${f(right)}</td><td>${f(shortcut)}</td>` +
+          `<td data-err="${Math.abs(err) > 0.01 ? "big" : "small"}">${f(err)}</td></tr>`,
+      );
+    }
+    cells.push(
+      `<tr class="tbl__derived"><th scope="row">E(B−V)</th><td colspan="5">` +
+        `A_V / R_V = ${colourExcess(aV, rv).toFixed(3)} mag — definitional, not integrated` +
+        `</td></tr>`,
+    );
+    rows.innerHTML = cells.join("");
+    drawCurve();
+  }
+
+  for (const input of [avInput, rvInput, teffInput]) input.addEventListener("input", update);
+  for (const radio of document.querySelectorAll('input[name="law"]')) {
+    radio.addEventListener("change", update);
+  }
+  window.addEventListener("resize", drawCurve);
+  update();
+</script>
+
+<style>
+  .lab {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+    gap: var(--space-m);
+    padding-block: var(--space-l);
+  }
+  @media (width < 60rem) {
+    .lab {
+      grid-template-columns: 1fr;
+    }
+  }
+  .lab__canvas {
+    inline-size: 100%;
+    aspect-ratio: 16 / 10;
+    display: block;
+    background: var(--bg-void);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .lab__note,
+  .ctl__hint {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    margin-block-start: var(--space-2xs);
+  }
+  .ctl {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: var(--space-xs) var(--space-s) var(--space-s);
+  }
+  .ctl legend {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    padding-inline: var(--space-3xs);
+  }
+  .ctl__val {
+    color: var(--ink);
+  }
+  .ctl__row {
+    display: flex;
+    gap: var(--space-2xs);
+    align-items: baseline;
+    font-size: var(--step--1);
+    padding-block: var(--space-3xs);
+  }
+  .ctl input[type="range"] {
+    inline-size: 100%;
+  }
+  .swatch {
+    display: flex;
+    gap: var(--space-s);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .swatch__cell {
+    flex: 1;
+    text-align: center;
+  }
+  .swatch__chip {
+    block-size: 3.5rem;
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border);
+    margin-block-end: var(--space-3xs);
+  }
+  .tbl {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    margin-block: var(--space-m);
+  }
+  .tbl caption {
+    text-align: start;
+    color: var(--ink-dim);
+    padding-block-end: var(--space-2xs);
+  }
+  .tbl th,
+  .tbl td {
+    text-align: end;
+    padding: var(--space-3xs) var(--space-2xs);
+    border-block-end: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  .tbl thead th,
+  .tbl tbody th {
+    text-align: start;
+    color: var(--ink-dim);
+    font-weight: 400;
+  }
+  .tbl td[data-err="big"] {
+    color: var(--spec-rose-bright);
+  }
+  .tbl__derived td {
+    text-align: start;
+    color: var(--ink-dim);
+  }
+</style>

@@ -1,0 +1,490 @@
+---
+/*
+ * dynamics-lab.astro — an instrument for looking at integrators, not a published page.
+ *
+ * noindex and unlinked, in the mould of /star-render-lab. What it is FOR is the one question the
+ * three schemes in `core/dynamics` disagree about: how the timestep is chosen, and what that
+ * costs. Everything on the page is either a control over that or a readout of its consequence.
+ *
+ * The energy readout is the point. A cluster that looks plausible while its energy drifts by 90%
+ * is the failure mode this whole module is built against, and it is invisible in the picture —
+ * the stars still move, the cluster still looks like a cluster. So the number is on screen at all
+ * times, next to the thing it judges, and it latches: a run that misbehaves and recovers stays
+ * marked, because the recovery does not undo what happened.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+---
+
+<BaseLayout
+  title="Dynamics lab — Anna Rosen"
+  description="Development surface: N-body integrators, softening, and what conservation costs."
+  path="/dynamics-lab"
+  noindex
+>
+  <PageHeader
+    eyebrow="Development surface · not linked"
+    title="How you choose the timestep is the physics"
+    lede="Three integrators on identical initial conditions. Same stars, same masses, same softening — the only difference is how each decides how far to step. Watch the energy, not the picture."
+  />
+
+  <div class="wrap-wide lab">
+    <div class="lab__stage">
+      <canvas
+        class="lab__canvas"
+        data-canvas
+        aria-label="A star cluster of a few hundred stars, integrated in real time."></canvas>
+      <p class="lab__note" data-status aria-live="polite">Starting…</p>
+    </div>
+
+    <div class="lab__side flow">
+      <fieldset class="ctl">
+        <legend>Integrator</legend>
+        <label class="ctl__row">
+          <input type="radio" name="scheme" value="fsi4" checked />
+          <span><strong>FSI4</strong> — 4th-order forward symplectic, fixed step</span>
+        </label>
+        <label class="ctl__row">
+          <input type="radio" name="scheme" value="hermite" />
+          <span><strong>Hermite</strong> — 4th-order predictor-corrector, <em>adaptive</em></span>
+        </label>
+        <label class="ctl__row">
+          <input type="radio" name="scheme" value="leapfrog" />
+          <span><strong>Leapfrog</strong> — 2nd-order symplectic, fixed step</span>
+        </label>
+      </fieldset>
+
+      <fieldset class="ctl">
+        <legend>Softening <span class="ctl__val" data-eps-label>0.5 d</span></legend>
+        <input type="range" data-eps min="0" max="5" step="1" value="0" />
+        <p class="ctl__hint">
+          ε = fraction · r<sub>h</sub> · N<sup>−1/3</sup>. Smaller ε means more of the Coulomb
+          logarithm, so more real two-body relaxation — and a shorter step to resolve it.
+        </p>
+      </fieldset>
+
+      <fieldset class="ctl">
+        <legend>Stars <span class="ctl__val" data-n-label>200</span></legend>
+        <input type="range" data-n min="100" max="600" step="50" value="200" />
+        <p class="ctl__hint">O(N²). Measured interactive ceiling is around 512.</p>
+      </fieldset>
+
+      <div class="ctl ctl--buttons">
+        <button type="button" data-play aria-pressed="true">Pause</button>
+        <button type="button" data-reset>Reset</button>
+      </div>
+
+      <dl class="meter" data-meter>
+        <div class="meter__row"><dt>|ΔE/E|</dt><dd data-de>—</dd></div>
+        <div class="meter__row"><dt>worst |ΔE/E|</dt><dd data-dew>—</dd></div>
+        <div class="meter__row"><dt>Q = T/|U|</dt><dd data-q>—</dd></div>
+        <div class="meter__row"><dt>t / t<sub>cross</sub></dt><dd data-tc>—</dd></div>
+        <div class="meter__row"><dt>bound</dt><dd data-bound>—</dd></div>
+        <div class="meter__row"><dt>force evals / frame</dt><dd data-cost>—</dd></div>
+      </dl>
+      <p class="meter__verdict" data-health>—</p>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="prose flow">
+      <h2>What to look for</h2>
+      <p>
+        Drag the softening down. FSI4 and the leapfrog are fixed-step: below about ε = 0.04 r<sub
+          >h</sub
+        > their energy error climbs through 10% and then past 100%, and the cluster visibly inflates
+        — but it still looks like a cluster, which is exactly why the number matters more than the
+        picture. Hermite holds its energy at 10<sup>−4</sup> across the same range, because it
+        shortens its own step when a pair closes.
+      </p>
+      <p>
+        The cost readout is the honest counterweight. Hermite is buying that with work: at the
+        smallest softening it spends several times as many force evaluations per crossing time.
+        Nothing here is free, and the trade is the subject.
+      </p>
+      <p>
+        Softening is not a nuisance parameter to be minimised. It sets which encounters the model
+        represents at all — ε cuts the Coulomb logarithm off at ln(r<sub>h</sub>/ε), so a large ε
+        suppresses the two-body relaxation this force model exists to produce, and a small one
+        demands a step the integrator has to be able to take.
+      </p>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    availableSchemes,
+    chooseIntegrator,
+    createConservationMonitor,
+    createDirectForce,
+    crossingTime,
+    measure,
+    softeningForCluster,
+    stepsForSoftening,
+    clusterState,
+    type ConservationMonitor,
+    type ForceModel,
+    type Integrator,
+    type Scheme,
+    type State,
+    type Vec3Array,
+  } from "@novascope/core/dynamics";
+  import { defaultIdentity } from "@novascope/core/cluster/params";
+
+  /* Every lookup goes through one throwing helper, so the rest of the file works with non-null
+     types. Returning null and checking at each use would let a missing element degrade into a
+     silently half-working page, which on an instrument is worse than not loading. */
+  const el = <T extends Element>(sel: string): T => {
+    const found = document.querySelector<T>(sel);
+    if (!found) throw new Error(`dynamics-lab: ${sel} missing`);
+    return found;
+  };
+
+  const canvas = el<HTMLCanvasElement>("[data-canvas]");
+  const status = el<HTMLElement>("[data-status]");
+  const maybeCtx = canvas.getContext("2d");
+  if (!maybeCtx) throw new Error("dynamics-lab: no 2d context");
+  /* Bound to an explicitly typed const so the narrowing survives into the draw closures — the
+     same reason `core/dynamics/fsi4.ts` binds its narrowed force model rather than asserting. */
+  const ctx: CanvasRenderingContext2D = maybeCtx;
+  const playBtn = el<HTMLButtonElement>("[data-play]");
+  const resetBtn = el<HTMLButtonElement>("[data-reset]");
+  const epsInput = el<HTMLInputElement>("[data-eps]");
+  const nInput = el<HTMLInputElement>("[data-n]");
+
+  /* The softening ladder is discrete and labelled in units of d = r_h N^(-1/3), because that is
+     the quantity the physics is stated in. A free slider in parsecs would let a reader set a value
+     with no relationship to the cluster it is softening. */
+  const FRACTIONS = [0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625];
+
+  const SCALE_PC = 0.5;
+  const R_HALF = SCALE_PC * 1.305; // Plummer: r_h = 1.305 a
+  /* The drawn half-width is DERIVED from the cluster, not chosen: 4 half-mass radii, which holds
+     the bound cluster and a margin of escapers. A hardcoded value drew a 0.65 pc cluster inside a
+     6 pc field, i.e. filling 11% of the frame, and the fix for that is the right number rather
+     than a zoom that would drift out of step with the profile. */
+  const VIEW_PC = 4 * R_HALF;
+
+  interface Run {
+    state: State;
+    force: ForceModel;
+    integrator: Integrator;
+    monitor: ConservationMonitor;
+    tCross: number;
+    scheme: Scheme;
+    evals: () => number;
+  }
+
+  /** Wraps a force model to count evaluations — the cost readout, without touching the core. */
+  function counted(force: ForceModel): { force: ForceModel; evals: () => number } {
+    let n = 0;
+    const bump = () => {
+      n++;
+    };
+    return {
+      evals: () => n,
+      force: {
+        id: force.id,
+        accelerations: (p, m, a, t) => {
+          bump();
+          force.accelerations(p, m, a, t);
+        },
+        potentialEnergy: (p, m, t) => force.potentialEnergy(p, m, t),
+        potentials: (p, m, o, t) => force.potentials(p, m, o, t),
+        forceGradient: force.forceGradient
+          ? (p, m, a, g, t) => {
+              bump();
+              force.forceGradient!(p, m, a, g, t);
+            }
+          : undefined,
+        accelerationsAndJerk: force.accelerationsAndJerk
+          ? (
+              p: Vec3Array,
+              v: Vec3Array,
+              m: Float64Array,
+              a: Vec3Array,
+              j: Vec3Array,
+              t: number,
+            ) => {
+              bump();
+              force.accelerationsAndJerk!(p, v, m, a, j, t);
+            }
+          : undefined,
+      },
+    };
+  }
+
+  let run: Run | null = null;
+  let running = true;
+  let lastEvals = 0;
+  let evalsPerFrame = 0;
+
+  function build(): Run {
+    const fraction = FRACTIONS[Number(epsInput.value)];
+    const n = Number(nInput.value);
+    const scheme = (
+      document.querySelector<HTMLInputElement>('input[name="scheme"]:checked')?.value ?? "fsi4"
+    ) as Scheme;
+
+    const softening = softeningForCluster(R_HALF, n, fraction);
+    /* The IC's virial scaling must use the SAME force law that will step it, or the cluster
+       starts at a Q it is not actually at. `clusterState` takes the model for that reason. */
+    const bare = createDirectForce({ softening });
+    const state = clusterState(
+      defaultIdentity({
+        seed: 2026,
+        sampling: { mode: "count", target: n },
+        profile: { kind: "plummer", scaleRadius: SCALE_PC },
+        kinematics: { virialRatio: 0.5 },
+      }),
+      bare,
+    );
+
+    const { force, evals } = counted(bare);
+    const tCross = crossingTime(state);
+    /* Fixed-step schemes get the step derived from the softening — the two are coupled, and
+       holding one while changing the other is the confound that produced a wrong conclusion
+       once already. Hermite sizes its own and only takes a ceiling. */
+    const maxStep = tCross / stepsForSoftening(fraction);
+    const picked = chooseIntegrator(state, force, {
+      prefer: scheme,
+      maxStep: scheme === "hermite" ? tCross / 64 : maxStep,
+      adaptive: scheme === "hermite",
+    });
+
+    return {
+      state,
+      force,
+      integrator: picked.integrator,
+      monitor: createConservationMonitor(picked.integrator),
+      tCross,
+      scheme: picked.scheme,
+      evals,
+    };
+  }
+
+  function reset(): void {
+    run = build();
+    lastEvals = 0;
+    evalsPerFrame = 0;
+    const fraction = FRACTIONS[Number(epsInput.value)];
+    el<HTMLElement>("[data-eps-label]").textContent = `${fraction} d`;
+    el<HTMLElement>("[data-n-label]").textContent = nInput.value;
+    /* The RUNNING scheme is named here, from `chooseIntegrator`'s own report rather than from the
+       radio that was clicked. Those can differ — that is the whole reason `chooseIntegrator`
+       returns what it picked — and a page that echoed the request instead of the result would be
+       the confidently-wrong readout this codebase keeps designing against. */
+    status.textContent =
+      `${run.scheme} · ${run.state.n} stars · ε = ${softeningForCluster(R_HALF, run.state.n, fraction).toFixed(4)} pc` +
+      ` · t_cross = ${run.tCross.toFixed(3)} Myr · ${stepsForSoftening(fraction)} steps/t_cross` +
+      ` · available: ${availableSchemes(run.force).join(", ")}`;
+    /* Refresh the panel NOW rather than waiting for the next animation frame. While paused there
+       is no next frame at all, so without this a control change left every number describing the
+       previous configuration — and at fine softening, where a frame can take half a second, it
+       did so for long enough to read as a result. */
+    draw();
+    readout();
+  }
+
+  const fmt = (x: number): string => (x === 0 ? "0" : x.toExponential(2));
+
+  function draw(): void {
+    if (!run) return;
+    const { width: w, height: h } = canvas;
+    const dpr = w / Math.max(1, canvas.getBoundingClientRect().width);
+    ctx.clearRect(0, 0, w, h);
+    const scale = Math.min(w, h) / (2 * VIEW_PC);
+    const { pos, mass, n } = run.state;
+    for (let i = 0; i < n; i++) {
+      const x = w / 2 + pos[i * 3] * scale;
+      const y = h / 2 + pos[i * 3 + 1] * scale;
+      /* Radius from mass, not from a look. Cube root so the AREA scales with mass^(2/3) and a
+         20 Msun star does not blot out its neighbours; the point is to see segregation.
+         SCALED BY dpr, because the canvas is drawn in DEVICE pixels: without this a 1 Msun star
+         came out 1.1 device px = 0.55 CSS px on a retina display, i.e. sub-pixel and invisible. */
+      const r = Math.max(0.6, Math.cbrt(mass[i]) * 1.4) * dpr;
+      // Depth cue only: nearer stars brighter. No physics is being asserted by the colour.
+      const z = pos[i * 3 + 2];
+      const a = Math.max(0.35, Math.min(1, 0.8 + z / (2 * VIEW_PC)));
+      ctx.fillStyle = `rgba(232, 240, 248, ${a})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function readout(): void {
+    if (!run) return;
+    const s = run.monitor.sample();
+    const d = measure(run.state, run.force);
+    el<HTMLElement>("[data-de]").textContent = fmt(s.energyDrift);
+    el<HTMLElement>("[data-dew]").textContent = fmt(run.monitor.worst.energy);
+    el<HTMLElement>("[data-q]").textContent = s.virialRatio.toFixed(3);
+    el<HTMLElement>("[data-tc]").textContent = s.tCross.toFixed(2);
+    el<HTMLElement>("[data-bound]").textContent = `${(d.boundMassFraction * 100).toFixed(1)}%`;
+    el<HTMLElement>("[data-cost]").textContent = evalsPerFrame.toFixed(0);
+
+    const verdict = el<HTMLElement>("[data-health]");
+    verdict.textContent = run.monitor.healthy
+      ? `${run.scheme}: energy held inside ${fmt(run.monitor.energyTolerance)}`
+      : `${run.scheme}: energy drift EXCEEDED ${fmt(run.monitor.energyTolerance)} — this run is not trustworthy`;
+    verdict.dataset.bad = String(!run.monitor.healthy);
+  }
+
+  /* Sized from a ResizeObserver rather than a window `resize` listener. The window event does not
+     fire for the INITIAL layout, so a one-shot call at startup measured the canvas before CSS had
+     given it a width: the backing buffer came out 278 px inside an 877 px box, and everything drew
+     into the top-left ninth and was stretched back out. The observer fires on first layout and on
+     every subsequent change, which is the actual thing being tracked. */
+  function resize(): void {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width * dpr));
+    const h = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width === w && canvas.height === h) return;
+    canvas.width = w;
+    canvas.height = h;
+    draw();
+  }
+
+  function tick(): void {
+    requestAnimationFrame(tick);
+    if (!run || !running) return;
+    try {
+      run.integrator.step(run.tCross / 64);
+    } catch (err) {
+      running = false;
+      playBtn.textContent = "Play";
+      status.textContent = `Stopped: ${(err as Error).message}`;
+      return;
+    }
+    const now = run.evals();
+    evalsPerFrame = now - lastEvals;
+    lastEvals = now;
+    draw();
+    readout();
+  }
+
+  playBtn.addEventListener("click", () => {
+    running = !running;
+    playBtn.textContent = running ? "Pause" : "Play";
+    playBtn.setAttribute("aria-pressed", String(running));
+  });
+  resetBtn.addEventListener("click", reset);
+  for (const input of [epsInput, nInput]) input.addEventListener("input", reset);
+  for (const radio of document.querySelectorAll('input[name="scheme"]')) {
+    radio.addEventListener("change", reset);
+  }
+  new ResizeObserver(resize).observe(canvas);
+
+  /* Respect the OS setting: start paused rather than autoplaying motion. The control is visible
+     either way, so the page is never a thing that moves with no way to stop it. */
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    running = false;
+    playBtn.textContent = "Play";
+    playBtn.setAttribute("aria-pressed", "false");
+  }
+
+  reset();
+  resize();
+  readout();
+  tick();
+</script>
+
+<style>
+  .lab {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+    gap: var(--space-m);
+    padding-block: var(--space-l);
+  }
+  @media (width < 60rem) {
+    .lab {
+      grid-template-columns: 1fr;
+    }
+  }
+  .lab__canvas {
+    inline-size: 100%;
+    aspect-ratio: 4 / 3;
+    display: block;
+    background: radial-gradient(120% 120% at 50% 45%, #0c1114, var(--bg-void));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .lab__note,
+  .ctl__hint {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    margin-block-start: var(--space-2xs);
+  }
+  .ctl {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: var(--space-xs) var(--space-s) var(--space-s);
+  }
+  .ctl legend {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    padding-inline: var(--space-3xs);
+  }
+  .ctl__val {
+    color: var(--ink);
+  }
+  .ctl__row {
+    display: flex;
+    gap: var(--space-2xs);
+    align-items: baseline;
+    font-size: var(--step--1);
+    padding-block: var(--space-3xs);
+  }
+  .ctl input[type="range"] {
+    inline-size: 100%;
+  }
+  .ctl--buttons {
+    display: flex;
+    gap: var(--space-2xs);
+    border: 0;
+    padding: 0;
+  }
+  .ctl--buttons button {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    padding: var(--space-2xs);
+    background: var(--bg-surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    cursor: pointer;
+  }
+  .meter {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: var(--space-s);
+  }
+  .meter__row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-s);
+  }
+  .meter__row dt {
+    color: var(--ink-dim);
+  }
+  .meter__row dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .meter__verdict {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .meter__verdict[data-bad="true"] {
+    color: var(--spec-rose-bright);
+  }
+</style>

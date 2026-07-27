@@ -74,7 +74,7 @@ function massRadiusCorrelation(s: State, force: ForceModel): number {
 
 /*
  * These integrate real clusters for tens of crossing times, so they cost SECONDS, not
- * milliseconds — the segregation case alone runs six 400-star clusters for twenty crossing
+ * milliseconds — the segregation case alone runs five 400-star clusters for twenty crossing
  * times each. Vitest's 5 s default put it right on the boundary: it passed alone at 4.7 s and
  * failed under parallel load at 5.8 s, which is a flaky test that would fail intermittently in
  * CI for reasons having nothing to do with the physics.
@@ -82,8 +82,18 @@ function massRadiusCorrelation(s: State, force: ForceModel): number {
  * The timeout is raised rather than the work reduced. N and the duration were chosen to make
  * the segregation signal measurable at all (see the table in the first test), and trimming
  * them to fit an arbitrary limit would quietly weaken the thing being demonstrated.
+ *
+ * RAISED AGAIN 2026-07-27, 120 s -> 300 s, and the reason is the same one twice over. The whole
+ * file measures 72 s on an idle machine; under a concurrent build it exceeded 120 s and failed.
+ * A limit only 1.7x above the quiet runtime is not a timeout, it is a load detector — and the
+ * failure it produces points at the physics, which is where a session then goes looking.
+ *
+ * The cost also grew for a real reason rather than by drift: `stepsForSoftening` derives the
+ * step from the softening fraction, and the 2026-07-26 move to the collisional default
+ * (fraction 1 -> 0.5) took the step density from 128 to 181 per crossing time. That is 1.4x more
+ * work, bought deliberately.
  */
-describe("direct/ produces what only a collisional model can", { timeout: 120_000 }, () => {
+describe("direct/ produces what only a collisional model can", { timeout: 300_000 }, () => {
   it("segregates by mass, measured against its own initial state", () => {
     /* THE HEADLINE CAPABILITY. Massive stars transfer energy to lighter ones in two-body
      * encounters and settle inward. It is not put in anywhere; it emerges from the pair sum.

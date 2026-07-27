@@ -40,6 +40,15 @@ export interface ChooseOptions {
    * prevent. Omit it to get the default.
    */
   prefer?: Scheme;
+  /**
+   * Let Hermite size its own sub-steps from the Aarseth criterion. IGNORED by the two symplectic
+   * schemes, which have no adaptive mode — varying h forfeits the bounded-energy property that is
+   * the reason to use one, so this is not a knob they could honour even in principle.
+   *
+   * Passed through here rather than requiring `createHermite` directly, because a caller building
+   * a scheme selector should not have to special-case which factory takes which option.
+   */
+  adaptive?: boolean;
 }
 
 /**
@@ -60,14 +69,18 @@ export function chooseIntegrator(
   force: ForceModel,
   opts: ChooseOptions = {},
 ): { integrator: Integrator; scheme: Scheme; order: 2 | 4 } {
-  const { prefer, ...rest } = opts;
+  const { prefer, adaptive, ...rest } = opts;
 
   if (prefer === "leapfrog") {
     return { integrator: createLeapfrog(state, force, rest), scheme: "leapfrog", order: 2 };
   }
   if (prefer === "hermite") {
     // Throws with its own diagnostic if the model has no jerk.
-    return { integrator: createHermite(state, force, rest), scheme: "hermite", order: 4 };
+    return {
+      integrator: createHermite(state, force, { ...rest, adaptive }),
+      scheme: "hermite",
+      order: 4,
+    };
   }
   if (prefer === "fsi4") {
     // Likewise for forceGradient.
