@@ -18,35 +18,77 @@
  * specifically still calls `createLeapfrog` or `createFsi4` directly.
  */
 import { createFsi4, supportsForceGradient, type Fsi4 } from "./fsi4.ts";
+import { createHermite, supportsJerk, type Hermite } from "./hermite.ts";
 import { createLeapfrog, type Leapfrog } from "./integrate.ts";
 import type { ForceModel, State } from "./types.ts";
 
-/** The common surface of both integrators — everything a caller needs to drive a run. */
-export type Integrator = Leapfrog | Fsi4;
+/** The common surface of every integrator — what a caller needs to drive a run. */
+export type Integrator = Leapfrog | Fsi4 | Hermite;
+
+/** Which scheme is running. Reported, never assumed. */
+export type Scheme = "fsi4" | "hermite" | "leapfrog";
 
 export interface ChooseOptions {
   maxStep?: number;
   t0?: number;
-  /** Force the second-order scheme even where FSI4 is available, e.g. for an A/B comparison. */
-  preferLeapfrog?: boolean;
+  /**
+   * Ask for a specific scheme instead of the best available.
+   *
+   * THROWS if the force model cannot supply it, rather than falling back. A caller comparing
+   * schemes needs the arm it asked for or an error — silently substituting one would make the
+   * comparison a comparison of something else, which is the failure this whole seam exists to
+   * prevent. Omit it to get the default.
+   */
+  prefer?: Scheme;
 }
 
 /**
- * The best integrator this force model supports.
+ * The best integrator this force model supports, or the one explicitly asked for.
  *
- * Returns FSI4 wherever `forceGradient` exists, the leapfrog otherwise. The `order` field is
- * reported so a caller can SAY which scheme is running rather than assume — a lab that
- * silently fell back to second order while labelling itself fourth would be the exact
+ * FSI4 IS THE DEFAULT and Hermite does not change that (Anna, 2026-07-27). Hermite is fourth
+ * order too, but it is not symplectic — its energy error is secular rather than bounded — and
+ * measured on the shared fixture it is ~50x less accurate than FSI4 at equal step count. It is
+ * carried as an INSTRUMENT: the only scheme here that adapts its own step, and an independent
+ * kernel against which FSI4's results can be cross-checked. See `hermite.ts`.
+ *
+ * The `order` and `scheme` fields are reported so a caller can SAY what ran rather than assume.
+ * A lab that silently fell back to second order while labelling itself fourth would be the exact
  * confidently-wrong readout this codebase keeps designing against.
  */
 export function chooseIntegrator(
   state: State,
   force: ForceModel,
   opts: ChooseOptions = {},
-): { integrator: Integrator; scheme: "fsi4" | "leapfrog"; order: 2 | 4 } {
-  const { preferLeapfrog, ...rest } = opts;
-  if (!preferLeapfrog && supportsForceGradient(force)) {
+): { integrator: Integrator; scheme: Scheme; order: 2 | 4 } {
+  const { prefer, ...rest } = opts;
+
+  if (prefer === "leapfrog") {
+    return { integrator: createLeapfrog(state, force, rest), scheme: "leapfrog", order: 2 };
+  }
+  if (prefer === "hermite") {
+    // Throws with its own diagnostic if the model has no jerk.
+    return { integrator: createHermite(state, force, rest), scheme: "hermite", order: 4 };
+  }
+  if (prefer === "fsi4") {
+    // Likewise for forceGradient.
     return { integrator: createFsi4(state, force, rest), scheme: "fsi4", order: 4 };
   }
+
+  if (supportsForceGradient(force)) {
+    return { integrator: createFsi4(state, force, rest), scheme: "fsi4", order: 4 };
+  }
+  /* The leapfrog, not Hermite, is the fallback. `meanField/` supplies neither capability, so the
+     question never arises there; but a hypothetical model with jerk and no force-gradient should
+     still not silently acquire a secular energy error just because it happens to be higher
+     order. Choosing Hermite is a decision a caller makes explicitly. */
   return { integrator: createLeapfrog(state, force, rest), scheme: "leapfrog", order: 2 };
+}
+
+/** Which schemes this force model can actually run, best first. Useful for building a UI. */
+export function availableSchemes(force: ForceModel): Scheme[] {
+  const out: Scheme[] = [];
+  if (supportsForceGradient(force)) out.push("fsi4");
+  if (supportsJerk(force)) out.push("hermite");
+  out.push("leapfrog");
+  return out;
 }

@@ -22,29 +22,22 @@ import { createLeapfrog } from "./integrate.ts";
 import { createDirectForce } from "./direct/index.ts";
 import { createMeanFieldForce } from "./meanField/index.ts";
 import { chooseIntegrator } from "./choose.ts";
-import { createState, type State } from "./types.ts";
+import { KEPLER, KEPLER_PERIOD, keplerPair } from "./kepler.testutil.ts";
+import { createState } from "./types.ts";
 
-const G = 1;
-const M = 1;
-const A_SEMI = 1;
-const ECC = 0.5;
-const EPS = 1e-5;
+/* The two-body fixture is SHARED with `hermite.test.ts` (`./kepler.testutil.ts`). It used to be
+   defined locally here, and that local copy was wrong in a way worth recording: its apoapsis
+   speed used sqrt(G m (1-e)/(a(1+e))) where the two-body relative orbit needs total mass 2m, so
+   the orbit it actually ran was a = 0.857, e = 0.75 rather than the a = 1, e = 0.5 it claimed,
+   and `PERIOD` was 4.443 against the true 3.526 — "four periods" was really 5.04.
 
-/** Two equal masses on an eccentric orbit, started at apoapsis. */
-function twoBody(): State {
-  const rApo = A_SEMI * (1 + ECC);
-  const vApo = Math.sqrt((G * M * (1 - ECC)) / (A_SEMI * (1 + ECC)));
-  const s = createState(2);
-  s.mass[0] = M;
-  s.mass[1] = M;
-  s.pos[0] = -rApo / 2;
-  s.pos[3] = rApo / 2;
-  s.vel[1] = -vApo / 2;
-  s.vel[4] = vApo / 2;
-  return s;
-}
-
-const PERIOD = 2 * Math.PI * Math.sqrt(A_SEMI ** 3 / (G * 2 * M));
+   The CONVERGENCE MEASUREMENT was unaffected: an error-ratio at halved steps over a fixed span
+   on a fixed bound orbit measures the order whatever a and e happen to be. What was wrong was
+   the label. The numbers below were re-measured on the corrected fixture. */
+const G = KEPLER.G;
+const EPS = KEPLER.softening;
+const twoBody = keplerPair;
+const PERIOD = KEPLER_PERIOD;
 
 /** Peak |dE/E0| over four orbits at a given step density. */
 function peakEnergyError(
@@ -211,7 +204,7 @@ describe("chooseIntegrator", () => {
        the confidently-wrong readout this codebase keeps designing against. */
     const s = twoBody();
     const forced = chooseIntegrator(s, createDirectForce({ softening: EPS, G }), {
-      preferLeapfrog: true,
+      prefer: "leapfrog",
     });
     expect(forced.scheme).toBe("leapfrog");
     expect(forced.order).toBe(2);

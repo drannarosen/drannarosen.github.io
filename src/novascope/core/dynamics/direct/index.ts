@@ -309,6 +309,82 @@ export function createDirectForce(opts: DirectOptions): ForceModel {
       }
     },
 
+    /**
+     * Acceleration and JERK (da/dt) in one O(N^2) pass.
+     *
+     * PORTED FROM gravax `core/gravity/newtonian.py::_pairwise_accel_jerk`. For x_ji = x_j - x_i
+     * and v_ji = v_j - v_i,
+     *
+     *     j_i = G sum_j m_j [ v_ji / r_ji^3 - 3 (x_ji . v_ji) x_ji / r_ji^5 ]
+     *
+     * which is d/dt of the softened acceleration kernel directly above, with r_ji^2 carrying the
+     * SAME Plummer softening. Reference for the scheme that consumes it: Makino & Aarseth (1992),
+     * PASJ 44, 141 (1992PASJ...44..141M).
+     *
+     * Unlike `forceGradient`, this one DOES halve by Newton's third law. The summand is
+     * antisymmetric in (i, j): swapping them flips both v_ji and x_ji while leaving the scalar
+     * (x_ji . v_ji) alone, so the whole bracket changes sign. That makes sum_i m_i j_i identically
+     * zero in floating point — the time derivative of the momentum conservation the acceleration
+     * kernel already has, which is what keeps the corrector from leaking momentum.
+     */
+    accelerationsAndJerk(
+      pos: Vec3Array,
+      vel: Vec3Array,
+      mass: Float64Array,
+      accOut: Vec3Array,
+      jerkOut: Vec3Array,
+    ): void {
+      const n = mass.length;
+      accOut.fill(0);
+      jerkOut.fill(0);
+      for (let i = 0; i < n; i++) {
+        const ix = i * 3;
+        const xi = pos[ix];
+        const yi = pos[ix + 1];
+        const zi = pos[ix + 2];
+        const vxi = vel[ix];
+        const vyi = vel[ix + 1];
+        const vzi = vel[ix + 2];
+        const mi = mass[i];
+        for (let j = i + 1; j < n; j++) {
+          const jx = j * 3;
+          const dx = pos[jx] - xi;
+          const dy = pos[jx + 1] - yi;
+          const dz = pos[jx + 2] - zi;
+          const dvx = vel[jx] - vxi;
+          const dvy = vel[jx + 1] - vyi;
+          const dvz = vel[jx + 2] - vzi;
+
+          const r2 = dx * dx + dy * dy + dz * dz + eps2;
+          const r = Math.sqrt(r2);
+          const invR3 = 1 / (r2 * r);
+          /* -3 (x.v)/r^2 folded into invR3 rather than forming invR5 separately: the two
+             differ by exactly that factor, and one division is cheaper than two. */
+          const radial = (-3 * (dx * dvx + dy * dvy + dz * dvz)) / r2;
+
+          const jxc = (dvx + radial * dx) * invR3;
+          const jyc = (dvy + radial * dy) * invR3;
+          const jzc = (dvz + radial * dz) * invR3;
+
+          const si = G * mass[j];
+          const sj = G * mi;
+          accOut[ix] += si * invR3 * dx;
+          accOut[ix + 1] += si * invR3 * dy;
+          accOut[ix + 2] += si * invR3 * dz;
+          accOut[jx] -= sj * invR3 * dx;
+          accOut[jx + 1] -= sj * invR3 * dy;
+          accOut[jx + 2] -= sj * invR3 * dz;
+
+          jerkOut[ix] += si * jxc;
+          jerkOut[ix + 1] += si * jyc;
+          jerkOut[ix + 2] += si * jzc;
+          jerkOut[jx] -= sj * jxc;
+          jerkOut[jx + 1] -= sj * jyc;
+          jerkOut[jx + 2] -= sj * jzc;
+        }
+      }
+    },
+
     potentials(pos: Vec3Array, mass: Float64Array, out: Float64Array): void {
       const n = mass.length;
       out.fill(0);

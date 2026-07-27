@@ -104,6 +104,36 @@ export interface ForceModel {
     gradOut: Vec3Array,
     t: number,
   ): void;
+
+  /**
+   * Acceleration AND jerk (da/dt), written into `accOut` and `jerkOut`.
+   *
+   * OPTIONAL for the same reason as `forceGradient`, and unavailable on the same model: the
+   * jerk of a binned radial profile is not defined by the profile, which knows nothing about
+   * which particles moved. What needs it is the Hermite predictor-corrector (`./hermite.ts`).
+   *
+   * NOTE THE EXTRA ARGUMENT. This is the ONLY method on this interface that takes velocities,
+   * and that is not an inconsistency — it is the defining difference between the two families
+   * of scheme this package now carries. A symplectic map is built from a force that depends on
+   * position alone, which is exactly what makes it symplectic. A predictor-corrector uses the
+   * force's time derivative, and the force changes in time only because the particles move:
+   *
+   *     j_i = G sum_j m_j [ v_ji / r_ji^3 - 3 (x_ji . v_ji) x_ji / r_ji^5 ]
+   *
+   * with the SAME Plummer softening in r_ji as the acceleration kernel — an unsoftened r here
+   * would be the derivative of a force nobody is stepping.
+   *
+   * Both are returned together because the jerk pass computes the acceleration on its way, and
+   * a caller that took them from two calls could silently pair mismatched fields.
+   */
+  accelerationsAndJerk?(
+    pos: Vec3Array,
+    vel: Vec3Array,
+    mass: Float64Array,
+    accOut: Vec3Array,
+    jerkOut: Vec3Array,
+    t: number,
+  ): void;
 }
 
 /** The particles. `pos` and `vel` are mutated in place by the integrator. */

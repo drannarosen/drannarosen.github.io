@@ -45,8 +45,14 @@ export { createLeapfrog } from "./integrate.ts";
 export type { Fsi4, Fsi4Options, ForceGradientCapable } from "./fsi4.ts";
 export { createFsi4, supportsForceGradient } from "./fsi4.ts";
 
-export type { Integrator, ChooseOptions } from "./choose.ts";
-export { chooseIntegrator } from "./choose.ts";
+/* Fourth-order Hermite predictor-corrector (MA92), with an Aarseth-adaptive step. NOT the
+   default and not symplectic — carried as an instrument: the only scheme here that sizes its own
+   step, and an independent kernel to cross-check FSI4 against. Needs `accelerationsAndJerk`. */
+export type { Hermite, HermiteOptions, JerkCapable } from "./hermite.ts";
+export { createHermite, supportsJerk, HERMITE_ETA } from "./hermite.ts";
+
+export type { Integrator, ChooseOptions, Scheme } from "./choose.ts";
+export { chooseIntegrator, availableSchemes } from "./choose.ts";
 
 export type { TimestepAdvice } from "./timestep.ts";
 export { softenAccelTimestep, DEFAULT_ETA } from "./timestep.ts";
