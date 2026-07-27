@@ -90,21 +90,43 @@ export interface DirectOptions {
 export const DIRECT_STEPS_PER_TCROSS = 128;
 
 /**
- * The conventional softening for an N-body cluster: the mean interparticle separation at
- * the half-mass radius, eps ~ r_h / N^(1/3).
+ * Softening from the MEAN DISTANCE BETWEEN STARS: eps = fraction * r_h * N^(-1/3).
  *
- * PROVENANCE, stated because a softening length silently chosen is a physics result silently
- * chosen. This is the standard order-of-magnitude scaling — it sets eps at the distance below
- * which the discrete particle distribution stops representing a smooth density field, so
- * softening there suppresses two-body encounters the particle count cannot resolve anyway.
- * `core/dynamics`'s shell code uses the same reasoning for its own 0.02 pc.
+ * r_h / N^(1/3) is the mean interparticle separation at the half-mass radius — the scale below
+ * which a discrete particle set stops representing a smooth density field. `fraction` scales
+ * it, and it is explicit because the right value is a real trade-off rather than a constant.
+ *
+ * ── WHY THE DEFAULT IS 1 AND NOT SOMETHING SMALLER ──
+ *
+ * Smaller eps resolves closer encounters, which is where two-body relaxation lives, so a small
+ * fraction looks like the more physical choice. With a FIXED GLOBAL TIMESTEP it is not, and
+ * the failure is not subtle. Measured at N = 300, r_h = 0.68 pc (so d = 0.102 pc), 20 crossing
+ * times, three seeds:
+ *
+ *     fraction   eps [pc]   |dE/E| @128    |dE/E| @1024   rho(mass, radius)
+ *       1        1.02e-1      5.3e-5         3.6e-6         -0.126 / -0.164
+ *       0.1      1.02e-2      1.7e+0         4.9e-3         -0.083 / -0.099
+ *       0.01     1.02e-3      6.3e+0         5.5e+0         -0.052 / -0.006
+ *
+ * At 0.01 the energy error is 500-600% and EIGHT TIMES MORE STEPS DOES NOT FIX IT. Worse, the
+ * segregation signal — the thing small softening was supposed to buy — gets weaker, not
+ * stronger: -0.006 against -0.164. The cluster is not relaxing, it is being torn apart by
+ * unresolved close pairs kicking stars out numerically.
+ *
+ * That is a structural limit, not a tuning failure. Resolving encounters below ~the mean
+ * separation needs INDIVIDUAL or ADAPTIVE timesteps, or KS regularisation of close pairs.
+ * A fixed-step leapfrog cannot have them: varying h destroys the symplectic property that is
+ * the entire reason ADR 0016 chose leapfrog over RK4. eps and h are coupled, and eps ~ d is
+ * where a fixed-step scheme can actually live.
+ *
+ * So a smaller fraction is available, honestly documented, and not the default. Anything below
+ * ~0.5 should be paired with a much finer step and its energy watched (`../monitor.ts`).
  *
  * It is a SCALING, not a derived optimum. There is a literature on choosing softening to
- * minimize force error for a given N, and no result from it is claimed here; a lab that
- * wants a different value should pass one and say why.
+ * minimise force error at given N, and no result from it is claimed here.
  */
-export function softeningForCluster(rHalfPc: number, n: number): number {
-  return rHalfPc / Math.cbrt(Math.max(n, 1));
+export function softeningForCluster(rHalfPc: number, n: number, fraction = 1): number {
+  return (fraction * rHalfPc) / Math.cbrt(Math.max(n, 1));
 }
 
 export function createDirectForce(opts: DirectOptions): ForceModel {

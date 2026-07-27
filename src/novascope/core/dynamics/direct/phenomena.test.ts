@@ -236,3 +236,13 @@ describe("direct/ produces what only a collisional model can", { timeout: 120_00
     expect(Math.abs(lf.energy().total - e0) / Math.abs(e0)).toBeGreaterThan(1e-3);
   });
 });
+
+describe("softeningForCluster", () => {
+  it("is the mean interparticle separation, scaled by an explicit fraction", () => {
+    // r_h = 1 pc, N = 1000 -> d = 0.1 pc.
+    expect(softeningForCluster(1, 1000)).toBeCloseTo(0.1, 12);
+    expect(softeningForCluster(1, 1000, 0.01)).toBeCloseTo(0.001, 12);
+    // N^(-1/3): MORE stars means a SMALLER separation, hence smaller softening.
+    expect(softeningForCluster(1, 8000)).toBeLessThan(softeningForCluster(1, 1000));
+  });
+});
