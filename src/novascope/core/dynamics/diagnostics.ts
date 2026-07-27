@@ -13,6 +13,7 @@
  */
 import type { ForceModel, State } from "./types.ts";
 import { kineticEnergy, radii, rmsSpeed, totalMass } from "./quantities.ts";
+import { G_PC3_MSUN_MYR2 } from "../constants/index.ts";
 
 export interface Diagnostics {
   /** Kinetic energy [Msun (pc/Myr)^2]. */
@@ -146,4 +147,27 @@ export function measure(state: State, force: ForceModel, t = 0): Diagnostics {
     rmsSpeed: rmsSpeed(state),
     bound: isBound,
   };
+}
+
+/**
+ * Crossing time of a self-gravitating state [Myr]: t_cross = 2 r_h / sigma, with the velocity
+ * dispersion taken from the virial theorem, sigma = sqrt(G M / r_h).
+ *
+ * THE CLOCK EVERY DYNAMICAL STATEMENT IS MADE IN. Myr means nothing on its own — a cluster
+ * that takes 100 Myr to relax and one that takes 1 Myr behave identically in crossing times.
+ * Two-body relaxation runs at ~0.1 N / ln N crossing times, gas expulsion is judged after a
+ * fixed number of them, and the integrator's step is a fraction of one.
+ *
+ * Derived from the CURRENT configuration, so it grows as a cluster expands. That is the
+ * honest behaviour for a readout, and the reason `../gasExpulsion/` freezes its own at reset
+ * instead: there, t_cross defines the settling protocol and must not move underneath it.
+ *
+ * Uses sigma from the virial theorem rather than the actual velocities, so it stays a property
+ * of the POTENTIAL and remains meaningful for a cluster that is not yet virialized.
+ */
+export function crossingTime(state: State): number {
+  const rHalf = lagrangianRadii(state, [0.5])[0];
+  const m = totalMass(state);
+  if (!(rHalf > 0) || !(m > 0)) return 0;
+  return (2 * rHalf) / Math.sqrt((G_PC3_MSUN_MYR2 * m) / rHalf);
 }

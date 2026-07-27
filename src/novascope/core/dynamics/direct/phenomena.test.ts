@@ -19,10 +19,9 @@ import { createDirectForce, softeningForCluster, DIRECT_STEPS_PER_TCROSS } from 
 import { createMeanFieldForce } from "../meanField/index.ts";
 import { createLeapfrog } from "../integrate.ts";
 import { clusterState, combineStates, removeBulkMotion } from "../ic.ts";
-import { lagrangianRadii, measure } from "../diagnostics.ts";
+import { crossingTime, measure } from "../diagnostics.ts";
 import { radii } from "../quantities.ts";
 import { defaultIdentity } from "../../cluster/params.ts";
-import { G_PC3_MSUN_MYR2 } from "../../constants/index.ts";
 import type { ForceModel, State } from "../types.ts";
 
 const N = 400;
@@ -37,14 +36,6 @@ function cluster(seed: number, target = N, scaleRadius = SCALE_PC): State {
   });
   const force = createDirectForce({ softening: softeningForCluster(scaleRadius * 1.305, target) });
   return clusterState(id, force);
-}
-
-/** Crossing time of a state under its own self-gravity [Myr]. */
-function crossingTime(s: State): number {
-  const rHalf = lagrangianRadii(s, [0.5])[0];
-  let m = 0;
-  for (let i = 0; i < s.n; i++) m += s.mass[i];
-  return (2 * rHalf) / Math.sqrt((G_PC3_MSUN_MYR2 * m) / rHalf);
 }
 
 /**

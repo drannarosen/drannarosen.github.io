@@ -28,10 +28,49 @@
  * contract exactly and is tested for it; this model cannot, and `meanField.test.ts` tests
  * what is actually true instead of a weakened version of the wrong thing.
  *
- * The practical consequence is a small energy drift that does not vanish with smaller
- * timesteps, because it is a spatial-discretization error rather than a temporal one.
- * `../gasExpulsion/` measured it at -1.6e-4 over ten crossing times, which is why that code
- * treats energy drift as a diagnostic to watch rather than a conserved quantity.
+ * The practical consequence is an energy drift that does not vanish with smaller timesteps,
+ * because it is a spatial-discretization error rather than a temporal one. MEASURED
+ * 2026-07-26, drift over five crossing times on a freshly sampled Plummer cluster, three
+ * seeds, against steps per crossing time:
+ *
+ *       32:  3.81e+0   6.23e-2   5.11e-2
+ *      128:  3.62e-1   4.06e-2   3.37e-2
+ *      512:  2.23e-1   5.51e-2   3.52e-2
+ *     2048:  4.40e-1   6.53e-2   3.45e-2
+ *
+ * Sixty-four times more steps buys nothing. `../direct/` on the same runs sits at 5e-6..3e-5.
+ *
+ * THAT IS A FEW PERCENT AND SOMETIMES FAR MORE, so it is not a footnote. A freshly sampled
+ * cluster is not an equilibrium configuration and rearranges immediately, and this solver does
+ * spurious work through a rearrangement. `../gasExpulsion/` reports -1.6e-4 over ten crossing
+ * times, three orders better, and it earns that by virial-scaling AND settling for thirty
+ * crossing times BEFORE anything is measured — its whole protocol exists for this reason.
+ *
+ * ── AND THE KNOB IS SOFTENING, NOT THE TIMESTEP OR THE BINS ──
+ *
+ * Measured on the same runs. Refining the grid barely helps and is erratic (nBins 80 -> 2560,
+ * a factor of 32, moves seed 7 from 1.31e-1 to 2.14e-2 and does nothing coherent for seed
+ * 2026). Softening does:
+ *
+ *     eps [pc]    2026      seed 7    seed 555
+ *      0.005     1.13e-1    4.51e-2   5.55e-2
+ *      0.02      3.62e-1    4.06e-2   3.37e-2     <- MEAN_FIELD_DEFAULTS
+ *      0.05      1.32e-1    1.75e-2   2.25e-2
+ *      0.1       3.85e-2    1.30e-2   1.08e-2     <- best, all three seeds
+ *      0.2       7.28e-2    1.99e-2   3.43e-2
+ *
+ * There is an OPTIMUM, and it is where the physics says it should be: 0.098 pc is
+ * `softeningForCluster(r_h = 0.65, N = 300)`, the mean interparticle separation. The same
+ * eps ~ r_h / N^(1/3) rule `../direct/` uses predicts it here too.
+ *
+ * THE CONSEQUENCE FOR THE DEFAULT. 0.02 pc is correct for the cluster `../gasExpulsion/` was
+ * calibrated on — r_h = 0.67 pc at N = 10,301 gives 0.031 — and it travels badly, because a
+ * 300-star cluster of the same size has interparticle spacing five times larger. The default
+ * stays 0.02 because the frozen gas-expulsion fixture depends on it, but ANY OTHER CALLER
+ * SHOULD PASS `softeningForCluster(rHalf, n)` rather than accept it.
+ *
+ * So: energy is a diagnostic to watch here, never a conserved quantity, and `../monitor.ts`
+ * takes its tolerance from the caller precisely because one number cannot serve both models.
  *
  * ── THE EXTERNAL COMPONENT ──
  *

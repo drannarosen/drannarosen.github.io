@@ -74,7 +74,14 @@ export {
   toState,
 } from "./ic.ts";
 
-export { lagrangianRadii, measure } from "./diagnostics.ts";
+export { crossingTime, lagrangianRadii, measure } from "./diagnostics.ts";
+
+export type {
+  ConservationMonitor,
+  ConservationSample,
+  MonitorOptions,
+} from "./monitor.ts";
+export { createConservationMonitor } from "./monitor.ts";
 /* Renamed on the way out: `gasExpulsion` already owns the name `Diagnostics` in this barrel,
    because `viz/webgl` and the shipped /explore pages import it from here. */
 export type { Diagnostics as StateDiagnostics } from "./diagnostics.ts";
