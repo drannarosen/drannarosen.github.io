@@ -25,14 +25,27 @@
  *
  * O(N^2). Newton's third law halves the work — each pair is computed once and applied to
  * both members — which is also what makes total momentum conserved to round-off rather than
- * approximately. Measured in `direct.test.ts`; in plain TypeScript this stays interactive to
- * roughly N = 2000, which is a real range for a young cluster and is stated on the lab page
- * rather than apologized for.
+ * approximately.
  *
- * A caution that belongs with the model, not with the renderer: at N in the hundreds this is
- * an honest model OF a cluster of that size. Using a few thousand particles to stand in for
- * a 10^6-star cluster would import an artificial relaxation time set by the particle count
- * one could afford, which is why `meanField/` remains the right tool at large N.
+ * MEASURED 2026-07-26, because the first version of this comment guessed and was wrong. Cost
+ * of one full KDK step in node on an M-series Mac:
+ *
+ *      N      ms/step    steps per 16.7 ms frame
+ *    256       1.13        14.8
+ *    512       2.52         6.6
+ *   1024       8.41         2.0
+ *   2048      31.77         0.5
+ *
+ * So the honest interactive ceiling is **N ~ 512**, with ~1024 usable if a frame takes only
+ * one or two sub-steps. It is NOT 2000 — at 2048 a SINGLE step already costs twice a frame
+ * budget, before anything is drawn. The earlier claim of "interactive to roughly N = 2000"
+ * was written without measuring and is corrected here rather than quietly dropped.
+ *
+ * N ~ 500 is a real cluster rather than a concession: plenty of young clusters have a few
+ * hundred members, and at that N this is an honest model OF a 500-star cluster. Using a few
+ * thousand particles to stand in for a 10^6-star cluster would be the dishonest direction —
+ * it imports an artificial relaxation time set by the particle count one could afford, which
+ * is why `meanField/` remains the right tool at large N.
  */
 import type { ForceModel, Vec3Array } from "../types.ts";
 import { G_PC3_MSUN_MYR2 } from "../../constants/index.ts";

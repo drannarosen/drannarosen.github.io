@@ -8,8 +8,9 @@
  *
  *   direct/      pairwise O(N^2). COLLISIONAL — two-body relaxation, dynamical mass
  *                segregation, escapers and core collapse emerge from the pair sum. Honest at
- *                the N it actually runs (a few hundred to ~2000 in a browser), because at
- *                that N it is modelling a cluster of that size.
+ *                the N it actually runs — MEASURED interactive to N ~ 512 and usable to
+ *                ~1024, not the 2000 an earlier comment guessed — because at that N it is
+ *                modelling a cluster of that size.
  *
  *   meanField/   spherically-averaged M(<r), O(N). COLLISIONLESS — none of those effects has
  *                a term, at any resolution. In exchange it has no ARTIFICIAL relaxation

@@ -190,8 +190,14 @@ Step 3 is approved and in scope.
 
 ### Scale, stated rather than apologised for
 
-Direct summation in plain TypeScript stays real-time to roughly N ≈ 2,000. That is honest for a
-teaching instrument: plenty of real young clusters have a few hundred to a few thousand members,
+Direct summation in plain TypeScript stays real-time to roughly N ≈ 512.
+
+**Corrected 2026-07-26 by measuring it.** This said N ≈ 2,000, which was never measured. One
+full KDK step costs 1.13 / 2.52 / 8.41 / 31.77 ms at N = 256 / 512 / 1024 / 2048 — so at 2048 a
+single step is already twice a 60 fps frame budget, before anything is drawn. The ceiling is
+~512 interactive, ~1024 with one or two sub-steps per frame.
+
+That is still honest for a teaching instrument: plenty of real young clusters have a few hundred to a few thousand members,
 and the page should say so. It also cuts the right way physically — direct summation with
 softening produces *artificial* two-body relaxation on a timescale set by the N you can afford.
 At N = 500 that is a feature, because you are modelling a 500-star cluster. At N = 10,000
