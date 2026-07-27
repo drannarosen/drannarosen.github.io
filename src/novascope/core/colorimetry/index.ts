@@ -176,8 +176,24 @@ export function spectrumLinearRGB(
  * the same code path a reddened or filtered spectrum takes — there is no
  * separate "bare star" formula to drift from the general one.
  */
-export function blackbodyLinearRGB(teffK: number): [number, number, number] {
-  return spectrumLinearRGB((lambdaNm) => planckNm(lambdaNm, teffK));
+export function blackbodyLinearRGB(
+  teffK: number,
+  attenuation?: (lambdaNm: number) => number,
+): [number, number, number] {
+  /* THE REASON THIS PARAMETER EXISTS, and why `core/stellar`'s teffToRGB cannot do the same:
+     extinction changes the SHAPE of a spectrum, not its temperature. A spectrum can be
+     reddened and then integrated against the CIE observer, which is what happens here. A
+     Teff->RGB fit has no way to express "20000 K behind dust" — there is no temperature that
+     means that. See the header of `viz/spectral.ts` for the measurement that keeps the fit in
+     service meanwhile (the two agree to 7/255 with no dust).
+
+     A bare multiplier rather than an extinction spec: this module knows spectra and colour,
+     and nothing about dust. */
+  return spectrumLinearRGB(
+    attenuation
+      ? (lambdaNm) => planckNm(lambdaNm, teffK) * attenuation(lambdaNm)
+      : (lambdaNm) => planckNm(lambdaNm, teffK),
+  );
 }
 
 /* ──────────────────────────── display encoding ─────────────────────────────── */

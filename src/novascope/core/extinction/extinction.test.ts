@@ -20,7 +20,16 @@ import {
 } from "./index.ts";
 import { ccm89AOverAv, ccm89Covers } from "./ccm89.ts";
 import { g23AOverAv, g23Covers, G23_RV_RANGE } from "./g23.ts";
-import { PASSBANDS } from "../photometry/passbands.ts";
+import {
+  abMagnitude,
+  bandFlux,
+  bandFluxDensityCgs,
+  PASSBANDS,
+} from "../photometry/passbands.ts";
+import { blackbodyLinearRGB } from "../colorimetry/index.ts";
+/* The Sun's Teff comes from core/constants, not from a typed literal — check-constants caught
+   exactly that in the first version of this file, which is the gate doing its job on new code. */
+import { T_SUN_K } from "../constants/index.ts";
 
 describe("CCM89", () => {
   it("is normalized EXACTLY at its own anchor, for every R_V", () => {
@@ -223,5 +232,155 @@ describe("colourExcess", () => {
     // Measured 0.319 against a definitional 0.323 — about 1%, and it must stay small.
     expect(Math.abs(measured / definitional - 1)).toBeLessThan(0.15);
     expect(measured).toBeGreaterThan(0);
+  });
+});
+
+/* ────────────────────────── wiring into the forward model ────────────────────────── */
+
+describe("extinction through a passband", () => {
+  const V = PASSBANDS.V;
+
+  it("A_V = 0 leaves every flux BIT-IDENTICAL, not merely close", () => {
+    /* The property that lets rung 5 land without moving a single shipped page. It holds
+       because `attenuationFor` returns undefined at A_V = 0 and the integrand is then the
+       ORIGINAL expression — not one multiplied by a function that returns 1, which would
+       change the floating-point result in the last bits. */
+    for (const id of ["U", "B", "V", "I", "LSST_r", "JWST_F444W"]) {
+      const b = PASSBANDS[id];
+      const bare = bandFluxDensityCgs(T_SUN_K, 1, 10, b);
+      expect(bandFluxDensityCgs(T_SUN_K, 1, 10, b, attenuationFor({ aV: 0 }))).toBe(bare);
+      expect(bandFlux(T_SUN_K, 1, 10, b)).toBe(bandFlux(T_SUN_K, 1, 10, b, attenuationFor({ aV: 0 })));
+      expect(abMagnitude(T_SUN_K, 1, 10, b)).toBe(
+        abMagnitude(T_SUN_K, 1, 10, b, attenuationFor({ aV: 0 })),
+      );
+    }
+    expect(blackbodyLinearRGB(T_SUN_K)).toEqual(blackbodyLinearRGB(T_SUN_K, undefined));
+  });
+
+  it("the band-integrated A_x/A_V lies inside the curve's own range over that band", () => {
+    /* A rigorous property rather than a fitted number: the band extinction is a
+       transmission-weighted average of A(lambda)/A_V across the filter, so it CANNOT fall
+       outside the min and max the curve takes there. Getting the order of operations wrong,
+       or integrating against the wrong weight, breaks this. */
+    for (const id of ["U", "B", "V", "I", "LSST_r", "Gaia_G"]) {
+      const b = PASSBANDS[id];
+      const f0 = bandFluxDensityCgs(T_SUN_K, 1, 10, b);
+      const f1 = bandFluxDensityCgs(T_SUN_K, 1, 10, b, attenuationFor({ aV: 1 }));
+      const aX = -2.5 * Math.log10(f1 / f0);
+
+      let lo = Infinity;
+      let hi = -Infinity;
+      const c = b.curve;
+      for (let i = 0; i < c.values.length; i++) {
+        if (!((c.values[i] ?? 0) > 0)) continue;
+        const v = g23AOverAv(c.startNm + i * c.stepNm, 3.1);
+        if (Number.isFinite(v)) {
+          lo = Math.min(lo, v);
+          hi = Math.max(hi, v);
+        }
+      }
+      expect(aX).toBeGreaterThanOrEqual(lo);
+      expect(aX).toBeLessThanOrEqual(hi);
+    }
+  });
+
+  it("depends on the SOURCE temperature — the term a fixed-SED law throws away", () => {
+    /* fluxax needs a precomputed trilinear grid to get this, because it must be
+       differentiable. Here the per-star spectrum is already being integrated, so the
+       Teff-aware answer falls out for free — ADR 0016's "implement, don't load" in one line.
+       Measured spread across 3000 K -> 30000 K: U 3.96%, B 5.90%, V 4.23%, LSST r 3.65%. */
+    const aX = (id: string, teff: number): number => {
+      const b = PASSBANDS[id];
+      return (
+        -2.5 *
+        Math.log10(
+          bandFluxDensityCgs(teff, 1, 10, b, attenuationFor({ aV: 1 })) /
+            bandFluxDensityCgs(teff, 1, 10, b),
+        )
+      );
+    };
+    for (const id of ["U", "B", "V", "LSST_r"]) {
+      const spread = Math.abs(aX(id, 30000) - aX(id, 3000)) / aX(id, 3000);
+      expect(spread).toBeGreaterThan(0.02); // it is REAL, not rounding
+      expect(spread).toBeLessThan(0.15);
+    }
+  });
+
+  it("differs measurably from applying A at the band's effective wavelength", () => {
+    /* The wrong order, quantified rather than merely asserted to be wrong. Measured: 0.95%
+       in U, 2.08% in B, -0.32% in V at A_V = 1, growing with A_V (B reaches 2.87% at A_V = 3).
+       So it is a few percent, systematic, and grows with extinction — not catastrophic, which
+       is exactly why it would never announce itself. */
+    const b = PASSBANDS.B;
+    const right =
+      -2.5 *
+      Math.log10(
+        bandFluxDensityCgs(T_SUN_K, 1, 10, b, attenuationFor({ aV: 1 })) /
+          bandFluxDensityCgs(T_SUN_K, 1, 10, b),
+      );
+    const wrong = g23AOverAv(b.lambdaEffNm, 3.1);
+    const err = Math.abs(wrong - right) / right;
+    expect(err).toBeGreaterThan(0.005);
+    expect(err).toBeLessThan(0.10);
+  });
+
+  it("dims every band and makes B - V redder", () => {
+    const bare = { b: bandFlux(T_SUN_K, 1, 10, PASSBANDS.B), v: bandFlux(T_SUN_K, 1, 10, V) };
+    const att = attenuationFor({ aV: 2 });
+    const red = { b: bandFlux(T_SUN_K, 1, 10, PASSBANDS.B, att), v: bandFlux(T_SUN_K, 1, 10, V, att) };
+    expect(red.b).toBeLessThan(bare.b);
+    expect(red.v).toBeLessThan(bare.v);
+    // B - V as a magnitude: less flux in B relative to V means a larger (redder) index.
+    const colour = (f: { b: number; v: number }): number => -2.5 * Math.log10(f.b / f.v);
+    expect(colour(red)).toBeGreaterThan(colour(bare));
+  });
+
+  it("reddens a CHROMATICITY — and the dimming deliberately is not here", () => {
+    /* `spectrumLinearRGB` returns `normalizeChroma(...)`, i.e. a colour with a peak channel
+     * of 1. So extinction's overall DIMMING cancels out of this function by construction, and
+     * only the hue shift survives. An earlier version of this test asserted every channel got
+     * smaller and failed at once — the premise was wrong, not the code.
+     *
+     * That separation is the pipeline working as designed: colour and brightness travel on
+     * different channels, and brightness is tested through `bandFlux` above. Asserting
+     * dimming here would have been asserting a property this function is built NOT to have.
+     */
+    const bare = blackbodyLinearRGB(20000);
+    const red = blackbodyLinearRGB(20000, attenuationFor({ aV: 3 }));
+
+    expect(Math.max(...red)).toBeCloseTo(1, 12); // still a chromaticity
+    expect(Math.max(...bare)).toBeCloseTo(1, 12);
+
+    /* The hue DOES shift: blue is extinguished more, so the red:blue ratio rises. This is the
+       thing a Teff->RGB fit cannot express — there is no temperature that means "20000 K
+       behind dust", which is why `viz/spectral.ts` records this as the retirement trigger. */
+    expect(red[0] / red[2]).toBeGreaterThan(bare[0] / bare[2]);
+    // And it is a large effect, not a rounding one, at A_V = 3.
+    expect(red[0] / red[2] / (bare[0] / bare[2])).toBeGreaterThan(1.2);
+  });
+
+  it("UNIFORM extinction does NOT reorder stars between bands — measured, not assumed", () => {
+    /* `check:star-optics` asserts Spearman rho = 1.00000 across every band and the roadmap
+     * calls it "a deliberate tripwire — the day it fails is the day the model stops being a
+     * ZAMS toy". Whether uniform A_V trips it was an open question, and the answer is no:
+     * A_x/A_V varies monotonically with Teff, Teff is monotone in mass, and flux is monotone
+     * in mass, so the ordering survives. Measured rho = 1.0000000 at A_V = 0, 1, 5 and 20.
+     *
+     * DIFFERENTIAL extinction is what breaks it: giving each star its own column drops
+     * rho(U,K) to 0.798 at A_V ~ 5. That is the gravoturb gas-column work, and when it lands
+     * this gate SHOULD fire. It is calibrated to fire at exactly the right moment.
+     */
+    const teffs = [3000, 4500, 6000, 9000, 15000, 25000, 40000];
+    const radii = [0.3, 0.7, 1.0, 2.0, 4.0, 7.0, 12.0]; // monotone with Teff, as ZAMS is
+    const fluxes = (id: string, aV: number): number[] =>
+      teffs.map((t, i) => bandFlux(t, radii[i], 400, PASSBANDS[id], attenuationFor({ aV })));
+
+    for (const aV of [0, 1, 5, 20]) {
+      const u = fluxes("U", aV);
+      const k = fluxes("K", aV);
+      const orderU = [...u.keys()].sort((a, b) => u[a] - u[b]);
+      const orderK = [...k.keys()].sort((a, b) => k[a] - k[b]);
+      expect(orderU).toEqual(orderK);
+    }
   });
 });

@@ -110,6 +110,22 @@ export const PASSBANDS: Record<string, Passband> = Object.fromEntries(
  * much light each band actually collects. Only ratios are used downstream, so the
  * absolute level is free, but it must be CONSISTENT within a band, which it is.
  */
+/**
+ * A per-wavelength multiplier applied to the spectrum BEFORE the filter integrates.
+ *
+ * Deliberately a bare function rather than an extinction spec: this module knows about
+ * spectra and filters, and nothing about dust. `core/extinction` produces one of these via
+ * `attenuationFor`, and anything else that dims a spectrum wavelength-by-wavelength — a
+ * telescope's throughput, an atmosphere — can supply one too without this file learning
+ * about it.
+ *
+ * THE ORDER IS THE POINT. Reddening changes the SHAPE of the spectrum, so it must multiply
+ * the integrand. Applying an extinction at a band's effective wavelength to an
+ * already-integrated flux gives a smooth, plausible, wrong answer, and nothing downstream
+ * can tell the two apart. That is why extinction enters here rather than at the call site.
+ */
+export type SpectralAttenuation = (lambdaNm: number) => number;
+
 export function bandResponse(lambdaNm: number, band: Passband): number {
   const c = band.curve;
   const x = (lambdaNm - c.startNm) / c.stepNm;
@@ -160,9 +176,15 @@ export function bandFlux(
   radiusRsun: number,
   distancePc: number,
   band: Passband,
+  attenuation?: SpectralAttenuation,
 ): number {
   if (!(teffK > 0) || !(radiusRsun > 0) || !(distancePc > 0)) return 0;
-  return bandIntegral((l) => spectralFluxCgs(l, teffK, radiusRsun, distancePc), band);
+  /* When there is no attenuation the integrand is the ORIGINAL expression, not one
+     multiplied by a function that returns 1 — so every existing flux stays bit-identical
+     and adding extinction cannot perturb a shipped page. */
+  return attenuation
+    ? bandIntegral((l) => spectralFluxCgs(l, teffK, radiusRsun, distancePc) * attenuation(l), band)
+    : bandIntegral((l) => spectralFluxCgs(l, teffK, radiusRsun, distancePc), band);
 }
 
 /**
@@ -209,11 +231,14 @@ export function bandFluxDensityCgs(
   radiusRsun: number,
   distancePc: number,
   band: Passband,
+  attenuation?: SpectralAttenuation,
 ): number {
   if (!(teffK > 0) || !(radiusRsun > 0) || !(distancePc > 0)) return 0;
   // Both integrals run over the same grid, in CM so the result is CGS.
   const numer = bandIntegral(
-    (l) => spectralFluxCgs(l, teffK, radiusRsun, distancePc) * (l * NM_TO_CM),
+    attenuation
+      ? (l) => spectralFluxCgs(l, teffK, radiusRsun, distancePc) * (l * NM_TO_CM) * attenuation(l)
+      : (l) => spectralFluxCgs(l, teffK, radiusRsun, distancePc) * (l * NM_TO_CM),
     band,
   );
   const denom = bandIntegral((l) => 1 / (l * NM_TO_CM), band);
@@ -240,8 +265,9 @@ export function abMagnitude(
   radiusRsun: number,
   distancePc: number,
   band: Passband,
+  attenuation?: SpectralAttenuation,
 ): number {
-  const f = bandFluxDensityCgs(teffK, radiusRsun, distancePc, band);
+  const f = bandFluxDensityCgs(teffK, radiusRsun, distancePc, band, attenuation);
   if (!(f > 0)) return Infinity;
   return -2.5 * Math.log10(f / AB_ZERO_CGS);
 }
@@ -258,8 +284,9 @@ export function absoluteAbMagnitude(
   teffK: number,
   radiusRsun: number,
   band: Passband,
+  attenuation?: SpectralAttenuation,
 ): number {
-  return abMagnitude(teffK, radiusRsun, ABSOLUTE_MAG_DISTANCE_PC, band);
+  return abMagnitude(teffK, radiusRsun, ABSOLUTE_MAG_DISTANCE_PC, band, attenuation);
 }
 
 /** The 10 pc at which an absolute magnitude is defined. */
