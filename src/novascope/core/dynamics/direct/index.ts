@@ -119,8 +119,41 @@ export const DIRECT_STEPS_PER_TCROSS = 128;
  * the entire reason ADR 0016 chose leapfrog over RK4. eps and h are coupled, and eps ~ d is
  * where a fixed-step scheme can actually live.
  *
- * So a smaller fraction is available, honestly documented, and not the default. Anything below
- * ~0.5 should be paired with a much finer step and its energy watched (`../monitor.ts`).
+ * ── AND THE OTHER SIDE: SOFTENING THAT IS TOO LARGE SUPPRESSES THE PHYSICS ──
+ *
+ * Energy drift alone cannot choose eps, because MORE softening always improves it — the
+ * criterion has to be two-sided. Scanned with FSI4 at N = 200, 15 crossing times, EIGHT seeds,
+ * with standard errors so the noise is visible rather than assumed away:
+ *
+ *     eps/d   |dE/E|      d_rho +/- SE        r_h/r_h0 +/- SE
+ *      0.5    2.48e-4   -0.0616 +/- 0.0252   1.311 +/- 0.168
+ *      1      1.61e-8   -0.0677 +/- 0.0292   1.293 +/- 0.175
+ *      2      7.11e-10  -0.0563 +/- 0.0198   1.420 +/- 0.142
+ *      4      7.52e-11  -0.0437 +/- 0.0254   1.721 +/- 0.147
+ *
+ * d_rho is the change in the mass-radius rank correlation: more negative means more
+ * segregation actually happened.
+ *
+ * WHAT IS NOT RESOLVED, stated because the temptation is to read a trend into it: the
+ * segregation signal does NOT differ significantly across 0.5d to 2d. Every value sits within
+ * about one standard error of the others, so no optimum can be claimed from that column at
+ * this N and duration.
+ *
+ * WHAT IS RESOLVED, and it is what decides the default:
+ *
+ *   - Energy strongly favours eps >= d. At 0.5d the drift is 2.5e-4 against 1.6e-8 — four
+ *     orders worse for no measurable gain in the physics.
+ *   - Expansion rules out eps >= 4d. The cluster puffs to 1.72x its half-mass radius against
+ *     1.29x, a gap of ~2.5 standard errors. That is the overpowering-softening failure: an
+ *     artificially pressure-supported cluster that looks relaxed and is not. At 8d (from the
+ *     coarser first scan) it reaches 3.4x and the segregation correlation goes POSITIVE.
+ *
+ * So eps = d is the largest softening with no measurable suppression of the collisional
+ * physics, and the smallest with excellent energy behaviour. The usable window is roughly
+ * 0.5d to 2d; outside it one side or the other is measurably wrong.
+ *
+ * A smaller fraction is available and honestly documented. Anything below ~0.5 needs a much
+ * finer step and its energy watched (`../monitor.ts`).
  *
  * It is a SCALING, not a derived optimum. There is a literature on choosing softening to
  * minimise force error at given N, and no result from it is claimed here.
