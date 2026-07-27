@@ -63,6 +63,33 @@ export interface DirectOptions {
 }
 
 /**
+ * Leapfrog sub-steps per crossing time. MEASURED, not guessed — the same treatment
+ * `../gasExpulsion/` gives its own 200, and for the same reason: a timestep chosen by eye is
+ * an accuracy claim nobody checked.
+ *
+ * Total-energy drift over 10 crossing times, N = 512, three independent realizations:
+ *
+ *     steps/t_cross      8        16        32        64       128       256
+ *     seed 2026       3.2e-1    3.5e-1    1.1e-2    2.5e-5    1.3e-5    1.8e-5
+ *     seed 7          5.2e-2    7.7e-3    9.5e-5    1.5e-5    1.4e-5    1.9e-6
+ *     seed 99         2.7e-1    4.1e-3    2.2e-3    1.0e-4    5.4e-6    4.6e-6
+ *
+ * 128 is the choice, for a reason visible only across seeds. At 32 the drift varies by a
+ * factor of 100 between realizations — the answer depends on whether that particular cluster
+ * happened to have a close encounter, which is exactly the regime to stay out of. By 128 every
+ * seed sits at or below 1.4e-5 and going finer buys nothing consistent: at 256 one seed
+ * improves and another gets worse, because the residual is no longer the timestep but
+ * individual close encounters, which are chaotic and do not average down.
+ *
+ * That last point is the real content. Beyond ~128 this is not "more accurate", it is a
+ * different trajectory of an equally valid chaotic system, and treating a smaller number as a
+ * better answer would be misreading noise as convergence.
+ *
+ * Cost at N = 512: 68 ms per crossing time.
+ */
+export const DIRECT_STEPS_PER_TCROSS = 128;
+
+/**
  * The conventional softening for an N-body cluster: the mean interparticle separation at
  * the half-mass radius, eps ~ r_h / N^(1/3).
  *
