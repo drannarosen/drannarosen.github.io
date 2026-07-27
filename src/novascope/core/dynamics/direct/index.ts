@@ -190,6 +190,72 @@ export function createDirectForce(opts: DirectOptions): ForceModel {
       return u;
     },
 
+    /**
+     * Acceleration and the FSI force-gradient term, in two O(N^2) passes.
+     *
+     * PORTED FROM gravax `core/gravity/newtonian.py::_pairwise_accel_force_gradient`, which
+     * implements Rantala, Naab & Springel (2021) equations 27-28. For x_ji = x_j - x_i and
+     * a_ji = a_j - a_i,
+     *
+     *     g_i = 2 G sum_j m_j r_ji^-5 [ r_ji^2 a_ji - 3 (x_ji . a_ji) x_ji ]
+     *
+     * with r_ji^2 carrying the SAME Plummer softening as the acceleration kernel — the term is
+     * the derivative of the softened force, so an unsoftened r here would not be the gradient
+     * of what is actually being stepped, which is the trap `../types.ts` is built around.
+     *
+     * Two passes, not one: g_i needs the full acceleration FIELD (every a_j), so the total
+     * acceleration must be complete before the second sum can start. Newton's third law also
+     * cannot halve this one — the summand is not antisymmetric in (i, j).
+     */
+    forceGradient(
+      pos: Vec3Array,
+      mass: Float64Array,
+      accOut: Vec3Array,
+      gradOut: Vec3Array,
+      t: number,
+    ): void {
+      const n = mass.length;
+      this.accelerations(pos, mass, accOut, t);
+      gradOut.fill(0);
+
+      for (let i = 0; i < n; i++) {
+        const ix = i * 3;
+        const xi = pos[ix];
+        const yi = pos[ix + 1];
+        const zi = pos[ix + 2];
+        const axi = accOut[ix];
+        const ayi = accOut[ix + 1];
+        const azi = accOut[ix + 2];
+        let gx = 0;
+        let gy = 0;
+        let gz = 0;
+
+        for (let j = 0; j < n; j++) {
+          if (j === i) continue;
+          const jx = j * 3;
+          const dx = pos[jx] - xi;
+          const dy = pos[jx + 1] - yi;
+          const dz = pos[jx + 2] - zi;
+          const r2 = dx * dx + dy * dy + dz * dz + eps2;
+          const r = Math.sqrt(r2);
+          const invR5 = 1 / (r2 * r2 * r);
+
+          const dax = accOut[jx] - axi;
+          const day = accOut[jx + 1] - ayi;
+          const daz = accOut[jx + 2] - azi;
+          const radial = dx * dax + dy * day + dz * daz;
+
+          const k = 2 * G * mass[j] * invR5;
+          gx += k * (r2 * dax - 3 * radial * dx);
+          gy += k * (r2 * day - 3 * radial * dy);
+          gz += k * (r2 * daz - 3 * radial * dz);
+        }
+        gradOut[ix] = gx;
+        gradOut[ix + 1] = gy;
+        gradOut[ix + 2] = gz;
+      }
+    },
+
     potentials(pos: Vec3Array, mass: Float64Array, out: Float64Array): void {
       const n = mass.length;
       out.fill(0);

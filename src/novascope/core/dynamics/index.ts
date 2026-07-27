@@ -40,6 +40,14 @@ export { createState } from "./types.ts";
 export type { Leapfrog, LeapfrogOptions } from "./integrate.ts";
 export { createLeapfrog } from "./integrate.ts";
 
+/* Fourth-order forward symplectic map (Chin/Rantala), ported from gravax. Needs a force model
+   that supplies `forceGradient` — pairwise only, so `direct/` and not `meanField/`. */
+export type { Fsi4, Fsi4Options, ForceGradientCapable } from "./fsi4.ts";
+export { createFsi4, supportsForceGradient } from "./fsi4.ts";
+
+export type { TimestepAdvice } from "./timestep.ts";
+export { softenAccelTimestep, DEFAULT_ETA } from "./timestep.ts";
+
 export type { DirectOptions } from "./direct/index.ts";
 export { createDirectForce, softeningForCluster } from "./direct/index.ts";
 

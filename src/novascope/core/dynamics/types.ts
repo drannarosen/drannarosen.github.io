@@ -80,6 +80,30 @@ export interface ForceModel {
    * factor. Both models implement the pair accordingly.
    */
   potentials(pos: Vec3Array, mass: Float64Array, out: Float64Array, t: number): void;
+
+  /**
+   * Acceleration AND the force-gradient correction, written into `accOut` and `gradOut`.
+   *
+   * OPTIONAL, because it is not universally definable. It is what a fourth-order FORWARD
+   * symplectic map needs (`./fsi4.ts`), and it is inherently PAIRWISE — `meanField/` cannot
+   * supply it, since its force comes from a binned radial profile with no pair structure to
+   * differentiate. A model without this simply cannot be stepped by FSI4, which the integrator
+   * reports rather than working around.
+   *
+   * Both are returned together because the gradient depends on the full acceleration field and
+   * would otherwise repeat the first O(N^2) pass.
+   *
+   *     g_i = -(1/m_i) grad_i [ -sum_j m_j |a_j|^2 ]
+   *
+   * the coordinate-only double-commutator term. See `direct/index.ts` for the closed form.
+   */
+  forceGradient?(
+    pos: Vec3Array,
+    mass: Float64Array,
+    accOut: Vec3Array,
+    gradOut: Vec3Array,
+    t: number,
+  ): void;
 }
 
 /** The particles. `pos` and `vel` are mutated in place by the integrator. */
