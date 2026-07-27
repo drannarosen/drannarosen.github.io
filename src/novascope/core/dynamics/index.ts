@@ -45,6 +45,9 @@ export { createLeapfrog } from "./integrate.ts";
 export type { Fsi4, Fsi4Options, ForceGradientCapable } from "./fsi4.ts";
 export { createFsi4, supportsForceGradient } from "./fsi4.ts";
 
+export type { Integrator, ChooseOptions } from "./choose.ts";
+export { chooseIntegrator } from "./choose.ts";
+
 export type { TimestepAdvice } from "./timestep.ts";
 export { softenAccelTimestep, DEFAULT_ETA } from "./timestep.ts";
 

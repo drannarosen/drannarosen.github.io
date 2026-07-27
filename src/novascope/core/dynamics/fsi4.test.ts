@@ -21,6 +21,7 @@ import { createFsi4, supportsForceGradient } from "./fsi4.ts";
 import { createLeapfrog } from "./integrate.ts";
 import { createDirectForce } from "./direct/index.ts";
 import { createMeanFieldForce } from "./meanField/index.ts";
+import { chooseIntegrator } from "./choose.ts";
 import { createState, type State } from "./types.ts";
 
 const G = 1;
@@ -185,5 +186,34 @@ describe("direct/'s force gradient", () => {
     force.accelerations(s.pos, s.mass, plain, 0);
     force.forceGradient!(s.pos, s.mass, both, grad, 0);
     for (let i = 0; i < 6; i++) expect(both[i]).toBe(plain[i]);
+  });
+});
+
+describe("chooseIntegrator", () => {
+  it("defaults to FSI4 where the force model supports it", () => {
+    const s = twoBody();
+    const picked = chooseIntegrator(s, createDirectForce({ softening: EPS, G }));
+    expect(picked.scheme).toBe("fsi4");
+    expect(picked.order).toBe(4);
+  });
+
+  it("falls back to the leapfrog for meanField — the only scheme it can run", () => {
+    /* Not a preference: FSI4 needs forceGradient, which a binned radial profile cannot supply.
+       gasExpulsion runs on meanField, so removing the leapfrog would delete that page. */
+    const s = twoBody();
+    const picked = chooseIntegrator(s, createMeanFieldForce(s.n, { G, rMin: 1e-3, rMax: 100 }));
+    expect(picked.scheme).toBe("leapfrog");
+    expect(picked.order).toBe(2);
+  });
+
+  it("reports which scheme it chose, so a caller never has to assume", () => {
+    /* A lab that silently fell back to second order while labelling itself fourth is exactly
+       the confidently-wrong readout this codebase keeps designing against. */
+    const s = twoBody();
+    const forced = chooseIntegrator(s, createDirectForce({ softening: EPS, G }), {
+      preferLeapfrog: true,
+    });
+    expect(forced.scheme).toBe("leapfrog");
+    expect(forced.order).toBe(2);
   });
 });

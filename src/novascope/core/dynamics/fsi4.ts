@@ -38,13 +38,31 @@
  * buy more than four times the step size. `fsi4.test.ts` measures the convergence order rather
  * than assuming it, which is the whole point of porting a scheme rather than trusting its name.
  *
- * ── WHAT IT DOES NOT FIX ──
+ * ── IT DOES NOT REMOVE THE NEED FOR SOFTENING. IT MAKES IT SHARPER. ──
  *
- * Fourth order improves the error at a GIVEN softening. It does not make an unresolved close
- * encounter resolvable: at eps far below the mean interparticle separation the trajectory
- * itself is under-sampled, and no fixed-step scheme of any order recovers it (see
- * `direct/index.ts` on why eps and h are coupled). What it does buy is the same accuracy at a
- * larger step, or better accuracy at a smaller eps than second order could reach.
+ * The natural hope is that a fourth-order scheme could run at eps -> 0. Measured, N = 200,
+ * five crossing times, mean |dE/E| over three seeds (d = the mean interparticle separation):
+ *
+ *     eps        leapfrog@128    FSI4@128    FSI4@1024
+ *     d            9.61e-6        1.80e-8     4.34e-12
+ *     0.1 d        6.76e-1        1.34e+0     2.68e-2
+ *     0.01 d       4.13e+0        5.87e+1     9.54e+0
+ *     0            --             1.10e+1     5.05e+1
+ *
+ * At eps = d it is 500x better than the leapfrog and superb. Below that IT IS WORSE THAN THE
+ * LEAPFROG, and at eps = 0 more steps make it worse still.
+ *
+ * The reason is structural rather than a tuning failure. The acceleration diverges as r^-2;
+ * the force-gradient term diverges as r^-5. For a close pair the correction (h^2/48) g does
+ * not correct anything — it dominates, and the scheme's extra order is precisely what makes it
+ * MORE sensitive to an encounter the step cannot resolve. Higher order buys accuracy in the
+ * smooth regime at the cost of robustness in the singular one.
+ *
+ * Removing softening honestly needs individual/adaptive timesteps plus regularisation of close
+ * pairs (KS/Mikkola), which gravax has in `integrators/hermite`, `ias15` and
+ * `symplectic/reversible_adaptive`. A fixed-step symplectic map cannot: varying h forfeits the
+ * bounded-energy property that is the reason to use one. So eps ~ d remains the operating
+ * point, and FSI4's gain is spent on accuracy there rather than on reaching smaller eps.
  */
 import type { Energy, ForceModel, State, Vec3Array } from "./types.ts";
 import { kineticEnergy } from "./quantities.ts";
