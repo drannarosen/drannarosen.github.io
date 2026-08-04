@@ -212,8 +212,13 @@ export const grants: Grant[] = [
 ];
 
 export const graduateAdvisees: Advisee[] = [
-  { name: "Surinder Singh Chhabra", affiliation: "Masters Student, SDSU", finishing: "Summer 2026", date: "2025–Present", project: "ORBIT-RAG: Orchestrated Retrieval with Balanced Iteration & Termination for Astrophysics Research" },
-  { name: "Aisling Ascuna", affiliation: "Masters Student, SDSU", finishing: "Summer 2026", date: "2024–Present", project: "Lead Developer, Sim2SKIRT: an RMHD simulation-to-synthetic-observation pipeline with SKIRT, applied to STARFORGE star cluster formation simulations" },
+  // Completed Summer 2026. SDSU's M.S. in Computational Science takes a
+  // CULMINATING PROJECT rather than a thesis, which is what his title page
+  // says, so the wording here is "project" deliberately and should not be
+  // "corrected" to thesis. No `finishing` field: he is done, and that field
+  // is what puts a student on /now under "Nearly out the door".
+  { name: "Surinder Singh Chhabra", affiliation: "M.S. Computational Science (Data Science), SDSU", date: "2025–2026", project: "AstroRAG: Evidence-Aware Scientific Literature Retrieval — a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery" },
+  { name: "Aisling Ascuna", affiliation: "Masters Student, SDSU", finishing: "Summer 2026", date: "2024–Present", project: "Bridging STARFORGE and SKIRT: A Synthetic Observation Pipeline for High-Fidelity Star Cluster Formation Simulations" },
   { name: "Zoe Bozich", affiliation: "Masters Student, SDSU", date: "2023–2024", project: "Modeling the Evolution of Accreting Protostars with MESA" },
   { name: "Paarmita Pandey", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Fermi Observations of the Diffuse γ-ray Emission of Young Massive Star Clusters", refereed: true },
   { name: "Jennifer Rodriguez", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Tracing the Impact of Stellar Wind Feedback in N79 & 30 Doradus in the LMC with Chandra", refereed: true },

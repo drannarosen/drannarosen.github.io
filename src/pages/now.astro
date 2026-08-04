@@ -61,6 +61,16 @@ const finishing = finishingAdvisees(graduateAdvisees);
 const finishingWhen = [...new Set(finishing.map((a) => a.finishing))].join(" and ");
 
 /*
+ * Spelled out up to five, then numeric. This was `length === 2 ? "Two" : length`,
+ * which read correctly only while there happened to be exactly two — closing out
+ * one student made it "1 masters students are finishing". The list is derived
+ * from the CV, so its length changes whenever a student is closed out; the
+ * sentence has to survive that rather than be re-hand-tuned each time.
+ */
+const NUMBER_WORDS = ["No", "One", "Two", "Three", "Four", "Five"] as const;
+const finishingCount = NUMBER_WORDS[finishing.length] ?? String(finishing.length);
+
+/*
  * Resolve each strip entry against the package frontmatter that describes it,
  * so alt text, dimensions and caption have exactly one home. An unresolvable
  * reference throws rather than quietly rendering a shorter strip — a figure
@@ -192,8 +202,8 @@ const fmt = (d: Date) =>
             <h2 class="now__h2">Nearly out the door</h2>
             <div class="prose flow">
               <p>
-                {finishing.length === 2 ? "Two" : finishing.length} masters students
-                are finishing in {finishingWhen}.
+                {finishingCount} masters student{finishing.length === 1 ? "" : "s"}
+                {finishing.length === 1 ? " is" : " are"} finishing in {finishingWhen}.
               </p>
             </div>
             <ul class="now__list" role="list">

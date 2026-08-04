@@ -341,14 +341,14 @@
 
 #cv-subsection("Graduate Students")
 
-#cv-entry([Surinder Singh Chhabra (Masters Student, SDSU)], "2025--Present")
+#cv-entry([Surinder Singh Chhabra (M.S. Computational Science (Data Science), SDSU)], "2025--2026")
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
-  [#smallcaps[orbit-rag]: Orchestrated Retrieval with Balanced Iteration & Termination for Astrophysics Research]))
+  [#smallcaps[AstroRAG]: Evidence-Aware Scientific Literature Retrieval --- a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery]))
 #v(3pt)
 
 #cv-entry([Aisling Ascuna (Masters Student, SDSU)], "2024--Present")
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
-  [Lead Developer, #smallcaps[Sim2SKIRT]: a RMHD simulation-to-synthetic observation pipeline with #smallcaps[skirt], applied to #smallcaps[starforge] star cluster formation simulations]))
+  [Bridging #smallcaps[starforge] and #smallcaps[skirt]: A Synthetic Observation Pipeline for High-Fidelity Star Cluster Formation Simulations]))
 #v(3pt)
 
 #cv-entry([Zoe Bozich (Masters Student, SDSU)], "2023--2024")
