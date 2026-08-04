@@ -79,6 +79,21 @@ gtag('config', 'G-50FCCTYBRH');`}
         />
       </>
     )}
+
+    {/* Umami, website id d4cebfe0-4683-4561-b28f-7bdeebf67bf6.
+        Same reasoning as the tag above: Umami's setup text says to put this in
+        the <head> of the HTML, which here means this layout and nowhere else.
+
+        PROD ONLY, like the other two. Umami is therefore invisible from
+        `pnpm dev` — check `dist/` or the deployed site, never the dev server. */}
+    {import.meta.env.PROD && (
+      <script
+        is:inline
+        defer
+        src="https://cloud.umami.is/script.js"
+        data-website-id="d4cebfe0-4683-4561-b28f-7bdeebf67bf6"
+      />
+    )}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
     <!-- Preload critical self-hosted fonts to avoid layout shift -->
