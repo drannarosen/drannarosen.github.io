@@ -27,6 +27,9 @@ const nav: NavItem[] = [
   { label: "Outreach", href: "/outreach" },
   { label: "Group", href: "/group" },
   { label: "Now", href: "/now" },
+  // Next to Now deliberately, and the pair divides cleanly: /now is present
+  // tense and gets rewritten, /news is an append-only dated record.
+  { label: "News", href: "/news" },
   { label: "About", href: "/about" },
   { label: "CV", href: "/cv" },
 ];

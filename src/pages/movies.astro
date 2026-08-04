@@ -1,0 +1,173 @@
+---
+/*
+ * /movies — simulation movies from the massive-star-formation work.
+ *
+ * The videos are LINKED, not embedded. An <iframe> here would pull YouTube's
+ * player and its cookies into a page that otherwise makes no third-party
+ * request, and the old page linked them too — so this costs nothing and keeps
+ * the page working with JS disabled.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import { movies, moviePapers } from "../data/movies";
+---
+
+<BaseLayout
+  title="Simulation movies — Anna Rosen, Ph.D."
+  description="Radiation-hydrodynamic simulation movies of massive star formation: the collapse of a 150 solar-mass core under hybrid radiative transfer, with laminar and turbulent initial conditions."
+  path="/movies"
+>
+  <PageHeader
+    eyebrow="Simulation movies"
+    title="Watching a massive star fight its own light"
+    lede="Four radiation-hydrodynamic runs following the collapse of a 150 M☉ pre-stellar core. They differ in one thing each — resolution, radiation method, or initial turbulence — which is what makes it possible to say which features are physical and which are numerical."
+  />
+
+  <section class="wrap mv-list" aria-labelledby="mv-runs">
+    <h2 id="mv-runs" class="mv-h2">The runs</h2>
+    <ul class="mv-grid" role="list">
+      {
+        movies.map((m) => (
+          <li class="mv-card">
+            <h3 class="mv-run">
+              <span class="mv-run__name">{m.run}</span>
+              <span class="mv-run__config">{m.configuration}</span>
+            </h3>
+            <p class="mv-desc">{m.description}</p>
+            <a
+              class="mv-link"
+              href={`https://www.youtube.com/watch?v=${m.youtubeId}`}
+              rel="noopener"
+            >
+              Watch the movie <span aria-hidden="true">→</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="wrap mv-papers" aria-labelledby="mv-papers-h">
+    <h2 id="mv-papers-h" class="mv-h2">The papers behind them</h2>
+    <ul class="mv-paperlist" role="list">
+      {
+        moviePapers.map((p) => (
+          <li class="mv-paper">
+            <p class="mv-paper__role">{p.role}</p>
+            <p class="mv-paper__title">{p.title}</p>
+            <p class="mv-paper__meta">
+              {p.authors} · {p.venue} ({p.year})
+            </p>
+            <p class="mv-paper__links">
+              <a href={p.ads} rel="noopener">ADS</a>
+              <a href={p.arxiv} rel="noopener">arXiv</a>
+            </p>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="mv-note">
+      This is early work — my thesis-era massive-star-formation simulations. The
+      questions it opened are on the <a href="/research">research page</a>, and
+      the full record is in <a href="/publications">publications</a>.
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .mv-h2 {
+    font-size: var(--step-1);
+    padding-block-end: var(--space-2xs);
+    margin-block-end: var(--space-m);
+    border-block-end: 1px solid var(--border);
+  }
+  .mv-list {
+    padding-block: var(--space-l) var(--space-2xl);
+  }
+  /*
+   * Two columns, not auto-fit. The four runs are a comparison set that varies
+   * one thing at a time, so 2x2 reads as the matrix it is; auto-fit put three
+   * across with one orphaned underneath, which reads as "and one more".
+   */
+  .mv-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-l);
+  }
+  @media (max-width: 46rem) {
+    .mv-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .mv-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    padding: var(--space-m);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .mv-run {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
+  }
+  .mv-run__name {
+    font-family: var(--font-mono);
+    font-size: var(--step-0);
+    color: var(--ink);
+  }
+  .mv-run__config {
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .mv-desc {
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    line-height: 1.6;
+    flex: 1;
+  }
+  .mv-link {
+    font-size: var(--step--1);
+    font-family: var(--font-mono);
+  }
+
+  .mv-papers {
+    padding-block-end: var(--space-3xl);
+  }
+  .mv-paperlist {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .mv-paper {
+    padding-block: var(--space-xs);
+    border-block-end: 1px solid var(--border);
+  }
+  .mv-paper__role {
+    font-size: var(--step--2);
+    font-family: var(--font-mono);
+    color: var(--ink-dim);
+    margin-block-end: var(--space-3xs);
+  }
+  .mv-paper__title {
+    color: var(--ink);
+  }
+  .mv-paper__meta {
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    margin-block-start: var(--space-3xs);
+  }
+  .mv-paper__links {
+    display: flex;
+    gap: var(--space-m);
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    font-family: var(--font-mono);
+  }
+  .mv-note {
+    margin-block-start: var(--space-l);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    max-inline-size: var(--width-prose);
+  }
+</style>

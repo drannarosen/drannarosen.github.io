@@ -49,9 +49,35 @@ const pad = (n: number) => String(n).padStart(2, "0");
       ))
     }
   </ol>
+
+  <aside class="wrap rq-earlier">
+    <p class="rq-earlier__label">Earlier work</p>
+    <p class="rq-earlier__text">
+      The radiation-hydrodynamic simulations behind the massive-star-formation
+      thread — four runs following the collapse of a 150 M☉ core — are on the{" "}
+      <a href="/movies">simulation movies page</a>, alongside the two papers
+      they belong to.
+    </p>
+  </aside>
 </BaseLayout>
 
 <style>
+  .rq-earlier {
+    padding-block-end: var(--space-3xl);
+  }
+  .rq-earlier__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+    margin-block-end: var(--space-3xs);
+  }
+  .rq-earlier__text {
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    line-height: 1.65;
+    max-inline-size: var(--width-prose);
+  }
+
   .rq {
     inline-size: min(100% - var(--gutter) * 2, var(--width-content));
     margin-inline: auto;

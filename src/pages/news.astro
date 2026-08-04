@@ -1,0 +1,106 @@
+---
+/*
+ * /news — a dated, append-only log of announcements, press and features.
+ *
+ * Distinct from /now on purpose: /now is present tense and gets rewritten,
+ * this is a record and only ever gains entries. Every item carries its date
+ * for exactly that reason — an old entry then reads as history rather than as
+ * a stale claim.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHeader from "../components/PageHeader.astro";
+import { news } from "../data/news";
+
+const items = [...news].sort((a, b) => b.date.localeCompare(a.date));
+---
+
+<BaseLayout
+  title="News — Anna Rosen, Ph.D."
+  description="A dated record of announcements, press coverage and features: papers covered by astrobites, interviews, fellowships and prizes."
+  path="/news"
+>
+  <PageHeader
+    eyebrow="News"
+    title="Announcements and press"
+    lede="A record rather than a feed — papers picked up by science writers, interviews, fellowships and prizes, oldest entries kept rather than pruned. What I am working on right now is on the now page."
+  />
+
+  <section class="wrap nw-list">
+    <ol class="nw-items" role="list">
+      {
+        items.map((n) => (
+          <li class="nw-item">
+            <time class="nw-date" datetime={n.date}>
+              {n.displayDate}
+            </time>
+            <div class="nw-body">
+              <p class="nw-text">{n.body}</p>
+              <p class="nw-links">
+                {n.links.map((l) => (
+                  <a href={l.href} rel="noopener">
+                    {l.label} <span aria-hidden="true">→</span>
+                  </a>
+                ))}
+              </p>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+    <p class="nw-note">
+      Entries from 2016 onward were carried over from the site this replaced.
+      Where a linked story has since gone offline, the link points at the
+      program or organisation instead of the coverage.
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .nw-list {
+    padding-block: var(--space-l) var(--space-3xl);
+  }
+  .nw-items {
+    display: grid;
+    gap: var(--space-l);
+  }
+  .nw-item {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    gap: var(--space-m);
+    align-items: start;
+    padding-block-end: var(--space-l);
+    border-block-end: 1px solid var(--border);
+  }
+  .nw-date {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+  .nw-text {
+    color: var(--ink-soft);
+    line-height: 1.65;
+    max-inline-size: var(--width-prose);
+  }
+  .nw-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-m);
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    font-family: var(--font-mono);
+  }
+  .nw-note {
+    margin-block-start: var(--space-xl);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    max-inline-size: var(--width-prose);
+  }
+
+  @media (max-width: 46rem) {
+    .nw-item {
+      grid-template-columns: 1fr;
+      gap: var(--space-2xs);
+    }
+  }
+</style>
