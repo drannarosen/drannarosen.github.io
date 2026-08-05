@@ -19,14 +19,15 @@
  */
 import { createFsi4, supportsForceGradient, type Fsi4 } from "./fsi4.ts";
 import { createHermite, supportsJerk, type Hermite } from "./hermite.ts";
+import { createSymmetricHermite, type SymmetricHermite } from "./symmetric.ts";
 import { createLeapfrog, type Leapfrog } from "./integrate.ts";
 import type { ForceModel, State } from "./types.ts";
 
 /** The common surface of every integrator — what a caller needs to drive a run. */
-export type Integrator = Leapfrog | Fsi4 | Hermite;
+export type Integrator = Leapfrog | Fsi4 | Hermite | SymmetricHermite;
 
 /** Which scheme is running. Reported, never assumed. */
-export type Scheme = "fsi4" | "hermite" | "leapfrog";
+export type Scheme = "fsi4" | "symmetric" | "hermite" | "leapfrog";
 
 export interface ChooseOptions {
   maxStep?: number;
@@ -82,6 +83,13 @@ export function chooseIntegrator(
       order: 4,
     };
   }
+  if (prefer === "symmetric") {
+    return {
+      integrator: createSymmetricHermite(state, force, { ...rest, adaptive }),
+      scheme: "symmetric",
+      order: 4,
+    };
+  }
   if (prefer === "fsi4") {
     // Likewise for forceGradient.
     return { integrator: createFsi4(state, force, rest), scheme: "fsi4", order: 4 };
@@ -101,7 +109,10 @@ export function chooseIntegrator(
 export function availableSchemes(force: ForceModel): Scheme[] {
   const out: Scheme[] = [];
   if (supportsForceGradient(force)) out.push("fsi4");
-  if (supportsJerk(force)) out.push("hermite");
+  /* Symmetric before asymmetric: where both run, the symmetric one is the better scheme and the
+     asymmetric one is carried as its control. Neither is the DEFAULT — that is still FSI4 — so
+     this order is a statement about quality, not about what `chooseIntegrator` returns. */
+  if (supportsJerk(force)) out.push("symmetric", "hermite");
   out.push("leapfrog");
   return out;
 }

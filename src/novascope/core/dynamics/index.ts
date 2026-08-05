@@ -51,6 +51,14 @@ export { createFsi4, supportsForceGradient } from "./fsi4.ts";
 export type { Hermite, HermiteOptions, JerkCapable } from "./hermite.ts";
 export { createHermite, supportsJerk, HERMITE_ETA } from "./hermite.ts";
 
+export type { SymmetricHermite, SymmetricHermiteOptions } from "./symmetric.ts";
+export {
+  createSymmetricHermite,
+  SYMMETRIC_ETA,
+  SYMMETRIC_ITERATIONS,
+  SYMMETRIC_OUTER,
+} from "./symmetric.ts";
+
 export type { Integrator, ChooseOptions, Scheme } from "./choose.ts";
 export { chooseIntegrator, availableSchemes } from "./choose.ts";
 

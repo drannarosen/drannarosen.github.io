@@ -245,8 +245,12 @@ describe("chooseIntegrator with Hermite available", () => {
 
   it("reports what each model can actually run", () => {
     const s = keplerPair();
+    /* `symmetric` sits between fsi4 and hermite: it needs the same jerk kernel hermite does,
+       and where both run it is the better of the two — hermite is carried as its asymmetric
+       control. Order is a quality statement; the DEFAULT is still fsi4, asserted below. */
     expect(availableSchemes(createDirectForce({ softening: KEPLER.softening, G }))).toEqual([
       "fsi4",
+      "symmetric",
       "hermite",
       "leapfrog",
     ]);
