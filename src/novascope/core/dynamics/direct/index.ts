@@ -50,14 +50,37 @@
 import type { ForceModel, Vec3Array } from "../types.ts";
 import { G_PC3_MSUN_MYR2 } from "../../constants/index.ts";
 
+/**
+ * Plummer softening [pc]: one length for every pair, or one PER PARTICLE.
+ *
+ * ── THE TYPE IS THE GUARANTEE, AND IT IS DELIBERATE ──
+ *
+ * A `Float64Array` indexed by particle, never a function of position. Pairs combine as the
+ * geometric mean, eps_ij = sqrt(eps_i eps_j), as gravax's `ConstantSoftening.eps_ij` does.
+ *
+ * The obvious next idea — soften only pairs that come close — is UNAVAILABLE here, on purpose.
+ * Separation-dependent softening makes eps a function of the state, and the acceleration then
+ * stops being the gradient of the potential unless a grad-eps correction term is carried. That
+ * is precisely the failure `../types.ts` is built around: the conservation check would report
+ * drift while the integrator was perfect, and the number this whole module is judged by would
+ * become meaningless.
+ *
+ * Making the type unable to express it is the same move `stepsForSoftening` made for the
+ * eps/dt confound — the mistake is not documented, it is impossible.
+ *
+ * WHAT PER-PARTICLE IS FOR: a binary watched at eps = 0 inside a softened background cluster.
+ * Both are honest simultaneously, because eps_ij is a constant of the pair's identity.
+ */
+export type Softening = number | Float64Array;
+
 export interface DirectOptions {
   /**
-   * Plummer softening length [pc]. REQUIRED — there is no default.
+   * Plummer softening [pc]. REQUIRED — there is no default.
    *
    * A default here would be a physics choice hidden in a constructor, and the right value
    * depends on the system being modelled. `softeningForCluster` computes the usual one.
    */
-  softening: number;
+  softening: Softening;
   /** Gravitational constant [pc^3 Msun^-1 Myr^-2]. Defaults to the derived IAU value. */
   G?: number;
 }
@@ -210,7 +233,13 @@ export function stepsForSoftening(fraction: number): number {
 
 export function createDirectForce(opts: DirectOptions): ForceModel {
   const G = opts.G ?? G_PC3_MSUN_MYR2;
-  const eps2 = opts.softening * opts.softening;
+  /* The two shapes are resolved ONCE, here, rather than per pair. `epsArr === null` means
+     uniform, and every hot loop branches on that null — a monomorphic, perfectly-predicted
+     check that leaves the uniform path at exactly the arithmetic it had before per-particle
+     softening existed. eps_ij^2 = (sqrt(eps_i eps_j))^2 = eps_i eps_j, so the geometric mean
+     costs one multiply and never a square root. */
+  const epsArr = typeof opts.softening === "number" ? null : opts.softening;
+  const eps2 = epsArr === null ? (opts.softening as number) ** 2 : 0;
 
   return {
     id: "direct",
@@ -228,12 +257,14 @@ export function createDirectForce(opts: DirectOptions): ForceModel {
         const yi = pos[ix + 1];
         const zi = pos[ix + 2];
         const mi = mass[i];
+        const epsI = epsArr === null ? 0 : epsArr[i];
         for (let j = i + 1; j < n; j++) {
           const jx = j * 3;
           const dx = pos[jx] - xi;
           const dy = pos[jx + 1] - yi;
           const dz = pos[jx + 2] - zi;
-          const r2 = dx * dx + dy * dy + dz * dz + eps2;
+          const r2 =
+            dx * dx + dy * dy + dz * dz + (epsArr === null ? eps2 : epsI * epsArr[j]);
           const invR3 = 1 / (r2 * Math.sqrt(r2));
           const s = G * invR3;
           const si = s * mass[j];
@@ -258,12 +289,16 @@ export function createDirectForce(opts: DirectOptions): ForceModel {
         const yi = pos[ix + 1];
         const zi = pos[ix + 2];
         const mi = mass[i];
+        const epsI = epsArr === null ? 0 : epsArr[i];
         for (let j = i + 1; j < n; j++) {
           const jx = j * 3;
           const dx = pos[jx] - xi;
           const dy = pos[jx + 1] - yi;
           const dz = pos[jx + 2] - zi;
-          u -= (G * mi * mass[j]) / Math.sqrt(dx * dx + dy * dy + dz * dz + eps2);
+          /* The SAME eps_ij the acceleration kernel uses. If these two ever disagree the energy
+             check reports drift while the integrator is exact — the trap ../types.ts names. */
+          const e2 = epsArr === null ? eps2 : epsI * epsArr[j];
+          u -= (G * mi * mass[j]) / Math.sqrt(dx * dx + dy * dy + dz * dz + e2);
         }
       }
       return u;
@@ -309,13 +344,15 @@ export function createDirectForce(opts: DirectOptions): ForceModel {
         let gy = 0;
         let gz = 0;
 
+        const epsI = epsArr === null ? 0 : epsArr[i];
         for (let j = 0; j < n; j++) {
           if (j === i) continue;
           const jx = j * 3;
           const dx = pos[jx] - xi;
           const dy = pos[jx + 1] - yi;
           const dz = pos[jx + 2] - zi;
-          const r2 = dx * dx + dy * dy + dz * dz + eps2;
+          const r2 =
+            dx * dx + dy * dy + dz * dz + (epsArr === null ? eps2 : epsI * epsArr[j]);
           const r = Math.sqrt(r2);
           const invR5 = 1 / (r2 * r2 * r);
 
@@ -372,6 +409,7 @@ export function createDirectForce(opts: DirectOptions): ForceModel {
         const vyi = vel[ix + 1];
         const vzi = vel[ix + 2];
         const mi = mass[i];
+        const epsI = epsArr === null ? 0 : epsArr[i];
         for (let j = i + 1; j < n; j++) {
           const jx = j * 3;
           const dx = pos[jx] - xi;
@@ -381,7 +419,8 @@ export function createDirectForce(opts: DirectOptions): ForceModel {
           const dvy = vel[jx + 1] - vyi;
           const dvz = vel[jx + 2] - vzi;
 
-          const r2 = dx * dx + dy * dy + dz * dz + eps2;
+          const r2 =
+            dx * dx + dy * dy + dz * dz + (epsArr === null ? eps2 : epsI * epsArr[j]);
           const r = Math.sqrt(r2);
           const invR3 = 1 / (r2 * r);
           /* -3 (x.v)/r^2 folded into invR3 rather than forming invR5 separately: the two
@@ -420,12 +459,14 @@ export function createDirectForce(opts: DirectOptions): ForceModel {
         const xi = pos[ix];
         const yi = pos[ix + 1];
         const zi = pos[ix + 2];
+        const epsI = epsArr === null ? 0 : epsArr[i];
         for (let j = i + 1; j < n; j++) {
           const jx = j * 3;
           const dx = pos[jx] - xi;
           const dy = pos[jx + 1] - yi;
           const dz = pos[jx + 2] - zi;
-          const invR = G / Math.sqrt(dx * dx + dy * dy + dz * dz + eps2);
+          const e2 = epsArr === null ? eps2 : epsI * epsArr[j];
+          const invR = G / Math.sqrt(dx * dx + dy * dy + dz * dz + e2);
           out[i] -= invR * mass[j];
           out[j] -= invR * mass[i];
         }

@@ -54,6 +54,101 @@ describe("createDirectForce", () => {
     }
   });
 
+  it("stays the gradient of its potential with PER-PARTICLE softening, including zeros", () => {
+    /* The same contract as above, on the option that could break it. Per-particle eps combines
+       as eps_ij^2 = eps_i eps_j across five separate kernels, so the failure mode is one kernel
+       disagreeing with another — invisible in any single output, and fatal to the energy
+       readout that judges every run on /dynamics-lab.
+       Deliberately mixed, INCLUDING EXACT ZEROS, because a zero makes eps_ij vanish for every
+       pair that particle is in: that is the "binary at eps = 0 inside a softened cluster" case,
+       and it is the one where a stray `+ eps2` in one kernel would survive unnoticed. */
+    const n = 6;
+    const s = createState(n);
+    const rnd = [
+      0.31, -0.72, 0.55, -0.18, 0.94, -0.41, 0.67, 0.12, -0.86, -0.53, -0.29, 0.78, 0.05,
+      0.61, -0.34, 0.88, -0.47, 0.23,
+    ];
+    const eps = Float64Array.from([0, 0, 0.4, 0.15, 0.25, 0.05]);
+    for (let i = 0; i < n; i++) {
+      s.mass[i] = 0.5 + 0.3 * i;
+      for (let k = 0; k < 3; k++) s.pos[i * 3 + k] = rnd[i * 3 + k];
+    }
+    const force = createDirectForce({ softening: eps, G });
+    const acc = new Float64Array(n * 3);
+    force.accelerations(s.pos, s.mass, acc, 0);
+
+    const h = 1e-6;
+    for (let c = 0; c < n * 3; c++) {
+      const saved = s.pos[c];
+      s.pos[c] = saved + h;
+      const uPlus = force.potentialEnergy(s.pos, s.mass, 0);
+      s.pos[c] = saved - h;
+      const uMinus = force.potentialEnergy(s.pos, s.mass, 0);
+      s.pos[c] = saved;
+      const numerical = (uPlus - uMinus) / (2 * h);
+      const analytic = -s.mass[Math.floor(c / 3)] * acc[c];
+      expect(Math.abs(numerical - analytic)).toBeLessThan(1e-6 * (1 + Math.abs(analytic)));
+    }
+
+    // And the per-star potential must still sum to the total: U = 1/2 sum m_i Phi_i.
+    const phi = new Float64Array(n);
+    force.potentials(s.pos, s.mass, phi, 0);
+    let half = 0;
+    for (let i = 0; i < n; i++) half += 0.5 * s.mass[i] * phi[i];
+    expect(half).toBeCloseTo(force.potentialEnergy(s.pos, s.mass, 0), 10);
+  });
+
+  it("a uniform per-particle array is bit-identical to the equivalent scalar", () => {
+    /* The two code paths must not be two physics. A scalar eps and an array of that same eps
+       are the same model, so any difference is a defect in one of the branches — and this is
+       the cheapest possible way to catch a kernel that was missed during the edit. */
+    const n = 8;
+    const s = createState(n);
+    for (let i = 0; i < n; i++) {
+      s.mass[i] = 1 + 0.1 * i;
+      s.pos[i * 3] = Math.cos(i) * (1 + i * 0.1);
+      s.pos[i * 3 + 1] = Math.sin(i) * (1 + i * 0.1);
+      s.pos[i * 3 + 2] = 0.1 * i - 0.4;
+      s.vel[i * 3 + 1] = 0.2 * Math.cos(i * 1.7);
+      s.vel[i * 3] = 0.2 * Math.sin(i * 1.3);
+    }
+    const EPS = 0.17;
+    const scalar = createDirectForce({ softening: EPS, G });
+    const array = createDirectForce({ softening: new Float64Array(n).fill(EPS), G });
+
+    const cmp = (a: Float64Array, b: Float64Array): void => {
+      for (let i = 0; i < a.length; i++) expect(a[i]).toBe(b[i]);
+    };
+    const a1 = new Float64Array(n * 3);
+    const a2 = new Float64Array(n * 3);
+    scalar.accelerations(s.pos, s.mass, a1, 0);
+    array.accelerations(s.pos, s.mass, a2, 0);
+    cmp(a1, a2);
+
+    expect(array.potentialEnergy(s.pos, s.mass, 0)).toBe(
+      scalar.potentialEnergy(s.pos, s.mass, 0),
+    );
+
+    const p1 = new Float64Array(n);
+    const p2 = new Float64Array(n);
+    scalar.potentials(s.pos, s.mass, p1, 0);
+    array.potentials(s.pos, s.mass, p2, 0);
+    cmp(p1, p2);
+
+    const g1 = new Float64Array(n * 3);
+    const g2 = new Float64Array(n * 3);
+    scalar.forceGradient!(s.pos, s.mass, a1, g1, 0);
+    array.forceGradient!(s.pos, s.mass, a2, g2, 0);
+    cmp(g1, g2);
+
+    const j1 = new Float64Array(n * 3);
+    const j2 = new Float64Array(n * 3);
+    scalar.accelerationsAndJerk!(s.pos, s.vel, s.mass, a1, j1, 0);
+    array.accelerationsAndJerk!(s.pos, s.vel, s.mass, a2, j2, 0);
+    cmp(a1, a2);
+    cmp(j1, j2);
+  });
+
   it("conserves total momentum to round-off, because pairs are applied to both members", () => {
     const n = 20;
     const s = createState(n);

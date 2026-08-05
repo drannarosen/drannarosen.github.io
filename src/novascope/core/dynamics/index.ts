@@ -65,7 +65,10 @@ export { chooseIntegrator, availableSchemes } from "./choose.ts";
 export type { TimestepAdvice } from "./timestep.ts";
 export { softenAccelTimestep, DEFAULT_ETA } from "./timestep.ts";
 
-export type { DirectOptions } from "./direct/index.ts";
+export type { Scenario, ScenarioBuild, ScenarioId, ScenarioParams } from "./scenarios.ts";
+export { SCENARIOS, scenario } from "./scenarios.ts";
+
+export type { DirectOptions, Softening } from "./direct/index.ts";
 export {
   createDirectForce,
   softeningForCluster,

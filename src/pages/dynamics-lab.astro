@@ -2,30 +2,42 @@
 /*
  * dynamics-lab.astro — an instrument for looking at integrators, not a published page.
  *
- * noindex and unlinked, in the mould of /star-render-lab. What it is FOR is the one question the
- * three schemes in `core/dynamics` disagree about: how the timestep is chosen, and what that
- * costs. Everything on the page is either a control over that or a readout of its consequence.
+ * noindex and unlinked, in the mould of /star-render-lab.
  *
- * The energy readout is the point. A cluster that looks plausible while its energy drifts by 90%
- * is the failure mode this whole module is built against, and it is invisible in the picture —
- * the stars still move, the cluster still looks like a cluster. So the number is on screen at all
- * times, next to the thing it judges, and it latches: a run that misbehaves and recovers stays
- * marked, because the recovery does not undo what happened.
+ * ── WHAT CHANGED, AND WHY THE CHART IS THE POINT ──
+ *
+ * The first version showed the energy drift as ONE NUMBER, and that number could not express the
+ * thing the page is actually about. A symplectic map's error is bounded and oscillatory; an
+ * asymmetric predictor-corrector's is secular. Those are two SHAPES, not two magnitudes — at any
+ * single instant the secular one may be the smaller of the two, and a reader watching one digit
+ * would conclude the wrong scheme was better. Measured on the two-body fixture at 128 steps per
+ * orbit: symmetric holds 2.4e-5 whether the run is 4 orbits or 256, while asymmetric climbs
+ * 2.3e-4 -> 1.2e-2. You cannot see a factor of 51 accumulate by staring at a digit.
+ *
+ * So the strip chart is not decoration. `monitor.history` was already retaining 600 samples and
+ * nothing plotted them.
+ *
+ * ── AND WHY SCENARIOS ──
+ *
+ * The softening slider let a reader build configurations no scheme on offer could integrate, and
+ * the page presented the results anyway. `core/dynamics/scenarios.ts` now owns which schemes are
+ * honest for which configuration, and its `limits` string is rendered rather than paraphrased.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
+import { SCENARIOS } from "@novascope/core/dynamics";
 ---
 
 <BaseLayout
   title="Dynamics lab — Anna Rosen"
-  description="Development surface: N-body integrators, softening, and what conservation costs."
+  description="Development surface: N-body integrators, time symmetry, and what conservation costs."
   path="/dynamics-lab"
   noindex
 >
   <PageHeader
     eyebrow="Development surface · not linked"
     title="How you choose the timestep is the physics"
-    lede="Three integrators on identical initial conditions. Same stars, same masses, same softening — the only difference is how each decides how far to step. Watch the energy, not the picture."
+    lede="Four integrators on identical initial conditions. The energy trace below the field is the subject — not how large the error is, but whether it grows."
   />
 
   <div class="wrap-wide lab">
@@ -33,44 +45,56 @@ import PageHeader from "../components/PageHeader.astro";
       <canvas
         class="lab__canvas"
         data-canvas
-        aria-label="A star cluster of a few hundred stars, integrated in real time."></canvas>
+        aria-label="A gravitational N-body configuration, integrated in real time."></canvas>
+      <canvas
+        class="lab__chart"
+        data-chart
+        aria-label="Energy drift against time, on a logarithmic scale."></canvas>
       <p class="lab__note" data-status aria-live="polite">Starting…</p>
     </div>
 
     <div class="lab__side flow">
       <fieldset class="ctl">
+        <legend>Scenario</legend>
+        {
+          SCENARIOS.map((s, i) => (
+            <label class="ctl__row">
+              <input type="radio" name="scenario" value={s.id} checked={i === 0} />
+              <span><strong>{s.label}</strong></span>
+            </label>
+          ))
+        }
+        <p class="ctl__hint" data-blurb></p>
+      </fieldset>
+
+      <fieldset class="ctl">
         <legend>Integrator</legend>
-        <label class="ctl__row">
-          <input type="radio" name="scheme" value="fsi4" checked />
-          <span><strong>FSI4</strong> — 4th-order forward symplectic, fixed step</span>
-        </label>
-        <label class="ctl__row">
-          <input type="radio" name="scheme" value="hermite" />
-          <span><strong>Hermite</strong> — 4th-order predictor-corrector, <em>adaptive</em></span>
-        </label>
-        <label class="ctl__row">
-          <input type="radio" name="scheme" value="leapfrog" />
-          <span><strong>Leapfrog</strong> — 2nd-order symplectic, fixed step</span>
-        </label>
+        <div data-schemes></div>
+        <p class="ctl__hint" data-scheme-note></p>
       </fieldset>
 
-      <fieldset class="ctl">
-        <legend>Softening <span class="ctl__val" data-eps-label>0.5 d</span></legend>
-        <input type="range" data-eps min="0" max="5" step="1" value="0" />
-        <p class="ctl__hint">
-          ε = fraction · r<sub>h</sub> · N<sup>−1/3</sup>. Smaller ε means more of the Coulomb
-          logarithm, so more real two-body relaxation — and a shorter step to resolve it.
-        </p>
+      <fieldset class="ctl" data-param="eccentricity">
+        <legend>Eccentricity <span class="ctl__val" data-ecc-label>0.50</span></legend>
+        <input type="range" data-ecc min="0" max="0.9" step="0.05" value="0.5" />
       </fieldset>
 
-      <fieldset class="ctl">
+      <fieldset class="ctl" data-param="n">
         <legend>Stars <span class="ctl__val" data-n-label>200</span></legend>
-        <input type="range" data-n min="100" max="600" step="50" value="200" />
-        <p class="ctl__hint">O(N²). Measured interactive ceiling is around 512.</p>
+        <input type="range" data-n min="20" max="512" step="20" value="200" />
+      </fieldset>
+
+      <fieldset class="ctl" data-param="softening">
+        <legend>Softening <span class="ctl__val" data-eps-label>0.5 d</span></legend>
+        <input type="range" data-eps min="0" max="6" step="1" value="0" />
+        <p class="ctl__hint">
+          ε = fraction · r<sub>h</sub> · N<sup>−1/3</sup>, where d ≡ r<sub>h</sub>N<sup>−1/3</sup>.
+          The last stop is exactly zero.
+        </p>
       </fieldset>
 
       <div class="ctl ctl--buttons">
         <button type="button" data-play aria-pressed="true">Pause</button>
+        <button type="button" data-reverse>Reverse</button>
         <button type="button" data-reset>Reset</button>
       </div>
 
@@ -78,71 +102,69 @@ import PageHeader from "../components/PageHeader.astro";
         <div class="meter__row"><dt>|ΔE/E|</dt><dd data-de>—</dd></div>
         <div class="meter__row"><dt>worst |ΔE/E|</dt><dd data-dew>—</dd></div>
         <div class="meter__row"><dt>Q = T/|U|</dt><dd data-q>—</dd></div>
-        <div class="meter__row"><dt>t / t<sub>cross</sub></dt><dd data-tc>—</dd></div>
+        <div class="meter__row"><dt>elapsed</dt><dd data-tc>—</dd></div>
         <div class="meter__row"><dt>bound</dt><dd data-bound>—</dd></div>
         <div class="meter__row"><dt>force evals / frame</dt><dd data-cost>—</dd></div>
       </dl>
       <p class="meter__verdict" data-health>—</p>
+      <p class="ctl__hint" data-limits></p>
     </div>
   </div>
 
   <div class="wrap">
     <div class="prose flow">
-      <h2>What to look for</h2>
+      <h2>What the trace shows that the number cannot</h2>
       <p>
-        Drag the softening down. Measured over ten crossing times at N = 200, seed 2026 — worst
-        |ΔE/E| at each rung:
+        Pick <strong>Two-body orbit</strong> and watch the energy trace under the field. On
+        <strong>Symmetric</strong> it settles into a band and stays there however long you run.
+        Switch to <strong>Hermite</strong> — the same order, the same corrector, the same
+        softening — and the trace climbs. Neither scheme is less accurate per step. The
+        difference is entirely in <em>how the step size is chosen</em>.
       </p>
+      <p>
+        Hermite sizes its step from the state it is leaving, <em>dt</em> = h(ξ₀). A map whose
+        step depends on only one of its two endpoints is not invariant under reversing time, and
+        so has no reason to give the energy back. The symmetric scheme takes
+        <em>dt</em> = ½[h(ξ₀) + h(ξ₁)] — a rule that reads the same forwards and backwards — and
+        pays for it by having to solve a fixed point, because ξ₁ depends on the step that depends
+        on ξ₁.
+      </p>
+      <p>
+        Press <strong>Reverse</strong> on the two-body orbit. The velocities flip and the run
+        retraces itself; the symmetric scheme returns to where it began, and the others do not.
+        That is the property, and everything else on this page is downstream of it.
+      </p>
+
+      <h2>Measured</h2>
       <table class="tbl">
-        <caption>Worst energy drift over 10 t<sub>cross</sub>, identical initial conditions.</caption>
+        <caption>Peak |ΔE/E| on the eccentric two-body fixture, 128 steps per orbit.</caption>
         <thead>
           <tr
-            ><th scope="col">ε / r<sub>h</sub></th><th scope="col">FSI4</th><th scope="col"
-              >Hermite</th
-            ><th scope="col">Leapfrog</th><th scope="col">Hermite cost</th></tr
+            ><th scope="col">orbits</th><th scope="col">symmetric</th><th scope="col"
+              >asymmetric</th
+            ></tr
           >
         </thead>
         <tbody>
-          <tr><th scope="row">0.086</th><td>1.3e−5</td><td>8.3e−7</td><td>7.5e−3</td><td>765</td></tr>
-          <tr><th scope="row">0.043</th><td>7.3e−4</td><td>4.6e−6</td><td>1.4e−1</td><td>1333</td></tr>
-          <tr><th scope="row">0.021</th><td>1.3e−2</td><td>1.3e−5</td><td>7.8e−2</td><td>1928</td></tr>
-          <tr><th scope="row">0.011</th><td>6.2e+0</td><td>2.3e−5</td><td>1.6e+0</td><td>2360</td></tr>
-          <tr><th scope="row">0.005</th><td>1.1e+0</td><td>5.1e−5</td><td>2.4e+0</td><td>2532</td></tr>
-          <tr><th scope="row">0.003</th><td>6.6e+1</td><td>5.7e−4</td><td>2.4e+0</td><td>9809</td></tr>
+          <tr><th scope="row">4</th><td>2.38e−5</td><td>2.28e−4</td></tr>
+          <tr><th scope="row">16</th><td>2.39e−5</td><td>7.77e−4</td></tr>
+          <tr><th scope="row">64</th><td>2.43e−5</td><td>2.96e−3</td></tr>
+          <tr><th scope="row">256</th><td>2.56e−5</td><td>1.16e−2</td></tr>
         </tbody>
       </table>
       <p>
-        The two fixed-step schemes fail, but not at the same place and not tidily. The leapfrog is
-        already at 14% by ε = 0.043 r<sub>h</sub>; FSI4 is still at 7.3 × 10<sup>−4</sup> there and
-        does not cross 10% until nearer 0.02. <strong
-          >Neither column is monotonic</strong
-        > — FSI4 runs 6.2, then 1.1, then 66. That is not noise in the measurement, it is the
-        answer: past roughly 128 steps per crossing time the residual is no longer the timestep
-        but individual close encounters, which are chaotic and do not average down. A run that
-        happens to avoid a hard pass looks better than a finer one that does not.
+        Flat to 7% against a factor of 51. The cost is real and runs the other way: one symmetric
+        step is eight force evaluations against one, so on a 200-star cluster it conserves five
+        orders better and takes 39× the work — 147 806 force evaluations per crossing time
+        against 3758, and 222 seconds of wall clock against 7. That is why it is the default for
+        two bodies and an opt-in for a cluster, and why the scenario decides rather than the
+        reader.
       </p>
       <p>
-        Hermite holds 10<sup>−5</sup> or better across almost the whole range, reaching 5.7 ×
-        10<sup>−4</sup> only at the finest rung, because it shortens its own step when a pair
-        closes. It buys that with work — the last column is force evaluations per crossing time,
-        and it rises 13× across the scan. Nothing here is free, and the trade is the subject.
-      </p>
-      <p>
-        The deeper point, which the slider can only half show: <strong
-          >Hermite does not actually need the softening at all</strong
-        >. Run at ε = 0 exactly it conserves to 3.4 × 10<sup>−5</sup> — better than any softened
-        rung above — because an adaptive step is the mechanism that handles a close pair, and
-        softening is the substitute a fixed step is forced to use instead. FSI4 at ε = 0 does not
-        converge at any step this page can afford: 1.5 × 10<sup>3</sup> at 128 steps per crossing
-        time, still 0.37 at 8192. The softening on this page is scaffolding for the fixed-step
-        schemes, not physics, and the ladder's lowest rungs describe those schemes failing rather
-        than anything about stellar dynamics.
-      </p>
-      <p>
-        Softening is not a nuisance parameter to be minimised. It sets which encounters the model
-        represents at all — ε cuts the Coulomb logarithm off at ln(r<sub>h</sub>/ε), so a large ε
-        suppresses the two-body relaxation this force model exists to produce, and a small one
-        demands a step the integrator has to be able to take.
+        Softening, on the cluster, is scaffolding for the <em>fixed-step</em> schemes rather than
+        physics. Take it to zero and watch FSI4 and the leapfrog come apart while the two
+        adaptive schemes carry on: an adaptive step is the mechanism that resolves a close pair,
+        and softening is the substitute a fixed step is forced to use instead.
       </p>
     </div>
   </div>
@@ -150,27 +172,23 @@ import PageHeader from "../components/PageHeader.astro";
 
 <script>
   import {
-    availableSchemes,
+    SCENARIOS,
     chooseIntegrator,
     createConservationMonitor,
-    createDirectForce,
-    crossingTime,
     measure,
+    scenario,
     softeningForCluster,
     stepsForSoftening,
-    clusterState,
     type ConservationMonitor,
     type ForceModel,
     type Integrator,
+    type Scenario,
+    type ScenarioBuild,
+    type ScenarioId,
     type Scheme,
-    type State,
     type Vec3Array,
   } from "@novascope/core/dynamics";
-  import { defaultIdentity } from "@novascope/core/cluster/params";
 
-  /* Every lookup goes through one throwing helper, so the rest of the file works with non-null
-     types. Returning null and checking at each use would let a missing element degrade into a
-     silently half-working page, which on an instrument is worse than not loading. */
   const el = <T extends Element>(sel: string): T => {
     const found = document.querySelector<T>(sel);
     if (!found) throw new Error(`dynamics-lab: ${sel} missing`);
@@ -178,57 +196,38 @@ import PageHeader from "../components/PageHeader.astro";
   };
 
   const canvas = el<HTMLCanvasElement>("[data-canvas]");
+  const chart = el<HTMLCanvasElement>("[data-chart]");
   const status = el<HTMLElement>("[data-status]");
-  const maybeCtx = canvas.getContext("2d");
-  if (!maybeCtx) throw new Error("dynamics-lab: no 2d context");
-  /* Bound to an explicitly typed const so the narrowing survives into the draw closures — the
-     same reason `core/dynamics/fsi4.ts` binds its narrowed force model rather than asserting. */
-  const ctx: CanvasRenderingContext2D = maybeCtx;
+  const ctx = canvas.getContext("2d");
+  const cctx = chart.getContext("2d");
+  if (!ctx || !cctx) throw new Error("dynamics-lab: no 2d context");
+  const field: CanvasRenderingContext2D = ctx;
+  const trace: CanvasRenderingContext2D = cctx;
+
   const playBtn = el<HTMLButtonElement>("[data-play]");
+  const reverseBtn = el<HTMLButtonElement>("[data-reverse]");
   const resetBtn = el<HTMLButtonElement>("[data-reset]");
-  const epsInput = el<HTMLInputElement>("[data-eps]");
+  const eccInput = el<HTMLInputElement>("[data-ecc]");
   const nInput = el<HTMLInputElement>("[data-n]");
+  const epsInput = el<HTMLInputElement>("[data-eps]");
+  const schemeBox = el<HTMLElement>("[data-schemes]");
 
-  /* The softening ladder is discrete and labelled in units of d = r_h N^(-1/3), because that is
-     the quantity the physics is stated in. A free slider in parsecs would let a reader set a value
-     with no relationship to the cluster it is softening. */
-  const FRACTIONS = [0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625];
-
-  const SCALE_PC = 0.5;
-  const R_HALF = SCALE_PC * 1.305; // Plummer: r_h = 1.305 a
-  /* The drawn half-width is DERIVED from the cluster, not chosen: 4 half-mass radii, which holds
-     the bound cluster and a margin of escapers. A hardcoded value drew a 0.65 pc cluster inside a
-     6 pc field, i.e. filling 11% of the frame, and the fix for that is the right number rather
-     than a zoom that would drift out of step with the profile. */
-  const VIEW_PC = 4 * R_HALF;
-
-  /** How far one animation frame advances the clock. Also the unit the delivered rate is in. */
-  const FRAMES_PER_TCROSS = 64;
+  /* The last stop is EXACTLY zero, not a small number. On the cluster that is the configuration
+     that separates the two adaptive schemes from the two fixed-step ones, so it has to be
+     reachable — a slider that stopped just short would hide the result. */
+  const FRACTIONS = [0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625, 0];
+  const FRAMES_PER_UNIT = 64;
 
   interface Run {
-    state: State;
-    force: ForceModel;
+    build: ScenarioBuild;
+    scenario: Scenario;
     integrator: Integrator;
     monitor: ConservationMonitor;
-    tCross: number;
     scheme: Scheme;
     evals: () => number;
-    /**
-     * Sub-steps per crossing time this run will ACTUALLY take, or null when the scheme sizes
-     * its own and the answer is not knowable in advance.
-     *
-     * Derived rather than echoed. `stepsForSoftening` returns what the softening ASKS for, and
-     * the fixed-step schemes subdivide each frame by `ceil(dt / maxStep)` — an integer — so the
-     * delivered rate is the request rounded UP to a multiple of the frame rate. At fraction 0.5
-     * the request is 181 and the run takes 192; at 0.125 the request is 362 and the run takes
-     * 384; at 0.25 the request is 256 and the two agree, which is worse than a constant offset
-     * because it makes the discrepancy intermittent.
-     *
-     * The page already refuses to echo the requested SCHEME back at the reader — that is why
-     * `chooseIntegrator` reports its pick. Echoing the requested step rate was the same mistake
-     * one field to the right.
-     */
-    stepsPerTCross: number | null;
+    stepsPerUnit: number | null;
+    /** Recent positions for the trail, only for configurations small enough to read. */
+    trail: number[][];
   }
 
   /** Wraps a force model to count evaluations — the cost readout, without touching the core. */
@@ -254,14 +253,7 @@ import PageHeader from "../components/PageHeader.astro";
             }
           : undefined,
         accelerationsAndJerk: force.accelerationsAndJerk
-          ? (
-              p: Vec3Array,
-              v: Vec3Array,
-              m: Float64Array,
-              a: Vec3Array,
-              j: Vec3Array,
-              t: number,
-            ) => {
+          ? (p: Vec3Array, v: Vec3Array, m: Float64Array, a: Vec3Array, j: Vec3Array, t: number) => {
               bump();
               force.accelerationsAndJerk!(p, v, m, a, j, t);
             }
@@ -275,82 +267,136 @@ import PageHeader from "../components/PageHeader.astro";
   let lastEvals = 0;
   let evalsPerFrame = 0;
 
+  const currentScenarioId = (): ScenarioId =>
+    (document.querySelector<HTMLInputElement>('input[name="scenario"]:checked')?.value ??
+      "two-body") as ScenarioId;
+
+  const currentScheme = (): Scheme | null =>
+    (document.querySelector<HTMLInputElement>('input[name="scheme"]:checked')?.value ??
+      null) as Scheme | null;
+
+  /** Rebuild the integrator radios for the scenario — a scenario OWNS what is honest for it. */
+  function renderSchemes(s: Scenario, keep: Scheme | null): void {
+    // `keep` is only ever non-null when the scenario did NOT change — see reset().
+    const chosen = keep && s.schemes.includes(keep) ? keep : s.defaultScheme;
+    schemeBox.innerHTML = s.schemes
+      .map(
+        (id) =>
+          `<label class="ctl__row"><input type="radio" name="scheme" value="${id}"${
+            id === chosen ? " checked" : ""
+          } /><span>${SCHEME_LABEL[id]}</span></label>`,
+      )
+      .join("");
+    for (const r of schemeBox.querySelectorAll('input[name="scheme"]')) {
+      r.addEventListener("change", () => reset(true));
+    }
+  }
+
+  const SCHEME_LABEL: Record<Scheme, string> = {
+    symmetric: "<strong>Symmetric</strong> — 4th-order, time-symmetric <em>and</em> adaptive",
+    fsi4: "<strong>FSI4</strong> — 4th-order forward symplectic, fixed step",
+    hermite: "<strong>Hermite</strong> — 4th-order adaptive, <em>not</em> time-symmetric",
+    leapfrog: "<strong>Leapfrog</strong> — 2nd-order symplectic, fixed step",
+  };
+
+  const SCHEME_NOTE: Record<Scheme, string> = {
+    symmetric: "dt = ½[h(ξ₀) + h(ξ₁)] — reads the same backwards. 8 force evals per step.",
+    fsi4: "Bounded energy error, but no way to shorten its step for a close pair.",
+    hermite: "dt = h(ξ₀) — asymmetric, so its energy error is secular. 1 eval per step.",
+    leapfrog: "The second-order baseline. Present so 'fourth order' means something.",
+  };
+
+  /** Which parameter controls this scenario actually has. */
+  const PARAMS: Record<ScenarioId, string[]> = {
+    "two-body": ["eccentricity"],
+    cluster: ["n", "softening"],
+    "binary-in-cluster": ["n"],
+  };
+
   function build(): Run {
+    const s = scenario(currentScenarioId());
+    const scheme = currentScheme() ?? s.defaultScheme;
     const fraction = FRACTIONS[Number(epsInput.value)];
-    const n = Number(nInput.value);
-    const scheme = (
-      document.querySelector<HTMLInputElement>('input[name="scheme"]:checked')?.value ?? "fsi4"
-    ) as Scheme;
+    const built = s.build({
+      eccentricity: Number(eccInput.value),
+      n: Number(nInput.value),
+      softeningFraction: fraction,
+    });
 
-    const softening = softeningForCluster(R_HALF, n, fraction);
-    /* The IC's virial scaling must use the SAME force law that will step it, or the cluster
-       starts at a Q it is not actually at. `clusterState` takes the model for that reason. */
-    const bare = createDirectForce({ softening });
-    const state = clusterState(
-      defaultIdentity({
-        seed: 2026,
-        sampling: { mode: "count", target: n },
-        profile: { kind: "plummer", scaleRadius: SCALE_PC },
-        kinematics: { virialRatio: 0.5 },
-      }),
-      bare,
-    );
-
-    const { force, evals } = counted(bare);
-    const tCross = crossingTime(state);
-    /* Fixed-step schemes get the step derived from the softening — the two are coupled, and
-       holding one while changing the other is the confound that produced a wrong conclusion
-       once already. Hermite sizes its own and only takes a ceiling. */
-    const requested = stepsForSoftening(fraction);
-    const maxStep = tCross / requested;
-    const adaptive = scheme === "hermite";
-    const picked = chooseIntegrator(state, force, {
+    const { force, evals } = counted(built.force);
+    const adaptive = scheme === "hermite" || scheme === "symmetric";
+    const requested = s.id === "two-body" ? 256 : stepsForSoftening(Math.max(fraction, 1e-3));
+    const maxStep = built.timeUnit / requested;
+    const picked = chooseIntegrator(built.state, force, {
       prefer: scheme,
-      maxStep: adaptive ? tCross / FRAMES_PER_TCROSS : maxStep,
+      maxStep: adaptive ? built.timeUnit / FRAMES_PER_UNIT : maxStep,
       adaptive,
     });
 
     return {
-      state,
-      force,
+      build: built,
+      scenario: s,
       integrator: picked.integrator,
       monitor: createConservationMonitor(picked.integrator),
-      tCross,
       scheme: picked.scheme,
       evals,
-      stepsPerTCross: adaptive
+      /* DERIVED, not echoed: a frame subdivides by ceil(dt/maxStep), an integer, so the rate a
+         run actually takes is the request rounded up to a multiple of the frame rate. */
+      stepsPerUnit: adaptive
         ? null
-        : Math.ceil(requested / FRAMES_PER_TCROSS) * FRAMES_PER_TCROSS,
+        : Math.ceil(requested / FRAMES_PER_UNIT) * FRAMES_PER_UNIT,
+      trail: [],
     };
   }
 
-  function reset(): void {
+  function syncControls(s: Scenario): void {
+    const shown = PARAMS[s.id];
+    for (const box of document.querySelectorAll<HTMLElement>("[data-param]")) {
+      box.hidden = !shown.includes(box.dataset.param ?? "");
+    }
+    el<HTMLElement>("[data-blurb]").textContent = s.blurb;
+    el<HTMLElement>("[data-limits]").textContent = `Limits: ${s.limits}`;
+    reverseBtn.hidden = s.id !== "two-body";
+  }
+
+  /**
+   * @param keepScheme  true when only a parameter moved, so the radios are already correct.
+   *                    false when the SCENARIO changed, which drops back to that scenario's own
+   *                    default rather than carrying the previous choice across.
+   *
+   * Carrying it across was the first version's behaviour and it was a real trap: `symmetric` is
+   * offered by every scenario, so choosing it on the two-body orbit — where it is free — left it
+   * selected on the cluster, where it costs 39x as much and drops the page to a fraction of a
+   * frame per second. A scenario states its own default precisely because the honest choice is
+   * different in each, and silently inheriting one made that statement decorative.
+   */
+  function reset(keepScheme = false): void {
+    const s = scenario(currentScenarioId());
+    if (!keepScheme) renderSchemes(s, null);
+    syncControls(s);
     run = build();
     lastEvals = 0;
     evalsPerFrame = 0;
+
     const fraction = FRACTIONS[Number(epsInput.value)];
-    el<HTMLElement>("[data-eps-label]").textContent = `${fraction} d`;
-    el<HTMLElement>("[data-n-label]").textContent = nInput.value;
-    /* The RUNNING scheme is named here, from `chooseIntegrator`'s own report rather than from the
-       radio that was clicked. Those can differ — that is the whole reason `chooseIntegrator`
-       returns what it picked — and a page that echoed the request instead of the result would be
-       the confidently-wrong readout this codebase keeps designing against. */
+    el<HTMLElement>("[data-ecc-label]").textContent = Number(eccInput.value).toFixed(2);
+    el<HTMLElement>("[data-n-label]").textContent = String(run.build.state.n);
+    el<HTMLElement>("[data-eps-label]").textContent = fraction === 0 ? "0 (exact)" : `${fraction} d`;
+    el<HTMLElement>("[data-scheme-note]").textContent = SCHEME_NOTE[run.scheme];
+
     const rate =
-      run.stepsPerTCross === null
-        ? `adaptive step (asked for ${stepsForSoftening(fraction)}/t_cross as a ceiling)`
-        : `${run.stepsPerTCross} steps/t_cross` +
-          (run.stepsPerTCross === stepsForSoftening(fraction)
-            ? ""
-            : ` (softening asked for ${stepsForSoftening(fraction)}; the frame subdivides to an integer)`);
+      run.stepsPerUnit === null
+        ? "adaptive step"
+        : `${run.stepsPerUnit} steps/${run.build.timeUnitLabel}`;
+    /* The RUNNING scheme, from chooseIntegrator's own report rather than from the radio that was
+       clicked — those can differ, and echoing the request is the confidently-wrong readout this
+       codebase keeps designing against. */
     status.textContent =
-      `${run.scheme} · ${run.state.n} stars · ε = ${softeningForCluster(R_HALF, run.state.n, fraction).toFixed(4)} pc` +
-      ` · t_cross = ${run.tCross.toFixed(3)} Myr · ${rate}` +
-      ` · available: ${availableSchemes(run.force).join(", ")}`;
-    /* Refresh the panel NOW rather than waiting for the next animation frame. While paused there
-       is no next frame at all, so without this a control change left every number describing the
-       previous configuration — and at fine softening, where a frame can take half a second, it
-       did so for long enough to read as a result. */
+      `${run.scheme} · ${run.build.state.n} bodies · ${run.build.softeningNote}` +
+      ` · 1 ${run.build.timeUnitLabel} = ${run.build.timeUnit.toFixed(4)} Myr · ${rate}`;
+
     draw();
+    drawChart();
     readout();
   }
 
@@ -360,35 +406,138 @@ import PageHeader from "../components/PageHeader.astro";
     if (!run) return;
     const { width: w, height: h } = canvas;
     const dpr = w / Math.max(1, canvas.getBoundingClientRect().width);
-    ctx.clearRect(0, 0, w, h);
-    const scale = Math.min(w, h) / (2 * VIEW_PC);
-    const { pos, mass, n } = run.state;
+    field.clearRect(0, 0, w, h);
+    const view = run.build.viewPc;
+    const scale = Math.min(w, h) / (2 * view);
+    const { pos, mass, n } = run.build.state;
+
+    // Trails, only where they can be read: an orbit is a shape, a 200-star field is a smear.
+    if (n <= 8) {
+      run.trail.push(Array.from(pos.slice(0, n * 3)));
+      if (run.trail.length > 400) run.trail.shift();
+      field.lineWidth = dpr;
+      for (let i = 0; i < n; i++) {
+        field.beginPath();
+        for (let k = 0; k < run.trail.length; k++) {
+          const x = w / 2 + run.trail[k][i * 3] * scale;
+          const y = h / 2 + run.trail[k][i * 3 + 1] * scale;
+          if (k === 0) field.moveTo(x, y);
+          else field.lineTo(x, y);
+        }
+        field.strokeStyle = "rgba(79, 214, 196, 0.30)";
+        field.stroke();
+      }
+    }
+
     for (let i = 0; i < n; i++) {
       const x = w / 2 + pos[i * 3] * scale;
       const y = h / 2 + pos[i * 3 + 1] * scale;
-      /* Radius from mass, not from a look. Cube root so the AREA scales with mass^(2/3) and a
-         20 Msun star does not blot out its neighbours; the point is to see segregation.
-         SCALED BY dpr, because the canvas is drawn in DEVICE pixels: without this a 1 Msun star
-         came out 1.1 device px = 0.55 CSS px on a retina display, i.e. sub-pixel and invisible. */
-      const r = Math.max(0.6, Math.cbrt(mass[i]) * 1.4) * dpr;
-      // Depth cue only: nearer stars brighter. No physics is being asserted by the colour.
+      /* Radius from mass, cube root so AREA scales with mass^(2/3) and a massive star does not
+         blot out its neighbours. Scaled by dpr because the canvas is in DEVICE pixels, and by
+         the SCENARIO's markerScale because the right marker in a 200-star field is invisible
+         when there are only two bodies. */
+      const r = Math.max(0.6, Math.cbrt(mass[i]) * 1.4) * run.build.markerScale * dpr;
       const z = pos[i * 3 + 2];
-      const a = Math.max(0.35, Math.min(1, 0.8 + z / (2 * VIEW_PC)));
-      ctx.fillStyle = `rgba(232, 240, 248, ${a})`;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
+      const a = Math.max(0.35, Math.min(1, 0.8 + z / (2 * view)));
+      field.fillStyle = `rgba(232, 240, 248, ${a})`;
+      field.beginPath();
+      field.arc(x, y, r, 0, Math.PI * 2);
+      field.fill();
     }
+  }
+
+  /**
+   * The energy trace: log10 |dE/E| against elapsed time.
+   *
+   * LOGARITHMIC, because the quantity spans ten orders across the schemes on offer and a linear
+   * axis would render every well-behaved run as an identical flat line at zero — which is
+   * exactly the distinction the chart exists to draw.
+   *
+   * The axis is FIXED at 1e-16..1e0 rather than fitted to the data. An autoscaled axis rescales
+   * itself as the trace grows, so a secular climb would be redrawn as a stationary line: the
+   * chart would erase the one thing it is for.
+   */
+  function drawChart(): void {
+    if (!run) return;
+    const { width: w, height: h } = chart;
+    const dpr = w / Math.max(1, chart.getBoundingClientRect().width);
+    trace.clearRect(0, 0, w, h);
+    const LO = -16;
+    const HI = 0;
+    const padL = 34 * dpr;
+    const py = (log: number): number =>
+      h - 6 * dpr - ((log - LO) / (HI - LO)) * (h - 18 * dpr);
+
+    trace.font = `${9 * dpr}px ui-monospace, monospace`;
+    trace.strokeStyle = "rgba(255,255,255,0.10)";
+    trace.fillStyle = "rgba(255,255,255,0.40)";
+    trace.lineWidth = dpr;
+    for (let e = LO; e <= HI; e += 4) {
+      trace.beginPath();
+      trace.moveTo(padL, py(e));
+      trace.lineTo(w, py(e));
+      trace.stroke();
+      trace.fillText(`1e${e}`, 2 * dpr, py(e) + 3 * dpr);
+    }
+
+    // The health line: monitor.ts's own tolerance, drawn where it actually sits.
+    trace.strokeStyle = "rgba(226, 122, 122, 0.55)";
+    trace.setLineDash([4 * dpr, 4 * dpr]);
+    trace.beginPath();
+    trace.moveTo(padL, py(Math.log10(run.monitor.energyTolerance)));
+    trace.lineTo(w, py(Math.log10(run.monitor.energyTolerance)));
+    trace.stroke();
+    trace.setLineDash([]);
+
+    const hist = run.monitor.history;
+    if (hist.length < 2) return;
+    /* The x axis is the SCENARIO's clock (s.t / timeUnit), for the same reason the elapsed
+       readout is — `sample.tCross` normalises by the monitor's own crossing time, which is not
+       an orbit. `history` is capped at 600 samples and shifts, so this window is a ROLLING one:
+       the axis label says so rather than implying the trace starts at t = 0. */
+    const unit = run.build.timeUnit;
+    const t0 = hist[0].t / unit;
+    const t1 = hist[hist.length - 1].t / unit;
+    const span = Math.max(1e-12, t1 - t0);
+    const px = (tt: number): number => padL + ((tt - t0) / span) * (w - padL - 2 * dpr);
+
+    trace.strokeStyle = "#4fd6c4";
+    trace.lineWidth = 1.5 * dpr;
+    trace.beginPath();
+    let pen = false;
+    for (const s of hist) {
+      if (!(s.energyDrift > 0)) continue;
+      const y = py(Math.max(LO, Math.min(HI, Math.log10(s.energyDrift))));
+      const x = px(s.t / unit);
+      if (pen) trace.lineTo(x, y);
+      else trace.moveTo(x, y);
+      pen = true;
+    }
+    trace.stroke();
+
+    trace.fillStyle = "rgba(255,255,255,0.40)";
+    trace.fillText(
+      `|ΔE/E| · ${t0.toFixed(1)}–${t1.toFixed(1)} ${run.build.timeUnitLabel}`,
+      padL + 4 * dpr,
+      11 * dpr,
+    );
   }
 
   function readout(): void {
     if (!run) return;
     const s = run.monitor.sample();
-    const d = measure(run.state, run.force);
+    const d = measure(run.build.state, run.build.force);
     el<HTMLElement>("[data-de]").textContent = fmt(s.energyDrift);
     el<HTMLElement>("[data-dew]").textContent = fmt(run.monitor.worst.energy);
     el<HTMLElement>("[data-q]").textContent = s.virialRatio.toFixed(3);
-    el<HTMLElement>("[data-tc]").textContent = s.tCross.toFixed(2);
+    /* Elapsed in the SCENARIO's clock, not the monitor's.
+       `sample.tCross` is normalised by `monitor`'s own crossingTime(), which is the right unit
+       for a cluster and the WRONG one for a two-body orbit: measured, 40 orbits of the default
+       pair reported as 193.5, because the pair's crossing time is 4.8x shorter than its period.
+       A number that is off by a factor of five under a label that names the unit is precisely
+       the confidently-wrong readout this page exists to argue against. */
+    el<HTMLElement>("[data-tc]").textContent =
+      `${(s.t / run.build.timeUnit).toFixed(2)} ${run.build.timeUnitLabel}`;
     el<HTMLElement>("[data-bound]").textContent = `${(d.boundMassFraction * 100).toFixed(1)}%`;
     el<HTMLElement>("[data-cost]").textContent = evalsPerFrame.toFixed(0);
 
@@ -399,27 +548,29 @@ import PageHeader from "../components/PageHeader.astro";
     verdict.dataset.bad = String(!run.monitor.healthy);
   }
 
-  /* Sized from a ResizeObserver rather than a window `resize` listener. The window event does not
-     fire for the INITIAL layout, so a one-shot call at startup measured the canvas before CSS had
-     given it a width: the backing buffer came out 278 px inside an 877 px box, and everything drew
-     into the top-left ninth and was stretched back out. The observer fires on first layout and on
-     every subsequent change, which is the actual thing being tracked. */
+  /* Sized from a ResizeObserver rather than a window `resize` listener: the window event does
+     not fire for the INITIAL layout, so a one-shot call at startup measures the canvas before
+     CSS has given it a width and everything draws into a corner. */
   function resize(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const rect = canvas.getBoundingClientRect();
-    const w = Math.max(1, Math.round(rect.width * dpr));
-    const h = Math.max(1, Math.round(rect.height * dpr));
-    if (canvas.width === w && canvas.height === h) return;
-    canvas.width = w;
-    canvas.height = h;
+    for (const c of [canvas, chart]) {
+      const rect = c.getBoundingClientRect();
+      const w = Math.max(1, Math.round(rect.width * dpr));
+      const h = Math.max(1, Math.round(rect.height * dpr));
+      if (c.width !== w || c.height !== h) {
+        c.width = w;
+        c.height = h;
+      }
+    }
     draw();
+    drawChart();
   }
 
   function tick(): void {
     requestAnimationFrame(tick);
     if (!run || !running) return;
     try {
-      run.integrator.step(run.tCross / 64);
+      run.integrator.step(run.build.timeUnit / FRAMES_PER_UNIT);
     } catch (err) {
       running = false;
       playBtn.textContent = "Play";
@@ -431,6 +582,7 @@ import PageHeader from "../components/PageHeader.astro";
     lastEvals = now;
     draw();
     readout();
+    drawChart();
   }
 
   playBtn.addEventListener("click", () => {
@@ -438,15 +590,28 @@ import PageHeader from "../components/PageHeader.astro";
     playBtn.textContent = running ? "Pause" : "Play";
     playBtn.setAttribute("aria-pressed", String(running));
   });
-  resetBtn.addEventListener("click", reset);
-  for (const input of [epsInput, nInput]) input.addEventListener("input", reset);
-  for (const radio of document.querySelectorAll('input[name="scheme"]')) {
-    radio.addEventListener("change", reset);
+
+  /* Reverse: negate every velocity in place. A time-symmetric map then retraces its own
+     trajectory back to where it started; the others visibly do not. The trail is cleared so what
+     is drawn from here is the RETURN path rather than the outbound one drawn over itself. */
+  reverseBtn.addEventListener("click", () => {
+    if (!run) return;
+    const v = run.build.state.vel;
+    for (let i = 0; i < v.length; i++) v[i] = -v[i];
+    run.integrator.invalidateAcceleration();
+    run.trail = [];
+  });
+
+  resetBtn.addEventListener("click", () => reset());
+  for (const input of [eccInput, nInput, epsInput]) {
+    input.addEventListener("input", () => reset(true));
+  }
+  for (const radio of document.querySelectorAll('input[name="scenario"]')) {
+    radio.addEventListener("change", () => reset());
   }
   new ResizeObserver(resize).observe(canvas);
 
-  /* Respect the OS setting: start paused rather than autoplaying motion. The control is visible
-     either way, so the page is never a thing that moves with no way to stop it. */
+  // Respect the OS setting: start paused rather than autoplaying motion.
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     running = false;
     playBtn.textContent = "Play";
@@ -455,14 +620,13 @@ import PageHeader from "../components/PageHeader.astro";
 
   reset();
   resize();
-  readout();
   tick();
 </script>
 
 <style>
   .lab {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+    grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr);
     gap: var(--space-m);
     padding-block: var(--space-l);
   }
@@ -477,7 +641,16 @@ import PageHeader from "../components/PageHeader.astro";
     display: block;
     background: radial-gradient(120% 120% at 50% 45%, #0c1114, var(--bg-void));
     border: 1px solid var(--border);
-    border-radius: var(--radius-m);
+    border-radius: var(--radius-m) var(--radius-m) 0 0;
+  }
+  .lab__chart {
+    inline-size: 100%;
+    block-size: 8rem;
+    display: block;
+    background: var(--bg-void);
+    border: 1px solid var(--border);
+    border-block-start: 0;
+    border-radius: 0 0 var(--radius-m) var(--radius-m);
   }
   .lab__note,
   .ctl__hint {
@@ -490,6 +663,9 @@ import PageHeader from "../components/PageHeader.astro";
     border: 1px solid var(--border);
     border-radius: var(--radius-m);
     padding: var(--space-xs) var(--space-s) var(--space-s);
+  }
+  .ctl[hidden] {
+    display: none;
   }
   .ctl legend {
     font-family: var(--font-mono);
@@ -527,6 +703,9 @@ import PageHeader from "../components/PageHeader.astro";
     border-radius: var(--radius-s);
     cursor: pointer;
   }
+  .ctl--buttons button[hidden] {
+    display: none;
+  }
   .meter {
     font-family: var(--font-mono);
     font-size: var(--step--1);
@@ -556,7 +735,7 @@ import PageHeader from "../components/PageHeader.astro";
   }
   .tbl {
     inline-size: auto;
-    min-inline-size: min(100%, 36rem);
+    min-inline-size: min(100%, 30rem);
     border-collapse: collapse;
     font-family: var(--font-mono);
     font-size: var(--step--1);
