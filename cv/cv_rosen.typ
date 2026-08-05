@@ -341,14 +341,17 @@
 
 #cv-subsection("Graduate Students")
 
-#cv-entry([Surinder Singh Chhabra (M.S. Computational Science (Data Science), SDSU)], "2025--2026")
+#cv-entry([Surinder Singh Chhabra (M.S. Computational Science --- Data Science, SDSU)], "2025--2026")
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
   [#smallcaps[AstroRAG]: Evidence-Aware Scientific Literature Retrieval --- a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery]))
 #v(3pt)
 
-#cv-entry([Aisling Ascuna (Masters Student, SDSU)], "2024--Present")
+#cv-entry([Aisling Acuna (Masters Student, SDSU)], "2024--Present")
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
-  [Bridging #smallcaps[starforge] and #smallcaps[skirt]: A Synthetic Observation Pipeline for High-Fidelity Star Cluster Formation Simulations]))
+  // NOT #smallcaps here, unlike the code names in the descriptions above and
+  // below: this is a THESIS TITLE quoted as written, and smallcaps rendered it
+  // "Bridging starforge and skirt", which is not what the title page says.
+  [Bridging STARFORGE and SKIRT: A Synthetic Observation Pipeline for High-Fidelity Star Cluster Formation Simulations]))
 #v(3pt)
 
 #cv-entry([Zoe Bozich (Masters Student, SDSU)], "2023--2024")
