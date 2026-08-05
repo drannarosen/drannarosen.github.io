@@ -58,6 +58,29 @@ const links = activeLinks();
       </p>
     </div>
 
+    {/*
+      Elsewhere: the pages that are NOT in the header. The primary nav was cut
+      from twelve items to nine, and these three moved here rather than being
+      removed — this is the page a reader looking for "what is she doing
+      lately" already lands on, so it is where they belong. If one of them
+      returns to the nav, take it out of this block; two entry points that
+      both claim to be the way in is how a nav grows back to twelve.
+    */}
+    <nav class="about__elsewhere" aria-labelledby="elsewhere-heading">
+      <h2 id="elsewhere-heading">Elsewhere on this site</h2>
+      <ul role="list">
+        <li>
+          <a href="/now">Now</a> — what I am working on at the moment
+        </li>
+        <li>
+          <a href="/news">News</a> — announcements and press, by date
+        </li>
+        <li>
+          <a href="/outreach">Outreach</a> — public talks and community-college programs
+        </li>
+      </ul>
+    </nav>
+
     <p class="about__links">
       <a href="/cv">Curriculum vitae →</a>
       <a href="/research">Research →</a>
@@ -97,7 +120,31 @@ const links = activeLinks();
     order: 1;
   }
   /* Explicit order: flex/grid ordering defaults to 0, so without this the
-     links row sorted AHEAD of the prose, which has order: 1. */
+     links row sorted AHEAD of the prose, which has order: 1. Same trap for
+     .about__elsewhere below — it sits between the prose and the links, and
+     without an order it would render above the biography. */
+  .about__elsewhere {
+    order: 2;
+    grid-column: 1 / -1;
+    margin-block-start: var(--space-l);
+    padding-block-start: var(--space-m);
+    border-block-start: 1px solid var(--border);
+    max-inline-size: var(--width-prose);
+  }
+  .about__elsewhere h2 {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-block-end: var(--space-2xs);
+  }
+  .about__elsewhere ul {
+    display: grid;
+    gap: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
   .about__links {
     order: 3;
     grid-column: 1 / -1;

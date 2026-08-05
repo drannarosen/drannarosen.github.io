@@ -14,22 +14,40 @@ export interface ExternalLink {
   href: string | null;
 }
 
-/** Primary navigation shown in the header. */
+/*
+ * Primary navigation shown in the header.
+ *
+ * NINE items, and the count is the point. This was twelve, which is more than
+ * a visitor will scan: the row had no shape, so finding anything meant reading
+ * all of it. Ordered work -> communication -> person.
+ *
+ * /now, /news and /outreach were REMOVED from here, not deleted. Each is
+ * linked from the page a reader looking for it would already be on (see the
+ * "Elsewhere" block on /about) and from the footer. If you add one back, the
+ * question to answer first is which of the nine it beats.
+ *
+ * Do not restore /astrobytes to a footer-only link: it sits next to
+ * Publications deliberately — formal writing, then informal — after a spell
+ * with no header entry at all, reachable only from the footer's RSS link.
+ *
+ * The label for /group is "Work with me", Anna's choice, replacing "Group" —
+ * which promised a member roster that page is not. The page itself is written
+ * as a THRESHOLD rather than an advertisement (see the comment at the top of
+ * group.astro), so the label is the more inviting of the two halves: the
+ * filtering is done by the page's lede, which states eligibility plainly, and
+ * by an email that asks for three specifics only a reader of the page can
+ * supply. If the old problem returns — mail from people Anna cannot advise —
+ * the label is the first thing to reconsider, and "Opportunities" is the
+ * alternative that was on the table.
+ */
 const nav: NavItem[] = [
   { label: "Research", href: "/research" },
   { label: "Explore", href: "/explore" },
   { label: "Publications", href: "/publications" },
-  // Next to Publications deliberately: formal writing, then informal. It had
-  // no header entry at all, reachable only from the footer's RSS link.
   { label: "Astrobytes", href: "/astrobytes" },
   { label: "Software", href: "/software" },
   { label: "Teaching", href: "/teaching" },
-  { label: "Outreach", href: "/outreach" },
-  { label: "Group", href: "/group" },
-  { label: "Now", href: "/now" },
-  // Next to Now deliberately, and the pair divides cleanly: /now is present
-  // tense and gets rewritten, /news is an append-only dated record.
-  { label: "News", href: "/news" },
+  { label: "Work with me", href: "/group" },
   { label: "About", href: "/about" },
   { label: "CV", href: "/cv" },
 ];
