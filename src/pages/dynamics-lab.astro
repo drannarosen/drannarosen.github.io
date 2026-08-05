@@ -90,17 +90,53 @@ import PageHeader from "../components/PageHeader.astro";
     <div class="prose flow">
       <h2>What to look for</h2>
       <p>
-        Drag the softening down. FSI4 and the leapfrog are fixed-step: below about ε = 0.04 r<sub
-          >h</sub
-        > their energy error climbs through 10% and then past 100%, and the cluster visibly inflates
-        — but it still looks like a cluster, which is exactly why the number matters more than the
-        picture. Hermite holds its energy at 10<sup>−4</sup> across the same range, because it
-        shortens its own step when a pair closes.
+        Drag the softening down. Measured over ten crossing times at N = 200, seed 2026 — worst
+        |ΔE/E| at each rung:
+      </p>
+      <table class="tbl">
+        <caption>Worst energy drift over 10 t<sub>cross</sub>, identical initial conditions.</caption>
+        <thead>
+          <tr
+            ><th scope="col">ε / r<sub>h</sub></th><th scope="col">FSI4</th><th scope="col"
+              >Hermite</th
+            ><th scope="col">Leapfrog</th><th scope="col">Hermite cost</th></tr
+          >
+        </thead>
+        <tbody>
+          <tr><th scope="row">0.086</th><td>1.3e−5</td><td>8.3e−7</td><td>7.5e−3</td><td>765</td></tr>
+          <tr><th scope="row">0.043</th><td>7.3e−4</td><td>4.6e−6</td><td>1.4e−1</td><td>1333</td></tr>
+          <tr><th scope="row">0.021</th><td>1.3e−2</td><td>1.3e−5</td><td>7.8e−2</td><td>1928</td></tr>
+          <tr><th scope="row">0.011</th><td>6.2e+0</td><td>2.3e−5</td><td>1.6e+0</td><td>2360</td></tr>
+          <tr><th scope="row">0.005</th><td>1.1e+0</td><td>5.1e−5</td><td>2.4e+0</td><td>2532</td></tr>
+          <tr><th scope="row">0.003</th><td>6.6e+1</td><td>5.7e−4</td><td>2.4e+0</td><td>9809</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The two fixed-step schemes fail, but not at the same place and not tidily. The leapfrog is
+        already at 14% by ε = 0.043 r<sub>h</sub>; FSI4 is still at 7.3 × 10<sup>−4</sup> there and
+        does not cross 10% until nearer 0.02. <strong
+          >Neither column is monotonic</strong
+        > — FSI4 runs 6.2, then 1.1, then 66. That is not noise in the measurement, it is the
+        answer: past roughly 128 steps per crossing time the residual is no longer the timestep
+        but individual close encounters, which are chaotic and do not average down. A run that
+        happens to avoid a hard pass looks better than a finer one that does not.
       </p>
       <p>
-        The cost readout is the honest counterweight. Hermite is buying that with work: at the
-        smallest softening it spends several times as many force evaluations per crossing time.
-        Nothing here is free, and the trade is the subject.
+        Hermite holds 10<sup>−5</sup> or better across almost the whole range, reaching 5.7 ×
+        10<sup>−4</sup> only at the finest rung, because it shortens its own step when a pair
+        closes. It buys that with work — the last column is force evaluations per crossing time,
+        and it rises 13× across the scan. Nothing here is free, and the trade is the subject.
+      </p>
+      <p>
+        The deeper point, which the slider can only half show: <strong
+          >Hermite does not actually need the softening at all</strong
+        >. Run at ε = 0 exactly it conserves to 3.4 × 10<sup>−5</sup> — better than any softened
+        rung above — because an adaptive step is the mechanism that handles a close pair, and
+        softening is the substitute a fixed step is forced to use instead. FSI4 at ε = 0 does not
+        converge at any step this page can afford: 1.5 × 10<sup>3</sup> at 128 steps per crossing
+        time, still 0.37 at 8192. The softening on this page is scaffolding for the fixed-step
+        schemes, not physics, and the ladder's lowest rungs describe those schemes failing rather
+        than anything about stellar dynamics.
       </p>
       <p>
         Softening is not a nuisance parameter to be minimised. It sets which encounters the model
@@ -166,6 +202,9 @@ import PageHeader from "../components/PageHeader.astro";
      than a zoom that would drift out of step with the profile. */
   const VIEW_PC = 4 * R_HALF;
 
+  /** How far one animation frame advances the clock. Also the unit the delivered rate is in. */
+  const FRAMES_PER_TCROSS = 64;
+
   interface Run {
     state: State;
     force: ForceModel;
@@ -174,6 +213,22 @@ import PageHeader from "../components/PageHeader.astro";
     tCross: number;
     scheme: Scheme;
     evals: () => number;
+    /**
+     * Sub-steps per crossing time this run will ACTUALLY take, or null when the scheme sizes
+     * its own and the answer is not knowable in advance.
+     *
+     * Derived rather than echoed. `stepsForSoftening` returns what the softening ASKS for, and
+     * the fixed-step schemes subdivide each frame by `ceil(dt / maxStep)` — an integer — so the
+     * delivered rate is the request rounded UP to a multiple of the frame rate. At fraction 0.5
+     * the request is 181 and the run takes 192; at 0.125 the request is 362 and the run takes
+     * 384; at 0.25 the request is 256 and the two agree, which is worse than a constant offset
+     * because it makes the discrepancy intermittent.
+     *
+     * The page already refuses to echo the requested SCHEME back at the reader — that is why
+     * `chooseIntegrator` reports its pick. Echoing the requested step rate was the same mistake
+     * one field to the right.
+     */
+    stepsPerTCross: number | null;
   }
 
   /** Wraps a force model to count evaluations — the cost readout, without touching the core. */
@@ -246,11 +301,13 @@ import PageHeader from "../components/PageHeader.astro";
     /* Fixed-step schemes get the step derived from the softening — the two are coupled, and
        holding one while changing the other is the confound that produced a wrong conclusion
        once already. Hermite sizes its own and only takes a ceiling. */
-    const maxStep = tCross / stepsForSoftening(fraction);
+    const requested = stepsForSoftening(fraction);
+    const maxStep = tCross / requested;
+    const adaptive = scheme === "hermite";
     const picked = chooseIntegrator(state, force, {
       prefer: scheme,
-      maxStep: scheme === "hermite" ? tCross / 64 : maxStep,
-      adaptive: scheme === "hermite",
+      maxStep: adaptive ? tCross / FRAMES_PER_TCROSS : maxStep,
+      adaptive,
     });
 
     return {
@@ -261,6 +318,9 @@ import PageHeader from "../components/PageHeader.astro";
       tCross,
       scheme: picked.scheme,
       evals,
+      stepsPerTCross: adaptive
+        ? null
+        : Math.ceil(requested / FRAMES_PER_TCROSS) * FRAMES_PER_TCROSS,
     };
   }
 
@@ -275,9 +335,16 @@ import PageHeader from "../components/PageHeader.astro";
        radio that was clicked. Those can differ — that is the whole reason `chooseIntegrator`
        returns what it picked — and a page that echoed the request instead of the result would be
        the confidently-wrong readout this codebase keeps designing against. */
+    const rate =
+      run.stepsPerTCross === null
+        ? `adaptive step (asked for ${stepsForSoftening(fraction)}/t_cross as a ceiling)`
+        : `${run.stepsPerTCross} steps/t_cross` +
+          (run.stepsPerTCross === stepsForSoftening(fraction)
+            ? ""
+            : ` (softening asked for ${stepsForSoftening(fraction)}; the frame subdivides to an integer)`);
     status.textContent =
       `${run.scheme} · ${run.state.n} stars · ε = ${softeningForCluster(R_HALF, run.state.n, fraction).toFixed(4)} pc` +
-      ` · t_cross = ${run.tCross.toFixed(3)} Myr · ${stepsForSoftening(fraction)} steps/t_cross` +
+      ` · t_cross = ${run.tCross.toFixed(3)} Myr · ${rate}` +
       ` · available: ${availableSchemes(run.force).join(", ")}`;
     /* Refresh the panel NOW rather than waiting for the next animation frame. While paused there
        is no next frame at all, so without this a control change left every number describing the
@@ -486,5 +553,31 @@ import PageHeader from "../components/PageHeader.astro";
   }
   .meter__verdict[data-bad="true"] {
     color: var(--spec-rose-bright);
+  }
+  .tbl {
+    inline-size: auto;
+    min-inline-size: min(100%, 36rem);
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    margin-block: var(--space-m);
+  }
+  .tbl caption {
+    text-align: start;
+    color: var(--ink-dim);
+    padding-block-end: var(--space-2xs);
+  }
+  .tbl th,
+  .tbl td {
+    text-align: end;
+    padding: var(--space-3xs) var(--space-2xs);
+    border-block-end: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  .tbl thead th,
+  .tbl tbody th {
+    text-align: start;
+    color: var(--ink-dim);
+    font-weight: 400;
   }
 </style>

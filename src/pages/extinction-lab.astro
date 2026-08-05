@@ -100,24 +100,53 @@ import PageHeader from "../components/PageHeader.astro";
         A(λ<sub>eff</sub>) — one number instead of a curve.
       </p>
       <p>
-        How wrong is it? Measured here, and the answer has a shape worth knowing: <strong
-          >the shortcut is nearly harmless when the dust is thin and badly wrong when it is
-          thick</strong
-        >. For a 20 000 K star, the B-band error runs 0.002 mag at A<sub>V</sub> = 1, 0.021 at
-        A<sub>V</sub> = 3, 0.083 at A<sub>V</sub> = 5 and 0.417 at A<sub>V</sub> = 10 — it grows
-        faster than linearly, because the more the band is reddened the further its effective
-        wavelength slides from the one the shortcut assumed.
+        How wrong is it? Measured here, for a 20 000 K star at R<sub>V</sub> = 3.1 under G23, in
+        magnitudes:
+      </p>
+      <table class="tbl tbl--inline">
+        <caption>Shortcut error, correct − shortcut [mag].</caption>
+        <thead>
+          <tr
+            ><th scope="col">Band</th><th scope="col">A<sub>V</sub>=1</th><th scope="col"
+              >3</th
+            ><th scope="col">5</th><th scope="col">10</th></tr
+          >
+        </thead>
+        <tbody>
+          <tr><th scope="row">U</th><td>0.013</td><td>0.014</td><td>−0.015</td><td>−0.193</td></tr>
+          <tr><th scope="row">B</th><td>0.002</td><td>−0.021</td><td>−0.083</td><td>−0.417</td></tr>
+          <tr><th scope="row">V</th><td>0.018</td><td>0.036</td><td>0.029</td><td>−0.106</td></tr>
+          <tr><th scope="row">R</th><td>0.012</td><td>0.018</td><td>−0.003</td><td>−0.172</td></tr>
+          <tr><th scope="row">I</th><td>0.007</td><td>0.014</td><td>0.014</td><td>−0.019</td></tr>
+          <tr><th scope="row">J</th><td>0.005</td><td>0.013</td><td>0.019</td><td>0.025</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Two things in that grid matter more than the headline size. FIRST, it is already at the
+        level of good photometry at A<sub>V</sub> = 1 — 0.018 mag in V, 0.013 in U, 0.012 in R.
+        Only B, at 0.002, is genuinely negligible there, so a worked example that quotes B alone
+        flatters the shortcut. SECOND, <strong>the errors do not share a sign</strong>: at
+        A<sub>V</sub> = 10, B is −0.417 while J is +0.025. An error that dimmed every band equally
+        would be absorbed by a distance or a normalisation and cost nothing. This one does not —
+        it moves the bands against each other, so it lands directly in the colours, which is what
+        an extinction is usually being measured from in the first place.
       </p>
       <p>
-        So this is not a mistake that announces itself. At the extinctions of a diffuse sightline
-        it hides inside the photometric errors; at the extinctions of an embedded cluster — which
-        is where this site's science actually is — it is several tenths of a magnitude, and it
-        biases colours rather than just dimming them. Drag A<sub>V</sub> and watch the last column.
+        So this is not a mistake that announces itself. Drag A<sub>V</sub> and watch the last
+        column: the error grows faster than linearly, because the more the band is reddened the
+        further its effective wavelength slides from the one the shortcut assumed. Cells past
+        0.01 mag — roughly good ground-based photometric precision, the level at which the error
+        stops hiding inside the error bars — are marked.
       </p>
     </div>
 
     <table class="tbl" data-table>
-      <caption>AB magnitudes at 10 pc for a 1 R<sub>⊙</sub> star.</caption>
+      <caption>
+        AB magnitudes at 10 pc for a 1 R<sub>⊙</sub> star. The error column is marked past 0.01 mag.
+        A dash in <em>reddened correctly</em> means the law has no coefficients across that
+        passband, so the integral cannot be done — and the shortcut is blanked with it rather than
+        reporting a number the law cannot support.
+      </caption>
       <thead>
         <tr>
           <th scope="col">Band</th>
@@ -181,6 +210,13 @@ import PageHeader from "../components/PageHeader.astro";
      Johnson set, and one near-IR, so the curve's slope is visible across the table. */
   const BAND_IDS = ["U", "B", "V", "R", "I", "J"];
   const RADIUS_RSUN = 1;
+
+  /* The line above which the shortcut's error is worth flagging [mag]. Named and stated on the
+     page rather than left as a literal in a template, because a colour that appears with no
+     stated threshold reads as alarm rather than as a measurement. 0.01 mag is roughly good
+     ground-based photometric precision, so it is the level at which the error stops hiding
+     inside the error bars — which is the page's actual argument. */
+  const ERR_MATTERS = 0.01;
 
   const css = (rgb: readonly [number, number, number]): string => {
     const [r, g, b] = linearToSrgbRGB(rgb);
@@ -288,13 +324,27 @@ import PageHeader from "../components/PageHeader.astro";
       /* THE SHORTCUT, computed deliberately so its error can be shown: one A(lambda_eff)
          applied to the already-integrated magnitude. */
       const ratio = curve.aOverAv(band.lambdaEffNm, rv);
-      const shortcut = Number.isFinite(ratio) ? bare + aV * ratio : NaN;
+      const rawShortcut = Number.isFinite(ratio) ? bare + aV * ratio : NaN;
+      /* THE SHORTCUT IS SUPPRESSED WHENEVER THE INTEGRAL COULD NOT BE DONE, even though the
+         arithmetic still produces a number.
+         This is the page's whole thesis pointed at the page itself. CCM89's verified domain
+         stops at x = 3.3 (303 nm), and the U passband samples below that — so the correct
+         column is an em-dash while lambda_eff = 362 nm sits comfortably inside the domain and
+         the shortcut happily returns 2.144. A reader would see the naive method succeed
+         exactly where the rigorous one declined, on a page arguing the opposite. The number is
+         not merely unverified, it is unverifiable: it claims a band flux over wavelengths the
+         law has no coefficients for. */
+      const usable = Number.isFinite(right);
+      const shortcut = usable ? rawShortcut : NaN;
       const err = right - shortcut;
       const f = (v: number): string => (Number.isFinite(v) ? v.toFixed(3) : "—");
+      const note = usable
+        ? ""
+        : ` <span class="tbl__gap">${law.toUpperCase()} has no coefficients across this band</span>`;
       cells.push(
         `<tr><th scope="row">${band.id}</th><td>${band.lambdaEffNm.toFixed(0)} nm</td>` +
-          `<td>${f(bare)}</td><td>${f(right)}</td><td>${f(shortcut)}</td>` +
-          `<td data-err="${Math.abs(err) > 0.01 ? "big" : "small"}">${f(err)}</td></tr>`,
+          `<td>${f(bare)}</td><td>${f(right)}${note}</td><td>${f(shortcut)}</td>` +
+          `<td data-err="${Math.abs(err) > ERR_MATTERS ? "big" : "small"}">${f(err)}</td></tr>`,
       );
     }
     cells.push(
@@ -413,5 +463,13 @@ import PageHeader from "../components/PageHeader.astro";
   .tbl__derived td {
     text-align: start;
     color: var(--ink-dim);
+  }
+  .tbl__gap {
+    color: var(--ink-dim);
+    font-size: 0.85em; /* type-scale-exempt: an inline gloss inside a --step--1 table cell */
+  }
+  .tbl--inline {
+    inline-size: auto;
+    min-inline-size: min(100%, 34rem);
   }
 </style>
