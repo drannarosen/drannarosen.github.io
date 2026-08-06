@@ -93,15 +93,13 @@ export async function getPipeline(): Promise<{
 }
 
 /*
- * The pipeline as one line of prose: "Birth → stellar evolution ↔ collisional
- * dynamics → observables → …". Derived from the same steps the diagram draws,
- * so the sentence cannot describe a different chain than the picture above it.
+ * The chain line ("birth populations → stellar evolution ↔ collisional dynamics
+ * → …") is rendered directly from `steps` in JaxstroEcosystem rather than built
+ * as a string here. A string breaks wherever the line runs out of room, which
+ * at some widths was mid-phrase; per-stage markup keeps each stage unbreakable.
+ * That left this helper with no callers, and an unused second derivation of the
+ * chain is precisely the duplication `steps` exists to remove.
  */
-export function chainSummary(steps: PipelineStep[]): string {
-  return steps
-    .map((step) => step.map((p) => p.data.stage.toLowerCase()).join(" ↔ "))
-    .join(" → ");
-}
 
 /** Route for a package's detail page. */
 export const packageHref = (p: PackageEntry) => `/software/${p.id}`;

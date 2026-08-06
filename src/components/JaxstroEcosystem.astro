@@ -11,7 +11,7 @@
  * its detailed card below (so no information is hover-only). Connectors are
  * decorative (aria-hidden). Works with no JavaScript; reduced-motion safe.
  */
-import { getPipeline, chainSummary } from "../lib/packages";
+import { getPipeline } from "../lib/packages";
 
 /*
  * `compact` is the homepage's version: ONE LINE of linked package names, not
@@ -30,7 +30,6 @@ interface Props {
 const { compact = false } = Astro.props;
 
 const { stages: pipeline, steps } = await getPipeline();
-const chain = chainSummary(steps);
 if (pipeline.length === 0) {
   // In a build this means real data trouble. In dev it nearly always means the
   // server was started before src/content.config.ts declared this collection,
@@ -47,7 +46,23 @@ if (pipeline.length === 0) {
       sentence and the picture cannot disagree. Hidden from screen readers:
       the arrows announce as "right arrow … left right arrow", and the caption
       states the same thing in prose. */}
-  <p class="eco__chain" aria-hidden="true">{chain}</p>
+  {/* Rendered as segments, not one string: as a string the line broke wherever
+      it ran out of room, and at some widths that was mid-phrase — "collisional
+      / dynamics". Each stage is now unbreakable and the line wraps between
+      stages instead. */}
+  <p class="eco__chain" aria-hidden="true">
+    {steps.map((step, i) => (
+      <>
+        {i > 0 && <span class="eco__sep">→</span>}
+        {step.map((pkg, j) => (
+          <>
+            {j > 0 && <span class="eco__sep">↔</span>}
+            <span class="eco__chain-stage">{pkg.data.stage.toLowerCase()}</span>
+          </>
+        ))}
+      </>
+    ))}
+  </p>
 
   {/* Compact: the package names on one line, each a link, with the same
       connectors the full diagram uses. Built from `steps`, so a coupled pair
@@ -131,13 +146,19 @@ if (pipeline.length === 0) {
 
   /* The chain in one line: the whole argument before any detail. */
   .eco__chain {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: var(--space-3xs);
     margin-block-end: var(--space-m);
     font-family: var(--font-mono);
     font-size: var(--step--1);
     letter-spacing: 0.02em;
     color: var(--ink-dim);
-    text-align: center;
-    text-wrap: balance;
+  }
+  .eco__chain-stage {
+    white-space: nowrap;
   }
 
   /* Five columns for four steps: the coupled pair spans two, so every package
@@ -402,20 +423,28 @@ if (pipeline.length === 0) {
   /* ── Compact: the homepage signpost ─────────────────────────────
      Two lines, no cards. The homepage ends in a four-card grid; a five-card
      grid above it made the page read as two stacks of boxes. */
+  /* A step below the package names beneath it, and small enough to hold one
+     line at desktop widths — the stage chain reads as a single phrase, so
+     wrapping it costs more than the extra size buys. */
   .eco--compact .eco__chain {
-    /* Here the stage words are the headline, not a caption for a picture. */
-    font-size: var(--step-0);
+    font-size: var(--step--1);
     color: var(--ink-soft);
     margin-block-end: var(--space-2xs);
   }
+  /* Spacing lives here rather than at the call site: scoped styles in a page
+     do not reach into a child component's root. */
+  .eco--compact {
+    margin-block-end: var(--space-xl);
+  }
+
   .eco__chain-pkgs {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     align-items: baseline;
-    gap: var(--space-2xs);
+    gap: var(--space-3xs);
     font-family: var(--font-mono);
-    font-size: var(--step-1);
+    font-size: var(--step-0);
   }
   .eco__pkg-link {
     color: var(--spec-teal-bright);
@@ -426,7 +455,13 @@ if (pipeline.length === 0) {
   .eco__pkg-link:focus-visible {
     border-block-end-color: currentColor;
   }
+  /* Fixed width so every gap in the row is identical. The glyphs differ — ↔ is
+     visibly wider than → — so at natural width the coupled pair opened a larger
+     gap than the sequential steps and the row read as unevenly spaced. */
   .eco__sep {
+    display: inline-block;
+    inline-size: 1.35em;
+    text-align: center;
     color: color-mix(in srgb, var(--spec-teal) 70%, transparent);
   }
   .eco--compact .eco__return {

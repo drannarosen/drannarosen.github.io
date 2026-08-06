@@ -84,7 +84,9 @@ const nowBuilding = [
       I'm an <a href="https://astronomy.sdsu.edu/people/anna-rosen/"
         >Assistant Professor of Astronomy</a
       > and a computational astrophysicist at San Diego State University. I build
-      differentiable models of stars and star clusters — and <strong>Jaxstro</strong
+      differentiable models of stars and star clusters — and <a
+        class="hero__jaxstro"
+        href="/software">Jaxstro</a
       >, the ecosystem that follows them from a cluster's birth through stellar
       evolution and collisional dynamics to survey observables, inference, and
       observing design.
@@ -96,12 +98,6 @@ const nowBuilding = [
     </div>
   </ClusterHero>
 
-  {/* The whole program in two lines. Rendered from the same getPipeline() data
-      as /software, so the two cannot show different chains — which is exactly
-      what would happen if the package names were retyped here. */}
-  <section class="chain wrap-wide" aria-label="The Jaxstro pipeline">
-    <JaxstroEcosystem compact />
-  </section>
 
   <section class="now wrap" aria-labelledby="now-heading">
     <p class="now__kicker">What I'm building now</p>
@@ -110,6 +106,13 @@ const nowBuilding = [
       Research questions, scientific software, and teaching are not separate
       boxes — they are one effort to understand how stars shape the universe.
     </p>
+    {/* The chain sits here because the sentence above it claims the work is one
+        connected effort — this is that claim's evidence rather than a second
+        assertion of it, and it doubles as a legend for the package cards
+        directly below. Rendered from the same getPipeline() data as /software,
+        so the two pages cannot show different chains. */}
+    <JaxstroEcosystem compact />
+
     <ul class="now__grid" role="list">
       {
         nowBuilding.map((item) => (
@@ -133,17 +136,9 @@ const nowBuilding = [
     </ul>
   </section>
 
-  {/* The nav has asked since launch; the page never did. A visitor who has read
-      this far is the one most likely to act, and had nowhere to go. */}
-  <section class="join wrap" aria-labelledby="join-heading">
-    <h2 id="join-heading" class="join__title">Work with me</h2>
-    <p class="join__note prose">
-      If differentiable astrophysics, stellar populations, or scientific software
-      is the kind of problem you want to spend years on, I'd like to hear from
-      you.
-    </p>
-    <a class="btn btn--primary" href="/group">See opportunities</a>
-  </section>
+  {/* No "Work with me" block here on purpose: the nav carries it, and a
+      homepage call to action reads as an advertised opening — funding secured,
+      projects defined — which is a promise this page must not make. */}
 </BaseLayout>
 
 <style>
@@ -178,24 +173,8 @@ const nowBuilding = [
     border-color: var(--spec-blue);
   }
 
-  /* Sits between the hero and the cards, so it gets air rather than a rule. */
-  .chain {
-    padding-block: var(--space-2xl) 0;
-  }
-
   .now {
     padding-block: var(--space-3xl);
-  }
-
-  .join {
-    padding-block: 0 var(--space-3xl);
-  }
-  .join__title {
-    font-size: var(--step-2);
-  }
-  .join__note {
-    color: var(--ink-soft);
-    margin-block: var(--space-s) var(--space-m);
   }
   .now__kicker {
     font-family: var(--font-mono);
