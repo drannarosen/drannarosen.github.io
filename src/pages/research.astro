@@ -50,6 +50,19 @@ const pad = (n: number) => String(n).padStart(2, "0");
     }
   </ol>
 
+  {/* The only path to /group, and the routing is the filter: a reader who has
+      come through all four questions has the specific interest that page asks
+      for, while a cold request for paid research or TA work never reaches
+      /research at all. Stated as a condition, not an invitation — see the
+      comment on `nav` in src/lib/site.ts. */}
+  <aside class="wrap rq-join">
+    <p class="rq-join__text">
+      If one of these questions is the kind of thing you want to spend a couple
+      of years on, and you're an SDSU Astronomy undergraduate or Master's
+      student, <a href="/group">here's what working on it looks like</a>.
+    </p>
+  </aside>
+
   <aside class="wrap rq-earlier">
     <p class="rq-earlier__label">Earlier work</p>
     <p class="rq-earlier__text">
@@ -62,6 +75,19 @@ const pad = (n: number) => String(n).padStart(2, "0");
 </BaseLayout>
 
 <style>
+  /* Set apart from the questions above with a rule rather than a heading: it is
+     an aside to the science, not a section of it. */
+  .rq-join {
+    padding-block: var(--space-xl);
+    border-block-start: 1px solid var(--border);
+  }
+  .rq-join__text {
+    font-size: var(--step-0);
+    color: var(--ink-soft);
+    line-height: 1.65;
+    max-inline-size: var(--width-prose);
+  }
+
   .rq-earlier {
     padding-block-end: var(--space-3xl);
   }

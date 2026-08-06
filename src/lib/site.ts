@@ -23,12 +23,12 @@ export interface ExternalLink {
  * a visitor will scan: the row had no shape, so finding anything meant reading
  * all of it.
  *
- * The nine are THREE GROUPS OF THREE, and the grouping is the shape that makes
- * the row scannable rather than merely short:
+ * They are GROUPED BY PURPOSE, which is the shape that makes the row scannable
+ * rather than merely short:
  *
  *   the science      Research · Publications · Software
  *   the teaching     Teaching · Explore · Astrobytes
- *   the person       Work with me · About · CV
+ *   the person       Group · About · CV
  *
  * Software sits with the science because it IS a research output here, not a
  * tools page; Explore and Astrobytes sit with Teaching because both explain
@@ -54,15 +54,27 @@ export interface ExternalLink {
  * thing: each explains work to someone who has not done it. The old adjacency
  * paired it by FORM (both are writing); this one pairs it by AUDIENCE.
  *
- * The label for /group is "Work with me", Anna's choice, replacing "Group" —
- * which promised a member roster that page is not. The page itself is written
- * as a THRESHOLD rather than an advertisement (see the comment at the top of
- * group.astro), so the label is the more inviting of the two halves: the
- * filtering is done by the page's lede, which states eligibility plainly, and
- * by an email that asks for three specifics only a reader of the page can
- * supply. If the old problem returns — mail from people Anna cannot advise —
- * the label is the first thing to reconsider, and "Opportunities" is the
- * alternative that was on the table.
+ * The label for /group is "Group" — it NAMES A THING, and both alternatives
+ * that were tried instead made an offer.
+ *
+ * "Work with me" is a warm, unconditional invitation. "Opportunities" is worse:
+ * it announces planned, funded positions waiting to be filled, which is exactly
+ * the promise that draws cold requests for paid research and TA work from
+ * people with no interest in the science. A nav label has no room to state a
+ * condition, so a label that makes an offer cannot qualify it.
+ *
+ * Not "Jaxstro Lab": not every student works on Jaxstro, and naming the group
+ * after the software would misdescribe their work.
+ *
+ * "Group" was rejected once before, for promising a member roster the page did
+ * not have. It carries one now — current and graduated students — so the label
+ * has become accurate rather than aspirational.
+ *
+ * The page itself stays a THRESHOLD rather than an advertisement (see the
+ * comment at the top of group.astro): eligibility in the lede, and an email
+ * asking three specifics only a reader of the page can supply. /research links
+ * to it from the foot as well, so there is also a path that runs through the
+ * science.
  */
 const nav: NavItem[] = [
   // the science
@@ -74,7 +86,7 @@ const nav: NavItem[] = [
   { label: "Explore", href: "/explore" },
   { label: "Astrobytes", href: "/astrobytes" },
   // the person
-  { label: "Work with me", href: "/group" },
+  { label: "Group", href: "/group" },
   { label: "About", href: "/about" },
   { label: "CV", href: "/cv" },
 ];
