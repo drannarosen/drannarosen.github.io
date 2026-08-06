@@ -9,7 +9,8 @@
 interface Props {
   eyebrow?: string;
   heading: string;
-  lede: string;
+  /** Optional when a `lede` slot is provided instead. */
+  lede?: string;
 }
 const { eyebrow, heading, lede } = Astro.props;
 ---
@@ -21,7 +22,12 @@ const { eyebrow, heading, lede } = Astro.props;
   <div class="hero__inner wrap-wide">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
     <h1 id="hero-heading" class="hero__heading">{heading}</h1>
-    <p class="hero__lede prose">{lede}</p>
+    {/* A `lede` slot wins over the prop, for a lede that needs a link or other
+        markup — a plain string cannot carry one. Same convention as
+        PageHeader, so there is one rule for this across the site. */}
+    <p class="hero__lede prose">
+      {Astro.slots.has("lede") ? <slot name="lede" /> : lede}
+    </p>
     <slot />
   </div>
 

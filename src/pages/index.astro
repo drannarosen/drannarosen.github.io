@@ -1,34 +1,65 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ClusterHero from "../components/ClusterHero.astro";
+import JaxstroEcosystem from "../components/JaxstroEcosystem.astro";
+import { getPackages } from "../lib/packages";
 
 const title = "Anna Rosen — Computational Astrophysicist";
 const description =
   "Anna Rosen builds physics-grounded models of stars and stellar systems, and the differentiable scientific software needed to understand them.";
 
+/*
+ * A package-backed card states the package's OWN tagline, looked up here.
+ *
+ * These notes used to be retyped: the gravax card carried its own sentence
+ * about close encounters, which was a copy of a claim owned by gravax.mdx. A
+ * copy cannot be kept in step — change the package and this page goes on
+ * asserting the old version, silently and indefinitely. It is the same defect
+ * that let a replaced figure leave /research quoting the previous run's number,
+ * and that had /now announcing two semesters which had already ended.
+ */
+const packages = await getPackages();
+function tagline(name: string): string {
+  const found = packages.find((p) => p.data.name === name);
+  if (!found) {
+    throw new Error(
+      `Homepage references package "${name}", which is not in the packages ` +
+        `collection. Fix the name here or in src/content/packages/.`,
+    );
+  }
+  return found.data.tagline;
+}
+
+/*
+ * Ordered as the science runs — what clusters are born with, what rewrites
+ * them, what observation can still recover — and then the teaching that comes
+ * out of all three. They read as one argument rather than four topics.
+ *
+ * The titles stay here because they are this page's editorial framing, which is
+ * a genuine per-page choice; the claims come from the collection.
+ */
 const nowBuilding = [
-  {
-    label: "Differentiable cluster inference",
-    note: "The Jaxstro pipeline — asking what survey data can truly recover about star clusters.",
-    href: "/software",
-  },
   {
     label: "The IMF, done honestly",
     note: "When ignoring unresolved binaries makes population inference confidently wrong.",
     href: "/research",
   },
   {
-    label: "Collisional dynamics in JAX",
-    /* Not "at cluster scale": exact direct summation is what sets the ceiling
-       on N, and the validated envelope is well short of what a reader hears in
-       that phrase. Differentiability is the claim that is both distinctive and
-       true today. */
+    label: "What rewrites a cluster",
     /* Package names are monospace everywhere (see the naming rule), and a
        plain string cannot carry that. `pkg` renders as <code> ahead of the
        note rather than smuggling markup into the text. */
     pkg: "gravax",
-    note: "close stellar encounters resolved exactly, and still differentiable.",
-    href: "/software",
+    note: tagline("gravax"),
+    href: "/software#pkg-gravax",
+  },
+  {
+    /* Not "What the data can recover" — that is almost word-for-word informax's
+       own tagline, which renders directly beneath it. */
+    label: "Differentiable cluster inference",
+    pkg: "informax",
+    note: tagline("informax"),
+    href: "/software#pkg-informax",
   },
   {
     label: "Glass-box teaching tools",
@@ -42,13 +73,35 @@ const nowBuilding = [
   <ClusterHero
     eyebrow="Computational Astrophysics · SDSU"
     heading={"Stars shape the universe. I build the models — and the software — to understand how."}
-    lede="I'm an Assistant Professor of Astronomy and a computational astrophysicist at San Diego State University. I build differentiable models of stars and star clusters — and the Jaxstro software that connects them to observations and inference."
   >
+    {/* Jaxstro described as the whole chain rather than as connective tissue.
+        The previous lede called it "the software that connects them", which
+        reads as glue and no longer matched /software, where it is the model
+        itself — two pages describing one thing differently is the drift this
+        site keeps paying for. A slot, not the prop, because the title carries
+        a link and a plain string cannot. */}
+    <Fragment slot="lede">
+      I'm an <a href="https://astronomy.sdsu.edu/people/anna-rosen/"
+        >Assistant Professor of Astronomy</a
+      > and a computational astrophysicist at San Diego State University. I build
+      differentiable models of stars and star clusters — and <strong>Jaxstro</strong
+      >, the ecosystem that follows them from a cluster's birth through stellar
+      evolution and collisional dynamics to survey observables, inference, and
+      observing design.
+    </Fragment>
+
     <div class="hero-cta">
       <a class="btn btn--primary" href="/research">Explore the research</a>
       <a class="btn" href="/software">See the software</a>
     </div>
   </ClusterHero>
+
+  {/* The whole program in two lines. Rendered from the same getPipeline() data
+      as /software, so the two cannot show different chains — which is exactly
+      what would happen if the package names were retyped here. */}
+  <section class="chain wrap-wide" aria-label="The Jaxstro pipeline">
+    <JaxstroEcosystem compact />
+  </section>
 
   <section class="now wrap" aria-labelledby="now-heading">
     <p class="now__kicker">What I'm building now</p>
@@ -78,6 +131,18 @@ const nowBuilding = [
         ))
       }
     </ul>
+  </section>
+
+  {/* The nav has asked since launch; the page never did. A visitor who has read
+      this far is the one most likely to act, and had nowhere to go. */}
+  <section class="join wrap" aria-labelledby="join-heading">
+    <h2 id="join-heading" class="join__title">Work with me</h2>
+    <p class="join__note prose">
+      If differentiable astrophysics, stellar populations, or scientific software
+      is the kind of problem you want to spend years on, I'd like to hear from
+      you.
+    </p>
+    <a class="btn btn--primary" href="/group">See opportunities</a>
   </section>
 </BaseLayout>
 
@@ -113,8 +178,24 @@ const nowBuilding = [
     border-color: var(--spec-blue);
   }
 
+  /* Sits between the hero and the cards, so it gets air rather than a rule. */
+  .chain {
+    padding-block: var(--space-2xl) 0;
+  }
+
   .now {
     padding-block: var(--space-3xl);
+  }
+
+  .join {
+    padding-block: 0 var(--space-3xl);
+  }
+  .join__title {
+    font-size: var(--step-2);
+  }
+  .join__note {
+    color: var(--ink-soft);
+    margin-block: var(--space-s) var(--space-m);
   }
   .now__kicker {
     font-family: var(--font-mono);

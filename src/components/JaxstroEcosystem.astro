@@ -13,6 +13,22 @@
  */
 import { getPipeline, chainSummary } from "../lib/packages";
 
+/*
+ * `compact` is the homepage's version: ONE LINE of linked package names, not
+ * the card row. The homepage already ends in a four-card grid, and a second
+ * five-card grid above it made the page read as two stacks of boxes saying
+ * overlapping things — two of those four cards point at /software, which the
+ * strip had just covered.
+ *
+ * A PROP rather than a second component: the homepage must not be able to show
+ * a different chain than /software, which is exactly what retyping the node
+ * names into another file would allow.
+ */
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+
 const { stages: pipeline, steps } = await getPipeline();
 const chain = chainSummary(steps);
 if (pipeline.length === 0) {
@@ -26,13 +42,33 @@ if (pipeline.length === 0) {
 }
 ---
 
-<figure class="eco">
+<figure class:list={["eco", compact && "eco--compact"]}>
   {/* The chain in one line, derived from the same steps drawn below so the
       sentence and the picture cannot disagree. Hidden from screen readers:
       the arrows announce as "right arrow … left right arrow", and the caption
       states the same thing in prose. */}
   <p class="eco__chain" aria-hidden="true">{chain}</p>
 
+  {/* Compact: the package names on one line, each a link, with the same
+      connectors the full diagram uses. Built from `steps`, so a coupled pair
+      shows ↔ here for the same reason it does there. */}
+  {compact && (
+    <p class="eco__chain-pkgs">
+      {steps.map((step, i) => (
+        <>
+          {i > 0 && <span class="eco__sep" aria-hidden="true">→</span>}
+          {step.map((pkg, j) => (
+            <>
+              {j > 0 && <span class="eco__sep" aria-hidden="true">↔</span>}
+              <a class="eco__pkg-link" href={`/software/${pkg.id}`}>{pkg.data.name}</a>
+            </>
+          ))}
+        </>
+      ))}
+    </p>
+  )}
+
+  {!compact && (
   <ol class="eco__pipeline" role="list">
     {
       steps.map((step) => (
@@ -61,6 +97,7 @@ if (pipeline.length === 0) {
       ))
     }
   </ol>
+  )}
 
   {/* The return path is half the argument, so it is drawn as a path rather
       than mentioned in a caption: a full-width rule under every stage, which
@@ -69,6 +106,12 @@ if (pipeline.length === 0) {
     <span class="eco__return-label">gradients &amp; observing-design information flow back</span>
   </p>
 
+  {compact ? (
+    <figcaption class="eco__caption eco__caption--compact">
+      The differentiable chain from a cluster's birth to its survey observables.
+      <a href="/software">See the software →</a>
+    </figcaption>
+  ) : (
   <figcaption class="eco__caption">
     The Jaxstro ecosystem: a differentiable model from a cluster's birth to its
     survey observables, returning the gradients that reveal what the data can
@@ -78,6 +121,7 @@ if (pipeline.length === 0) {
     Every stage composes on the shared <code>jaxstro</code> foundation.
     Select any stage for detail.
   </figcaption>
+  )}
 </figure>
 
 <style>
@@ -353,6 +397,55 @@ if (pipeline.length === 0) {
   .eco__caption code {
     font-family: var(--font-mono);
     color: var(--spec-teal-bright);
+  }
+
+  /* ── Compact: the homepage signpost ─────────────────────────────
+     Two lines, no cards. The homepage ends in a four-card grid; a five-card
+     grid above it made the page read as two stacks of boxes. */
+  .eco--compact .eco__chain {
+    /* Here the stage words are the headline, not a caption for a picture. */
+    font-size: var(--step-0);
+    color: var(--ink-soft);
+    margin-block-end: var(--space-2xs);
+  }
+  .eco__chain-pkgs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: var(--space-2xs);
+    font-family: var(--font-mono);
+    font-size: var(--step-1);
+  }
+  .eco__pkg-link {
+    color: var(--spec-teal-bright);
+    text-decoration: none;
+    border-block-end: 1px solid transparent;
+  }
+  .eco__pkg-link:hover,
+  .eco__pkg-link:focus-visible {
+    border-block-end-color: currentColor;
+  }
+  .eco__sep {
+    color: color-mix(in srgb, var(--spec-teal) 70%, transparent);
+  }
+  .eco--compact .eco__return {
+    margin-block: var(--space-m) 0;
+  }
+  .eco--compact .eco__return-label {
+    font-size: var(--step--2);
+  }
+  .eco__caption--compact {
+    margin-block-start: var(--space-s);
+    max-inline-size: none;
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    text-align: center;
+  }
+  .eco__caption--compact a {
+    margin-inline-start: var(--space-2xs);
+    font-family: var(--font-mono);
+    white-space: nowrap;
   }
 
   /* ── Narrow screens: stack the pipeline vertically ─────────────── */
