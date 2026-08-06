@@ -21,16 +21,38 @@ export interface ExternalLink {
  *
  * NINE items, and the count is the point. This was twelve, which is more than
  * a visitor will scan: the row had no shape, so finding anything meant reading
- * all of it. Ordered work -> communication -> person.
+ * all of it.
+ *
+ * The nine are THREE GROUPS OF THREE, and the grouping is the shape that makes
+ * the row scannable rather than merely short:
+ *
+ *   the science      Research · Publications · Software
+ *   the teaching     Teaching · Explore · Astrobytes
+ *   the person       Work with me · About · CV
+ *
+ * Software sits with the science because it IS a research output here, not a
+ * tools page; Explore and Astrobytes sit with Teaching because both explain
+ * work to someone who has not done it. Previously the order interleaved these
+ * — Research, Explore, Publications, Astrobytes, Software — so no two adjacent
+ * items shared a purpose and the row taught a reader nothing about itself.
+ *
+ * Publications stays its OWN item rather than folding into Research. It is the
+ * word peers, search committees and panels scan for, and merging it would put
+ * the most-sought destination one click inside another page.
  *
  * /now, /news and /outreach were REMOVED from here, not deleted. Each is
  * linked from the page a reader looking for it would already be on (see the
  * "Elsewhere" block on /about) and from the footer. If you add one back, the
  * question to answer first is which of the nine it beats.
  *
- * Do not restore /astrobytes to a footer-only link: it sits next to
- * Publications deliberately — formal writing, then informal — after a spell
- * with no header entry at all, reachable only from the footer's RSS link.
+ * Do not restore /astrobytes to a footer-only link. It had no header entry at
+ * all for a spell, reachable only from the footer's RSS link, and it keeps a
+ * primary slot deliberately.
+ *
+ * It used to sit beside Publications — formal writing, then informal. It now
+ * sits with Teaching and Explore, because what those three share is the harder
+ * thing: each explains work to someone who has not done it. The old adjacency
+ * paired it by FORM (both are writing); this one pairs it by AUDIENCE.
  *
  * The label for /group is "Work with me", Anna's choice, replacing "Group" —
  * which promised a member roster that page is not. The page itself is written
@@ -43,12 +65,15 @@ export interface ExternalLink {
  * alternative that was on the table.
  */
 const nav: NavItem[] = [
+  // the science
   { label: "Research", href: "/research" },
-  { label: "Explore", href: "/explore" },
   { label: "Publications", href: "/publications" },
-  { label: "Astrobytes", href: "/astrobytes" },
   { label: "Software", href: "/software" },
+  // the teaching
   { label: "Teaching", href: "/teaching" },
+  { label: "Explore", href: "/explore" },
+  { label: "Astrobytes", href: "/astrobytes" },
+  // the person
   { label: "Work with me", href: "/group" },
   { label: "About", href: "/about" },
   { label: "CV", href: "/cv" },
