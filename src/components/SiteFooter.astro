@@ -140,14 +140,15 @@ const year = 2026; // build-time constant; bump on next content refresh
     font-family: var(--font-mono);
     font-size: var(--step--1);
   }
-  .site-footer__links a {
-    color: var(--ink-soft);
-    text-decoration: none;
-    border-block-end: 1px solid transparent;
-  }
+  /* These inherit the site's link style — teal and underlined, exactly like the
+     email above them. They used to be grey with the underline held back until
+     hover, which reads as plain text: there is currently ONE active profile
+     link (ORCID; the others are null in site.ts), so it sat alone with nothing
+     beside it to suggest the row was navigable at all. A link that only looks
+     like a link once the pointer is on it cannot be found by someone who has
+     not already guessed. */
   .site-footer__links a:hover {
     color: var(--ink);
-    border-block-end-color: var(--spec-cyan);
   }
   .site-footer__more {
     margin-block-start: var(--space-l);
