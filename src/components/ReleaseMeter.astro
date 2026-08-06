@@ -21,9 +21,17 @@ interface Props {
 }
 const { papers } = Astro.props;
 
+/*
+ * Only the methods paper gets a bar.
+ *
+ * The software papers are short release papers, so a second bar beside every
+ * methods bar gave equal visual weight to the publication that carries the
+ * science and the one that announces the code. `papers.software` stays in the
+ * frontmatter — it is still true, and still the one record of that state — it
+ * simply is not what this meter is for.
+ */
 const rows: { lead: string; state: PaperState }[] = [];
 if (papers?.methods) rows.push({ lead: "Methods paper", state: papers.methods });
-if (papers?.software) rows.push({ lead: "Software paper", state: papers.software });
 ---
 
 {

@@ -2,7 +2,6 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
 import JaxstroEcosystem from "../components/JaxstroEcosystem.astro";
-import { READINESS_LABEL } from "../data/jaxstro";
 import ReadinessMeter from "../components/ReadinessMeter.astro";
 import ReleaseMeter from "../components/ReleaseMeter.astro";
 import { getPackages, packageHref } from "../lib/packages";
@@ -39,13 +38,15 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
     title="Differentiable astrophysics, built as instruments"
     lede="I build JAX-native scientific software in which the path from a cluster's birth to its survey observables stays differentiable — across adaptive timesteps and stellar phase transitions, exactly where differentiating naively stops being correct. The pipeline returns not just a prediction, but how that prediction responds to each physical parameter."
   >
-    {/* The driving question, above the fold, so the figure below reads as an
-        answer rather than a demo. Not written for this page: it is question 3
-        of the research program, quoted from src/data/research.ts so the two
-        pages cannot end up asking it differently. */}
-    <p class="sw-question">
-      <a href="/research">{softwareQuestion}</a>
-    </p>
+    {/* The driving question leads, and the lede answers it — so the page states
+        what it is FOR before how it works. Not written for this page: it is
+        question 3 of the research program, quoted from src/data/research.ts so
+        the two pages cannot end up asking it differently. */}
+    <Fragment slot="kicker">
+      <p class="sw-question">
+        <a href="/research">{softwareQuestion}</a>
+      </p>
+    </Fragment>
 
     <p class="sw-intro__more">
       <strong>Jaxstro</strong> is the spine of that program: a family of packages
@@ -139,12 +140,14 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
                 </h3>
                 <p class="pkg__tagline">{d.tagline}</p>
                 <p class="pkg__desc">{d.description}</p>
+                {/* The bars carry readiness and paper state on their own. The
+                    free-text maturity note used to sit alongside them and
+                    repeated the bar beside it on four of six rows — "MATURE"
+                    next to "Mature core" — because the guard here compared
+                    exact strings and near-duplicates passed it. */}
                 <div class="pkg__foot">
                   <ReadinessMeter readiness={d.readiness} title={d.maturity} />
                   <ReleaseMeter papers={d.papers} />
-                  {d.maturity && d.maturity !== READINESS_LABEL[d.readiness] && (
-                    <span class="pkg__note">{d.maturity}</span>
-                  )}
                 </div>
               </div>
 
@@ -299,10 +302,7 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
        --header-h is published by SiteHeader on every page. */
     scroll-margin-block-start: calc(var(--header-h, 3.7rem) + var(--space-m));
   }
-  /* 00 is the substrate, not a step. */
-  .pkg--base .pkg__num {
-    color: var(--ink-faint);
-  }
+  /* 00 is the substrate, not a step — styled with the other rail rules below. */
 
   .pipeline {
     display: grid;
@@ -320,9 +320,18 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
     flex-direction: column;
     gap: var(--space-3xs);
   }
+  /* The number anchors the column: at --step--2 the rail was too quiet to make
+     six tall rows read as a numbered progression rather than six paragraphs. */
   .pkg__num {
     font-family: var(--font-mono);
-    font-size: var(--step--2);
+    font-size: var(--step-2);
+    line-height: 1;
+    color: color-mix(in srgb, var(--spec-teal-bright) 45%, transparent);
+  }
+  .pkg--base .pkg__num {
+    color: color-mix(in srgb, var(--ink-faint) 70%, transparent);
+  }
+  .pkg:hover .pkg__num {
     color: var(--spec-teal-bright);
   }
   .pkg__stage {
@@ -367,10 +376,6 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
     gap: var(--space-2xs) var(--space-m);
     margin-block-start: var(--space-s);
   }
-  .pkg__note {
-    font-size: var(--step--1);
-    color: var(--ink-faint);
-  }
   .pkg__link {
     font-family: var(--font-mono);
     font-size: var(--step--1);
@@ -388,7 +393,19 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
     overflow: hidden;
     background: #fff;
     box-shadow: 0 0 0 1px var(--border);
-    transition: box-shadow var(--dur-base) var(--ease-out);
+    /* These are white plots on a near-black page, which made them the highest
+       contrast objects here — six thumbnails outranking the prose they
+       illustrate. Resting them slightly back restores the hierarchy; hover and
+       keyboard focus return full fidelity, so nothing is permanently dimmed and
+       the figure is never harder to read than it was. */
+    opacity: 0.78;
+    transition:
+      box-shadow var(--dur-base) var(--ease-out),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .pkg:hover .pkg__thumb,
+  .pkg:focus-within .pkg__thumb {
+    opacity: 1;
   }
   /* Fit, never crop: these are plots, and cropping one can remove the axis
      that makes it readable. The shared .figure-box does the fitting — this

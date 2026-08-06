@@ -37,6 +37,10 @@ const hasAside = Astro.slots.has("aside");
     <h1 class="page-header__title">
       {hasTitleSlot ? <slot name="title" /> : title}
     </h1>
+    {/* Sits BETWEEN the title and the lede, for a page whose driving question
+        should be read before its explanation. Optional, so headers without one
+        render exactly as before. */}
+    <slot name="kicker" />
     {
       (hasLedeSlot || lede) && (
         <p class="page-header__lede prose">

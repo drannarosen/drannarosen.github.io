@@ -43,6 +43,11 @@ if (pipeline.length === 0) {
               an 81px box. A diagram shows flow and order; detail lives below. */}
           {step.map((pkg) => (
             <a class="eco__node-link" href={`/software/${pkg.id}`}>
+              {/* The same number the package carries in the list below, so the
+                  diagram and the list are visibly one thing. */}
+              <span class="eco__num" aria-hidden="true">
+                {String(pkg.data.order).padStart(2, "0")}
+              </span>
               <span class="eco__stage">{pkg.data.stage}</span>
               <span class="eco__name">{pkg.data.name}</span>
             </a>
@@ -92,48 +97,80 @@ if (pipeline.length === 0) {
   }
 
   /* Five columns for four steps: the coupled pair spans two, so every package
-     node keeps the same width whether or not it shares a step. */
+     node keeps the same width whether or not it shares a step. The gap is wide
+     enough to hold an arrow at a size that reads — at --space-2xs the
+     connectors were 4px of clearance and looked incidental. */
   .eco__pipeline {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: var(--space-2xs);
+    gap: var(--space-m);
     align-items: stretch;
+  }
+
+  /* A continuous spine behind every card, so the row reads as one pipeline
+     rather than five detached boxes. The cards are opaque, so it shows only in
+     the gaps — the arrows then sit ON a line instead of floating in space. */
+  .eco__pipeline::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 50%;
+    block-size: 1px;
+    background: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--spec-teal) 85%, transparent),
+      color-mix(in srgb, var(--spec-teal) 45%, transparent)
+    );
+    pointer-events: none;
   }
 
   .eco__step {
     position: relative;
     display: flex;
+    z-index: 1;
   }
+  /* The coupled pair is a panel, not a dashed outline: the two share a well,
+     which reads as one stage containing two packages rather than as two boxes
+     someone drew a rectangle around. */
   .eco__step--coupled {
     grid-column: span 2;
-    gap: var(--space-xs);
-    padding: var(--space-2xs);
-    border: 1px dashed color-mix(in srgb, var(--spec-teal) 55%, transparent);
-    border-radius: var(--radius-m);
+    gap: var(--space-m);
+    padding: var(--space-xs);
+    background: color-mix(in srgb, var(--spec-teal) 7%, var(--bg-void));
+    border: 1px solid color-mix(in srgb, var(--spec-teal) 40%, transparent);
+    border-radius: var(--radius-l, var(--radius-m));
   }
 
-  /* Decorative connector arrow between steps */
+  /* Decorative connector between steps, sized to be part of the diagram. */
   .eco__step + .eco__step::before {
     content: "→";
     position: absolute;
-    inset-inline-start: calc(var(--space-2xs) * -1);
+    inset-inline-start: calc(var(--space-m) * -1);
     inset-block-start: 50%;
-    transform: translate(-40%, -50%);
-    color: var(--spec-teal);
-    font-size: var(--step-0);
+    inline-size: var(--space-m);
+    transform: translateY(-50%);
+    text-align: center;
+    color: var(--spec-teal-bright);
+    font-size: var(--step-2);
+    line-height: 1;
     pointer-events: none;
   }
 
   /* …and a two-headed one INSIDE a coupled step: the pair is simultaneous,
-     not sequential, which is the one thing this diagram must not blur. */
-  .eco__step--coupled .eco__node-link + .eco__node-link::before {
+     not sequential, which is the one thing this diagram must not blur.
+     Drawn on the PANEL, not on the second card: the card sets overflow:hidden
+     so its accent rule respects the corner radius, which silently clips any
+     pseudo-element positioned outside it — the arrow rendered as nothing. */
+  .eco__step--coupled::after {
     content: "↔";
     position: absolute;
-    inset-inline-start: calc(var(--space-xs) * -1);
+    inset-inline-start: 50%;
     inset-block-start: 50%;
-    transform: translate(-40%, -50%);
+    transform: translate(-50%, -50%);
     color: var(--spec-teal-bright);
-    font-size: var(--step-0);
+    font-size: var(--step-2);
+    line-height: 1;
     pointer-events: none;
   }
   .eco__step--coupled .eco__node-link {
@@ -141,12 +178,17 @@ if (pipeline.length === 0) {
     flex: 1;
   }
 
+  /* A chip straddling the panel's top edge, so the label belongs to the group
+     rather than hovering above it. */
   .eco__couple-label {
     position: absolute;
     inset-block-start: 0;
     inset-inline-start: 50%;
     transform: translate(-50%, -50%);
-    padding-inline: 0.4em;
+    padding-inline: 0.6em;
+    padding-block: 0.15em;
+    border: 1px solid color-mix(in srgb, var(--spec-teal) 40%, transparent);
+    border-radius: 999px;
     /* Notches the line/border behind it. --bg-void is the page base; there is
        no `--bg` token, and naming one silently yields a transparent label with
        the rule struck through the text. */
@@ -161,24 +203,78 @@ if (pipeline.length === 0) {
   /* NOTE: this rule was destroyed by an over-broad regex when the foundation
      card was removed; its selectors were left dangling and silently merged
      into .eco__stage. Restored explicitly. */
+  /* A card with a light source: the surface lifts from --bg-surface at the top
+     to --bg-deep at the foot, over an accent rule. A flat fill and a hairline
+     border read as a wireframe of a card rather than a card. */
   .eco__node-link {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
     inline-size: 100%;
-    padding: var(--space-s) var(--space-xs);
+    padding: var(--space-m) var(--space-s) var(--space-s);
     text-decoration: none;
-    background: var(--bg-deep);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-surface) 85%, var(--spec-teal) 4%),
+      var(--bg-deep)
+    );
     border: 1px solid var(--border);
     border-radius: var(--radius-m);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 6%, transparent),
+      0 1px 2px rgb(0 0 0 / 0.35);
+    overflow: hidden;
     transition:
       border-color var(--dur-base) var(--ease-out),
-      background-color var(--dur-base) var(--ease-out);
+      box-shadow var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-out);
+  }
+  /* The accent rule across the card's head — the one mark that makes the row
+     read as instruments rather than nav tiles. */
+  .eco__node-link::after {
+    content: "";
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    block-size: 2px;
+    background: linear-gradient(
+      90deg,
+      var(--spec-teal-bright),
+      color-mix(in srgb, var(--spec-teal) 40%, transparent)
+    );
+    opacity: 0.55;
+    transition: opacity var(--dur-base) var(--ease-out);
   }
   .eco__node-link:hover,
   .eco__node-link:focus-visible {
-    border-color: color-mix(in srgb, var(--spec-teal) 50%, var(--border));
-    background: color-mix(in srgb, var(--spec-teal) 8%, var(--bg-deep));
+    border-color: color-mix(in srgb, var(--spec-teal) 60%, var(--border));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 9%, transparent),
+      0 6px 16px rgb(0 0 0 / 0.45);
+    transform: translateY(-2px);
+  }
+  .eco__node-link:hover::after,
+  .eco__node-link:focus-visible::after {
+    opacity: 1;
+  }
+  /* Motion here is decoration, not information — the hover state still reads
+     through border and shadow without it. */
+  @media (prefers-reduced-motion: reduce) {
+    .eco__node-link {
+      transition: border-color var(--dur-base) var(--ease-out);
+    }
+    .eco__node-link:hover,
+    .eco__node-link:focus-visible {
+      transform: none;
+    }
+  }
+
+  .eco__num {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    letter-spacing: 0.08em;
+    color: color-mix(in srgb, var(--spec-teal-bright) 60%, var(--ink-faint));
   }
 
   .eco__stage {
@@ -192,7 +288,10 @@ if (pipeline.length === 0) {
   }
   .eco__name {
     font-family: var(--font-mono);
-    font-size: var(--step-0);
+    /* The package name is what a reader is looking for in this row; at
+       --step-0 it sat level with the caption text beneath the diagram. */
+    font-size: var(--step-1);
+    line-height: 1.2;
     color: var(--spec-teal-bright);
   }
 
