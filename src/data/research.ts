@@ -26,6 +26,15 @@ export interface ResearchFigure {
 }
 
 export interface ResearchQuestion {
+  /*
+   * Stable handle, set only on questions another page quotes.
+   *
+   * Deliberately NOT an array index: /now once showed `courses.slice(0, 2)`
+   * and announced two semesters that had already ended. A page that quotes a
+   * question names it, and `researchQuestion()` throws if the name stops
+   * resolving — so reordering this list can never silently re-point a quote.
+   */
+  id?: string;
   /** The driving question. */
   question: string;
   /** 2–3 sentence framing in Anna's voice. */
@@ -63,6 +72,7 @@ export const researchQuestions: ResearchQuestion[] = [
     ],
   },
   {
+    id: "identifiability",
     question: "What can observations genuinely tell us about stellar populations?",
     summary:
       "The initial mass function, binarity, and cluster structure are all inferred from incomplete data. I've shown that ignoring unresolved binaries can make high-mass IMF conclusions confidently wrong as samples grow. I want to know what surveys like Rubin and Gaia can — and cannot — actually recover.",
@@ -93,3 +103,20 @@ export const researchQuestions: ResearchQuestion[] = [
     },
   },
 ];
+
+/*
+ * One driving question by id, for pages that quote it.
+ *
+ * Throws rather than returning undefined: a quote that silently renders empty
+ * is a page that lost its opening line and still looks finished.
+ */
+export function researchQuestion(id: string): ResearchQuestion {
+  const found = researchQuestions.find((q) => q.id === id);
+  if (!found) {
+    throw new Error(
+      `No research question with id "${id}". Add it to researchQuestions in ` +
+        `src/data/research.ts, or fix the id at the call site.`,
+    );
+  }
+  return found;
+}

@@ -11,9 +11,10 @@
  * its detailed card below (so no information is hover-only). Connectors are
  * decorative (aria-hidden). Works with no JavaScript; reduced-motion safe.
  */
-import { getPipeline } from "../lib/packages";
+import { getPipeline, chainSummary } from "../lib/packages";
 
-const { stages: pipeline } = await getPipeline();
+const { stages: pipeline, steps } = await getPipeline();
+const chain = chainSummary(steps);
 if (pipeline.length === 0) {
   // In a build this means real data trouble. In dev it nearly always means the
   // server was started before src/content.config.ts declared this collection,
@@ -26,31 +27,50 @@ if (pipeline.length === 0) {
 ---
 
 <figure class="eco">
+  {/* The chain in one line, derived from the same steps drawn below so the
+      sentence and the picture cannot disagree. Hidden from screen readers:
+      the arrows announce as "right arrow … left right arrow", and the caption
+      states the same thing in prose. */}
+  <p class="eco__chain" aria-hidden="true">{chain}</p>
+
   <ol class="eco__pipeline" role="list">
     {
-      pipeline.map((pkg) => (
-        <li class="eco__node">
+      steps.map((step) => (
+        <li class:list={["eco__step", step.length > 1 && "eco__step--coupled"]}>
           {/* Stage + name only. The status badge was identical on all five
               nodes (zero information) and the maturity note repeated the
               readiness meter in the list below, with 35 characters at 11px in
               an 81px box. A diagram shows flow and order; detail lives below. */}
-          <a class="eco__node-link" href={`/software/${pkg.id}`}>
-            <span class="eco__stage">{pkg.data.stage}</span>
-            <span class="eco__name">{pkg.data.name}</span>
-          </a>
+          {step.map((pkg) => (
+            <a class="eco__node-link" href={`/software/${pkg.id}`}>
+              <span class="eco__stage">{pkg.data.stage}</span>
+              <span class="eco__name">{pkg.data.name}</span>
+            </a>
+          ))}
+          {step.length > 1 && (
+            <span class="eco__couple-label" aria-hidden="true">
+              coupled
+            </span>
+          )}
         </li>
       ))
     }
   </ol>
 
+  {/* The return path is half the argument, so it is drawn as a path rather
+      than mentioned in a caption: a full-width rule under every stage, which
+      is the span the gradients actually cross. */}
   <p class="eco__return" aria-hidden="true">
-    ← gradients &amp; observing-design information flow back
+    <span class="eco__return-label">gradients &amp; observing-design information flow back</span>
   </p>
 
   <figcaption class="eco__caption">
     The Jaxstro ecosystem: a differentiable model from a cluster's birth to its
     survey observables, returning the gradients that reveal what the data can
-    recover. Every stage composes on the shared <code>jaxstro</code> foundation.
+    recover. Stellar evolution and collisional dynamics are one coupled step by
+    design — a star loses mass while it is being moved, and an encounter changes
+    the path it evolves along, so neither finishes before the other begins.
+    Every stage composes on the shared <code>jaxstro</code> foundation.
     Select any stage for detail.
   </figcaption>
 </figure>
@@ -60,6 +80,19 @@ if (pipeline.length === 0) {
     margin: 0;
   }
 
+  /* The chain in one line: the whole argument before any detail. */
+  .eco__chain {
+    margin-block-end: var(--space-m);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.02em;
+    color: var(--ink-dim);
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  /* Five columns for four steps: the coupled pair spans two, so every package
+     node keeps the same width whether or not it shares a step. */
   .eco__pipeline {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -67,13 +100,20 @@ if (pipeline.length === 0) {
     align-items: stretch;
   }
 
-  .eco__node {
+  .eco__step {
     position: relative;
     display: flex;
   }
+  .eco__step--coupled {
+    grid-column: span 2;
+    gap: var(--space-xs);
+    padding: var(--space-2xs);
+    border: 1px dashed color-mix(in srgb, var(--spec-teal) 55%, transparent);
+    border-radius: var(--radius-m);
+  }
 
-  /* Decorative connector arrow between nodes */
-  .eco__node + .eco__node::before {
+  /* Decorative connector arrow between steps */
+  .eco__step + .eco__step::before {
     content: "→";
     position: absolute;
     inset-inline-start: calc(var(--space-2xs) * -1);
@@ -82,6 +122,40 @@ if (pipeline.length === 0) {
     color: var(--spec-teal);
     font-size: var(--step-0);
     pointer-events: none;
+  }
+
+  /* …and a two-headed one INSIDE a coupled step: the pair is simultaneous,
+     not sequential, which is the one thing this diagram must not blur. */
+  .eco__step--coupled .eco__node-link + .eco__node-link::before {
+    content: "↔";
+    position: absolute;
+    inset-inline-start: calc(var(--space-xs) * -1);
+    inset-block-start: 50%;
+    transform: translate(-40%, -50%);
+    color: var(--spec-teal-bright);
+    font-size: var(--step-0);
+    pointer-events: none;
+  }
+  .eco__step--coupled .eco__node-link {
+    position: relative;
+    flex: 1;
+  }
+
+  .eco__couple-label {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 50%;
+    transform: translate(-50%, -50%);
+    padding-inline: 0.4em;
+    /* Notches the line/border behind it. --bg-void is the page base; there is
+       no `--bg` token, and naming one silently yields a transparent label with
+       the rule struck through the text. */
+    background: var(--bg-void);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--spec-teal-bright) 85%, white);
   }
 
   /* NOTE: this rule was destroyed by an over-broad regex when the foundation
@@ -122,12 +196,50 @@ if (pipeline.length === 0) {
     color: var(--spec-teal-bright);
   }
 
+  /* The return path is drawn, not described: a rule spanning every stage,
+     because that whole span is what the gradients cross. Dusty rose, so the two
+     directions never read as one flow — teal goes forward, rose comes back. */
   .eco__return {
-    margin-block: var(--space-s) var(--space-2xs);
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-block: var(--space-l) var(--space-2xs);
+    isolation: isolate;
+  }
+  .eco__return::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 50%;
+    block-size: 1px;
+    background: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--spec-rose-bright) 75%, transparent),
+      color-mix(in srgb, var(--spec-rose-bright) 25%, transparent)
+    );
+  }
+  /* The arrowhead, at the left end — the direction is the point. */
+  .eco__return::after {
+    content: "◀";
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-start: 50%;
+    transform: translate(-10%, -50%);
+    font-size: var(--step--2);
+    color: color-mix(in srgb, var(--spec-rose-bright) 80%, transparent);
+  }
+  .eco__return-label {
+    position: relative;
+    z-index: 1;
+    padding-inline: var(--space-xs);
+    /* Notches the line/border behind it. --bg-void is the page base; there is
+       no `--bg` token, and naming one silently yields a transparent label with
+       the rule struck through the text. */
+    background: var(--bg-void);
     font-family: var(--font-mono);
     font-size: var(--step--1);
-    color: var(--ink-faint);
-    text-align: center;
+    color: var(--spec-rose-bright);
   }
 
 
@@ -150,11 +262,26 @@ if (pipeline.length === 0) {
       grid-template-columns: 1fr;
       gap: var(--space-m);
     }
-    .eco__node + .eco__node::before {
+    .eco__step--coupled {
+      grid-column: auto;
+      flex-direction: column;
+      gap: var(--space-m);
+    }
+    .eco__step + .eco__step::before {
       content: "↓";
       inset-inline-start: 50%;
       inset-block-start: calc(var(--space-m) * -1);
       transform: translate(-50%, -30%);
+    }
+    /* Stacked, the pair reads top-to-bottom, so the coupling arrow must too. */
+    .eco__step--coupled .eco__node-link + .eco__node-link::before {
+      content: "↕";
+      inset-inline-start: 50%;
+      inset-block-start: calc(var(--space-m) * -1);
+      transform: translate(-50%, -30%);
+    }
+    .eco__chain {
+      text-align: start;
     }
   }
 </style>

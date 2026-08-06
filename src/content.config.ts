@@ -118,6 +118,20 @@ const packages = defineCollection({
     /** 0 is the foundation; 1..n are pipeline stages in flow order. */
     order: z.number().int().min(0),
     stage: z.string(),
+    /*
+     * The name of the package this one is COUPLED to, if any.
+     *
+     * `order` can only express a sequence, and two of these stages are not
+     * sequential: a star loses mass while it is being moved, and an encounter
+     * changes the evolutionary path it is on, so neither finishes before the
+     * other begins. Written here rather than drawn in the diagram, because the
+     * diagram, the numbered list and anything built later must agree about it.
+     *
+     * Must be symmetric and must name a real package — `getPipeline()` throws
+     * otherwise, since a one-sided coupling renders as a pair on one side of
+     * the page and a lone stage on the other.
+     */
+    coupledWith: z.string().optional(),
     tagline: z.string(),
     /** One-paragraph summary used on the index and as the page lede. */
     description: z.string(),

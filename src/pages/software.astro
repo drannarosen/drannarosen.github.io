@@ -6,8 +6,13 @@ import { READINESS_LABEL } from "../data/jaxstro";
 import ReadinessMeter from "../components/ReadinessMeter.astro";
 import ReleaseMeter from "../components/ReleaseMeter.astro";
 import { getPackages, packageHref } from "../lib/packages";
+import { researchQuestion } from "../data/research";
 
 const packages = await getPackages();
+
+/* The page's opening question is question 3 of the research program, quoted
+   rather than rewritten so /research and /software cannot ask it differently. */
+const softwareQuestion = researchQuestion("identifiability").question;
 
 /* Image identity from the registry; the caption below is this page's own
    framing rather than the figure's scientific caption, so it stays here. */
@@ -22,14 +27,26 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
   path="/software"
   ogImage="software.png"
 >
-  {/* The opening prose claims the pipeline returns an exact sensitivity, not
-      just a prediction. The evidence sits level with the claim, in the header's
-      aside, rather than a click away on the fluxax page. */}
+  {/* The opening prose claims the pipeline stays differentiable across the
+      places where naive differentiation fails, which is the claim the package
+      pages actually support — an earlier lede said "every step is a smooth,
+      differentiable function", which is both weaker and untrue: gravax resolves
+      close encounters rather than softening them, and startrax exists BECAUSE
+      stellar phase transitions are not smooth. The evidence sits level with the
+      claim, in the header's aside, rather than a click away on fluxax. */}
   <PageHeader
     eyebrow="Software"
     title="Differentiable astrophysics, built as instruments"
-    lede="I build JAX-native scientific software where every step — from a cluster's birth to its survey observables — is a smooth, differentiable function. The pipeline returns not just a prediction, but its exact sensitivity to each physical parameter."
+    lede="I build JAX-native scientific software in which the path from a cluster's birth to its survey observables stays differentiable — across adaptive timesteps and stellar phase transitions, exactly where differentiating naively stops being correct. The pipeline returns not just a prediction, but how that prediction responds to each physical parameter."
   >
+    {/* The driving question, above the fold, so the figure below reads as an
+        answer rather than a demo. Not written for this page: it is question 3
+        of the research program, quoted from src/data/research.ts so the two
+        pages cannot end up asking it differently. */}
+    <p class="sw-question">
+      <a href="/research">{softwareQuestion}</a>
+    </p>
+
     <p class="sw-intro__more">
       <strong>Jaxstro</strong> is the spine of that program: a family of packages
       that each own one scientific stage and remain independently useful. It powers
@@ -66,7 +83,32 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
 
   <section class="wrap-wide sw-eco" aria-labelledby="eco-heading">
     <h2 id="eco-heading" class="sw-section-title">The Jaxstro Ecosystem</h2>
+
+    {/* The throughline, in Anna's words. It leads the section rather than the
+        page because it says "turns X into Y", and the diagram directly below is
+        that Y broken into its stages. Each verb lands on a package shown here:
+        fit is gravax's stated purpose, interrogate and design are informax's. */}
+    <p class="sw-throughline">
+      Jaxstro turns stellar-population simulations from forward calculators into
+      models we can differentiate, fit, interrogate, and use to design
+      observations.
+    </p>
+
     <JaxstroEcosystem />
+
+    {/* The chain's last stage is the one that answers the opening question, and
+        it had no presence on this page at all — a reader had to open informax to
+        find the result that makes the whole loop worth closing. Both sentences
+        are the informax page's own, so there is no second version to drift. */}
+    <p class="sw-eco__close prose">
+      Inference is where the chain pays out. <a href="/software/informax"
+        >informax</a
+      > works out what an observation can recover <em>before</em> it is taken, and
+      attaches a machine-checked verdict to every result — so an analysis can abstain
+      rather than report false precision. In its own head-to-head test of two design
+      strategies, the gates abstained on both rather than declaring a winner, which
+      is the behaviour they exist for.
+    </p>
   </section>
 
   <section class="wrap sw-packages" aria-labelledby="pkg-heading">
@@ -139,6 +181,47 @@ const heroBox = figureBox(getFigure("fluxax-pixel-information"));
 </BaseLayout>
 
 <style>
+  /* The driving question, set as the page's loudest line after the title. */
+  .sw-question {
+    margin-block-start: var(--space-m);
+    font-size: var(--step-1);
+    line-height: 1.35;
+    text-wrap: balance;
+    color: var(--ink);
+    border-inline-start: 2px solid var(--spec-teal-bright);
+    padding-inline-start: var(--space-s);
+  }
+  .sw-question a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .sw-question a:hover,
+  .sw-question a:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+    text-decoration-color: var(--spec-teal-bright);
+  }
+
+  /* The section's thesis: larger than body copy, capped on an inner block so it
+     stays left-aligned with the heading (never cap the .wrap-wide itself). */
+  .sw-throughline {
+    max-inline-size: 54ch;
+    margin-block-end: var(--space-l);
+    font-size: var(--step-1);
+    line-height: 1.4;
+    text-wrap: pretty;
+    color: var(--ink);
+  }
+
+  .sw-eco__close {
+    margin-block-start: var(--space-l);
+    color: var(--ink-soft);
+  }
+  .sw-eco__close em {
+    color: var(--ink);
+    font-style: italic;
+  }
+
   .sw-intro__more {
     color: var(--ink-soft);
     margin-block-start: var(--space-m);
