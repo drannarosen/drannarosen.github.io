@@ -11,6 +11,14 @@ const year = 2026; // build-time constant; bump on next content refresh
 ---
 
 <footer class="site-footer">
+  {/*
+    Two columns: who I am on the left, where to go on the right.
+
+    Everything below the top row used to be full-width and left-aligned, which
+    left a large empty field under the profile links — the footer read as a
+    two-column header sitting on three left-aligned strips. Grouping by meaning
+    fills both columns and gives each block a reason to be where it is.
+  */}
   <div class="site-footer__inner wrap-wide">
     <div class="site-footer__identity">
       <p class="site-footer__name">{siteConfig.name}</p>
@@ -20,51 +28,54 @@ const year = 2026; // build-time constant; bump on next content refresh
       <a class="site-footer__email" href={`mailto:${siteConfig.email}`}>
         {siteConfig.email}
       </a>
+
+      {/* Attributed on purpose. This site ships a public AI-provenance badge
+          and a build gate that refuses unreviewed AI content; quoting a model
+          without saying so would contradict all of it for the sake of a joke.
+          It sits under her name because it signs the site. */}
+      <div class="site-footer__quote">
+        <blockquote>
+          <p>The universe may be cruel, but at least it's consistent.</p>
+          <footer>
+            <cite>ChatGPT</cite>
+          </footer>
+        </blockquote>
+      </div>
     </div>
 
-    {
-      links.length > 0 && (
-        <nav class="site-footer__links" aria-label="Profiles and documents">
-          <ul role="list">
-            {links.map((l) => (
-              <li>
-                {/* rel="me" is the point of this row: it is the machine-readable
-                    claim that these profiles are the same person as this site. */}
-                <a href={l.href} rel="me noopener">
-                  {l.icon && <ProfileIcon name={l.icon} />}
-                  <span>{l.label}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )
-    }
-  </div>
+    <div class="site-footer__go">
+      {
+        links.length > 0 && (
+          <nav class="site-footer__links" aria-label="Profiles and documents">
+            <ul role="list">
+              {links.map((l) => (
+                <li>
+                  {/* rel="me" is the point of this row: it is the machine-readable
+                      claim that these profiles are the same person as this site. */}
+                  <a href={l.href} rel="me noopener">
+                    {l.icon && <ProfileIcon name={l.icon} />}
+                    <span>{l.label}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      }
 
-  {/* Attributed on purpose. This site ships a public AI-provenance badge and a
-      build gate that refuses unreviewed AI content; quoting a model without
-      saying so would contradict all of it for the sake of a joke. */}
-  <div class="site-footer__quote wrap-wide">
-    <blockquote>
-      <p>The universe may be cruel, but at least it's consistent.</p>
-      <footer>
-        <cite>ChatGPT</cite>
-      </footer>
-    </blockquote>
+      {/*
+        The pages that are not in the header. The primary nav is capped at nine,
+        so these need a second path that is not just /about's "Elsewhere" block
+        — a reader deep in a post should not have to go via the biography to
+        reach them. Keep this list in sync with that block: same three.
+      */}
+      <nav class="site-footer__more" aria-label="More pages">
+        <a href="/now">Now</a> ·{" "}
+        <a href="/news">News</a> ·{" "}
+        <a href="/outreach">Outreach</a>
+      </nav>
+    </div>
   </div>
-
-  {/*
-    The pages that are not in the header. The primary nav is capped at nine, so
-    these need a second path that is not just /about's "Elsewhere" block — a
-    reader deep in a post should not have to go via the biography to reach
-    them. Keep this list in sync with that block: they are the same three.
-  */}
-  <nav class="site-footer__more wrap-wide" aria-label="More pages">
-    <a href="/now">Now</a> ·{" "}
-    <a href="/news">News</a> ·{" "}
-    <a href="/outreach">Outreach</a>
-  </nav>
 
   <div class="site-footer__legal wrap-wide">
     <p>
@@ -83,7 +94,7 @@ const year = 2026; // build-time constant; bump on next content refresh
   /* Quiet by design: it appears on every page, so it has to read as a
      signature rather than a punchline. */
   .site-footer__quote {
-    padding-block: var(--space-m) 0;
+    padding-block: var(--space-l) 0;
   }
   .site-footer__quote blockquote {
     margin: 0;
@@ -116,12 +127,31 @@ const year = 2026; // build-time constant; bump on next content refresh
     background: var(--bg-deep);
     padding-block: var(--space-xl);
   }
+  /* One column until there is room for two — below that the right column would
+     be too narrow for "Google Scholar" to sit beside anything. */
   .site-footer__inner {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
     gap: var(--space-xl);
-    justify-content: space-between;
     align-items: start;
+  }
+  @media (min-width: 44rem) {
+    .site-footer__inner {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    /* The right column's contents align to the page edge, mirroring the left
+       column's alignment to the opposite edge. */
+    .site-footer__go {
+      justify-items: end;
+      text-align: end;
+    }
+    .site-footer__links ul {
+      justify-content: flex-end;
+    }
+  }
+  .site-footer__go {
+    display: grid;
+    gap: var(--space-m);
+    align-content: start;
   }
   .site-footer__name {
     font-family: var(--font-display);
@@ -163,7 +193,6 @@ const year = 2026; // build-time constant; bump on next content refresh
     color: var(--ink);
   }
   .site-footer__more {
-    margin-block-start: var(--space-l);
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2xs);
