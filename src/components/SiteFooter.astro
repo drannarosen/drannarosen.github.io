@@ -4,6 +4,7 @@
  * authorship/license line. Only links with a known href render (see site.ts).
  */
 import { siteConfig, activeLinks } from "../lib/site";
+import ProfileIcon from "./ProfileIcon.astro";
 
 const links = activeLinks();
 const year = 2026; // build-time constant; bump on next content refresh
@@ -27,8 +28,11 @@ const year = 2026; // build-time constant; bump on next content refresh
           <ul role="list">
             {links.map((l) => (
               <li>
+                {/* rel="me" is the point of this row: it is the machine-readable
+                    claim that these profiles are the same person as this site. */}
                 <a href={l.href} rel="me noopener">
-                  {l.label}
+                  {l.icon && <ProfileIcon name={l.icon} />}
+                  <span>{l.label}</span>
                 </a>
               </li>
             ))}
@@ -136,9 +140,17 @@ const year = 2026; // build-time constant; bump on next content refresh
   .site-footer__links ul {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-m);
+    gap: var(--space-2xs) var(--space-m);
     font-family: var(--font-mono);
     font-size: var(--step--1);
+  }
+  /* Icon and label are one target and wrap together — a row that broke between
+     a mark and its word would read as an unlabelled glyph. */
+  .site-footer__links a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45em;
+    white-space: nowrap;
   }
   /* These inherit the site's link style — teal and underlined, exactly like the
      email above them. They used to be grey with the underline held back until

@@ -12,6 +12,8 @@ export interface NavItem {
 export interface ExternalLink {
   label: string;
   href: string | null;
+  /** Icon key drawn by ProfileIcon. Omit for a text-only link. */
+  icon?: "orcid" | "scholar" | "linkedin" | "github";
 }
 
 /*
@@ -52,11 +54,27 @@ const nav: NavItem[] = [
   { label: "CV", href: "/cv" },
 ];
 
-/** External / profile links. `null` until confirmed — provide real URLs. */
+/*
+ * External / profile links. `null` until confirmed — provide real URLs.
+ *
+ * The Scholar URL is the CANONICAL form, `?user=<id>&hl=en`. Scholar hands out
+ * links carrying an extra `gmla=` token, which is an opaque session/referral
+ * value: it is not needed to reach the profile, it records how that particular
+ * link was generated, and it can stop working. Strip it from any replacement.
+ */
 const links: ExternalLink[] = [
-  { label: "ORCID", href: "https://orcid.org/0000-0003-4423-0660" },
-  { label: "GitHub", href: null },
-  { label: "Google Scholar", href: null },
+  { label: "ORCID", href: "https://orcid.org/0000-0003-4423-0660", icon: "orcid" },
+  {
+    label: "Google Scholar",
+    href: "https://scholar.google.com/citations?user=aQUPlckAAAAJ&hl=en",
+    icon: "scholar",
+  },
+  {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/in/annalorrainerosen/",
+    icon: "linkedin",
+  },
+  { label: "GitHub", href: null, icon: "github" },
   { label: "CV (PDF)", href: null },
 ];
 
@@ -70,9 +88,16 @@ export const siteConfig = {
   links,
 };
 
-/** Links with a known href, ready to render. */
-export function activeLinks(): Array<{ label: string; href: string }> {
+/*
+ * Links with a known href, ready to render.
+ *
+ * The return type keeps the WHOLE ExternalLink and only narrows `href`. It used
+ * to be spelled out as `{ label, href }`, which silently dropped every other
+ * field — adding `icon` type-checked here and then failed at the call site,
+ * because the predicate had quietly redefined what a link is.
+ */
+export function activeLinks(): Array<ExternalLink & { href: string }> {
   return siteConfig.links.filter(
-    (l): l is { label: string; href: string } => l.href !== null,
+    (l): l is ExternalLink & { href: string } => l.href !== null,
   );
 }
