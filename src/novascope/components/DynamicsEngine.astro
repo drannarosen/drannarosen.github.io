@@ -121,7 +121,7 @@ const m = (tex: string) => tex;
             aria-expanded="false"
             aria-label="About the concentration parameter"
           >?</button>
-          <span class="xpl-dyn__popover xpl-dyn__popover--up" data-popover="gamma" role="tooltip" hidden>
+          <span class="xpl-dyn__popover" data-popover="gamma" role="tooltip" hidden>
             <b>Concentration.</b> The stars are placed from an <b>EFF</b> profile
             (Elson, Fall &amp; Freeman 1987), whose three-dimensional density falls as
             <Math tex={m("\\rho(r) \\propto (1 + r^2/a^2)^{-\\gamma/2}")} />.
@@ -1267,6 +1267,24 @@ const m = (tex: string) => tex;
         if (pop) pop.hidden = true;
       }
     };
+    /*
+     * Place a fixed-position note against its button, flipping above when there is
+     * no room below and clamping to the viewport on both axes. Fixed coordinates
+     * are viewport coordinates, which is exactly what `getBoundingClientRect`
+     * returns, so no scroll offset enters into it.
+     */
+    const placePopover = (b: HTMLElement, pop: HTMLElement) => {
+      const r = b.getBoundingClientRect();
+      const m = 8;
+      const w = pop.offsetWidth;
+      const h = pop.offsetHeight;
+      const left = Math.min(Math.max(m, r.right - w), window.innerWidth - w - m);
+      const below = r.bottom + 6;
+      const top = below + h > window.innerHeight - m ? Math.max(m, r.top - h - 6) : below;
+      pop.style.left = `${Math.round(left)}px`;
+      pop.style.top = `${Math.round(top)}px`;
+    };
+
     for (const b of infoBtns) {
       b.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1277,9 +1295,14 @@ const m = (tex: string) => tex;
         closeInfo(key);
         pop.hidden = !open;
         b.setAttribute("aria-expanded", String(open));
+        if (open) placePopover(b, pop); // measurable only once it is not hidden
       });
     }
     document.addEventListener("click", () => closeInfo());
+    /* A fixed note does not travel with its button, so anything that moves the
+       button closes it rather than leaving it stranded mid-page. */
+    window.addEventListener("scroll", () => closeInfo(), { passive: true });
+    window.addEventListener("resize", () => closeInfo());
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeInfo();
     });
@@ -1459,13 +1482,24 @@ const m = (tex: string) => tex;
   .xpl-dyn__ctrl--noted {
     position: relative;
   }
+  /*
+   * FIXED, and positioned by JS — see `placePopover`.
+   *
+   * Absolute positioning put it inside `.xpl-dyn__panel`, which carries
+   * `overflow: hidden` to clip the canvas to the border radius. Measured on the
+   * concentration note: the popover ran from x=31 to x=447 while its panel began
+   * at x=208, so 177 px of it was cut off. An earlier check of mine tested only
+   * whether the TOP edge escaped and reported it fine, which is why this shipped.
+   *
+   * Fixed takes it out of the panel's clipping context altogether, so no note can
+   * ever be trimmed by the box it happens to live in — and the placement can then
+   * flip and clamp against the VIEWPORT, which is the thing that actually
+   * constrains it.
+   */
   .xpl-dyn__popover {
-    position: absolute;
-    z-index: 5;
-    inset-block-start: 100%;
-    inset-inline-end: 0;
+    position: fixed;
+    z-index: 20;
     inline-size: min(26rem, 70vw);
-    margin-block-start: 0.35rem;
     padding: var(--space-2xs) var(--space-s);
     border: 1px solid color-mix(in srgb, var(--spec-teal) 30%, var(--border));
     border-radius: var(--radius-m);
@@ -1477,16 +1511,7 @@ const m = (tex: string) => tex;
     text-align: start;
     white-space: normal;
   }
-  /*
-   * Opens UPWARD. Must come after the base rule — it overrides `inset-block-start`
-   * at equal specificity, so placed before it the base simply won and the note
-   * opened downward, where the panel's `overflow: hidden` clips it.
-   */
-  .xpl-dyn__popover--up {
-    inset-block-start: auto;
-    inset-block-end: 100%;
-    margin-block: 0 0.35rem;
-  }
+
   .xpl-dyn__panel canvas {
     display: block;
     inline-size: 100%;
