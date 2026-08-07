@@ -277,6 +277,9 @@ const m = (tex: string) => tex;
     let lo0: number | null = null;
     /** Elapsed model time [Myr]. Advanced by BOTH integration paths — see sample(). */
     let tSim = 0;
+    /** Model time between STORED history samples; grows as the run outlives the buffer. */
+    let storeEvery = 0;
+    let lastStored = -Infinity;
 
     /* Bumped by "new draw" only. Reset keeps the seed, so "reset" means "same
        cluster from t=0" and "new draw" means "a different cluster" — two
@@ -357,18 +360,44 @@ const m = (tex: string) => tex;
          reader to stop believing a panel that is perfectly fine. NaN breaks the
          trace rather than drawing a false one — drawSeries already skips
          non-finite samples. */
-      hist.push({ t: tSim, hi: hi / hi0, lo: lo / lo0, e: gravity ? s.energyDrift : NaN });
       /*
-       * KEEP THE WHOLE RUN, at coarser resolution — never drop the beginning.
+       * KEEP THE WHOLE RUN AT UNIFORM RESOLUTION IN TIME.
        *
-       * This used to `shift()` past 600 samples, which discards the OLDEST point
-       * while the x-axis still spans 0..t_now. The visible result is a curve that
-       * detaches from the left edge and crawls rightward across an empty plot,
-       * and the run's first crossing times — where the segregation this page is
-       * about actually happens — are gone. Halving instead keeps t = 0 in frame
-       * for an arbitrarily long run: the record thins, it does not truncate.
+       * Two earlier versions of this were wrong, in opposite ways.
+       *
+       * `shift()` past 600 samples dropped the OLDEST point while the x-axis still
+       * spanned 0..t_now, so the curve detached from the left edge and crawled
+       * rightward across an empty plot.
+       *
+       * Halving the array (`filter(i % 2 === 0)`) was meant to fix that, and the
+       * comment here claimed "the record thins, it does not truncate". THAT WAS
+       * FALSE, and measurably so. Halving thins everything already stored while
+       * fresh samples keep arriving at full rate, so a sample that has survived k
+       * halvings sits at spacing 2^k while the newest sit at spacing 1 —
+       * exponentially biased against the past. Simulated over the 72,300 frames of
+       * an 821 Myr run: 600 samples retained, and the first EIGHTY PERCENT of the
+       * timeline held exactly ONE of them, with a 789.7 Myr gap between the first
+       * two. The plot drew a point at the origin, a straight line across most of
+       * the run, and all of its detail in the last 4% — which is what "the energy
+       * plot loses most of the line" was.
+       *
+       * The fix is to thin the INPUT as well as the record: store a sample only
+       * every `storeEvery` of model time, and after each halving reset that
+       * interval to the spacing the surviving samples actually have. The record
+       * then stays uniform in time at every length, and the readouts below still
+       * update every frame — only the history is thinned.
        */
-      if (hist.length > MAX_SAMPLES) hist = hist.filter((_, i) => i % 2 === 0);
+      if (tSim - lastStored >= storeEvery) {
+        hist.push({ t: tSim, hi: hi / hi0, lo: lo / lo0, e: gravity ? s.energyDrift : NaN });
+        lastStored = tSim;
+      }
+      if (hist.length > MAX_SAMPLES) {
+        hist = hist.filter((_, i) => i % 2 === 0);
+        const span = hist[hist.length - 1]!.t - hist[0]!.t;
+        /* Measured from what survived, not doubled blindly, so the interval can
+           never drift out of step with the array it is meant to describe. */
+        storeEvery = hist.length > 1 ? span / (hist.length - 1) : storeEvery * 2;
+      }
 
       setStat("t", tSim.toFixed(1));
       setStat("tcr", gravity ? s.tCross.toFixed(1) : "—");
@@ -796,6 +825,8 @@ const m = (tex: string) => tex;
       hi0 = null;
       lo0 = null;
       tSim = 0;
+      storeEvery = 0;
+      lastStored = -Infinity;
       playing = false;
       sample();
       redraw();
