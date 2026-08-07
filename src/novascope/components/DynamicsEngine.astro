@@ -209,7 +209,7 @@ const m = (tex: string) => tex;
   /* Shared with the H–R diagram and the IMF histogram. AXIS_FONT is a LITERAL
      font string on purpose — see the note in axis.ts; this page is the reason it
      is there. */
-  import { AXIS_FONT, niceTicks } from "@novascope/viz/axis";
+  import { AXIS_FONT, niceTicks, drawPower } from "@novascope/viz/axis";
 
   const root = document.querySelector<HTMLElement>("[data-dyn]");
   if (root) {
@@ -249,6 +249,30 @@ const m = (tex: string) => tex;
        composition of its own, so stating it here is stating an assumption rather
        than reading one. */
     const CLUSTER_Z = 0.02;
+    /*
+     * STEP SIZE, AND WHY IT IS t_cross/128 RATHER THAN /64.
+     *
+     * The scheme was never the problem — this page runs FSI4, fourth order and
+     * symplectic, confirmed from the scenario's own `defaultScheme`. The step was.
+     * Measured on this cluster, N = 400, worst |dE/E| over ten crossing times:
+     *
+     *   dt = t_cross/64    3.95e-4      <- what shipped
+     *   dt = t_cross/128   7.46e-6      53x better
+     *   dt = t_cross/256   2.91e-7
+     *
+     * A 53x gain for one halving is far steeper than the 16x a fourth-order scheme
+     * gives in its asymptotic regime, which is the tell: /64 was not a slightly
+     * coarse step, it was outside the range where the scheme's order applies at
+     * all. /128 puts it back inside, and the error drops two orders below the
+     * monitor's 1e-3 trust limit instead of sitting a factor of two under it.
+     *
+     * SUBSTEPS keeps the clock rate unchanged: two half-steps per frame advance
+     * the same model time per frame as one whole one did, so the cluster evolves
+     * at the pace it always did and only the cost goes up (2x the force
+     * evaluations — measured in the browser before relying on it).
+     */
+    const STEP_DIVISOR = 128;
+    const SUBSTEPS = 2;
     let hi0: number | null = null;
     let lo0: number | null = null;
     /** Elapsed model time [Myr]. Advanced by BOTH integration paths — see sample(). */
@@ -273,7 +297,7 @@ const m = (tex: string) => tex;
        */
       const picked = chooseIntegrator(built.state, built.force, {
         prefer: s.defaultScheme,
-        maxStep: built.timeUnit / 64,
+        maxStep: built.timeUnit / STEP_DIVISOR,
       });
       /* Mass split is fixed once per draw, so the two curves follow the SAME
          stars all run — a split recomputed each frame would track whichever
@@ -467,6 +491,8 @@ const m = (tex: string) => tex;
      * at 14px; bottom has to clear one line plus its gap.
      */
     const AX = { l: 64, r: 14, t: 12, b: 32 };
+    /** Decades shown below a log axis's threshold — see the floor in drawSeries. */
+    const LOG_DECADES = 5;
 
     function drawSeries(
       cv: HTMLCanvasElement,
@@ -486,6 +512,21 @@ const m = (tex: string) => tex;
          * `healthy` verdict means, so the picture and the readout cannot disagree.
          */
         threshold?: { value: number; colour: string; label: string };
+        /**
+         * Plot log10(value) instead of the value.
+         *
+         * Energy drift spans DECADES — measured on this cluster it runs from below
+         * 1e-7 early to a few times 1e-4 by ten crossing times — and the axis is
+         * pinned to a 1e-3 trust limit. On a linear scale that put the entire trace
+         * inside 4 pixels of a 276-pixel plot, hard against the bottom axis, which
+         * reads exactly like a plot that has lost its history. It had not: 2,266 of
+         * 2,428 columns carried trace pixels. The scale was wrong, not the record.
+         *
+         * `/dynamics-lab` plots the same quantity on fixed decades for the same
+         * reason. Non-positive samples are dropped rather than clamped — log of a
+         * zero drift is not a small number, it is not a number.
+         */
+        logY?: boolean;
       } = {},
     ) {
       const { ctx, w, h } = fit(cv);
@@ -495,24 +536,44 @@ const m = (tex: string) => tex;
       const fmt = opts.fmt ?? ((v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2)));
 
       const tMax = hist.length > 1 ? hist[hist.length - 1].t || 1 : 1;
+      /* The one place the log transform is applied. Everything downstream — the
+         extent, the ticks, the threshold and the polyline — works in plotted
+         units, so the two scales cannot disagree about where a value sits. */
+      const toPlot = (v: number): number =>
+        opts.logY ? (v > 0 ? Math.log10(v) : NaN) : v;
       let lo = Infinity;
       let hiV = -Infinity;
       for (const p of hist)
         for (const sr of series) {
-          const v = sr.get(p);
+          const v = toPlot(sr.get(p));
           if (Number.isFinite(v)) {
             lo = Math.min(lo, v);
             hiV = Math.max(hiV, v);
           }
         }
-      if (opts.zeroBase) lo = Math.min(lo, 0);
+      if (opts.zeroBase && !opts.logY) lo = Math.min(lo, 0);
       if (opts.refOne) {
         lo = Math.min(lo, 1);
         hiV = Math.max(hiV, 1);
       }
       if (opts.threshold) {
-        lo = Math.min(lo, opts.threshold.value);
-        hiV = Math.max(hiV, opts.threshold.value);
+        const tv = toPlot(opts.threshold.value);
+        if (Number.isFinite(tv)) {
+          lo = Math.min(lo, tv);
+          hiV = Math.max(hiV, tv);
+          /*
+           * FLOOR THE RANGE at a fixed number of decades below the limit.
+           *
+           * A log axis autoscaled to its data is at the mercy of its smallest
+           * sample, and the first few drifts of a fresh run are near machine
+           * precision — one of them would stretch the axis to a dozen decades and
+           * squash the part anyone cares about into a sliver, which is the same
+           * failure the linear axis had, mirrored. Anchoring the bottom to the
+           * trust limit also makes the plot's shape comparable between runs
+           * instead of rescaling under you every time.
+           */
+          if (opts.logY) lo = Math.max(lo, tv - LOG_DECADES);
+        }
       }
       if (!Number.isFinite(lo) || !Number.isFinite(hiV)) {
         lo = 0;
@@ -539,7 +600,14 @@ const m = (tex: string) => tex;
         ctx.stroke();
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
-        ctx.fillText(fmt(v), AX.l - 8, y);
+        if (opts.logY) {
+          /* 10^x with a raised exponent — the same helper the H–R diagram and the
+             IMF histogram label their decades with. */
+          drawPower(ctx, v, AX.l - 8, y, "right", ink);
+          ctx.font = AXIS_FONT;
+        } else {
+          ctx.fillText(fmt(v), AX.l - 8, y);
+        }
       }
       /* Vertical gridlines too, as the H–R diagram has: reading a time off a plot
          with horizontal rules only means tracking across bare space. */
@@ -568,14 +636,14 @@ const m = (tex: string) => tex;
         ctx.strokeStyle = colour;
         ctx.lineWidth = 1.25;
         ctx.beginPath();
-        ctx.moveTo(AX.l, Y(value));
-        ctx.lineTo(w - AX.r, Y(value));
+        ctx.moveTo(AX.l, Y(toPlot(value)));
+        ctx.lineTo(w - AX.r, Y(toPlot(value)));
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = colour;
         ctx.textAlign = "left";
         ctx.textBaseline = "bottom";
-        ctx.fillText(label, AX.l + 6, Y(value) - 3);
+        ctx.fillText(label, AX.l + 6, Y(toPlot(value)) - 3);
         ctx.restore();
         ctx.fillStyle = ink;
       }
@@ -599,8 +667,12 @@ const m = (tex: string) => tex;
         ctx.lineWidth = 1.6;
         let started = false;
         for (const p of hist) {
-          const v = sr.get(p);
-          if (!Number.isFinite(v)) continue;
+          const raw = toPlot(sr.get(p));
+          if (!Number.isFinite(raw)) continue;
+          /* Clamped to the floor, not dropped: a sample quieter than the axis
+             bottom is still a sample, and dropping it would break the trace into
+             segments that look like missing history. */
+          const v = Math.max(raw, lo);
           if (!started) {
             ctx.moveTo(X(p.t), Y(v));
             started = true;
@@ -627,8 +699,7 @@ const m = (tex: string) => tex;
          verdict the page reports cannot drift apart. */
       const tol = run?.monitor.energyTolerance;
       drawSeries(energyCv, [{ get: (p) => p.e, colour: css("--spec-amber", "#fbbf24"), dash: [] }], {
-        zeroBase: true,
-        fmt: (v) => (v === 0 ? "0" : v.toExponential(0)),
+        logY: true,
         ...(tol
           ? { threshold: { value: tol, colour: css("--spec-rose-bright", "#e58fb4"), label: "trust limit" } }
           : {}),
@@ -674,10 +745,12 @@ const m = (tex: string) => tex;
     function frame() {
       raf = 0;
       if (!run || !playing) return;
-      const dt = (run.built.timeUnit / 64) * Number(speedInput.value);
-      if (gravity) run.integrator.step(dt);
-      else drift(dt);
-      tSim += dt;
+      const dt = (run.built.timeUnit / STEP_DIVISOR) * Number(speedInput.value);
+      for (let k = 0; k < SUBSTEPS; k++) {
+        if (gravity) run.integrator.step(dt);
+        else drift(dt);
+        tSim += dt;
+      }
       sample();
       redraw();
       if (playing && onScreen && !document.hidden) raf = requestAnimationFrame(frame);
