@@ -151,6 +151,8 @@ const m = (tex: string) => tex;
     measure,
     lagrangianRadii,
   } from "@novascope/core/dynamics";
+  import { createEngine, attachInteraction } from "@novascope/viz/webgl";
+  import { star } from "@novascope/core/stellar";
 
   const root = document.querySelector<HTMLElement>("[data-dyn]");
   if (root) {
@@ -186,7 +188,6 @@ const m = (tex: string) => tex;
     let run: ReturnType<typeof build> | null = null;
     /* History of (t, r_h heavy, r_h light) and of fractional energy error. */
     let hist: { t: number; hi: number; lo: number; e: number }[] = [];
-    let span: number | null = null;
     let hi0: number | null = null;
     let lo0: number | null = null;
 
@@ -281,50 +282,73 @@ const m = (tex: string) => tex;
     const css = (name: string, fb: string) =>
       getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
 
-    function drawField() {
-      const { ctx, w, h } = fit(field);
-      ctx.clearRect(0, 0, w, h);
-      if (!run) return;
-      const st = run.built.state;
-      /* Scale to the CLUSTER, not to a guessed box. A fixed +/-8 pc view of a
-         cluster whose half-mass radius is ~0.5 pc put every star in a few
-         central pixels and left the panel looking empty. The 98th-percentile
-         radius keeps the bulk framed while a single ejected star cannot
-         collapse the view. Held fixed once set, so expansion is visible as
-         motion rather than being cancelled by a rescaling axis. */
-      if (span === null) {
-        const rr: number[] = [];
-        for (let i = 0; i < st.n; i++) {
-          const x = st.pos[3 * i], y = st.pos[3 * i + 1], z = st.pos[3 * i + 2];
-          rr.push(Math.hypot(x, y, z));
-        }
-        rr.sort((a, b) => a - b);
-        span = Math.max(0.5, rr[Math.floor(rr.length * 0.98)] * 1.6);
-      }
-      const sx = w / (2 * span);
-      const teal = css("--spec-teal-bright", "#4fd6c4");
-      const rose = css("--spec-rose-bright", "#e58fb4");
+    /*
+     * The cluster is drawn by the SHARED WebGL engine — the same one
+     * /explore/cluster, /explore/gas-expulsion and /explore/mass-segregation
+     * use — not by ctx.arc(). The first version hand-rolled flat 2-D circles
+     * and looked exactly as cheap as that sounds beside census: no glow, no
+     * depth sorting, no depth cue, no spectral colour, no orbit.
+     *
+     * A 1x1x1 dummy volume with gasFraction 0 gives a stars-only scene; this
+     * page has no gas to show. Colour comes from Teff via star(), so it is the
+     * contract's colour rather than a heavy/light hack of my own — which also
+     * satisfies explore-authoring rule 1.
+     */
+    let engine: ReturnType<typeof createEngine> | null = null;
+
+    /** n*6: x, y, z, mass, Teff, radius — the layout the engine expects. */
+    function packStars(): Float32Array {
+      const st = run!.built.state;
+      const out = new Float32Array(st.n * 6);
       for (let i = 0; i < st.n; i++) {
-        const x = w / 2 + st.pos[3 * i] * sx;
-        const y = h / 2 - st.pos[3 * i + 1] * sx;
-        const heavy = run.heavy.has(i);
-        const r = heavy ? 3.2 : 1.6;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, 6.2832);
-        ctx.fillStyle = heavy ? rose : teal;
-        ctx.globalAlpha = heavy ? 1 : 0.75;
-        ctx.fill();
+        const M = st.mass[i];
+        const sv = star(M, 0.02, 0);
+        out[6 * i] = st.pos[3 * i];
+        out[6 * i + 1] = st.pos[3 * i + 1];
+        out[6 * i + 2] = st.pos[3 * i + 2];
+        out[6 * i + 3] = M;
+        out[6 * i + 4] = sv.Teff;
+        out[6 * i + 5] = sv.R;
       }
-      ctx.globalAlpha = 1;
+      return out;
     }
 
-    /*
-     * Axes, not a sparkline. Census's plots carry gridlines and tick labels, and
-     * a curve with no scale cannot be read: "the solid line went down" is not a
-     * measurement until you can see it went down to 0.75 over ten Myr. The
-     * radii plot also draws a reference line at 1, which is where both curves
-     * start, so any separation is legible against it.
-     */
+    function positions(): Float32Array {
+      const st = run!.built.state;
+      const out = new Float32Array(st.n * 3);
+      out.set(st.pos.subarray(0, st.n * 3));
+      return out;
+    }
+
+    function mountEngine() {
+      if (!run) return;
+      engine?.cleanup();
+      /* Box from the 98th-percentile radius: a fixed guess framed a ~0.5 pc
+         cluster inside an 8 pc box and left the panel looking empty. */
+      const st = run.built.state;
+      const rr: number[] = [];
+      for (let i = 0; i < st.n; i++)
+        rr.push(Math.hypot(st.pos[3 * i], st.pos[3 * i + 1], st.pos[3 * i + 2]));
+      rr.sort((a, b) => a - b);
+      const box = Math.max(1, rr[Math.floor(rr.length * 0.98)] * 3.2);
+      engine = createEngine(
+        field,
+        {
+          volume: new Uint8Array(1),
+          ngrid: 1,
+          stars: packStars(),
+          box,
+          densityFloor: 1,
+          logRange: 1,
+          floorMedian: 1,
+          floorMean: 1,
+        },
+        { emphasizeHot: true },
+      );
+      engine.setGasFraction(0);
+      attachInteraction(field, engine);
+    }
+
     const AX = { l: 34, r: 6, t: 6, b: 18 };
 
     function niceTicks(lo: number, hi: number, want = 4): number[] {
@@ -448,7 +472,7 @@ const m = (tex: string) => tex;
     };
 
     const redraw = () => {
-      drawField();
+      engine?.setStarPositions(positions());
       drawPlots();
     };
 
@@ -501,7 +525,7 @@ const m = (tex: string) => tex;
       stop();
       run = build();
       hist = [];
-      span = null;
+      mountEngine();
       hi0 = null;
       lo0 = null;
       playing = false;
