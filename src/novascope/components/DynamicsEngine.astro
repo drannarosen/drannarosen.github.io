@@ -190,9 +190,14 @@ const m = (tex: string) => tex;
     let hi0: number | null = null;
     let lo0: number | null = null;
 
+    /* Bumped by "new draw" only. Reset keeps the seed, so "reset" means "same
+       cluster from t=0" and "new draw" means "a different cluster" — two
+       distinct things that were previously the same button twice. */
+    let seed = 2026;
+
     function build() {
       const s = scenario("cluster");
-      const built = s.build({ n: Number(nInput.value) });
+      const built = s.build({ n: Number(nInput.value), seed });
       /*
        * The scenario's OWN default scheme, not a faster one chosen here.
        * Forcing leapfrog measured 1.3e-2 energy drift by ten crossing times —
@@ -485,7 +490,6 @@ const m = (tex: string) => tex;
     const syncPlay = () => {
       playBtn.textContent = playing ? "❙❙ pause" : "▶ run";
       playBtn.classList.toggle("is-active", playing);
-      playBtn.disabled = !gravity;
       hint.textContent = gravity
         ? playing
           ? "Integrating — every star pulls on every other."
@@ -507,32 +511,43 @@ const m = (tex: string) => tex;
     };
 
     playBtn.addEventListener("click", () => {
-      if (!gravity) return;
+      /*
+       * Run used to be DISABLED while gravity was isolated, so the page's
+       * primary action did nothing on arrival and gave no reason why — you had
+       * to discover that another control gates it. Pressing run now turns
+       * gravity on, which is what pressing run plainly means.
+       */
+      if (!gravity) setGravity(true);
       playing = !playing;
       syncPlay();
       playing ? start() : stop();
     });
 
     $<HTMLButtonElement>("[data-reset]").addEventListener("click", rebuild);
-    $<HTMLButtonElement>("[data-reseed]").addEventListener("click", rebuild);
+    $<HTMLButtonElement>("[data-reseed]").addEventListener("click", () => {
+      seed += 1;
+      rebuild();
+    });
+
+    function setGravity(on: boolean) {
+      gravity = on;
+      for (const o of gravBtns) {
+        const active = (o.dataset.grav === "on") === on;
+        o.classList.toggle("is-active", active);
+        o.setAttribute("aria-pressed", String(active));
+      }
+      gravNote.textContent = gravity
+          ? "N-body: every pair interacts. Mass segregation below is not a rule that was added — it is what this same gravity does."
+        : "Isolated: the stars hold the positions they were born with. Nothing moves, and nothing segregates.";
+      if (!gravity) {
+        playing = false;
+        stop();
+      }
+      syncPlay();
+    }
 
     for (const b of gravBtns) {
-      b.addEventListener("click", () => {
-        gravity = b.dataset.grav === "on";
-        for (const o of gravBtns) {
-          const on = o === b;
-          o.classList.toggle("is-active", on);
-          o.setAttribute("aria-pressed", String(on));
-        }
-        gravNote.textContent = gravity
-          ? "N-body: every pair interacts. Mass segregation below is not a rule that was added — it is what this same gravity does."
-          : "Isolated: the stars hold the positions they were born with. Nothing moves, and nothing segregates.";
-        if (!gravity) {
-          playing = false;
-          stop();
-        }
-        syncPlay();
-      });
+      b.addEventListener("click", () => setGravity(b.dataset.grav === "on"));
     }
 
     nInput.addEventListener("input", () => {

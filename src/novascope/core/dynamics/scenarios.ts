@@ -74,6 +74,13 @@ export interface ScenarioParams {
   n?: number;
   /** Cluster: softening as a fraction of r_h N^(-1/3). */
   softeningFraction?: number;
+  /*
+   * Cluster: sampling seed. Without it every build returns the SAME cluster,
+   * so a "new draw" control is inert — which is how one shipped: the button
+   * fired, rebuilt, and produced byte-identical radii. Defaulted so existing
+   * callers keep the fixed cluster they rely on.
+   */
+  seed?: number;
 }
 
 export interface Scenario {
@@ -151,7 +158,7 @@ function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
      starts at a Q it is not actually at. */
   const state = clusterState(
     defaultIdentity({
-      seed: 2026,
+      seed: p.seed ?? 2026,
       sampling: { mode: "count", target: n },
       profile: { kind: "plummer", scaleRadius: scalePc },
       kinematics: { virialRatio: 0.5 },
