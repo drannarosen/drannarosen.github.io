@@ -261,6 +261,36 @@ export function byYear(
     .map(([year, works]) => ({ year, works }));
 }
 
+/*
+ * One work by DOI, for pages that reference a specific paper.
+ *
+ * The DOI is the reference; everything shown about the paper — title, authors,
+ * journal, volume, page, year, link — is read from the synced record. A page
+ * that retyped a citation would be a second copy of it, and a citation that
+ * disagrees with the bibliography on the same site is worse than none.
+ *
+ * Returns undefined rather than throwing: callers decide whether a missing
+ * paper is fatal, and the advising list still renders without its link.
+ */
+export function publicationByDoi(doi: string): SyncedWork | undefined {
+  return allPublications.find((w) => w.doi === doi);
+}
+
+/**
+ * Short citation line — "Journal 1004, 14 (2026)" — from what we actually hold.
+ *
+ * Emits only the parts present, for the reason `bibtex` is conservative: an
+ * invented volume or page is worse than an absent one, because it looks
+ * checked.
+ */
+export function shortCitation(w: SyncedWork): string | null {
+  const bits = [w.venue, [w.volume, w.page].filter(Boolean).join(", ")]
+    .filter(Boolean)
+    .join(" ");
+  if (!bits) return w.year ?? null;
+  return w.year ? `${bits} (${w.year})` : bits;
+}
+
 /** Canonical external link for a work: DOI first, then ADS, then arXiv. */
 export function workUrl(w: SyncedWork): string | null {
   if (w.doi) return `https://doi.org/${w.doi}`;

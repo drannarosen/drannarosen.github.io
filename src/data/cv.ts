@@ -37,6 +37,13 @@ export interface Advisee {
   project?: string;
   /** Project or contribution led to a refereed publication (★ in the CV). */
   refereed?: boolean;
+  /*
+   * DOI of the paper the project produced. The REFERENCE only — title,
+   * authors, journal, volume, page and link all resolve from the synced
+   * publication record, so this page and the bibliography cannot print
+   * different citations for one paper.
+   */
+  paperDoi?: string;
   /** Degree programme, e.g. "M.S. Astronomy". Shown on /now, not on the CV. */
   program?: string;
   /** When they are due to finish, e.g. "Summer 2026". Drives the /now list. */
@@ -113,7 +120,7 @@ export const undergraduateAdvisees: Advisee[] = [
   { name: "Victor Del Rio", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" , group: true },
   { name: "Edwin Sarabia", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" , group: true },
   // "incoming" is accurate until the Fall 2026 term starts; drop the word then.
-  { name: "Alex Escamilla", affiliation: "B.S. SDSU 2025; incoming Astronomy Ph.D., UMass Amherst", date: "2024–2026", project: "Bridging Theory and Observation: Synthetic FIR Insights into Star Formation Efficiency", refereed: true , group: true },
+  { name: "Alex Escamilla", affiliation: "B.S. SDSU 2025; incoming Astronomy Ph.D., UMass Amherst", date: "2024–2026", project: "Bridging Theory and Observation: Synthetic FIR Insights into Star Formation Efficiency", refereed: true, paperDoi: "10.3847/1538-4357/ae6cdc", group: true },
   { name: "Kate Gonzalez", affiliation: "SDSU", date: "2024", project: "Initial developer of the Sim2SKIRT synthetic-observation pipeline with SKIRT" , group: true },
   { name: "Trinity Webb", affiliation: "OSU", date: "2023–2024", project: "Tracing the Impact of Stellar Wind Feedback in N79 & 30 Doradus in the LMC with Chandra", refereed: true },
   { name: "Mikayla Wilson", affiliation: "grad student, UCSC; Banneker Intern, Harvard", date: "2020", project: "Tracing the Evolution of Molecular Outflows in Massive Star Formation with Synthetic Observations" },

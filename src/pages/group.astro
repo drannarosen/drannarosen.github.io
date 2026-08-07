@@ -10,6 +10,18 @@ import {
   undergraduateAdvisees,
   type Advisee,
 } from "../data/cv";
+import { publicationByDoi, shortCitation, workUrl } from "../data/allPublications";
+
+/*
+ * A project that produced a paper links to it, with the citation read from the
+ * synced publication record rather than retyped here. `paperDoi` is the only
+ * thing this page states about the paper; if the DOI does not resolve, the
+ * entry renders unlinked instead of printing a citation nothing backs.
+ */
+function paperFor(a: Advisee) {
+  const w = a.paperDoi ? publicationByDoi(a.paperDoi) : undefined;
+  return w ? { href: workUrl(w), cite: shortCitation(w) } : null;
+}
 
 /*
  * The roster is DERIVED from the CV record, never retyped. A second hand-kept
@@ -179,7 +191,18 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
               <li class="gr-person">
                 <span class="gr-person__name">{p.name}</span>
                 <span class="gr-person__meta">{p.affiliation} · {p.date}</span>
-                {p.project && <span class="gr-person__project">{p.project}</span>}
+                {p.project && (
+                  <span class="gr-person__project">
+                    {paperFor(p)?.href ? (
+                      <a href={paperFor(p)!.href!} rel="noopener">{p.project}</a>
+                    ) : (
+                      p.project
+                    )}
+                    {paperFor(p)?.cite && (
+                      <span class="gr-person__cite">{paperFor(p)!.cite}</span>
+                    )}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -197,7 +220,18 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
               <li class="gr-person">
                 <span class="gr-person__name">{p.name}</span>
                 <span class="gr-person__meta">{p.affiliation} · {p.date}</span>
-                {p.project && <span class="gr-person__project">{p.project}</span>}
+                {p.project && (
+                  <span class="gr-person__project">
+                    {paperFor(p)?.href ? (
+                      <a href={paperFor(p)!.href!} rel="noopener">{p.project}</a>
+                    ) : (
+                      p.project
+                    )}
+                    {paperFor(p)?.cite && (
+                      <span class="gr-person__cite">{paperFor(p)!.cite}</span>
+                    )}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -277,10 +311,19 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
     color: var(--ink-dim);
   }
   .gr-person__project {
+    display: block;
     font-size: var(--step--1);
     color: var(--ink-soft);
     max-inline-size: var(--width-prose);
     line-height: 1.5;
+  }
+  /* The citation sits under the title it belongs to rather than running on. */
+  .gr-person__cite {
+    display: block;
+    margin-block-start: 2px;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-faint);
   }
   .gr-fullrecord {
     margin-block-start: var(--space-l);
