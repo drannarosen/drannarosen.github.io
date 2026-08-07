@@ -38,7 +38,7 @@ const m = (tex: string) => tex;
     <figure class="xpl-dyn__panel">
       <figcaption>
         The cluster
-        <span>drag to orbit</span>
+        <span>drag to orbit · scroll to zoom</span>
       </figcaption>
       {/*
         EVERY CONTROL RIDES ON THE FRAME, in the two corners the cluster does not
@@ -71,6 +71,13 @@ const m = (tex: string) => tex;
             <button type="button" data-grav="on" aria-pressed="false">gravity</button>
             <button type="button" data-grav="off" class="is-active" aria-pressed="true">no gravity</button>
           </span>
+          {/* The scale bar is what makes a frame that moves honest: it reports how
+              far the picture now spans, so an expanding cluster reads as expansion
+              rather than as a camera trick. Census puts one in the same corner. */}
+          <span class="xpl-dyn__scale" aria-hidden="true">
+            <span class="xpl-dyn__scale-bar" data-scalebar></span>
+            <span class="xpl-dyn__scale-label" data-scalelabel>1 pc</span>
+          </span>
         </div>
       </div>
       {/* The readout sits DIRECTLY under the image it describes, one line, rather
@@ -100,11 +107,11 @@ const m = (tex: string) => tex;
           <span class="xpl-dyn__ctrl-val"
             ><Math tex={m("N")} /> = <output data-n-val>400</output></span
           >
-          {/* 512 is the scenario's OWN ceiling (`clamp(n, 20, 512)` in
-              scenarios.ts), not a number chosen here. The slider ran to 1200 and
-              the readout printed "N = 1200" while 512 stars integrated — a
-              control that reported a population the run did not have. */}
-          <input type="range" data-n min="100" max="512" step="4" value="400" />
+          {/* The max is the scenario's OWN ceiling (`clamp(n, 20, 800)` in
+              scenarios.ts), not a number chosen here. The slider used to run to
+              1200 while the scenario clamped at 512, so the readout printed
+              "N = 1200" over a 512-star run. */}
+          <input type="range" data-n min="100" max="800" step="10" value="400" />
         </label>
         <label class="xpl-dyn__ctrl">
           <span class="xpl-dyn__ctrl-val"
@@ -235,6 +242,8 @@ const m = (tex: string) => tex;
     const clockEl = $<HTMLElement>("[data-clock]");
     const hint = $<HTMLElement>("[data-hint]");
     const driftEl = $<HTMLElement>("[data-drift]");
+    const scaleBar = root.querySelector<HTMLElement>("[data-scalebar]");
+    const scaleLabel = root.querySelector<HTMLElement>("[data-scalelabel]");
     const summary = $<HTMLElement>("[data-summary]");
 
     const gravBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-grav]"));
@@ -453,6 +462,30 @@ const m = (tex: string) => tex;
        * 61.7% of the cluster's mass. Labelled bare, the mass figure reads as "most
        * of the cluster is still there" while half the stars have gone.
        */
+      /*
+       * FOLLOW THE CLUSTER, BUT DO NOT CHASE IT.
+       *
+       * The camera was fixed at the t=0 framing, so the cluster expanded straight
+       * out of frame: measured, 372 of 400 stars visible at t=0, 122 by 100
+       * crossing times, and ONE by 700, while every readout went on describing it.
+       *
+       * Refitting EVERY frame would be the opposite error — a cluster that expands
+       * by a factor of thirty would look motionless, with only the scale bar
+       * moving, and the expansion is physics this page is meant to show. So the
+       * frame only grows, only when the cluster is about to overflow it (15%
+       * hysteresis), and the scale bar underneath reports what it did. Expansion
+       * stays visible as stars spreading; the frame steps to keep them on screen.
+       */
+      const want = Math.max(hi, lo) * 2.5;
+      if (want > frameR * 1.15 || want < frameR / 2.5) {
+        frameR = want;
+        points?.setFraming({ radiusPc: frameR });
+      }
+      /* Centre on the bound remnant every frame — it recoils, and following it is
+         what keeps the thing being measured in the middle of the picture. */
+      if (centre) points?.setFraming({ centre: Array.from(centre) });
+      updateScaleBar();
+
       setStat("boundm", d ? (d.boundMassFraction * 100).toFixed(0) : "—");
       setStat("boundn", d ? (d.boundFraction * 100).toFixed(0) : "—");
       clockEl.textContent = `t = ${tSim.toFixed(1)} Myr`;
@@ -460,6 +493,28 @@ const m = (tex: string) => tex;
       /* `healthy` latches false once drift has ever breached tolerance, so this
          cannot flicker back to reassuring after a bad excursion. */
       driftEl.classList.toggle("is-bad", gravity && !run.monitor.healthy);
+    }
+
+    /*
+     * ADAPTIVE SCALE BAR — the thing that makes a moving frame honest.
+     *
+     * Same rule census uses in `renderClusterField`: pick a round length that is
+     * about 22% of the frame, from a 1/2/5 ladder. Drawn as DOM rather than into
+     * the canvas because the canvas is WebGPU and has no text; the HUD is already
+     * an overlay, so it costs nothing extra.
+     */
+    const NICE_PC = [
+      0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000,
+    ];
+    function updateScaleBar() {
+      if (!points || !scaleBar) return;
+      const cssPerPc = points.pxPerPc / Math.min(2, window.devicePixelRatio || 1);
+      if (!(cssPerPc > 0)) return;
+      const target = field.clientWidth * 0.22;
+      let Lpc = NICE_PC[0]!;
+      for (const c of NICE_PC) if (c * cssPerPc <= target) Lpc = c;
+      scaleBar.style.inlineSize = `${(Lpc * cssPerPc).toFixed(1)}px`;
+      if (scaleLabel) scaleLabel.textContent = Lpc >= 1 ? `${Lpc} pc` : `${Lpc} pc`;
     }
 
     /* ── drawing ───────────────────────────────────────────────── */
@@ -554,6 +609,8 @@ const m = (tex: string) => tex;
      * picture of nothing.
      */
     let renderOrder: number[] = [];
+    /** Half-width of the view [pc], grown to follow the cluster — see sample(). */
+    let frameR = 0;
 
     /* t = 0 always: at this rung a star MOVES but does not evolve, so asking
        toRenderModel for an age would claim evolution the backend cannot compute.
@@ -590,7 +647,12 @@ const m = (tex: string) => tex;
        * camera would make "the massive stars sink" ambiguous with "the view
        * moved". Dragging still orbits.
        */
-      points = createClusterPoints(field, renderModel(), { drifting: false });
+      points = createClusterPoints(field, renderModel(), {
+        drifting: false,
+        /* pxPerPc is a placeholder until the device is up; the scale bar has to
+           wait for it or it reports the placeholder's scale. */
+        onReady: updateScaleBar,
+      });
     }
 
     /*
@@ -818,6 +880,7 @@ const m = (tex: string) => tex;
     const redraw = () => {
       points?.setPositions(positions());
       drawPlots();
+      updateScaleBar(); // zoom and resize both change it without a physics step
     };
 
     /* ── loop ──────────────────────────────────────────────────── */
@@ -904,6 +967,11 @@ const m = (tex: string) => tex;
       mountField();
       hi0 = null;
       lo0 = null;
+      frameR = 0;
+      /* Reset, new draw, an N change and a gravity switch all mean "start over",
+         and the VIEW is part of the state you started over from — a zoom left
+         from the last look would otherwise silently reframe the new run. */
+      points?.setZoom(1);
       tSim = 0;
       storeEvery = 0;
       lastStored = -Infinity;
@@ -1032,6 +1100,11 @@ const m = (tex: string) => tex;
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeInfo();
     });
+
+    /* Zooming changes the scale with no physics step behind it, and while paused
+       nothing else would redraw the bar. rAF so the renderer's own wheel handler
+       has already applied the new zoom by the time this reads pxPerPc. */
+    field.addEventListener("wheel", () => requestAnimationFrame(updateScaleBar), { passive: true });
 
     window.addEventListener("resize", redraw);
     rebuild();
@@ -1235,7 +1308,24 @@ const m = (tex: string) => tex;
      roughly circular, so the corners are the only space it never occupies. */
   .xpl-dyn__hud--bottom {
     inset-block-end: var(--space-2xs);
-    justify-content: flex-start;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .xpl-dyn__scale {
+    display: grid;
+    justify-items: end;
+    gap: 2px;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-soft);
+    text-shadow: 0 1px 3px var(--bg-void);
+  }
+  .xpl-dyn__scale-bar {
+    display: block;
+    block-size: 0;
+    border-block-start: 2px solid var(--ink-soft);
+    border-inline: 1px solid var(--ink-soft);
+    block-size: 6px;
   }
   .xpl-dyn__hud > * {
     pointer-events: auto;

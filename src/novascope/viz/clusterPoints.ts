@@ -92,6 +92,15 @@ export interface ClusterPointsOptions {
   /** Start with the view drifting. Defaults to false: on an explorable the
    *  motion should be the physics, not the camera. */
   drifting?: boolean;
+  /**
+   * Called once the GPU device is up and the first frame has been sized.
+   *
+   * A WebGPU device is acquired asynchronously, so `pxPerPc` is meaningless until
+   * then — it reads as its placeholder 1. A consumer that draws a scale bar from
+   * it on construction gets a bar off by whatever the real scale turns out to be
+   * (measured: "200 pc" on a 0.65 pc cluster). This is the signal to read it.
+   */
+  onReady?: () => void;
 }
 
 export interface ClusterPoints {
@@ -106,8 +115,30 @@ export interface ClusterPoints {
   /** Frames actually presented — the only reliable way to confirm a pause. */
   readonly frames: number;
   readonly backend: "webgpu" | "webgl2";
-  /** Parsecs per unit of the framing, for a scale bar. */
+  /** Half-width of the framing before user zoom [pc]. */
   readonly maxRPc: number;
+  /**
+   * Frame on a physically-derived centre and radius.
+   *
+   * The caller owns this because the caller owns the physics: a dissolving
+   * cluster recoils and expands, and the honest frame follows the BOUND remnant
+   * rather than the coordinate origin it started at. Without it the camera stays
+   * where the cluster was born — measured on /explore/dynamics, 372 of 400 stars
+   * in frame at t=0 falling to ONE by 700 crossing times, while five readouts
+   * went on describing a panel that was empty.
+   */
+  setFraming(opts: { centre?: readonly number[]; radiusPc?: number }): void;
+  /** User zoom about the frame centre; >1 magnifies. Clamped to [0.15, 40]. */
+  setZoom(z: number): void;
+  readonly zoom: number;
+  /**
+   * Device pixels per parsec along the short edge, AFTER zoom.
+   *
+   * Published so a consumer can draw a scale bar that stays true both as the
+   * reader zooms and as the cluster expands under its own physics — the two ways
+   * a fixed bar would start lying.
+   */
+  readonly pxPerPc: number;
   redraw(): void;
   dispose(): void;
 }
@@ -182,9 +213,15 @@ export function createClusterPoints(
    * renderer is for: apparent size carries luminosity and nothing else.
    */
   let maxR = model.maxR || 1e-6;
+  /** User zoom, multiplied onto the physics-derived framing. >1 magnifies. */
+  let zoom = 1;
+  /** Where the frame is centred [pc] — the bound cluster, supplied by the caller. */
+  const centre = new THREE.Vector3(0, 0, 0);
+  const pivot = new THREE.Group();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 1000);
   camera.position.set(0, 0, 100);
   camera.lookAt(0, 0, 0);
+  scene.add(pivot);
 
   let mesh: THREE.Mesh | null = null;
   let geometry: THREE.InstancedBufferGeometry | null = null;
@@ -286,11 +323,15 @@ export function createClusterPoints(
 
     mesh = new THREE.Mesh(geometry, material);
     mesh.frustumCulled = false; // centres can sit outside a frame whose glow is inside
-    scene.add(mesh);
+    /* The mesh hangs off a PIVOT whose position is minus the cluster centre, so
+       the world origin sits on the cluster and `scene.rotation` orbits about it.
+       Rotating the scene directly would swing a recoiled cluster around the
+       coordinate origin instead — which by late times is somewhere off-frame. */
+    pivot.add(mesh);
   }
 
   function disposeMesh(): void {
-    if (mesh) scene.remove(mesh);
+    if (mesh) pivot.remove(mesh);
     geometry?.dispose();
     plane?.dispose();
     material?.dispose();
@@ -302,11 +343,16 @@ export function createClusterPoints(
 
   let bufW = 0;
   let bufH = 0;
+  let pxPerPc = 1;
+  /** Set when the framing (maxR, zoom, centre) changes, so syncSize re-projects. */
+  let reframe = false;
+
   function syncSize(): void {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     if (w === 0 || h === 0) return; // before layout; guessing mis-sizes every star
-    if (w === bufW && h === bufH) return;
+    if (w === bufW && h === bufH && !reframe) return;
+    reframe = false;
     bufW = w;
     bufH = h;
     renderer.setSize(w, h, false);
@@ -314,7 +360,7 @@ export function createClusterPoints(
      * Frame on the SHORT edge, as `renderClusterField` does (`min(w, h)/2`), so a
      * non-square panel crops nothing and the cluster keeps its aspect.
      */
-    const half = maxR / FRAME_FILL;
+    const half = maxR / FRAME_FILL / zoom;
     const aspect = w / h;
     const halfW = aspect >= 1 ? half * aspect : half;
     const halfH = aspect >= 1 ? half : half / aspect;
@@ -323,6 +369,10 @@ export function createClusterPoints(
     camera.top = halfH;
     camera.bottom = -halfH;
     camera.updateProjectionMatrix();
+    /* Pixels per parsec along the SHORT edge, which is the axis `half` bounds.
+       Published so a caller can draw a scale bar that stays true through zoom and
+       through the cluster's own expansion. */
+    pxPerPc = Math.min(w, h) / (2 * half);
     dirty = true;
   }
 
@@ -421,6 +471,15 @@ export function createClusterPoints(
     dragging = false;
     if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
   };
+  /* Wheel zooms about the frame centre, as census's `attachOrbit` does. Passive
+     false because a zoomable canvas that also scrolls the page is unusable. */
+  const onWheel = (e: WheelEvent): void => {
+    e.preventDefault();
+    zoom = Math.min(40, Math.max(0.15, zoom * Math.exp(-e.deltaY * 0.0015)));
+    reframe = true;
+    dirty = true;
+  };
+  canvas.addEventListener("wheel", onWheel, { passive: false });
   canvas.addEventListener("pointerdown", onDown);
   canvas.addEventListener("pointermove", onMove);
   canvas.addEventListener("pointerup", onUp);
@@ -439,11 +498,13 @@ export function createClusterPoints(
     dirty = true;
     draw();
     play();
+    opts.onReady?.();
   });
 
   return {
     setModel(next) {
       build(next);
+      reframe = true;
       syncSize();
       dirty = true;
       if (!raf) draw(); // a rebuilt model must reach the screen even while paused
@@ -474,6 +535,26 @@ export function createClusterPoints(
     get maxRPc() {
       return maxR;
     },
+    setFraming(next) {
+      if (next.centre) {
+        centre.set(next.centre[0] ?? 0, next.centre[1] ?? 0, next.centre[2] ?? 0);
+        pivot.position.copy(centre).multiplyScalar(-1);
+      }
+      if (next.radiusPc !== undefined && next.radiusPc > 0) maxR = next.radiusPc;
+      reframe = true;
+      dirty = true;
+    },
+    setZoom(z) {
+      zoom = Math.min(40, Math.max(0.15, z));
+      reframe = true;
+      dirty = true;
+    },
+    get zoom() {
+      return zoom;
+    },
+    get pxPerPc() {
+      return pxPerPc;
+    },
     redraw() {
       dirty = true;
       if (!raf) draw();
@@ -484,6 +565,7 @@ export function createClusterPoints(
       io.disconnect();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);
+      canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerup", onUp);

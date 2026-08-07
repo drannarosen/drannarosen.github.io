@@ -62,8 +62,28 @@ describe("scenarios", () => {
     expect(wild.viewPc).toBeCloseTo(capped.viewPc, 12);
   });
 
-  it("caps cluster N at the measured interactive ceiling of 512", () => {
-    expect(scenario("cluster").build({ n: 5000 }).state.n).toBeLessThanOrEqual(512);
+  /*
+   * Raised from 512 to 800 on 2026-08-07, deliberately and on a re-measurement.
+   *
+   * The old number was the ceiling for ONE force evaluation per frame.
+   * `/explore/dynamics` now takes two, having halved its step for accuracy —
+   * measured, dt = t_cross/64 drifted 3.95e-4 over ten crossing times against
+   * 7.46e-6 at /128 — so 512 had quietly become as expensive as 724 used to be.
+   *
+   * Re-measured per frame (two steps plus a diagnostics pass), direct N^2:
+   *   N=200 0.87 ms | N=400 3.93 ms | N=512 6.32 ms | N=800 ~15 ms
+   * The 400 -> 512 cost ratio is 1.61 against N^2's predicted 1.64, so the
+   * extrapolation is sound.
+   *
+   * This assertion exists to make the number a DECISION rather than a default:
+   * it failed when the cap moved, which is what it is for. Past ~1000 the answer
+   * is a different force model (`meanField/`), not a bigger cap — at the cost of
+   * no longer resolving the two-body relaxation that mass segregation is.
+   */
+  it("caps cluster N at the measured interactive ceiling of 800", () => {
+    expect(scenario("cluster").build({ n: 5000 }).state.n).toBeLessThanOrEqual(800);
+    // …and actually reaches it, so the cap is a ceiling and not a coincidence.
+    expect(scenario("cluster").build({ n: 5000 }).state.n).toBe(800);
   });
 
   it("gives the binary EXACTLY zero softening and the background a finite one", () => {

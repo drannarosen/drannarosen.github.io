@@ -147,7 +147,21 @@ function buildTwoBody(p: ScenarioParams = {}): ScenarioBuild {
  * number: at N = 2048 a single leapfrog step already costs twice a frame budget.
  */
 function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
-  const n = Math.round(clamp(p.n ?? 200, 20, 512));
+  /*
+   * 800, raised from 512. The old cap was "the measured interactive ceiling" for
+   * ONE force evaluation per frame; /explore/dynamics now takes two (a halved
+   * step, for accuracy), which alone made 512 cost what 724 used to.
+   *
+   * Re-measured, direct N^2 with two steps plus a diagnostics pass, per frame:
+   *   N=200 0.87 ms | N=400 3.93 | N=512 6.32 | N=800 ~15 (extrapolated on N^2,
+   *   which the 400->512 ratio confirms: 1.61 measured against 1.64 predicted).
+   *
+   * ~15 ms is a 60 fps budget in node and comfortably interactive in a browser
+   * with rendering on top. Past ~1000 this needs a different force model —
+   * `meanField/` exists — at the cost of no longer resolving the two-body
+   * relaxation that mass segregation IS.
+   */
+  const n = Math.round(clamp(p.n ?? 200, 20, 800));
   const fraction = clamp(p.softeningFraction ?? 0.5, 0, 1);
   const scalePc = 0.5;
   const rHalf = scalePc * 1.305; // Plummer: r_h = 1.305 a
@@ -260,7 +274,7 @@ export const SCENARIOS: readonly Scenario[] = [
       "A few hundred stars sampled from a Plummer profile. Every star feels every other, so " +
       "relaxation and mass segregation emerge rather than being imposed.",
     limits:
-      "N ≤ 512, the measured interactive ceiling. No regularisation: a hard binary stops the " +
+      "N ≤ 800, the measured interactive ceiling for direct N². No regularisation: a hard binary stops the " +
       "run rather than being resolved. The symmetric scheme is correct here but not interactive.",
     schemes: ["fsi4", "hermite", "symmetric", "leapfrog"],
     defaultScheme: "fsi4",
