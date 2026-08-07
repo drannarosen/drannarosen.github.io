@@ -68,6 +68,10 @@ export default defineConfig({
           '/cluster-lab',
           '/model-path',
           '/explore/feedback-budget',
+          // Still in development. It already carries noindex, and a page that is
+          // noindex but sitemapped is a contradiction: the sitemap advertises a
+          // URL the same page asks robots to ignore.
+          '/dynamics-lab',
         ].some((p) => page.replace(/\/$/, '').endsWith(p)),
     }),
   ],

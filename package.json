@@ -42,7 +42,7 @@
     "search:index": "node scripts/search/build-index.mjs",
     "check:constants": "node --experimental-strip-types scripts/check-constants.mjs",
     "check:sun": "node --experimental-strip-types scripts/check-sun.mjs",
-    "postbuild": "node scripts/search/build-index.mjs && node scripts/check-links.mjs && node scripts/check-markup.mjs && node scripts/check-redirects.mjs",
+    "postbuild": "node scripts/search/build-index.mjs && node scripts/check-links.mjs && node scripts/check-markup.mjs && node scripts/check-redirects.mjs && node scripts/check-explore.mjs",
     "check:completeness": "node --experimental-strip-types scripts/check-completeness.mjs",
     "check:lupton": "node --experimental-strip-types scripts/check-lupton.mjs",
     "check:calibrate": "node --experimental-strip-types scripts/check-calibrate.mjs",
