@@ -569,29 +569,25 @@ const m = (tex: string) => tex;
        * of the cluster is still there" while half the stars have gone.
        */
       /*
-       * FOLLOW THE CLUSTER, BUT DO NOT CHASE IT.
+       * THE SCALE IS FIXED. The frame is the scenario's `viewPc` and it does not
+       * move, ever.
        *
-       * The camera was fixed at the t=0 framing, so the cluster expanded straight
-       * out of frame: measured, 372 of 400 stars visible at t=0, 122 by 100
-       * crossing times, and ONE by 700, while every readout went on describing it.
+       * An earlier version grew the frame to keep the cluster inside it. That is
+       * the wrong trade on this page: a cluster expanding thirtyfold would look
+       * motionless with only the scale bar changing, and the expansion is the
+       * physics — hiding it inside the camera is precisely the kind of render
+       * trick this series is not allowed to use. Stars leaving the frame IS the
+       * result.
        *
-       * Refitting EVERY frame would be the opposite error — a cluster that expands
-       * by a factor of thirty would look motionless, with only the scale bar
-       * moving, and the expansion is physics this page is meant to show. So the
-       * frame only grows, only when the cluster is about to overflow it (15%
-       * hysteresis), and the scale bar underneath reports what it did. Expansion
-       * stays visible as stars spreading; the frame steps to keep them on screen.
+       * What replaces it is under the reader's control rather than the page's:
+       * scroll to zoom out, with the scale bar reporting what the frame now
+       * spans. That shows the same thing without the picture quietly redefining
+       * its own units while you watch.
+       *
+       * The frame still CENTRES on the bound remnant, which is not a scale change:
+       * without it a recoiling cluster simply exits the fixed frame sideways and
+       * the panel goes blank for a reason that has nothing to do with expansion.
        */
-      /* The scenario owns the opening frame (`viewPc`, which scenarios.ts says the
-         page must not choose for itself); this only takes over once the cluster
-         has outgrown it, which a fixed view cannot follow. */
-      const want = Math.max(hi, lo) * 2.5;
-      if (want > frameR * 1.15 || want < frameR / 2.5) {
-        frameR = want;
-        points?.setFraming({ radiusPc: frameR });
-      }
-      /* Centre on the bound remnant every frame — it recoils, and following it is
-         what keeps the thing being measured in the middle of the picture. */
       if (centre) points?.setFraming({ centre: Array.from(centre) });
       updateScaleBar();
 
@@ -718,7 +714,7 @@ const m = (tex: string) => tex;
      * picture of nothing.
      */
     let renderOrder: number[] = [];
-    /** Half-width of the view [pc], grown to follow the cluster — see sample(). */
+    /** Half-width of the view [pc] — the scenario's own `viewPc`, FIXED. See sample(). */
     let frameR = 0;
 
     /* t = 0 always: at this rung a star MOVES but does not evolve, so asking
@@ -1107,7 +1103,6 @@ const m = (tex: string) => tex;
       mountField();
       hi0 = null;
       lo0 = null;
-      frameR = 0;
       /* Reset, new draw, an N change and a gravity switch all mean "start over",
          and the VIEW is part of the state you started over from — a zoom left
          from the last look would otherwise silently reframe the new run. */
