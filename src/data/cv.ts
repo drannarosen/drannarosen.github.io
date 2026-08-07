@@ -119,8 +119,10 @@ export const graduateAdvisees: Advisee[] = [
 export const undergraduateAdvisees: Advisee[] = [
   { name: "Victor Del Rio", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" , group: true },
   { name: "Edwin Sarabia", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" , group: true },
+  // Advised 2024–2025, through his B.S.; he stayed on into early 2026 to finish
+  // the paper, which is why `date` ends before `paperDoi`'s publication year.
   // "incoming" is accurate until the Fall 2026 term starts; drop the word then.
-  { name: "Alex Escamilla", affiliation: "B.S. SDSU 2025; incoming Astronomy Ph.D., UMass Amherst", date: "2024–2026", project: "Bridging Theory and Observation: Synthetic FIR Insights into Star Formation Efficiency", refereed: true, paperDoi: "10.3847/1538-4357/ae6cdc", group: true },
+  { name: "Alex Escamilla", affiliation: "B.S. SDSU 2025; incoming Astronomy Ph.D., UMass Amherst", date: "2024–2025", project: "Bridging Theory and Observation: Synthetic FIR Insights into Star Formation Efficiency", refereed: true, paperDoi: "10.3847/1538-4357/ae6cdc", group: true },
   { name: "Kate Gonzalez", affiliation: "SDSU", date: "2024", project: "Initial developer of the Sim2SKIRT synthetic-observation pipeline with SKIRT" , group: true },
   { name: "Trinity Webb", affiliation: "OSU", date: "2023–2024", project: "Tracing the Impact of Stellar Wind Feedback in N79 & 30 Doradus in the LMC with Chandra", refereed: true },
   { name: "Mikayla Wilson", affiliation: "grad student, UCSC; Banneker Intern, Harvard", date: "2020", project: "Tracing the Evolution of Molecular Outflows in Massive Star Formation with Synthetic Observations" },
