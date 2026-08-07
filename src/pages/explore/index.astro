@@ -14,6 +14,21 @@ interface Card {
   blurb: string;
 }
 
+/*
+ * Copy rule for this hub, which the leaf pages already follow and this page did
+ * not: name the shared PHYSICS, never imply the research codes execute here.
+ *
+ * The lede said "built straight from my real Jaxstro models" and two cards said
+ * "the real density-coupling used in progenax" and "real differentiable
+ * inference from informax". None of that runs in a browser — novascope is a
+ * TypeScript reimplementation, pinned to fixtures exported from progenax and
+ * startrax by check-imf and check-stellar. Saying so is the STRONGER claim,
+ * because the physics was verified twice, and it is the one that is true.
+ *
+ * "from a real gravoturb model" on the cluster card stays: that page shows
+ * exported output from an actual run, which is real data rather than a claim
+ * about execution.
+ */
 const cards: Card[] = [
   {
     title: "The cluster census",
@@ -27,7 +42,7 @@ const cards: Card[] = [
     href: "/explore/mass-segregation",
     status: "live",
     blurb:
-      "Turn one knob and watch the most massive stars sink to the cluster core — primordial mass segregation, computed live from the real density-coupling used in progenax.",
+      "Turn one knob and watch the most massive stars sink to the cluster core — primordial mass segregation, computed live from the same density-coupling progenax uses.",
   },
   {
     title: "Gas expulsion",
@@ -48,20 +63,20 @@ const cards: Card[] = [
     href: "/explore/inference",
     status: "soon",
     blurb:
-      "Watch a posterior over a cluster's mass, age, and size tighten as observations arrive — real differentiable inference from informax, on a synthetic cluster.",
+      "Watch a posterior over a cluster's mass, age, and size tighten as observations arrive — differentiable inference, using informax's method, on a synthetic cluster.",
   },
 ];
 ---
 
 <BaseLayout
   title="Explore — Anna Rosen"
-  description="Interactive explorables built on my real star-cluster models: sample a cluster and read it on the H–R diagram, mass segregation, cluster birth, and differentiable inference."
+  description="Interactive explorables built on the same physics as my star-cluster models: sample a cluster and read it on the H–R diagram, mass segregation, cluster birth, and differentiable inference."
   path="/explore"
 >
   <PageHeader
     eyebrow="Interactive"
     title="Explore the cluster"
-    lede="Hands-on pieces built straight from my real Jaxstro models — for curiosity, for talks, for the classroom. Drag, zoom, and turn the knobs; the physics is honest, not decorative."
+    lede="Hands-on pieces built on the same physics as my Jaxstro models, reimplemented to run in your browser — for curiosity, for talks, for the classroom. Drag, zoom, and turn the knobs; the physics is honest, not decorative."
   />
 
   <ul class="cards wrap-wide" role="list">

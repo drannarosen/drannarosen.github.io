@@ -11,7 +11,15 @@ import { READINESS_LABEL, READINESS_STEPS, READINESS_TOTAL, type Readiness } fro
 
 interface Props {
   readiness: Readiness;
-  /** Free-text maturity note for the tooltip, e.g. "Mature · methods paper in prep". */
+  /*
+   * Free-text maturity note for the tooltip, e.g. "Far along · validated on
+   * truth-known problems".
+   *
+   * The example used to read "Mature · methods paper in prep" — the exact
+   * fabricated string this site had to retract. A doc comment is where the next
+   * author looks for the house style, so it must not model a claim the rules
+   * forbid. Paper state belongs in `papers`, never in this note.
+   */
   title?: string;
 }
 const { readiness, title } = Astro.props;

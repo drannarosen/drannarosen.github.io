@@ -77,7 +77,12 @@ const hasProse = pkg.body != null && pkg.body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "
     </div>
 
     {
-      d.papers && (
+      /* Gated on what ReleaseMeter will actually RENDER, not on `papers`
+         existing. The meter shows methods papers only, so gating on `d.papers`
+         gave jaxstro — which has a software paper and no methods paper — a
+         "Publications" heading with nothing under it. A heading is a promise
+         that something follows. */
+      d.papers?.methods && (
         <div class="pk-release">
           <p class="pk-release__label">Publications</p>
           <ReleaseMeter papers={d.papers} />
