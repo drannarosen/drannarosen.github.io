@@ -151,10 +151,17 @@ const m = (tex: string) => tex;
           >?</button>
           <span class="xpl-dyn__popover" data-popover="radii" role="tooltip" hidden>
             Each curve is the half-mass radius of its own group, divided by that group's value at
-            <Math tex={m("t = 0")} /> — so both start at 1 and any gap is what gravity did. The
-            split is fixed at the first frame, so the same stars are followed all run and the
-            curves cannot separate by relabelling who counts as heavy. Absolute radii are in the
-            readout beside the cluster; at the start they differ by sampling alone.
+            <Math tex={m("t = 0")} />, so both start at 1. The split is fixed at the first frame,
+            so the same stars are followed all run and the curves cannot separate by relabelling
+            who counts as heavy. With gravity on, both are measured about the bound cluster's own
+            centre and over its bound stars — a dissolving cluster recoils, and its escapers would
+            otherwise dominate the radius.
+            <br /><br />
+            <b>A gap on its own is not the evidence.</b> With gravity off the curves still separate
+            by about 20% within eight crossing times and then hold there, because the two groups
+            begin at different radii and with different speeds. What gravity does is different in
+            kind: the heavy curve drops <em>below</em> 1 while the light one climbs. Measured here,
+            the heaviest 10% reach 0.46 of their starting radius by fifty crossing times.
           </span>
         </span>
       </figcaption>
@@ -182,10 +189,19 @@ const m = (tex: string) => tex;
             aria-label="About the energy drift trace"
           >?</button>
           <span class="xpl-dyn__popover" data-popover="energy" role="tooltip" hidden>
-            A symplectic integrator's error stays <b>bounded</b> — it wobbles and does not grow —
-            which is what earns the right to believe the panel above it. If this trace ever walks
-            steadily off the strip, the cluster you are watching is a numerical artefact. With
-            gravity off it stays empty: there is no integrator running to make a claim about.
+            Fractional energy error against the tolerance this run is checked at (the dashed line).
+            A symplectic integrator's error does not run away, but it does not sit still either:
+            measured on this cluster it climbs about three orders of magnitude in steps — each step
+            a close encounter — and then holds at a few times
+            <Math tex={m("10^{-4}")} />, well under the limit. If the trace crosses that line the
+            arithmetic has stopped being trustworthy and nothing above it means anything.
+            <br /><br />
+            The reverse does not follow. A conserved energy says the integrator solved the equations
+            it was given; it says nothing about whether those equations still describe a star
+            cluster. See the note under the figure for where the model runs out.
+            <br /><br />
+            With gravity off the strip stays empty: there is no integrator running to make a claim
+            about.
           </span>
         </span>
       </figcaption>
