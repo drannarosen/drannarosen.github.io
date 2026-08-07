@@ -1673,19 +1673,36 @@ const m = (tex: string) => tex;
    * five numbers. Fixed columns and an inline pair fit them under the image in a
    * single strip, which is the whole reason they could move out of the console.
    */
+  /*
+   * SIZED TO CONTENT, AND NEVER CLIPPED.
+   *
+   * This was six equal columns with `overflow: hidden; text-overflow: ellipsis`
+   * on the value. At the panel's 496 px that gives 68 px a cell while the content
+   * needs 78-100, so FIVE OF SIX readouts were being silently truncated — a
+   * readout that hides the digits it cannot fit is worse than one that wraps,
+   * because nothing on screen says it is doing it.
+   *
+   * Six values do not fit on one line at a readable size in this column, so the
+   * row wraps instead: two lines of three here, one line if the panel is ever
+   * wider. Each cell takes the width its content actually needs.
+   */
   .xpl-dyn__stats {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: var(--space-2xs);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs) var(--space-s);
     margin: 0;
     padding: var(--space-2xs) var(--space-s) 0;
     border-block-start: 1px solid var(--border);
   }
+  /* `0 0 auto`, not `1 1 auto`: growing meant the cells that happened to land on
+     the shorter wrapped row absorbed all the slack and came out three times the
+     width of their neighbours. Content width, packed left, even gaps. */
   .xpl-dyn__stats > div {
     display: flex;
     align-items: baseline;
     gap: 0.35em;
-    min-inline-size: 0;
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
   .xpl-dyn__stats dt {
     font-family: var(--font-mono);
@@ -1699,16 +1716,8 @@ const m = (tex: string) => tex;
     font-size: var(--step--2);
     color: var(--ink);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
-  /* The stats strip is a readout, not a control row, so it drops to two columns
-     rather than squeezing five into a phone width. */
-  @media (max-width: 40rem) {
-    .xpl-dyn__stats {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
+
   .xpl-dyn__noscript {
     color: var(--ink-soft);
   }
