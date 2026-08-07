@@ -188,6 +188,13 @@ const m = (tex: string) => tex;
               count falls away beneath it. Measured on this cluster at a thousand crossing times,
               64% of the mass was still bound but only 49% of the stars.
               <br /><br />
+              It does not start at 100%, and that is the initial conditions rather than a bug: the
+              velocities are an isotropic Maxwellian scaled to a virial ratio of
+              <Math tex={m("Q = 1/2")} />, which is not the equilibrium distribution function of
+              the density profile they are paired with. A Maxwellian's tail is unbounded, so a few
+              stars begin above the local escape speed — about 96% of the mass and 89% of the stars
+              are bound at <Math tex={m("t = 0")} />.
+              <br /><br />
               Both are blank with gravity off. Boundness is measured against a potential that is not
               being integrated then, so a number there would be a counterfactual rather than a
               property of what you are watching.
@@ -348,6 +355,8 @@ const m = (tex: string) => tex;
     let tSim = 0;
     /** Model time between STORED history samples; grows as the run outlives the buffer. */
     let storeEvery = 0;
+    /** Peak |dE/E| since the last stored sample — see the push in sample(). */
+    let worstSinceStore = 0;
     let lastStored = -Infinity;
 
     /* Bumped by "new draw" only. Reset keeps the seed, so "reset" means "same
@@ -408,7 +417,19 @@ const m = (tex: string) => tex;
     function sample() {
       if (!run) return;
       const st = run.built.state;
-      const s = run.monitor.sample();
+      /*
+       * THE MONITOR IS ONLY POLLED WHEN THE INTEGRATOR IS RUNNING.
+       *
+       * `sample()` latches `worst` and `breached` from an energy it recomputes
+       * each call. During free streaming that energy changes for a reason that is
+       * not integrator error — no force is being integrated — so polling it armed
+       * the health latch against a run it was not watching: measured, `healthy`
+       * went false by 2 crossing times of free streaming. Invisible today only
+       * because every route back to gravity rebuilds the monitor, which is a
+       * coincidence of control flow rather than a guarantee. It also cost an
+       * O(N^2) energy evaluation per frame in the one mode that needs none.
+       */
+      const s = gravity ? run.monitor.sample() : null;
       /*
        * BOUNDNESS IS A GRAVITY QUANTITY, so it is only measured when gravity is
        * acting. `measure` computes each star's energy against the force model's
@@ -439,6 +460,7 @@ const m = (tex: string) => tex;
        * both fall back to every star about the origin — which is the honest
        * description of a cloud that is simply dispersing.
        */
+      if (s) worstSinceStore = Math.max(worstSinceStore, s.energyDrift);
       const boundOnly = d ? (i: number) => d.bound[i] === 1 : null;
       const centre = d ? centreOfMass(st, boundOnly!).position : undefined;
       const inSet = (set: Set<number>) => (i: number) =>
@@ -494,13 +516,24 @@ const m = (tex: string) => tex;
           t: tSim,
           hi: hi / hi0,
           lo: lo / lo0,
-          e: gravity ? s.energyDrift : NaN,
+          /*
+           * THE WORST SINCE THE LAST STORED SAMPLE, not the instantaneous value.
+           *
+           * The monitor latches a breach every frame while the history stores one
+           * sample every `storeEvery`, so a spike between stores could turn the
+           * readout red and appear nowhere in the trace — a plot that disagreed
+           * with the verdict beside it. A comment here previously claimed the two
+           * "cannot drift apart"; taking the max over the interval is what
+           * actually makes that true.
+           */
+          e: s ? worstSinceStore : NaN,
           /* Same rule as the drift: boundness is a gravity quantity, so with the
              force switched off there is nothing to record rather than a zero. */
           bm: d ? d.boundMassFraction : NaN,
           bn: d ? d.boundFraction : NaN,
         });
         lastStored = tSim;
+        worstSinceStore = 0;
       }
       if (hist.length > MAX_SAMPLES) {
         hist = hist.filter((_, i) => i % 2 === 0);
@@ -511,7 +544,7 @@ const m = (tex: string) => tex;
       }
 
       setStat("t", tSim.toFixed(1));
-      setStat("tcr", gravity ? s.tCross.toFixed(1) : "—");
+      setStat("tcr", s ? s.tCross.toFixed(1) : "—");
       setStat("rhi", hi.toFixed(2));
       setStat("rlo", lo.toFixed(2));
       /*
@@ -536,6 +569,9 @@ const m = (tex: string) => tex;
        * hysteresis), and the scale bar underneath reports what it did. Expansion
        * stays visible as stars spreading; the frame steps to keep them on screen.
        */
+      /* The scenario owns the opening frame (`viewPc`, which scenarios.ts says the
+         page must not choose for itself); this only takes over once the cluster
+         has outgrown it, which a fixed view cannot follow. */
       const want = Math.max(hi, lo) * 2.5;
       if (want > frameR * 1.15 || want < frameR / 2.5) {
         frameR = want;
@@ -549,10 +585,10 @@ const m = (tex: string) => tex;
       setStat("boundm", d ? (d.boundMassFraction * 100).toFixed(0) : "—");
       setStat("boundn", d ? (d.boundFraction * 100).toFixed(0) : "—");
       clockEl.textContent = `t = ${tSim.toFixed(1)} Myr`;
-      driftEl.textContent = gravity ? s.energyDrift.toExponential(1) : "no integrator running";
+      driftEl.textContent = s ? s.energyDrift.toExponential(1) : "no integrator running";
       /* `healthy` latches false once drift has ever breached tolerance, so this
          cannot flicker back to reassuring after a bad excursion. */
-      driftEl.classList.toggle("is-bad", gravity && !run.monitor.healthy);
+      driftEl.classList.toggle("is-bad", !!s && !run.monitor.healthy);
     }
 
     /*
@@ -699,6 +735,8 @@ const m = (tex: string) => tex;
          the N slider racing each other is gone with it. */
       if (points) {
         points.setModel(renderModel());
+        frameR = run.built.viewPc;
+        points.setFraming({ radiusPc: frameR });
         return;
       }
       /*
@@ -707,6 +745,10 @@ const m = (tex: string) => tex;
        * camera would make "the massive stars sink" ambiguous with "the view
        * moved". Dragging still orbits.
        */
+      /* `viewPc` is the scenario's own derived half-width — 4 r_h for the cluster.
+         Using it as the opening frame keeps the choice where scenarios.ts puts it
+         rather than re-deriving a first guess here. */
+      frameR = run.built.viewPc;
       points = createClusterPoints(field, renderModel(), {
         drifting: false,
         /* pxPerPc is a placeholder until the device is up; the scale bar has to
@@ -1060,6 +1102,7 @@ const m = (tex: string) => tex;
       tSim = 0;
       storeEvery = 0;
       lastStored = -Infinity;
+      worstSinceStore = 0;
       playing = false;
       sample();
       redraw();
@@ -1217,11 +1260,18 @@ const m = (tex: string) => tex;
 </script>
 
 <style>
-  /* Capped like census's root, which is what turns the top row into near-squares
-     instead of letting the two panels stretch on a wide screen. */
+  /*
+   * NARROWER THAN CENSUS'S 76rem, and for a reason census does not have: this
+   * page carries a full-width energy strip UNDER the two square panels, and the
+   * whole point of that strip is to be readable at the same time as the cluster
+   * it vouches for. At 76rem the grid stood 1018 px against a 900 px viewport.
+   * The columns set the square canvases, so narrowing the root is what brings the
+   * strip back onto the same screen — everything scales together rather than one
+   * panel being singled out.
+   */
   .xpl-dyn {
     display: grid;
-    max-inline-size: 76rem;
+    max-inline-size: 64rem;
     margin-inline: auto;
   }
   .xpl-dyn__grid {
