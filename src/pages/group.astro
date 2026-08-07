@@ -69,10 +69,11 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
   description="The SDSU students working with me on differentiable models of stars and star clusters, what they built, and where they went next."
   path="/group"
 >
-  {/* TITLE IS A PLACEHOLDER. "A question you can actually finish" was written
-      when this was a recruiting page; it is a slogan, and it now sits above a
-      roster. Anna's line to write, not one to invent here. */}
-  <PageHeader eyebrow="Group" title="A question you can actually finish">
+  {/* "A question you can actually finish" used to be the H1. It is an argument
+      about the WORK — modular software makes a project self-contained — so it
+      now heads the section that makes that argument, rather than standing above
+      a roster where it read as a recruiting slogan. */}
+  <PageHeader eyebrow="Group" title="Students, and what they built">
     {/* Eligibility stays in the lede — it is the first filter, and it has to be
         read before anything else. What follows it used to be the pitch ("so you
         can own a real project end to end"); that argument now lives in its own
@@ -153,7 +154,7 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
   </section>
 
   <section class="wrap gr-section" aria-labelledby="work-heading">
-    <h2 id="work-heading" class="gr-title">What the group works on</h2>
+    <h2 id="work-heading" class="gr-title">A question you can actually finish</h2>
     <div class="prose gr-prose">
       <p>
         The Jaxstro ecosystem is deliberately modular. Because each package owns
