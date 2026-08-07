@@ -831,19 +831,54 @@ const m = (tex: string) => tex;
         o.classList.toggle("is-active", active);
         o.setAttribute("aria-pressed", String(active));
       }
-      /* No standalone note any more. It said the same thing as the live hint under
-         the frame and as the page body, in three places, and it was the tallest
-         thing in the panel. The hint carries the state; the prose carries the
-         explanation. */
-      /* Switching the physics no longer pauses the clock. It used to, because
-         "off" meant "static" and running a static cluster was pointless; now the
-         two modes are two things to WATCH, and stopping the clock between them
-         would hide the very comparison the toggle exists for. */
       syncPlay();
     }
 
+    /*
+     * CHANGING THE PHYSICS RESTARTS THE RUN, from the same seed and therefore the
+     * same initial conditions.
+     *
+     * It did not, and that produced two wrong pictures at once. The natural path
+     * through this page is: arrive with gravity off, press run, watch the cluster
+     * disperse, then switch gravity on. Before this:
+     *
+     *  - Every free-streaming sample stored `e: NaN`, so the energy trace began
+     *    only where gravity was switched on while the x-axis still spanned from
+     *    t = 0 — the trace occupied a sliver at the late end of an otherwise empty
+     *    plot, which is what "the data does not persist" looked like. The record
+     *    was complete; the run it described had simply not started yet.
+     *
+     *  - Worse, `energyDrift` is |E - E0|/|E0| against the energy captured when
+     *    the monitor was built. Free streaming moves every star with no force
+     *    integration, so the potential changes while the kinetic energy does not:
+     *    the total is genuinely different by the time gravity comes on, and the
+     *    "drift" then reported was that difference rather than any integrator
+     *    error. A trust readout measuring the wrong thing is worse than none.
+     *
+     *  - And the r_h curves were normalised to hi0/lo0 from the free-streaming
+     *    phase, so the two modes were spliced into one trace as though they were
+     *    one experiment.
+     *
+     * Restarting makes each mode a controlled experiment against identical ICs,
+     * which is exactly what the page's own copy asks the reader to do ("switch to
+     * N-body and run it again from the start"). The clock keeps running if it was
+     * running, so flipping the toggle plays the other experiment immediately
+     * rather than making you press run again.
+     */
+    function selectGravity(on: boolean) {
+      if (on === gravity) return;
+      const wasPlaying = playing;
+      setGravity(on); // mode + button state; rebuild touches neither
+      rebuild(); // same seed => same initial conditions; fresh monitor, clock and history
+      if (wasPlaying) {
+        playing = true;
+        syncPlay();
+        start();
+      }
+    }
+
     for (const b of gravBtns) {
-      b.addEventListener("click", () => setGravity(b.dataset.grav === "on"));
+      b.addEventListener("click", () => selectGravity(b.dataset.grav === "on"));
     }
 
     nInput.addEventListener("input", () => {
