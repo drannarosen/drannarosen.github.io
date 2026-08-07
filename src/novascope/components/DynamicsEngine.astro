@@ -80,20 +80,6 @@ const m = (tex: string) => tex;
           </span>
         </div>
       </div>
-      {/* The readout sits DIRECTLY under the image it describes, one line, rather
-          than in the console two panels away — these five numbers are what the
-          picture above is doing, and reading them meant looking somewhere else. */}
-      <dl class="xpl-dyn__stats" data-summary aria-live="polite">
-        <div><dt>t</dt><dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} /></dd></div>
-        <div><dt><Math tex={m("t/t_\\mathrm{cr}")} /></dt><dd data-v="tcr">0.0</dd></div>
-        <div><dt><Math tex={m("r_h")} /> hi</dt><dd><span data-v="rhi">—</span></dd></div>
-        <div><dt><Math tex={m("r_h")} /> lo</dt><dd><span data-v="rlo">—</span></dd></div>
-        {/* TWO cells, not one labelled "bound". They disagree and the gap is the
-            story: mass-bound is dominated by a few heavy stars that stay put,
-            so it reads high while half the STARS have already left. */}
-        <div><dt>bound <Math tex={m("M")} /></dt><dd><span data-v="boundm">—</span>%</dd></div>
-        <div><dt>bound <Math tex={m("N")} /></dt><dd><span data-v="boundn">—</span>%</dd></div>
-      </dl>
       <small class="xpl-dyn__hint" data-hint>paused — press run to let them drift apart</small>
       {/*
         THE CLUSTER CONTROLS LIVE IN THIS PANEL, not in a console of their own.
@@ -211,6 +197,33 @@ const m = (tex: string) => tex;
         <span class="xpl-dyn__xtitle"><Math tex={m("t\\;(\\mathrm{Myr})")} /></span>
       </div>
     </figure>
+
+    {/*
+      THE READOUT IS ITS OWN FULL-WIDTH PANEL.
+
+      It lived under the cluster canvas, inside a 496 px column, where six values
+      could not fit on one line at a readable size — measured, cells 68 px wide
+      against content needing 78-100, so five of six were being clipped. Wrapping
+      to two rows fixed the truncation and cost a line.
+
+      Spanning both columns gives each cell ~170 px instead of 68, so the row fits
+      once and stays legible. It also reads correctly: these numbers describe the
+      cluster AND the curves beside it, so sitting under both is more honest than
+      sitting under one.
+    */}
+    <div class="xpl-dyn__panel xpl-dyn__panel--strip xpl-dyn__panel--readout">
+      <dl class="xpl-dyn__stats" data-summary aria-live="polite">
+        <div><dt>t</dt><dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} /></dd></div>
+        <div><dt><Math tex={m("t/t_\\mathrm{cr}")} /></dt><dd data-v="tcr">0.0</dd></div>
+        <div><dt><Math tex={m("r_h")} /> hi</dt><dd><span data-v="rhi">—</span></dd></div>
+        <div><dt><Math tex={m("r_h")} /> lo</dt><dd><span data-v="rlo">—</span></dd></div>
+        {/* TWO cells, not one labelled "bound". They disagree and the gap is the
+            story: mass-bound is dominated by a few heavy stars that stay put,
+            so it reads high while half the STARS have already left. */}
+        <div><dt>bound <Math tex={m("M")} /></dt><dd><span data-v="boundm">—</span>%</dd></div>
+        <div><dt>bound <Math tex={m("N")} /></dt><dd><span data-v="boundn">—</span>%</dd></div>
+      </dl>
+    </div>
 
     {/* The energy strip is the RECEIPT, not a co-star. On the lab, drift is the
         subject; here it is the evidence that the run above can be trusted, so it
@@ -1686,13 +1699,15 @@ const m = (tex: string) => tex;
    * row wraps instead: two lines of three here, one line if the panel is ever
    * wider. Each cell takes the width its content actually needs.
    */
+  .xpl-dyn__panel--readout {
+    padding-block-end: var(--space-2xs);
+  }
   .xpl-dyn__stats {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-3xs) var(--space-s);
+    gap: var(--space-3xs) var(--space-l);
     margin: 0;
     padding: var(--space-2xs) var(--space-s) 0;
-    border-block-start: 1px solid var(--border);
   }
   /* `0 0 auto`, not `1 1 auto`: growing meant the cells that happened to land on
      the shorter wrapped row absorbed all the slack and came out three times the
