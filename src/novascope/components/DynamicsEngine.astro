@@ -80,66 +80,7 @@ const m = (tex: string) => tex;
           </span>
         </div>
       </div>
-      <small class="xpl-dyn__hint" data-hint>paused — press run to let them drift apart</small>
-      {/*
-        THE CLUSTER CONTROLS LIVE IN THIS PANEL, not in a console of their own.
-        A separate control box cost a whole grid row, and that row is what pushed
-        the energy strip below the fold — so you could not watch the cluster and
-        its own error trace at the same time, which is the one thing the strip is
-        for. Folded in here they fill the space under the status line instead.
-      */}
-      <div class="xpl-dyn__controls" aria-label="Cluster controls" role="group">
-        <label class="xpl-dyn__ctrl">
-          <span class="xpl-dyn__ctrl-val"
-            ><Math tex={m("N")} /> = <output data-n-val>400</output></span
-          >
-          {/* The max is the scenario's OWN ceiling (`clamp(n, 20, 800)` in
-              scenarios.ts), not a number chosen here. The slider used to run to
-              1200 while the scenario clamped at 512, so the readout printed
-              "N = 1200" over a 512-star run. */}
-          <input type="range" data-n min="100" max="800" step="10" value="400" />
-        </label>
-        <label class="xpl-dyn__ctrl">
-          <span class="xpl-dyn__ctrl-val"
-            >speed <output data-speed-val>1.0</output><Math tex={m("\\times")} /></span
-          >
-          <input type="range" data-speed min="0.25" max="4" step="0.25" value="1" />
-        </label>
-        {/* The one control here that changes the CLUSTER rather than the view or
-            the clock, so it restarts the run — new initial conditions are a new
-            experiment. Range and meaning match /explore/census's own concentration
-            control, so the same number cannot mean two clusters. */}
-        <label class="xpl-dyn__ctrl xpl-dyn__ctrl--noted">
-          <span class="xpl-dyn__ctrl-val"
-            ><Math tex={m("\\gamma")} /> = <output data-gamma-val>5.0</output></span
-          >
-          <input type="range" data-gamma min="2.5" max="6" step="0.1" value="5" />
-          <button
-            type="button"
-            class="xpl-dyn__info"
-            data-info="gamma"
-            aria-expanded="false"
-            aria-label="About the concentration parameter"
-          >?</button>
-          <span class="xpl-dyn__popover" data-popover="gamma" role="tooltip" hidden>
-            <b>Concentration.</b> The stars are placed from an <b>EFF</b> profile
-            (Elson, Fall &amp; Freeman 1987), whose three-dimensional density falls as
-            <Math tex={m("\\rho(r) \\propto (1 + r^2/a^2)^{-\\gamma/2}")} />.
-            <br /><br />
-            At <Math tex={m("\\gamma = 5")} /> that expression <em>is</em> the Plummer law —
-            the same profile this page used before the slider existed. Lower
-            <Math tex={m("\\gamma")} /> is a shallower fall-off and so a more extended halo
-            (<Math tex={m("\\gamma \\approx 3")} /> is typical of a young cluster); higher is
-            more centrally concentrated.
-            <br /><br />
-            It changes more than the picture. The half-mass radius follows
-            <Math tex={m("\\gamma")} /> — 6.3 scale radii at
-            <Math tex={m("\\gamma = 2.5")} /> against 1.3 at
-            <Math tex={m("\\gamma = 5")} /> — and the crossing time with it, so the clock
-            beneath the cluster means something different at each setting.
-          </span>
-        </label>
-      </div>
+      <small class="xpl-dyn__hint" data-hint>paused — press run</small>
     </figure>
 
     {/*
@@ -233,29 +174,122 @@ const m = (tex: string) => tex;
     </figure>
 
     {/*
-      THE READOUT IS ITS OWN FULL-WIDTH PANEL.
+      ONE CONSOLE, TWO ROWS: the knobs on top, the numbers they move underneath.
 
-      It lived under the cluster canvas, inside a 496 px column, where six values
-      could not fit on one line at a readable size — measured, cells 68 px wide
-      against content needing 78-100, so five of six were being clipped. Wrapping
-      to two rows fixed the truncation and cost a line.
+      Both used to be squeezed into the 496 px cluster column — the sliders wrapped
+      to two rows with ~90 px of travel each, and the readout was clipping five of
+      its six values. Full width gives four sliders 256 px apiece and the metrics a
+      single line, and it puts every control and every number in one place instead
+      of two.
 
-      Spanning both columns gives each cell ~170 px instead of 68, so the row fits
-      once and stays legible. It also reads correctly: these numbers describe the
-      cluster AND the curves beside it, so sitting under both is more honest than
-      sitting under one.
+      It also fixes the popover clipping at the source: the cluster panel carries
+      `overflow: hidden` to clip its canvas, and anything opening from a control
+      inside it was cut off. Nothing here needs to be clipped.
     */}
-    <div class="xpl-dyn__panel xpl-dyn__panel--strip xpl-dyn__panel--readout">
+    <div class="xpl-dyn__panel xpl-dyn__panel--strip xpl-dyn__console">
+      <div class="xpl-dyn__controls" aria-label="Cluster controls" role="group">
+        <label class="xpl-dyn__ctrl">
+          <span class="xpl-dyn__ctrl-val"><Math tex={m("N")} /> = <output data-n-val>400</output></span>
+          <input type="range" data-n min="100" max="800" step="10" value="400" />
+        </label>
+        <label class="xpl-dyn__ctrl">
+          <span class="xpl-dyn__ctrl-val"
+            ><Math tex={m("r_h")} /> = <output data-rh-val>0.65</output> pc</span
+          >
+          <input type="range" data-rh min="0.3" max="5" step="0.05" value="0.65" />
+        </label>
+        <label class="xpl-dyn__ctrl xpl-dyn__ctrl--noted">
+          <span class="xpl-dyn__ctrl-val"
+            ><Math tex={m("\\gamma")} /> = <output data-gamma-val>5.0</output></span
+          >
+          <input type="range" data-gamma min="2.5" max="6" step="0.1" value="5" />
+          <button type="button" class="xpl-dyn__info" data-info="gamma" aria-expanded="false"
+            aria-label="About the concentration parameter">?</button>
+          <span class="xpl-dyn__popover" data-popover="gamma" role="tooltip" hidden>
+            <b>Concentration.</b> Stars are placed from an <b>EFF</b> profile (Elson, Fall &amp;
+            Freeman 1987), whose three-dimensional density falls as
+            <Math tex={m("\\rho(r) \\propto (1 + r^2/a^2)^{-\\gamma/2}")} />.
+            <br /><br />
+            At <Math tex={m("\\gamma = 5")} /> that expression <em>is</em> the Plummer law.
+            Lower <Math tex={m("\\gamma")} /> is a shallower fall-off and a more extended halo
+            (<Math tex={m("\\gamma \\approx 3")} /> is typical of a young cluster); higher is
+            more concentrated. It reshapes the cluster at fixed
+            <Math tex={m("r_h")} />, so the two sliders are independent.
+          </span>
+        </label>
+        <label class="xpl-dyn__ctrl">
+          <span class="xpl-dyn__ctrl-val"
+            >speed <output data-speed-val>1.0</output><Math tex={m("\\times")} /></span
+          >
+          <input type="range" data-speed min="0.25" max="4" step="0.25" value="1" />
+        </label>
+      </div>
+
+      {/* Each label is its own note trigger — a "?" per metric would be seven icons
+          in a row, so the label carries the affordance instead. */}
       <dl class="xpl-dyn__stats" data-summary aria-live="polite">
-        <div><dt>t</dt><dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} /></dd></div>
-        <div><dt><Math tex={m("t/t_\\mathrm{cr}")} /></dt><dd data-v="tcr">0.0</dd></div>
-        <div><dt><Math tex={m("r_h")} /> hi</dt><dd><span data-v="rhi">—</span></dd></div>
-        <div><dt><Math tex={m("r_h")} /> lo</dt><dd><span data-v="rlo">—</span></dd></div>
-        {/* TWO cells, not one labelled "bound". They disagree and the gap is the
-            story: mass-bound is dominated by a few heavy stars that stay put,
-            so it reads high while half the STARS have already left. */}
-        <div><dt>bound <Math tex={m("M")} /></dt><dd><span data-v="boundm">—</span>%</dd></div>
-        <div><dt>bound <Math tex={m("N")} /></dt><dd><span data-v="boundn">—</span>%</dd></div>
+        <div>
+          <dt><button type="button" data-info="m-t" aria-expanded="false">t</button></dt>
+          <dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} /></dd>
+          <span class="xpl-dyn__popover" data-popover="m-t" role="tooltip" hidden>
+            Model time since the run began, in millions of years. Not wall-clock time — the
+            speed control changes how much of it passes per frame.
+          </span>
+        </div>
+        <div>
+          <dt><button type="button" data-info="m-tcr" aria-expanded="false"><Math tex={m("t/t_\\mathrm{cr}")} /></button></dt>
+          <dd data-v="tcr">0.0</dd>
+          <span class="xpl-dyn__popover" data-popover="m-tcr" role="tooltip" hidden>
+            The same time in <b>crossing times</b> — how long a typical star takes to cross the
+            cluster. It is the clock a cluster actually keeps: relaxation and segregation happen
+            on multiples of it, not on Myr. Blank without gravity, where it is undefined.
+          </span>
+        </div>
+        <div>
+          <dt><button type="button" data-info="m-rhi" aria-expanded="false"><Math tex={m("r_h")} /> hi</button></dt>
+          <dd><span data-v="rhi">—</span></dd>
+          <span class="xpl-dyn__popover" data-popover="m-rhi" role="tooltip" hidden>
+            Half-mass radius of the heaviest 10% of stars, in parsecs — the radius containing
+            half of that group's mass. Measured about the bound cluster's centre and over its
+            bound members only. This is the number that falls as the massive stars sink.
+          </span>
+        </div>
+        <div>
+          <dt><button type="button" data-info="m-rlo" aria-expanded="false"><Math tex={m("r_h")} /> lo</button></dt>
+          <dd><span data-v="rlo">—</span></dd>
+          <span class="xpl-dyn__popover" data-popover="m-rlo" role="tooltip" hidden>
+            The same quantity for the lightest half of the cluster. It rises as light stars are
+            scattered outward — the other half of the segregation the plot shows.
+          </span>
+        </div>
+        <div>
+          <dt><button type="button" data-info="m-bm" aria-expanded="false">bound <Math tex={m("M")} /></button></dt>
+          <dd><span data-v="boundm">—</span>%</dd>
+          <span class="xpl-dyn__popover" data-popover="m-bm" role="tooltip" hidden>
+            Share of the cluster's <b>mass</b> still gravitationally bound. The quantity the
+            literature quotes, and the more flattering one: the heaviest stars carry most of the
+            mass and are the last to leave.
+          </span>
+        </div>
+        <div>
+          <dt><button type="button" data-info="m-bn" aria-expanded="false">bound <Math tex={m("N")} /></button></dt>
+          <dd><span data-v="boundn">—</span>%</dd>
+          <span class="xpl-dyn__popover" data-popover="m-bn" role="tooltip" hidden>
+            Share of the <b>stars</b> still bound. Compare it with bound
+            <Math tex={m("M")} />: the gap is real, and it is why "most of the cluster is still
+            here" can be true by mass while half the stars have gone.
+          </span>
+        </div>
+        <div>
+          <dt><button type="button" data-info="m-de" aria-expanded="false"><Math tex={m("|\\Delta E/E|")} /></button></dt>
+          <dd><span data-v="drift">—</span></dd>
+          <span class="xpl-dyn__popover" data-popover="m-de" role="tooltip" hidden>
+            Fractional energy error of the integration — the same number the strip below plots.
+            Blank with gravity off: there is no integrator running to make a claim about.
+            It licenses the arithmetic, not the model: a small value means the equations were
+            solved accurately, not that they still describe a star cluster.
+          </span>
+        </div>
       </dl>
     </div>
 
@@ -267,7 +301,6 @@ const m = (tex: string) => tex;
         Energy drift
         <span class="xpl-dyn__legend">
           <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--e"></i><Math tex={m("|\\Delta E/E|")} /></span>
-          <span class="xpl-dyn__val" data-drift>—</span>
           <button
             type="button"
             class="xpl-dyn__info"
@@ -340,13 +373,15 @@ const m = (tex: string) => tex;
     const nInput = $<HTMLInputElement>("[data-n]");
     const nVal = $<HTMLOutputElement>("[data-n-val]");
     const speedInput = $<HTMLInputElement>("[data-speed]");
+    const rhInput = $<HTMLInputElement>("[data-rh]");
+    const rhVal = $<HTMLOutputElement>("[data-rh-val]");
     const gammaInput = $<HTMLInputElement>("[data-gamma]");
     const gammaVal = $<HTMLOutputElement>("[data-gamma-val]");
     const speedVal = $<HTMLOutputElement>("[data-speed-val]");
     const playBtn = $<HTMLButtonElement>("[data-play]");
     const clockEl = $<HTMLElement>("[data-clock]");
     const hint = $<HTMLElement>("[data-hint]");
-    const driftEl = $<HTMLElement>("[data-drift]");
+    const driftEl = $<HTMLElement>("[data-v=\"drift\"]");
     const scaleBar = root.querySelector<HTMLElement>("[data-scalebar]");
     /** Which evolution curve the shared plot canvas is showing. */
     let plotTab: "radii" | "bound" = "radii";
@@ -419,6 +454,7 @@ const m = (tex: string) => tex;
         n: Number(nInput.value),
         seed,
         gamma: Number(gammaInput.value),
+        rHalfPc: Number(rhInput.value),
       });
       /*
        * The scenario's OWN default scheme, not a faster one chosen here.
@@ -634,7 +670,7 @@ const m = (tex: string) => tex;
       setStat("boundm", d ? (d.boundMassFraction * 100).toFixed(0) : "—");
       setStat("boundn", d ? (d.boundFraction * 100).toFixed(0) : "—");
       clockEl.textContent = `t = ${tSim.toFixed(1)} Myr`;
-      driftEl.textContent = s ? s.energyDrift.toExponential(1) : "no integrator running";
+      driftEl.textContent = s ? s.energyDrift.toExponential(1) : "—";
       /* `healthy` latches false once drift has ever breached tolerance, so this
          cannot flicker back to reassuring after a bad excursion. */
       driftEl.classList.toggle("is-bad", !!s && !run.monitor.healthy);
@@ -1127,13 +1163,15 @@ const m = (tex: string) => tex;
        * beneath it already shows the mode, and a hint that only restated it was
        * the reason "frozen as drawn" meant nothing to anyone but its author.
        */
+      /* Kept to ONE line at the panel's width. The longer forms of these wrapped,
+         and a wrapped status line costs the figure a whole row of height — which
+         is the scarcest thing in this layout. The toggle beside it already says
+         which mode is selected, so the phrase only has to say what is happening. */
       hint.textContent = playing
         ? gravity
-          ? "every star pulling on every other"
-          : "no gravity — the stars just keep going"
-        : gravity
-          ? "paused — press run to integrate"
-          : "paused — press run to let them drift apart";
+          ? "every star pulls on every other"
+          : "no gravity — stars keep going"
+        : "paused — press run";
     };
 
     const rebuild = () => {
@@ -1243,6 +1281,10 @@ const m = (tex: string) => tex;
     /* `input` updates the readout continuously; `change` rebuilds ONCE on release.
        Rebuilding per input event would re-sample and re-integrate a fresh cluster
        for every pixel of slider travel. */
+    rhInput.addEventListener("input", () => {
+      rhVal.value = Number(rhInput.value).toFixed(2);
+    });
+    rhInput.addEventListener("change", rebuild);
     gammaInput.addEventListener("input", () => {
       gammaVal.value = Number(gammaInput.value).toFixed(1);
     });
@@ -1352,10 +1394,13 @@ const m = (tex: string) => tex;
     max-inline-size: 64rem;
     margin-inline: auto;
   }
+  /* Tighter than census's --space-m. This figure stacks four bands (cluster +
+     plot, console, energy strip) where census stacks two, so the gaps are the
+     cheapest 25 px available and cost nothing a reader would notice. */
   .xpl-dyn__grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-m);
+    gap: var(--space-s);
     align-items: stretch; /* each row's two cells match height → columns align */
   }
   /*
@@ -1728,11 +1773,16 @@ const m = (tex: string) => tex;
   /* Two knobs on one row, label and slider side by side rather than stacked —
      the stacked form with its `small` caption was four lines for two controls,
      and this panel now has to hold the frame as well. */
+  /* Four knobs, one row. At the console's full width each gets ~256 px, against
+     the ~90 px of slider travel they had inside the cluster column. */
   .xpl-dyn__controls {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-2xs) var(--space-s);
-    padding: 0 var(--space-s) var(--space-xs);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-2xs) var(--space-m);
+    padding-inline: var(--space-s);
+  }
+  @media (max-width: 52rem) {
+    .xpl-dyn__controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   .xpl-dyn__ctrl {
     display: flex;
@@ -1757,7 +1807,7 @@ const m = (tex: string) => tex;
     block-size: 1rem;
     accent-color: var(--spec-rose-bright);
   }
-  @media (max-width: 40rem) {
+  @media (max-width: 30rem) {
     .xpl-dyn__controls { grid-template-columns: 1fr; }
   }
   /*
@@ -1781,13 +1831,22 @@ const m = (tex: string) => tex;
    * row wraps instead: two lines of three here, one line if the panel is ever
    * wider. Each cell takes the width its content actually needs.
    */
-  .xpl-dyn__panel--readout {
-    padding-block-end: var(--space-2xs);
+  /* Console: knobs on top, the numbers they move underneath, one bordered box.
+     Vertical space is the constraint this whole layout is fighting, so the rows
+     are tight and the separator does the work a gap would otherwise do. */
+  .xpl-dyn__console {
+    display: grid;
+    gap: var(--space-2xs);
+    padding-block: var(--space-2xs);
+  }
+  .xpl-dyn__console .xpl-dyn__stats {
+    padding-block-start: var(--space-2xs);
+    border-block-start: 1px solid var(--border);
   }
   .xpl-dyn__stats {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-3xs) var(--space-l);
+    gap: var(--space-3xs) var(--space-m);
     margin: 0;
     padding: var(--space-2xs) var(--space-s) 0;
   }
@@ -1806,6 +1865,25 @@ const m = (tex: string) => tex;
     font-size: var(--step--2);
     color: var(--ink-faint);
     white-space: nowrap;
+  }
+  /* The label IS the note trigger. Seven "?" icons in one row would be more
+     furniture than readout, and the label is already the thing a reader points at
+     when they do not know what a number means. */
+  .xpl-dyn__stats dt button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: help;
+    border-block-end: 1px dotted currentColor;
+  }
+  .xpl-dyn__stats dt button:hover,
+  .xpl-dyn__stats dt button[aria-expanded="true"] {
+    color: var(--spec-teal-bright);
+  }
+  .xpl-dyn__stats > div {
+    position: relative;
   }
   .xpl-dyn__stats dd {
     margin: 0;
