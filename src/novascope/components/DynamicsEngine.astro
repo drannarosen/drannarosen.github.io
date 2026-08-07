@@ -56,9 +56,13 @@ const m = (tex: string) => tex;
       <div class="xpl-dyn__stage">
         <canvas data-field aria-label="Star cluster in projection; brighter, larger points are more luminous stars"></canvas>
         <div class="xpl-dyn__hud xpl-dyn__hud--top">
-          <span class="xpl-dyn__modes" role="group" aria-label="Clock">
+          <span class="xpl-dyn__modes" role="group" aria-label="Clock and cluster">
             <button type="button" data-play class="is-active">▶ run</button>
             <button type="button" data-reset>↻ reset</button>
+            {/* "new draw" belongs beside reset because the two are the same kind of
+                action — start over — differing only in whether the seed changes.
+                It was across the panel in a toolbar of its own. */}
+            <button type="button" data-reseed>↻ new draw</button>
           </span>
           <span class="xpl-dyn__clock" data-clock aria-live="off">t = 0.0 Myr</span>
         </div>
@@ -80,54 +84,71 @@ const m = (tex: string) => tex;
         <div><dt>bound</dt><dd><span data-v="bound">—</span>%</dd></div>
       </dl>
       <small class="xpl-dyn__hint" data-hint>paused — press run to let them drift apart</small>
+      {/*
+        THE CLUSTER CONTROLS LIVE IN THIS PANEL, not in a console of their own.
+        A separate control box cost a whole grid row, and that row is what pushed
+        the energy strip below the fold — so you could not watch the cluster and
+        its own error trace at the same time, which is the one thing the strip is
+        for. Folded in here they fill the space under the status line instead.
+      */}
+      <div class="xpl-dyn__controls" aria-label="Cluster controls" role="group">
+        <label class="xpl-dyn__ctrl">
+          <span class="xpl-dyn__ctrl-val"
+            ><Math tex={m("N")} /> = <output data-n-val>400</output></span
+          >
+          <input type="range" data-n min="100" max="1200" step="50" value="400" />
+        </label>
+        <label class="xpl-dyn__ctrl">
+          <span class="xpl-dyn__ctrl-val"
+            >speed <output data-speed-val>1.0</output><Math tex={m("\\times")} /></span
+          >
+          <input type="range" data-speed min="0.25" max="4" step="0.25" value="1" />
+        </label>
+      </div>
     </figure>
 
+    {/*
+      THE LEGEND IS THE KEY, AND IT CARRIES THE EXPLANATION BEHIND A "?".
+
+      What the two curves ARE was a three-line paragraph under the plot, which is
+      the one place a reader is not looking while watching them move — and it cost
+      more vertical space than the metrics strip. A legend puts the key on the
+      figure, and census's `data-info` / `data-popover` pair (its spatial-profile
+      note) is the pattern for the prose behind it: it pops OVER the panel rather
+      than pushing it taller, so the plot keeps its height.
+
+      The swatches take their colours from the same `--spec-*` tokens the canvas
+      reads through `css()`, so a legend cannot end up a different colour from the
+      line it labels.
+    */}
     <figure class="xpl-dyn__panel">
       <figcaption>
         Half-mass radius
-        <span>relative to its own start</span>
+        <span class="xpl-dyn__legend">
+          <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>heaviest 10%</span>
+          <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>lightest half</span>
+          <button
+            type="button"
+            class="xpl-dyn__info"
+            data-info="radii"
+            aria-expanded="false"
+            aria-label="About the half-mass radius curves"
+          >?</button>
+          <span class="xpl-dyn__popover" data-popover="radii" role="tooltip" hidden>
+            Each curve is the half-mass radius of its own group, divided by that group's value at
+            <Math tex={m("t = 0")} /> — so both start at 1 and any gap is what gravity did. The
+            split is fixed at the first frame, so the same stars are followed all run and the
+            curves cannot separate by relabelling who counts as heavy. Absolute radii are in the
+            readout beside the cluster; at the start they differ by sampling alone.
+          </span>
+        </span>
       </figcaption>
       <div class="xpl-dyn__plot">
         <span class="xpl-dyn__ytitle"><Math tex={m("r_h(t)\\,/\\,r_h(0)")} /></span>
         <canvas data-radii aria-label="Half-mass radius of the most massive stars and of the least massive stars, against time"></canvas>
         <span class="xpl-dyn__xtitle"><Math tex={m("t\\;(\\mathrm{Myr})")} /></span>
       </div>
-      <small class="xpl-dyn__hint">
-        Solid: heaviest 10% of stars. Dashed: lightest half. Each relative to its own starting
-        radius, so both begin at 1 and any gap is what gravity did.
-      </small>
     </figure>
-
-    <div class="xpl-dyn__panel xpl-dyn__panel--pad">
-      {/* NO LENS CHIPS. Census has three real control groups and the chips choose
-          between them; here there was one group and a paragraph, so the chips
-          selected between "controls" and "no controls" and the `data-lit` panel
-          highlighting had nothing to distinguish. One group needs no switcher. */}
-      <div class="xpl-dyn__toolbar">
-        <p class="xpl-dyn__lenshd"><b>Cluster</b> — what is being integrated?</p>
-        <button type="button" class="xpl-dyn__reseed" data-reseed>↻ new draw</button>
-      </div>
-
-      <div class="xpl-dyn__controls">
-        <section class="xpl-dyn__lens" aria-label="Cluster controls">
-          <div class="xpl-dyn__lensgrid">
-            <label class="xpl-dyn__ctrl">
-              <span class="xpl-dyn__ctrl-name">stars</span>
-              <span class="xpl-dyn__ctrl-val"><Math tex={m("N")} /> = <output data-n-val>400</output></span>
-              <input type="range" data-n min="100" max="1200" step="50" value="400" />
-              <small>fewer = faster, noisier</small>
-            </label>
-            <label class="xpl-dyn__ctrl">
-              <span class="xpl-dyn__ctrl-name">speed</span>
-              <span class="xpl-dyn__ctrl-val"><output data-speed-val>1.0</output><Math tex={m("\\times")} /></span>
-              <input type="range" data-speed min="0.25" max="4" step="0.25" value="1" />
-              <small>time per frame</small>
-            </label>
-          </div>
-        </section>
-      </div>
-
-    </div>
 
     {/* The energy strip is the RECEIPT, not a co-star. On the lab, drift is the
         subject; here it is the evidence that the run above can be trusted, so it
@@ -135,13 +156,25 @@ const m = (tex: string) => tex;
     <figure class="xpl-dyn__panel xpl-dyn__panel--strip">
       <figcaption>
         Energy drift
-        <span data-drift>—</span>
+        <span class="xpl-dyn__legend">
+          <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--e"></i><Math tex={m("|\\Delta E/E|")} /></span>
+          <span class="xpl-dyn__val" data-drift>—</span>
+          <button
+            type="button"
+            class="xpl-dyn__info"
+            data-info="energy"
+            aria-expanded="false"
+            aria-label="About the energy drift trace"
+          >?</button>
+          <span class="xpl-dyn__popover" data-popover="energy" role="tooltip" hidden>
+            A symplectic integrator's error stays <b>bounded</b> — it wobbles and does not grow —
+            which is what earns the right to believe the panel above it. If this trace ever walks
+            steadily off the strip, the cluster you are watching is a numerical artefact. With
+            gravity off it stays empty: there is no integrator running to make a claim about.
+          </span>
+        </span>
       </figcaption>
       <canvas data-energy aria-label="Fractional energy error against time"></canvas>
-      <small class="xpl-dyn__hint">
-        A symplectic integrator's error stays bounded rather than growing. If this wanders off
-        the strip, stop believing the panel above it.
-      </small>
     </figure>
   </div>
 
@@ -704,6 +737,38 @@ const m = (tex: string) => tex;
     });
 
 
+    /*
+     * The "?" notes, census's pattern. Open one at a time, close on Escape or on
+     * a click outside — a tooltip that can only be dismissed by finding the same
+     * small button again is a trap, and there are two of them on this page.
+     */
+    const infoBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-info]"));
+    const closeInfo = (except?: string) => {
+      for (const b of infoBtns) {
+        const key = b.dataset.info!;
+        if (key === except) continue;
+        b.setAttribute("aria-expanded", "false");
+        const pop = root.querySelector<HTMLElement>(`[data-popover="${key}"]`);
+        if (pop) pop.hidden = true;
+      }
+    };
+    for (const b of infoBtns) {
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const key = b.dataset.info!;
+        const pop = root.querySelector<HTMLElement>(`[data-popover="${key}"]`);
+        if (!pop) return;
+        const open = pop.hidden;
+        closeInfo(key);
+        pop.hidden = !open;
+        b.setAttribute("aria-expanded", String(open));
+      });
+    }
+    document.addEventListener("click", () => closeInfo());
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeInfo();
+    });
+
     window.addEventListener("resize", redraw);
     rebuild();
   }
@@ -733,6 +798,8 @@ const m = (tex: string) => tex;
   .xpl-dyn__panel {
     margin: 0;
     padding: 0;
+    display: flex;
+    flex-direction: column;
     background: radial-gradient(
       120% 120% at 50% 0%,
       color-mix(in srgb, var(--bg-surface) 92%, black),
@@ -742,9 +809,6 @@ const m = (tex: string) => tex;
     border-radius: var(--radius-m);
     overflow: hidden;
     transition: border-color var(--dur-base) var(--ease-out);
-  }
-  .xpl-dyn__panel.is-lit {
-    border-color: color-mix(in srgb, var(--spec-teal) 45%, var(--border));
   }
   /* Flat surface, not the gradient — census's control panel is the one box that
      reads as a console rather than an instrument. */
@@ -775,6 +839,86 @@ const m = (tex: string) => tex;
     font-size: var(--step--2);
     color: var(--ink-faint);
   }
+  /* ── legend + "?" popover, census's `data-info` pattern ── */
+  .xpl-dyn__legend {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    flex-wrap: wrap;
+  }
+  .xpl-dyn__key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    white-space: nowrap;
+  }
+  /* Drawn from the SAME tokens the canvas reads through css(), so the key cannot
+     disagree with the line it labels. Dashes match drawSeries's [4, 3]. */
+  .xpl-dyn__swatch {
+    inline-size: 1.4em;
+    block-size: 0;
+    border-block-start-width: 2px;
+    flex: none;
+  }
+  .xpl-dyn__swatch--hi {
+    border-block-start-style: solid;
+    border-color: var(--spec-rose-bright);
+  }
+  .xpl-dyn__swatch--lo {
+    border-block-start-style: dashed;
+    border-color: var(--spec-teal-bright);
+  }
+  .xpl-dyn__swatch--e {
+    border-block-start-style: solid;
+    border-color: var(--spec-amber);
+  }
+  .xpl-dyn__val {
+    font-family: var(--font-mono);
+    color: var(--ink);
+  }
+  .xpl-dyn__val.is-bad {
+    color: var(--spec-rose-bright);
+  }
+  .xpl-dyn__info {
+    flex: none;
+    inline-size: 1.3rem;
+    block-size: 1.3rem;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .xpl-dyn__info:hover,
+  .xpl-dyn__info[aria-expanded="true"] {
+    color: var(--spec-teal-bright);
+    border-color: var(--spec-teal-bright);
+  }
+  /* Pops OVER the panel, never through it: the plot keeps its height whether the
+     note is open or closed, which is the whole reason this is not a paragraph. */
+  .xpl-dyn__popover {
+    position: absolute;
+    z-index: 5;
+    inset-block-start: 100%;
+    inset-inline-end: 0;
+    inline-size: min(26rem, 70vw);
+    margin-block-start: 0.35rem;
+    padding: var(--space-2xs) var(--space-s);
+    border: 1px solid color-mix(in srgb, var(--spec-teal) 30%, var(--border));
+    border-radius: var(--radius-m);
+    background: color-mix(in srgb, var(--bg-surface) 94%, black);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+    font-size: var(--step--2);
+    color: var(--ink-soft);
+    line-height: 1.5;
+    text-align: start;
+    white-space: normal;
+  }
   .xpl-dyn__panel canvas {
     display: block;
     inline-size: 100%;
@@ -786,10 +930,18 @@ const m = (tex: string) => tex;
    * ~290 px shorter than the field beside it, and `align-items: stretch` turned
    * the difference into empty panel rather than into plot.
    */
-  .xpl-dyn__panel [data-field],
-  .xpl-dyn__panel [data-radii] {
+  .xpl-dyn__panel [data-field] {
     aspect-ratio: 1;
     block-size: auto;
+  }
+  /*
+   * The radius plot GROWS to fill its row instead of holding a fixed square.
+   * The field panel beside it now carries the metrics strip and the sliders too,
+   * so a fixed-square plot would be the shorter cell and `stretch` would turn the
+   * difference into empty panel — the dead band this page already had once.
+   */
+  .xpl-dyn__panel [data-radii] {
+    block-size: 100%;
   }
   .xpl-dyn__panel [data-field] {
     cursor: grab;
@@ -836,8 +988,18 @@ const m = (tex: string) => tex;
     font-size: var(--step--2);
   }
   /* 12:1 left no room for tick labels; the strip is small but it is a plot. */
+  /*
+   * The strip is a receipt, so it stays short — but not so short that it cannot
+   * be READ. 16:1 was an overcorrection: with the 12/32 px axis margins it left
+   * 52 px of plotting area, which is too little to tell a bounded wobble from a
+   * slow climb, and that distinction is the only thing the panel is for. 9:1 is
+   * what it started at and pushed the strip off the same screen as the cluster.
+   *
+   * 10:1 keeps the trace legible while staying well inside the height that let
+   * the cluster and its own error trace be watched together.
+   */
   .xpl-dyn__panel [data-energy] {
-    aspect-ratio: 9 / 1;
+    aspect-ratio: 10 / 1;
     inline-size: 100%;
     block-size: auto;
   }
@@ -852,6 +1014,14 @@ const m = (tex: string) => tex;
    */
   .xpl-dyn__plot {
     position: relative;
+    flex: 1 1 auto;
+    min-block-size: 14rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .xpl-dyn__plot > canvas {
+    flex: 1 1 auto;
+    min-block-size: 0;
   }
   .xpl-dyn__xtitle {
     display: block;
@@ -943,26 +1113,40 @@ const m = (tex: string) => tex;
     color: var(--ink-faint);
     line-height: 1.5;
   }
-  .xpl-dyn__lensgrid {
+  /* Two knobs on one row, label and slider side by side rather than stacked —
+     the stacked form with its `small` caption was four lines for two controls,
+     and this panel now has to hold the frame as well. */
+  .xpl-dyn__controls {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-s);
+    gap: var(--space-2xs) var(--space-s);
+    padding: 0 var(--space-s) var(--space-xs);
   }
   .xpl-dyn__ctrl {
-    display: grid;
-    gap: 2px;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    min-inline-size: 0;
     font-size: var(--step--2);
     color: var(--ink-soft);
   }
   .xpl-dyn__ctrl-val {
+    flex: none;
     font-family: var(--font-mono);
     color: var(--ink);
+    white-space: nowrap;
   }
-  .xpl-dyn__ctrl small {
-    color: var(--ink-faint);
+  .xpl-dyn__ctrl output {
+    color: var(--spec-teal-bright);
   }
   .xpl-dyn__ctrl input[type="range"] {
-    inline-size: 100%;
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    block-size: 1rem;
+    accent-color: var(--spec-rose-bright);
+  }
+  @media (max-width: 40rem) {
+    .xpl-dyn__controls { grid-template-columns: 1fr; }
   }
   /*
    * ONE LINE, five columns, label and value side by side.
