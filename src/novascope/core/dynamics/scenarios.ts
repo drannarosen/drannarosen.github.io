@@ -45,6 +45,10 @@ import { effRhOverA } from "../cluster/profiles.ts";
  */
 export const GAMMA_MIN = 2.5;
 export const GAMMA_MAX = 6;
+
+/* Half-mass radius range, matching /explore/census's own control. */
+export const RHALF_MIN_PC = 0.3;
+export const RHALF_MAX_PC = 5;
 import type { Scheme } from "./choose.ts";
 
 export type ScenarioId = "two-body" | "cluster" | "binary-in-cluster";
@@ -85,6 +89,20 @@ export interface ScenarioParams {
   n?: number;
   /** Cluster: softening as a fraction of r_h N^(-1/3). */
   softeningFraction?: number;
+  /**
+   * Cluster: HALF-MASS radius [pc].
+   *
+   * The half-mass radius, not the scale radius `a`, because r_h is the physical
+   * quantity — it is what the crossing time and the softening are defined
+   * against, it is what the readout quotes, and it is what /explore/census's own
+   * control exposes. `a` is then derived, `a = r_h / effRhOverA(gamma)`, so
+   * changing gamma at a fixed r_h reshapes the cluster WITHOUT resizing it.
+   *
+   * Parameterising by `a` instead would have made the two controls interact: every
+   * gamma change would also change the cluster's size, and neither slider would
+   * mean what its label said.
+   */
+  rHalfPc?: number;
   /**
    * Cluster: EFF density slope gamma, rho ~ (1 + r^2/a^2)^(-gamma/2).
    *
@@ -182,7 +200,6 @@ function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
    */
   const n = Math.round(clamp(p.n ?? 200, 20, 800));
   const fraction = clamp(p.softeningFraction ?? 0.5, 0, 1);
-  const scalePc = 0.5;
   /*
    * EFF (Elson+1987) everywhere, with gamma the knob: rho ~ (1 + r^2/a^2)^(-gamma/2),
    * which AT GAMMA = 5 IS the Plummer law. One profile path rather than two, and the
@@ -199,7 +216,11 @@ function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
    * a real half-mass radius for any gamma instead of assuming the Plummer ratio".
    */
   const gamma = clamp(p.gamma ?? 5, GAMMA_MIN, GAMMA_MAX);
-  const rHalf = scalePc * effRhOverA(gamma);
+  /* r_h is the input and `a` is derived, so gamma reshapes at fixed size. The
+     default reproduces the scale radius this scenario has always used: 0.5 pc at
+     gamma = 5, i.e. r_h = 0.5 * effRhOverA(5). */
+  const rHalf = clamp(p.rHalfPc ?? 0.5 * effRhOverA(5), RHALF_MIN_PC, RHALF_MAX_PC);
+  const scalePc = rHalf / effRhOverA(gamma);
   const softening = softeningForCluster(rHalf, n, fraction);
 
   const force = createDirectForce({ softening });
