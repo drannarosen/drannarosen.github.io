@@ -451,8 +451,31 @@ const m = (tex: string) => tex;
      * at the pace it always did and only the cost goes up (2x the force
      * evaluations — measured in the browser before relying on it).
      */
-    const STEP_DIVISOR = 128;
-    const SUBSTEPS = 2;
+    const STEP_DIVISOR = 2048;
+    const SUBSTEPS = 8;
+    /*
+     * SOFTENING, and why it is a tenth of the mean interparticle spacing.
+     *
+     * eps = 0.5 r_h N^(-1/3) is half the mean spacing — a sensible COLLISIONLESS
+     * choice, and the wrong one for a page about two-body relaxation, because it
+     * smooths away the close encounters that drive the segregation. Measured over
+     * forty crossing times, the light/heavy radius ratio it produced was 2.33x
+     * against 7.87x at a fifth of the softening. The knob was suppressing the
+     * effect the page exists to show.
+     *
+     * eps and dt are coupled: a smaller softening means faster encounters and
+     * needs a finer step. At 0.1 the step has to reach t_cross/2048 to stay
+     * honest — /1024 drifts 1.24e-3 and would breach the limit below.
+     */
+    const SOFTENING_FRACTION = 0.1;
+    /*
+     * TIGHTER THAN THE MONITOR'S 1e-3 DEFAULT, which was calibrated for
+     * t_cross/128 where the honest drift is 5e-6..1.4e-5. At /2048 with this
+     * softening the worst measured over forty crossing times is 4.38e-5, so 1e-4
+     * is roughly twice the worst honest value rather than seventy times it — a
+     * line that would actually catch something.
+     */
+    const ENERGY_TOLERANCE = 1e-4;
     let hi0: number | null = null;
     let lo0: number | null = null;
     /** Elapsed model time [Myr]. Advanced by BOTH integration paths — see sample(). */
@@ -476,6 +499,7 @@ const m = (tex: string) => tex;
         gamma: Number(gammaInput.value),
         rHalfPc: Number(rhInput.value),
         alphaHigh: Number(alphaInput.value),
+        softeningFraction: SOFTENING_FRACTION,
       });
       /*
        * The scenario's OWN default scheme, not a faster one chosen here.
@@ -502,7 +526,9 @@ const m = (tex: string) => tex;
       return {
         built,
         integrator: picked.integrator,
-        monitor: createConservationMonitor(picked.integrator),
+        monitor: createConservationMonitor(picked.integrator, {
+          energyTolerance: ENERGY_TOLERANCE,
+        }),
         heavy,
         light,
       };
@@ -872,6 +898,9 @@ const m = (tex: string) => tex;
     const AX = { l: 64, r: 14, t: 12, b: 32 };
     /** Decades shown below a log axis's threshold — see the floor in drawSeries. */
     const LOG_DECADES = 5;
+    /* How far above the data the limit may sit and still be drawn. Within a decade
+       it is context; further off it is just a line at the top of an empty plot. */
+    const LOG_NEAR_DECADES = 1;
 
     function drawSeries(
       cv: HTMLCanvasElement,
@@ -924,6 +953,8 @@ const m = (tex: string) => tex;
          units, so the two scales cannot disagree about where a value sits. */
       const toPlot = (v: number): number =>
         opts.logY ? (v > 0 ? Math.log10(v) : NaN) : v;
+      /** Whether the limit line is close enough to the data to be worth drawing. */
+      let showThreshold = false;
       let lo = Infinity;
       let hiV = -Infinity;
       for (const p of hist)
@@ -941,7 +972,21 @@ const m = (tex: string) => tex;
       }
       if (opts.threshold) {
         const tv = toPlot(opts.threshold.value);
-        if (Number.isFinite(tv)) {
+        /*
+         * THE LIMIT NO LONGER SETS THE SCALE.
+         *
+         * It used to force the axis to contain it, which meant a healthy run —
+         * drift three or four decades under the line — was drawn as a flat trace
+         * pinned to the bottom of a mostly-empty plot. The axis follows the DATA
+         * so the trace is legible; the limit line is drawn only when it is close
+         * enough to be worth seeing, and if the drift climbs toward it the axis
+         * grows to meet it on its own.
+         *
+         * `showThreshold` is what the caller draws on, so a limit off the top of
+         * the scale is simply not drawn rather than silently clamped to the edge,
+         * where it would read as a limit the run was already touching.
+         */
+        if (Number.isFinite(tv) && tv <= hiV + LOG_NEAR_DECADES) {
           lo = Math.min(lo, tv);
           hiV = Math.max(hiV, tv);
           /*
@@ -956,6 +1001,7 @@ const m = (tex: string) => tex;
            * instead of rescaling under you every time.
            */
           if (opts.logY) lo = Math.max(lo, tv - LOG_DECADES);
+          showThreshold = true;
         }
       }
       if (!Number.isFinite(lo) || !Number.isFinite(hiV)) {
@@ -1018,7 +1064,7 @@ const m = (tex: string) => tex;
       ctx.strokeRect(AX.l, AX.t, w - AX.l - AX.r, h - AX.t - AX.b);
       ctx.strokeStyle = grid;
 
-      if (opts.threshold) {
+      if (opts.threshold && showThreshold) {
         const { value, colour, label } = opts.threshold;
         ctx.save();
         ctx.setLineDash([5, 4]);
