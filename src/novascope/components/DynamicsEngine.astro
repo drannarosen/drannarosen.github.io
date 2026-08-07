@@ -471,7 +471,22 @@ const m = (tex: string) => tex;
     function drawSeries(
       cv: HTMLCanvasElement,
       series: { get: (p: (typeof hist)[number]) => number; colour: string; dash: number[] }[],
-      opts: { zeroBase?: boolean; refOne?: boolean; fmt?: (v: number) => string } = {},
+      opts: {
+        zeroBase?: boolean;
+        refOne?: boolean;
+        fmt?: (v: number) => string;
+        /**
+         * A FIXED reference the axis must always contain, drawn as a line.
+         *
+         * Without one an autoscaled axis rescales to whatever the data does, so a
+         * trace can never leave the frame — which made the energy strip's own note
+         * ("if this walks steadily off the strip, stop believing the panel above
+         * it") describe something the plot could not show. Pinning the axis to the
+         * monitor's tolerance makes "off the strip" mean the same thing the
+         * `healthy` verdict means, so the picture and the readout cannot disagree.
+         */
+        threshold?: { value: number; colour: string; label: string };
+      } = {},
     ) {
       const { ctx, w, h } = fit(cv);
       ctx.clearRect(0, 0, w, h);
@@ -494,6 +509,10 @@ const m = (tex: string) => tex;
       if (opts.refOne) {
         lo = Math.min(lo, 1);
         hiV = Math.max(hiV, 1);
+      }
+      if (opts.threshold) {
+        lo = Math.min(lo, opts.threshold.value);
+        hiV = Math.max(hiV, opts.threshold.value);
       }
       if (!Number.isFinite(lo) || !Number.isFinite(hiV)) {
         lo = 0;
@@ -542,6 +561,25 @@ const m = (tex: string) => tex;
       ctx.strokeRect(AX.l, AX.t, w - AX.l - AX.r, h - AX.t - AX.b);
       ctx.strokeStyle = grid;
 
+      if (opts.threshold) {
+        const { value, colour, label } = opts.threshold;
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = colour;
+        ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        ctx.moveTo(AX.l, Y(value));
+        ctx.lineTo(w - AX.r, Y(value));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = colour;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(label, AX.l + 6, Y(value) - 3);
+        ctx.restore();
+        ctx.fillStyle = ink;
+      }
+
       if (opts.refOne) {
         ctx.save();
         ctx.setLineDash([2, 3]);
@@ -584,9 +622,16 @@ const m = (tex: string) => tex;
         ],
         { refOne: true },
       );
+      /* The tolerance comes from the MONITOR, not from a number typed here — it is
+         the same value `healthy` latches on, so the line a reader sees and the
+         verdict the page reports cannot drift apart. */
+      const tol = run?.monitor.energyTolerance;
       drawSeries(energyCv, [{ get: (p) => p.e, colour: css("--spec-amber", "#fbbf24"), dash: [] }], {
         zeroBase: true,
         fmt: (v) => (v === 0 ? "0" : v.toExponential(0)),
+        ...(tol
+          ? { threshold: { value: tol, colour: css("--spec-rose-bright", "#e58fb4"), label: "trust limit" } }
+          : {}),
       });
     };
 
@@ -995,11 +1040,13 @@ const m = (tex: string) => tex;
    * slow climb, and that distinction is the only thing the panel is for. 9:1 is
    * what it started at and pushed the strip off the same screen as the cluster.
    *
-   * 10:1 keeps the trace legible while staying well inside the height that let
-   * the cluster and its own error trace be watched together.
+   * Now 20:3 — half again as tall as the 10:1 it settled at — because the axis is
+   * no longer autoscaled to the trace: it is pinned to the monitor's tolerance, so
+   * a healthy run sits low in a frame whose top is the limit. That headroom IS the
+   * reading, and it needs room to be one.
    */
   .xpl-dyn__panel [data-energy] {
-    aspect-ratio: 10 / 1;
+    aspect-ratio: 20 / 3;
     inline-size: 100%;
     block-size: auto;
   }
