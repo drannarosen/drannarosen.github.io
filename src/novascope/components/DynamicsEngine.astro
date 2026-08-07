@@ -96,7 +96,7 @@ const m = (tex: string) => tex;
             </label>
             <label class="xpl-dyn__ctrl">
               <span class="xpl-dyn__ctrl-name">speed</span>
-              <span class="xpl-dyn__ctrl-val"><output data-speed-val>1.0</output>×</span>
+              <span class="xpl-dyn__ctrl-val"><output data-speed-val>1.0</output><Math tex={m("\\times")} /></span>
               <input type="range" data-speed min="0.25" max="4" step="0.25" value="1" />
               <small>time per frame</small>
             </label>
@@ -105,15 +105,15 @@ const m = (tex: string) => tex;
       </div>
 
       <dl class="xpl-dyn__stats" data-summary aria-live="polite">
-        <div><dt>time</dt><dd><span data-v="t">0.0</span> Myr</dd></div>
+        <div><dt>time</dt><dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} /></dd></div>
         <div><dt>crossings</dt><dd data-v="tcr">0.0</dd></div>
         <div>
           <dt><Math tex={m("r_h")} /> heavy</dt>
-          <dd><span data-v="rhi">—</span> pc</dd>
+          <dd><span data-v="rhi">—</span> <Math tex={m("\\mathrm{pc}")} /></dd>
         </div>
         <div>
           <dt><Math tex={m("r_h")} /> light</dt>
-          <dd><span data-v="rlo">—</span> pc</dd>
+          <dd><span data-v="rlo">—</span> <Math tex={m("\\mathrm{pc}")} /></dd>
         </div>
         <div><dt>bound</dt><dd><span data-v="bound">—</span>%</dd></div>
       </dl>
@@ -186,6 +186,7 @@ const m = (tex: string) => tex;
     let run: ReturnType<typeof build> | null = null;
     /* History of (t, r_h heavy, r_h light) and of fractional energy error. */
     let hist: { t: number; hi: number; lo: number; e: number }[] = [];
+    let span: number | null = null;
     let hi0: number | null = null;
     let lo0: number | null = null;
 
@@ -280,7 +281,21 @@ const m = (tex: string) => tex;
       ctx.clearRect(0, 0, w, h);
       if (!run) return;
       const st = run.built.state;
-      const span = 8;
+      /* Scale to the CLUSTER, not to a guessed box. A fixed +/-8 pc view of a
+         cluster whose half-mass radius is ~0.5 pc put every star in a few
+         central pixels and left the panel looking empty. The 98th-percentile
+         radius keeps the bulk framed while a single ejected star cannot
+         collapse the view. Held fixed once set, so expansion is visible as
+         motion rather than being cancelled by a rescaling axis. */
+      if (span === null) {
+        const rr: number[] = [];
+        for (let i = 0; i < st.n; i++) {
+          const x = st.pos[3 * i], y = st.pos[3 * i + 1], z = st.pos[3 * i + 2];
+          rr.push(Math.hypot(x, y, z));
+        }
+        rr.sort((a, b) => a - b);
+        span = Math.max(0.5, rr[Math.floor(rr.length * 0.98)] * 1.6);
+      }
       const sx = w / (2 * span);
       const teal = css("--spec-teal-bright", "#4fd6c4");
       const rose = css("--spec-rose-bright", "#e58fb4");
@@ -288,51 +303,123 @@ const m = (tex: string) => tex;
         const x = w / 2 + st.pos[3 * i] * sx;
         const y = h / 2 - st.pos[3 * i + 1] * sx;
         const heavy = run.heavy.has(i);
-        const r = heavy ? 2.6 : 1.1;
+        const r = heavy ? 3.2 : 1.6;
         ctx.beginPath();
         ctx.arc(x, y, r, 0, 6.2832);
         ctx.fillStyle = heavy ? rose : teal;
-        ctx.globalAlpha = heavy ? 0.95 : 0.5;
+        ctx.globalAlpha = heavy ? 1 : 0.75;
         ctx.fill();
       }
       ctx.globalAlpha = 1;
     }
 
+    /*
+     * Axes, not a sparkline. Census's plots carry gridlines and tick labels, and
+     * a curve with no scale cannot be read: "the solid line went down" is not a
+     * measurement until you can see it went down to 0.75 over ten Myr. The
+     * radii plot also draws a reference line at 1, which is where both curves
+     * start, so any separation is legible against it.
+     */
+    const AX = { l: 34, r: 6, t: 6, b: 18 };
+
+    function niceTicks(lo: number, hi: number, want = 4): number[] {
+      const span = hi - lo;
+      if (!(span > 0)) return [lo];
+      const raw = span / want;
+      const mag = 10 ** Math.floor(Math.log10(raw));
+      const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((v) => v >= raw) ?? mag * 10;
+      const out: number[] = [];
+      for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(v);
+      return out;
+    }
+
     function drawSeries(
       cv: HTMLCanvasElement,
       series: { get: (p: (typeof hist)[number]) => number; colour: string; dash: number[] }[],
-      zeroBase: boolean,
+      opts: { zeroBase?: boolean; refOne?: boolean; fmt?: (v: number) => string } = {},
     ) {
       const { ctx, w, h } = fit(cv);
       ctx.clearRect(0, 0, w, h);
-      if (hist.length < 2) return;
-      const pad = 4;
-      const tMax = hist[hist.length - 1].t || 1;
+      const ink = css("--ink-faint", "#8b8f9a");
+      const grid = css("--bg-hairline", "#2b2d38");
+      const fmt = opts.fmt ?? ((v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2)));
+
+      const tMax = hist.length > 1 ? hist[hist.length - 1].t || 1 : 1;
       let lo = Infinity;
       let hiV = -Infinity;
       for (const p of hist)
-        for (const s of series) {
-          const v = s.get(p);
+        for (const sr of series) {
+          const v = sr.get(p);
           if (Number.isFinite(v)) {
             lo = Math.min(lo, v);
             hiV = Math.max(hiV, v);
           }
         }
-      if (zeroBase) lo = Math.min(lo, 0);
-      if (!Number.isFinite(lo) || !Number.isFinite(hiV) || hiV === lo) return;
-      const X = (t: number) => pad + (t / tMax) * (w - 2 * pad);
-      const Y = (v: number) => h - pad - ((v - lo) / (hiV - lo)) * (h - 2 * pad);
-      for (const s of series) {
+      if (opts.zeroBase) lo = Math.min(lo, 0);
+      if (opts.refOne) {
+        lo = Math.min(lo, 1);
+        hiV = Math.max(hiV, 1);
+      }
+      if (!Number.isFinite(lo) || !Number.isFinite(hiV)) {
+        lo = 0;
+        hiV = 1;
+      }
+      if (hiV === lo) hiV = lo + 1;
+      const pad = (hiV - lo) * 0.08;
+      lo -= pad;
+      hiV += pad;
+
+      const X = (t: number) => AX.l + (t / tMax) * (w - AX.l - AX.r);
+      const Y = (v: number) => h - AX.b - ((v - lo) / (hiV - lo)) * (h - AX.t - AX.b);
+
+      ctx.font = "9px var(--font-mono, monospace)";
+      ctx.fillStyle = ink;
+      ctx.strokeStyle = grid;
+      ctx.lineWidth = 1;
+
+      for (const v of niceTicks(lo, hiV)) {
+        const y = Y(v);
         ctx.beginPath();
-        ctx.setLineDash(s.dash);
-        ctx.strokeStyle = s.colour;
-        ctx.lineWidth = 1.5;
-        hist.forEach((p, k) => {
-          const v = s.get(p);
-          if (!Number.isFinite(v)) return;
-          if (k === 0) ctx.moveTo(X(p.t), Y(v));
-          else ctx.lineTo(X(p.t), Y(v));
-        });
+        ctx.moveTo(AX.l, y);
+        ctx.lineTo(w - AX.r, y);
+        ctx.stroke();
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText(fmt(v), AX.l - 4, y);
+      }
+      for (const t of niceTicks(0, tMax, 4)) {
+        const x = X(t);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText(t.toFixed(t < 10 ? 1 : 0), x, h - AX.b + 3);
+      }
+
+      if (opts.refOne) {
+        ctx.save();
+        ctx.setLineDash([2, 3]);
+        ctx.strokeStyle = ink;
+        ctx.beginPath();
+        ctx.moveTo(AX.l, Y(1));
+        ctx.lineTo(w - AX.r, Y(1));
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (hist.length < 2) return;
+      for (const sr of series) {
+        ctx.beginPath();
+        ctx.setLineDash(sr.dash);
+        ctx.strokeStyle = sr.colour;
+        ctx.lineWidth = 1.6;
+        let started = false;
+        for (const p of hist) {
+          const v = sr.get(p);
+          if (!Number.isFinite(v)) continue;
+          if (!started) {
+            ctx.moveTo(X(p.t), Y(v));
+            started = true;
+          } else ctx.lineTo(X(p.t), Y(v));
+        }
         ctx.stroke();
       }
       ctx.setLineDash([]);
@@ -347,9 +434,12 @@ const m = (tex: string) => tex;
           { get: (p) => p.hi, colour: rose, dash: [] },
           { get: (p) => p.lo, colour: teal, dash: [4, 3] },
         ],
-        true,
+        { refOne: true },
       );
-      drawSeries(energyCv, [{ get: (p) => p.e, colour: css("--spec-amber", "#fbbf24"), dash: [] }], true);
+      drawSeries(energyCv, [{ get: (p) => p.e, colour: css("--spec-amber", "#fbbf24"), dash: [] }], {
+        zeroBase: true,
+        fmt: (v) => (v === 0 ? "0" : v.toExponential(0)),
+      });
     };
 
     const redraw = () => {
@@ -407,6 +497,7 @@ const m = (tex: string) => tex;
       stop();
       run = build();
       hist = [];
+      span = null;
       hi0 = null;
       lo0 = null;
       playing = false;
@@ -477,10 +568,14 @@ const m = (tex: string) => tex;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-m);
   }
+  /* Census's figure panels are TRANSPARENT with zero padding, so the canvas
+     runs to the border and the plot is the panel. Only its control panel is a
+     filled, padded box. Mine boxed and padded everything, which read as four
+     heavy tiles instead of two instruments and a console. */
   .xpl-dyn__panel {
     margin: 0;
-    padding: var(--space-s);
-    background: var(--bg-deep);
+    padding: 0;
+    background: transparent;
     border: 1px solid var(--border);
     border-radius: var(--radius-m);
     transition: border-color var(--dur-base) var(--ease-out);
@@ -489,6 +584,8 @@ const m = (tex: string) => tex;
     border-color: color-mix(in srgb, var(--spec-teal) 45%, var(--border));
   }
   .xpl-dyn__panel--pad {
+    padding: var(--space-s);
+    background: var(--bg-deep);
     display: flex;
     flex-direction: column;
     gap: var(--space-s);
@@ -497,6 +594,7 @@ const m = (tex: string) => tex;
     grid-column: 1 / -1;
   }
   .xpl-dyn__panel figcaption {
+    padding: var(--space-2xs) var(--space-xs) 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -520,12 +618,14 @@ const m = (tex: string) => tex;
     inline-size: 100%;
     block-size: auto;
   }
+  /* 12:1 left no room for tick labels; the strip is small but it is a plot. */
   .xpl-dyn__panel [data-energy] {
-    aspect-ratio: 12 / 1;
+    aspect-ratio: 9 / 1;
     inline-size: 100%;
     block-size: auto;
   }
   .xpl-dyn__plot {
+    padding-inline: var(--space-3xs);
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: var(--space-3xs);
@@ -545,6 +645,7 @@ const m = (tex: string) => tex;
   }
   .xpl-dyn__hint {
     display: block;
+    padding: 0 var(--space-xs) var(--space-2xs);
     margin-block-start: var(--space-3xs);
     font-size: var(--step--2);
     color: var(--ink-faint);
