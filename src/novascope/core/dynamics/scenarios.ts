@@ -34,6 +34,17 @@ import { clusterState } from "./ic.ts";
 import { crossingTime } from "./diagnostics.ts";
 import { G_PC3_MSUN_MYR2 } from "../constants/index.ts";
 import { defaultIdentity } from "../cluster/params.ts";
+import { effRhOverA } from "../cluster/profiles.ts";
+
+/*
+ * Range of the EFF slope this scenario will integrate, matching the control range
+ * /explore/census already offers so the two pages cannot describe different
+ * clusters by the same number. Below ~2.5 the profile's mass diverges faster than
+ * the 15a truncation can contain sensibly; above 6 it is Plummer-or-steeper and
+ * the differences stop being visible.
+ */
+export const GAMMA_MIN = 2.5;
+export const GAMMA_MAX = 6;
 import type { Scheme } from "./choose.ts";
 
 export type ScenarioId = "two-body" | "cluster" | "binary-in-cluster";
@@ -74,6 +85,14 @@ export interface ScenarioParams {
   n?: number;
   /** Cluster: softening as a fraction of r_h N^(-1/3). */
   softeningFraction?: number;
+  /**
+   * Cluster: EFF density slope gamma, rho ~ (1 + r^2/a^2)^(-gamma/2).
+   *
+   * 5 is the Plummer law and the default, so a caller that does not set it gets
+   * the profile this scenario has always had. Shallower gamma is a more extended
+   * halo (gamma ~ 3 is a typical young cluster); steeper is more concentrated.
+   */
+  gamma?: number;
   /*
    * Cluster: sampling seed. Without it every build returns the SAME cluster,
    * so a "new draw" control is inert — which is how one shipped: the button
@@ -164,7 +183,23 @@ function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
   const n = Math.round(clamp(p.n ?? 200, 20, 800));
   const fraction = clamp(p.softeningFraction ?? 0.5, 0, 1);
   const scalePc = 0.5;
-  const rHalf = scalePc * 1.305; // Plummer: r_h = 1.305 a
+  /*
+   * EFF (Elson+1987) everywhere, with gamma the knob: rho ~ (1 + r^2/a^2)^(-gamma/2),
+   * which AT GAMMA = 5 IS the Plummer law. One profile path rather than two, and the
+   * same one `/explore/census` drives.
+   *
+   * r_h/a MUST come from `effRhOverA(gamma)`, never the Plummer constant. This line
+   * read `scalePc * 1.305` — correct only at gamma = 5, and silently wrong for every
+   * other value. It is not a display number: it feeds `softeningForCluster`, and the
+   * softening sets the energy error. Measured on this scenario, halving the softening
+   * takes the drift from 3.95e-4 to 3.1e-1, past the trust limit by 300x. A
+   * mis-derived r_h would move it the same way with nothing to show for it.
+   *
+   * `effRhOverA` exists for exactly this — its own docstring says it "lets a UI quote
+   * a real half-mass radius for any gamma instead of assuming the Plummer ratio".
+   */
+  const gamma = clamp(p.gamma ?? 5, GAMMA_MIN, GAMMA_MAX);
+  const rHalf = scalePc * effRhOverA(gamma);
   const softening = softeningForCluster(rHalf, n, fraction);
 
   const force = createDirectForce({ softening });
@@ -174,7 +209,7 @@ function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
     defaultIdentity({
       seed: p.seed ?? 2026,
       sampling: { mode: "count", target: n },
-      profile: { kind: "plummer", scaleRadius: scalePc },
+      profile: { kind: "eff", scaleRadius: scalePc, gamma },
       kinematics: { virialRatio: 0.5 },
     }),
     force,
