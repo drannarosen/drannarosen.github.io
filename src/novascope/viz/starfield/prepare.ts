@@ -429,8 +429,13 @@ const DEFAULT_TIERS: TierBoundaries = { t2: 0.9, t3: 0.995 };
  * Only a guard against a divide-by-zero from an unbounded profile tail — a
  * Plummer sphere formally reaches any radius — not a physical horizon. Far below
  * any real cluster depth, so it never binds on a sane population.
+ *
+ * Exported because `scene.setPositions` re-applies the inverse-square law per
+ * frame without re-preparing, and a second copy of this clamp there would be a
+ * second definition of how close a star may come — the two would then disagree
+ * silently at exactly the depth where the guard matters.
  */
-const MIN_DISTANCE_PC = 1;
+export const MIN_DISTANCE_PC = 1;
 
 /**
  * Population fraction mapped to display white.

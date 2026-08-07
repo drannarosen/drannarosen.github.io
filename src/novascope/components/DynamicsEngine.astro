@@ -29,20 +29,30 @@ const m = (tex: string) => tex;
   <div class="xpl-dyn__grid">
     <figure class="xpl-dyn__panel" data-lit="gravity">
       <figcaption>
-        <span class="xpl-dyn__modes" role="group" aria-label="Clock">
-          <button type="button" data-play class="is-active">▶ run</button>
-          <button type="button" data-reset>↻ reset</button>
-        </span>
-        <span class="xpl-dyn__clock" data-clock aria-live="off">t = 0.0 Myr</span>
+        The cluster
+        <span>drag to orbit</span>
       </figcaption>
-      <canvas data-field aria-label="Star cluster in projection; point size follows stellar mass"></canvas>
+      {/* The clock and the transport ride ON the frame, as census's readout card
+          rides on the H–R panel. They belong to the view rather than to the page,
+          and lifting them out of the caption is what lets the canvas square up
+          against the plot beside it instead of sitting a control-bar lower. */}
+      <div class="xpl-dyn__stage">
+        <canvas data-field aria-label="Star cluster in projection; brighter, larger points are more luminous stars"></canvas>
+        <div class="xpl-dyn__hud">
+          <span class="xpl-dyn__modes" role="group" aria-label="Clock">
+            <button type="button" data-play class="is-active">▶ run</button>
+            <button type="button" data-reset>↻ reset</button>
+          </span>
+          <span class="xpl-dyn__clock" data-clock aria-live="off">t = 0.0 Myr</span>
+        </div>
+      </div>
       <small class="xpl-dyn__hint" data-hint>Gravity is off — the cluster is frozen as drawn.</small>
     </figure>
 
     <figure class="xpl-dyn__panel" data-lit="gravity segregation">
       <figcaption>
-        Half-mass radius, relative to its own start
-        <span>the massive stars sink</span>
+        Half-mass radius
+        <span>relative to its own start</span>
       </figcaption>
       <div class="xpl-dyn__plot">
         <span class="xpl-dyn__ytitle"><Math tex={m("r_h(t)\\,/\\,r_h(0)")} /></span>
@@ -151,8 +161,15 @@ const m = (tex: string) => tex;
     measure,
     lagrangianRadii,
   } from "@novascope/core/dynamics";
-  import { createEngine, attachInteraction } from "@novascope/viz/webgl";
+  /* The renderer is named directly, never through the `starfield` barrel: that
+     barrel is deliberately three-free so the node gates can import the pure
+     modules (see viz/starfield/index.ts). */
+  import { initStarLab, type StarLab } from "@novascope/viz/starfield/scene";
   import { star } from "@novascope/core/stellar";
+  /* Shared with the H–R diagram and the IMF histogram. AXIS_FONT is a LITERAL
+     font string on purpose — see the note in axis.ts; this page is the reason it
+     is there. */
+  import { AXIS_FONT, niceTicks } from "@novascope/viz/axis";
 
   const root = document.querySelector<HTMLElement>("[data-dyn]");
   if (root) {
@@ -188,6 +205,9 @@ const m = (tex: string) => tex;
     let run: ReturnType<typeof build> | null = null;
     /* History of (t, r_h heavy, r_h light) and of fractional energy error. */
     let hist: { t: number; hi: number; lo: number; e: number }[] = [];
+    /* Halving threshold, not a cap on the run: see the decimation in sample().
+       600 samples is already ~4x the horizontal pixels of the plot at 1440px. */
+    const MAX_SAMPLES = 600;
     let hi0: number | null = null;
     let lo0: number | null = null;
 
@@ -254,7 +274,17 @@ const m = (tex: string) => tex;
       if (hi0 === null) hi0 = hi || 1;
       if (lo0 === null) lo0 = lo || 1;
       hist.push({ t: s.t, hi: hi / hi0, lo: lo / lo0, e: s.energyDrift });
-      if (hist.length > 600) hist.shift();
+      /*
+       * KEEP THE WHOLE RUN, at coarser resolution — never drop the beginning.
+       *
+       * This used to `shift()` past 600 samples, which discards the OLDEST point
+       * while the x-axis still spans 0..t_now. The visible result is a curve that
+       * detaches from the left edge and crawls rightward across an empty plot,
+       * and the run's first crossing times — where the segregation this page is
+       * about actually happens — are gone. Halving instead keeps t = 0 in frame
+       * for an arbitrarily long run: the record thins, it does not truncate.
+       */
+      if (hist.length > MAX_SAMPLES) hist = hist.filter((_, i) => i % 2 === 0);
 
       setStat("t", s.t.toFixed(1));
       setStat("tcr", s.tCross.toFixed(1));
@@ -283,18 +313,30 @@ const m = (tex: string) => tex;
       getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
 
     /*
-     * The cluster is drawn by the SHARED WebGL engine — the same one
-     * /explore/cluster, /explore/gas-expulsion and /explore/mass-segregation
-     * use — not by ctx.arc(). The first version hand-rolled flat 2-D circles
-     * and looked exactly as cheap as that sounds beside census: no glow, no
-     * depth sorting, no depth cue, no spectral colour, no orbit.
+     * The cluster is drawn by the three.js / WebGPU starfield — the render stack
+     * ADR 0015 chose (WebGPURenderer + TSL, three pinned to 0.185.1, the
+     * renderer's own WebGL 2 backend where WebGPU is absent).
      *
-     * A 1x1x1 dummy volume with gasFraction 0 gives a stars-only scene; this
-     * page has no gas to show. Colour comes from Teff via star(), so it is the
-     * contract's colour rather than a heavy/light hack of my own — which also
-     * satisfies explore-authoring rule 1.
+     * IT REPLACED THE RAW-WebGL ENGINE HERE FOR A MEASURED REASON, not a
+     * preference. That engine sized the box from the 98th percentile of the
+     * cluster's radii, and this cluster's radial distribution has a heavy tail
+     * (p50 0.67 pc, p98 4.69, max 13.47), so the box came out at 15 pc and the
+     * bulk of the cluster was crushed into the middle 5% of the frame: 400 stars
+     * rendered as 87 resolvable blobs around a saturated core. ADR 0015 records
+     * the same failure on the same engine family ("48 stars visible and the core
+     * saturated into one blob") and defers the port until there is evidence; this
+     * is that evidence. The starfield scene frames on the cluster's own half-mass
+     * radius instead, derived from the stars actually drawn.
+     *
+     * Colour and brightness come from Teff and R via star(), so they are the
+     * contract's values rather than a heavy/light hack of my own — explore-
+     * authoring rule 1. The packing below is already the table `prepare` reads.
      */
-    let engine: ReturnType<typeof createEngine> | null = null;
+    let lab: StarLab | null = null;
+    /* A mount is async (the renderer awaits device init), and reset / new draw /
+       the N slider can all fire another before the first lands. Without a token
+       the loser's scene would win the canvas. */
+    let mountToken = 0;
 
     /** n*6: x, y, z, mass, Teff, radius — the layout the engine expects. */
     function packStars(): Float32Array {
@@ -320,47 +362,54 @@ const m = (tex: string) => tex;
       return out;
     }
 
-    function mountEngine() {
+    async function mountField() {
       if (!run) return;
-      engine?.cleanup();
-      /* Box from the 98th-percentile radius: a fixed guess framed a ~0.5 pc
-         cluster inside an 8 pc box and left the panel looking empty. */
-      const st = run.built.state;
-      const rr: number[] = [];
-      for (let i = 0; i < st.n; i++)
-        rr.push(Math.hypot(st.pos[3 * i], st.pos[3 * i + 1], st.pos[3 * i + 2]));
-      rr.sort((a, b) => a - b);
-      const box = Math.max(1, rr[Math.floor(rr.length * 0.98)] * 3.2);
-      engine = createEngine(
-        field,
-        {
-          volume: new Uint8Array(1),
-          ngrid: 1,
-          stars: packStars(),
-          box,
-          densityFloor: 1,
-          logRange: 1,
-          floorMedian: 1,
-          floorMean: 1,
-        },
-        { emphasizeHot: true },
-      );
-      engine.setGasFraction(0);
-      attachInteraction(field, engine);
+      const token = ++mountToken;
+      const previous = lab;
+      lab = null;
+      previous?.dispose();
+      /* No box, no framing guess: the scene derives its own from the supplied
+         table's half-mass radius. */
+      /*
+       * EXPOSURE, not physics. `whitePercentile` is tone mapping — which flux maps
+       * to display white — so it changes how the frame is developed and nothing
+       * about any star. The default 0.995 is cut for the lab's 10,000-star field
+       * and lands on a cliff at 400: measured on this cluster, 0.999 leaves 51
+       * stars above a tenth of white, 0.995 leaves 77, and 0.99 leaves 336 while
+       * every one of the 400 clears 1%. A cluster drawn as 77 dots is not a
+       * fainter picture of 400 stars, it is a picture of a different cluster, and
+       * the point of this page is where all of them go.
+       *
+       * `population` colour is the default and is kept deliberately: photometric
+       * on this population puts 8 of 400 above 1% of white, because the ZAMS
+       * luminosity range is ~9 dex and the faint majority simply is not there.
+       */
+      const next = await initStarLab(field, {
+        stars: packStars(),
+        whitePercentile: 0.99,
+      });
+      if (token !== mountToken) {
+        next.dispose(); // a newer mount started while this one was awaiting
+        return;
+      }
+      /*
+       * NO CAMERA DRIFT. The lab auto-rotates because a static portrait wants
+       * parallax; here every pixel of motion has to be attributable to gravity,
+       * and a turning camera would make "the massive stars sink" ambiguous with
+       * "the view moved". Dragging still orbits.
+       */
+      next.setDrifting(false);
+      lab = next;
+      lab.setPositions(positions());
     }
 
-    const AX = { l: 34, r: 6, t: 6, b: 18 };
-
-    function niceTicks(lo: number, hi: number, want = 4): number[] {
-      const span = hi - lo;
-      if (!(span > 0)) return [lo];
-      const raw = span / want;
-      const mag = 10 ** Math.floor(Math.log10(raw));
-      const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((v) => v >= raw) ?? mag * 10;
-      const out: number[] = [];
-      for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(v);
-      return out;
-    }
+    /*
+     * Plot margins, sized for AXIS_FONT (14px) rather than for the 9px these were
+     * cut for — which never rendered anyway, so the old 34/18 was reserving room
+     * for a label size that did not exist. Left has to clear "1.00"-width labels
+     * at 14px; bottom has to clear one line plus its gap.
+     */
+    const AX = { l: 56, r: 14, t: 12, b: 32 };
 
     function drawSeries(
       cv: HTMLCanvasElement,
@@ -401,7 +450,7 @@ const m = (tex: string) => tex;
       const X = (t: number) => AX.l + (t / tMax) * (w - AX.l - AX.r);
       const Y = (v: number) => h - AX.b - ((v - lo) / (hiV - lo)) * (h - AX.t - AX.b);
 
-      ctx.font = "9px var(--font-mono, monospace)";
+      ctx.font = AXIS_FONT;
       ctx.fillStyle = ink;
       ctx.strokeStyle = grid;
       ctx.lineWidth = 1;
@@ -414,14 +463,27 @@ const m = (tex: string) => tex;
         ctx.stroke();
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
-        ctx.fillText(fmt(v), AX.l - 4, y);
+        ctx.fillText(fmt(v), AX.l - 8, y);
       }
+      /* Vertical gridlines too, as the H–R diagram has: reading a time off a plot
+         with horizontal rules only means tracking across bare space. */
       for (const t of niceTicks(0, tMax, 4)) {
         const x = X(t);
+        ctx.beginPath();
+        ctx.moveTo(x, AX.t);
+        ctx.lineTo(x, h - AX.b);
+        ctx.stroke();
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillText(t.toFixed(t < 10 ? 1 : 0), x, h - AX.b + 3);
+        ctx.fillText(t.toFixed(t < 10 ? 1 : 0), x, h - AX.b + 8);
       }
+      /* Axis frame, matching renderHR's strokeRect — it separates the plotting
+         area from the panel, which matters now that both panels have a filled
+         background rather than the transparent one this file wrongly attributed
+         to census. */
+      ctx.strokeStyle = css("--border", "#2a2c31");
+      ctx.strokeRect(AX.l, AX.t, w - AX.l - AX.r, h - AX.t - AX.b);
+      ctx.strokeStyle = grid;
 
       if (opts.refOne) {
         ctx.save();
@@ -472,7 +534,7 @@ const m = (tex: string) => tex;
     };
 
     const redraw = () => {
-      engine?.setStarPositions(positions());
+      lab?.setPositions(positions());
       drawPlots();
     };
 
@@ -525,7 +587,7 @@ const m = (tex: string) => tex;
       stop();
       run = build();
       hist = [];
-      mountEngine();
+      void mountField();
       hi0 = null;
       lo0 = null;
       playing = false;
@@ -602,29 +664,47 @@ const m = (tex: string) => tex;
 </script>
 
 <style>
+  /* Capped like census's root, which is what turns the top row into near-squares
+     instead of letting the two panels stretch on a wide screen. */
+  .xpl-dyn {
+    display: grid;
+    max-inline-size: 76rem;
+    margin-inline: auto;
+  }
   .xpl-dyn__grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-m);
+    align-items: stretch; /* each row's two cells match height → columns align */
   }
-  /* Census's figure panels are TRANSPARENT with zero padding, so the canvas
-     runs to the border and the plot is the panel. Only its control panel is a
-     filled, padded box. Mine boxed and padded everything, which read as four
-     heavy tiles instead of two instruments and a console. */
+  /*
+   * Census's panel treatment, read from its stylesheet rather than remembered.
+   * The note that used to sit here claimed census's figure panels are
+   * "TRANSPARENT with zero padding"; they are not — `.xpl-census__panel` carries
+   * a radial-gradient background and `overflow: hidden`, and that mistaken note
+   * is why these two pages never looked like siblings.
+   */
   .xpl-dyn__panel {
     margin: 0;
     padding: 0;
-    background: transparent;
+    background: radial-gradient(
+      120% 120% at 50% 0%,
+      color-mix(in srgb, var(--bg-surface) 92%, black),
+      var(--bg-void)
+    );
     border: 1px solid var(--border);
     border-radius: var(--radius-m);
+    overflow: hidden;
     transition: border-color var(--dur-base) var(--ease-out);
   }
   .xpl-dyn__panel.is-lit {
     border-color: color-mix(in srgb, var(--spec-teal) 45%, var(--border));
   }
+  /* Flat surface, not the gradient — census's control panel is the one box that
+     reads as a console rather than an instrument. */
   .xpl-dyn__panel--pad {
     padding: var(--space-s);
-    background: var(--bg-deep);
+    background: var(--bg-surface);
     display: flex;
     flex-direction: column;
     gap: var(--space-s);
@@ -632,30 +712,74 @@ const m = (tex: string) => tex;
   .xpl-dyn__panel--strip {
     grid-column: 1 / -1;
   }
+  /* Census's caption bar: a titled header rule, not a floating line of text. */
   .xpl-dyn__panel figcaption {
-    padding: var(--space-2xs) var(--space-xs) 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2xs);
+    padding: var(--space-2xs) var(--space-s);
+    font-family: var(--font-mono);
     font-size: var(--step--1);
-    color: var(--ink-soft);
-    margin-block-end: var(--space-2xs);
+    color: var(--ink);
+    border-block-end: 1px solid var(--border);
   }
   .xpl-dyn__panel figcaption span {
     font-size: var(--step--2);
     color: var(--ink-faint);
   }
-  .xpl-dyn__panel [data-field] {
-    aspect-ratio: 1;
+  .xpl-dyn__panel canvas {
+    display: block;
     inline-size: 100%;
+    touch-action: none;
+  }
+  /*
+   * BOTH viewscreens are square, as census's cluster and H–R are. That is what
+   * removes the dead band under the radii plot: at 4/3 the plot panel was
+   * ~290 px shorter than the field beside it, and `align-items: stretch` turned
+   * the difference into empty panel rather than into plot.
+   */
+  .xpl-dyn__panel [data-field],
+  .xpl-dyn__panel [data-radii] {
+    aspect-ratio: 1;
     block-size: auto;
   }
-  .xpl-dyn__panel [data-radii] {
-    aspect-ratio: 4 / 3;
-    inline-size: 100%;
-    block-size: auto;
+  .xpl-dyn__panel [data-field] {
+    cursor: grab;
+  }
+  .xpl-dyn__panel [data-field]:active {
+    cursor: grabbing;
+  }
+  /* The frame the HUD is positioned against — the canvas box, not the panel, so
+     the controls cannot drift over the caption rule. */
+  .xpl-dyn__stage {
+    position: relative;
+  }
+  .xpl-dyn__hud {
+    position: absolute;
+    inset-block-start: var(--space-2xs);
+    inset-inline: var(--space-2xs);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+    pointer-events: none; /* the canvas keeps the drag; only the controls take clicks */
+  }
+  .xpl-dyn__hud > * {
+    pointer-events: auto;
+  }
+  /* Legible over a star field of unknown brightness: the readout gets the same
+     panel-tinted plate census gives its H–R card, rather than bare text that
+     disappears the moment a bright star drifts under it. */
+  .xpl-dyn__hud .xpl-dyn__clock {
+    padding: 0.15em 0.6em;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-surface) 88%, black);
+    color: var(--ink);
+    font-size: var(--step--2);
   }
   /* 12:1 left no room for tick labels; the strip is small but it is a plot. */
   .xpl-dyn__panel [data-energy] {
@@ -663,32 +787,47 @@ const m = (tex: string) => tex;
     inline-size: 100%;
     block-size: auto;
   }
+  /*
+   * Axis titles exactly as census sets them: the y-title absolutely positioned
+   * and rotated over the canvas's own left margin, both at --step-0.
+   *
+   * They were at --step--2 here — two steps below census — while the tick labels
+   * silently fell back to the canvas default. So the whole axis furniture was
+   * smaller than the diagram it was labelling, on a plot that carries the page's
+   * central claim.
+   */
   .xpl-dyn__plot {
-    padding-inline: var(--space-3xs);
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--space-3xs);
-    align-items: center;
-  }
-  .xpl-dyn__ytitle {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: var(--step--2);
-    color: var(--ink-faint);
+    position: relative;
   }
   .xpl-dyn__xtitle {
-    grid-column: 2;
+    display: block;
     text-align: center;
-    font-size: var(--step--2);
-    color: var(--ink-faint);
+    padding-block: 0.25rem 0.4rem;
+    font-size: var(--step-0);
+    color: var(--ink-soft);
   }
+  .xpl-dyn__ytitle {
+    position: absolute;
+    inset-inline-start: 0.85rem;
+    inset-block-start: 50%;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    transform-origin: center;
+    line-height: 1;
+    font-size: var(--step-0);
+    color: var(--ink-soft);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  /* One step above census's hint (--step--2) on purpose: census's hint is a short
+     phrase, these are two-line explanations of what the curves mean. */
   .xpl-dyn__hint {
     display: block;
-    padding: 0 var(--space-xs) var(--space-2xs);
+    padding: 0 var(--space-s) var(--space-xs);
     margin-block-start: var(--space-3xs);
-    font-size: var(--step--2);
-    color: var(--ink-faint);
-    line-height: 1.45;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    line-height: 1.5;
   }
   .xpl-dyn__clock {
     font-family: var(--font-mono);

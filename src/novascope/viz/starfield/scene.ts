@@ -20,7 +20,13 @@ import { WebGPURenderer, RenderPipeline } from "three/webgpu";
 import { pass, vec4, uniform, float } from "three/tsl";
 import { bloom } from "three/examples/jsm/tsl/display/BloomNode.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { prepareStarField, STAR_STRIDE, type PrepareOptions, type StarField } from "./prepare.ts";
+import {
+  prepareStarField,
+  STAR_STRIDE,
+  MIN_DISTANCE_PC,
+  type PrepareOptions,
+  type StarField,
+} from "./prepare.ts";
 import { clusterStarTable } from "./source.ts";
 import { createStarGraph, type StarGraph } from "./starGraph.ts";
 import { createTransferNode, type Transfer } from "./transferNode.ts";
@@ -132,6 +138,32 @@ export interface StarLab {
   /** Rebuild the field with new physics options (scheme, band, exposure…). */
   update(opts: PrepareOptions): StarLabStats;
   /**
+   * Move the stars without re-preparing the field — `count * 3` floats of xyz [pc].
+   *
+   * The per-frame path for a live integration. `update()` cannot serve one: it
+   * re-runs `prepareStarField`, which costs 180-425 ms for 10,000 stars because it
+   * integrates a Planck function through a filter curve per star per band.
+   *
+   * WHAT THIS RECOMPUTES, AND WHY IT IS EXACT RATHER THAN AN APPROXIMATION.
+   * Depth feeds the image through the inverse-square law, and only as a scalar:
+   * `F_lambda = pi * B_lambda(Teff) * (R/d)^2`, and `bandIntegral` is linear, so a
+   * star's band flux at a new depth is its prepared flux times `(d_ref/d_now)^2`.
+   * Teff and radius do not change — at this rung a star moves but does not evolve —
+   * so the expensive spectral integral is a constant of the run and is reused.
+   *
+   * WHAT IT DELIBERATELY HOLDS FIXED.
+   *   - The EXPOSURE. Calibrated once against the population, as everywhere else
+   *     here, so an expanding cluster genuinely dims instead of being auto-levelled
+   *     back to the same picture. Re-exposing per frame would erase the physics the
+   *     caller is animating.
+   *   - `sizePx` and `tier`, which derive from flux. Re-tiering per frame pops, and
+   *     ADR 0015 records tiers as "a performance/appearance policy, not a size law".
+   *     The flux they were assigned from moves very little: over twelve crossing
+   *     times of the `/explore/dynamics` cluster, measured, the WORST star's flux
+   *     changes 7.1% (0.08 mag) and the median 0.3%.
+   */
+  setPositions(xyz: Float32Array): void;
+  /**
    * Change only what the DISPLAY does, skipping the field rebuild entirely.
    *
    * `prepareStarField` costs 180-425 ms for 10,000 stars, because it integrates a Planck function
@@ -170,6 +202,20 @@ export interface StarLabOptions extends PrepareOptions {
   /** Cluster seed — the same seed always gives the same cluster. */
   seed?: number;
   /**
+   * Supply the star table instead of sampling one — `count * STAR_STRIDE` floats
+   * of `[x, y, z, mass, teff, radius]`, the layout `./source` documents.
+   *
+   * Exists for consumers whose stars come from somewhere this module must not
+   * know about: `/explore/dynamics` integrates its cluster with `core/dynamics`
+   * and hands the resulting state over each frame. Sampling internally is still
+   * the default, so the lab is untouched.
+   *
+   * `count` and `seed` are ignored when this is given — the table already fixes
+   * both, and honouring them as well would let a caller describe two different
+   * populations in one options object.
+   */
+  stars?: Float32Array;
+  /**
    * Called when a sky measurement lands, so a consumer can refresh a readout.
    *
    * The probe is ASYNC — a GPU readback resolves a frame or two after the rebuild that started
@@ -188,11 +234,18 @@ export async function initStarLab(
    * The population is SAMPLED, not fetched (see ./source for why the gravoturb
    * export's positions cannot be imaged). No network, and deterministic in the
    * seed, so a reload shows the identical cluster.
+   *
+   * A caller may supply the table instead (see `StarLabOptions.stars`); it is
+   * held by reference rather than copied, because `setPositions` writes the live
+   * positions back into it so a later `update()` re-prepares the cluster where it
+   * actually is rather than where it started.
    */
-  const stars = clusterStarTable({
-    ...(opts.seed !== undefined ? { seed: opts.seed } : {}),
-    sampling: { mode: "count", target: opts.count ?? 10_000 },
-  });
+  const stars =
+    opts.stars ??
+    clusterStarTable({
+      ...(opts.seed !== undefined ? { seed: opts.seed } : {}),
+      sampling: { mode: "count", target: opts.count ?? 10_000 },
+    });
   const count = Math.floor(stars.length / STAR_STRIDE);
   /*
    * Frame on the cluster's own half-mass radius, measured from the stars that
@@ -356,6 +409,9 @@ export async function initStarLab(
   let stats: StarLabStats = prepareStarField(new Float32Array(0)).stats;
 
   let lastField: StarField | null = null;
+  /** Per-star band flux and depth as prepared — the reference `setPositions` rescales from. */
+  let bandFlux0: Float32Array = new Float32Array(0);
+  let depth0: Float32Array = new Float32Array(0);
   let reach: StarReach = { count: 0, legible: 0, meanLevel: 0 };
   /*
    * The PIXEL depth — Lupton's Q and the display floor. Named for what it drives now that
@@ -691,6 +747,16 @@ export async function initStarLab(
     graph = createStarGraph(field);
     scene.add(graph.mesh);
     lastField = field;
+    /*
+     * The reference state `setPositions` rescales FROM. Snapshotted at prepare
+     * time rather than recomputed, because the rescale must divide out exactly
+     * the depth this field's fluxes were computed at — deriving it later from
+     * the live positions would divide out the CURRENT depth and hold the image
+     * frozen instead of updating it.
+     */
+    bandFlux0 = field.bandFlux.slice();
+    depth0 = new Float32Array(field.count);
+    for (let i = 0; i < field.count; i++) depth0[i] = field.position[i * 3 + 2] ?? 0;
     lastDepthMag = o.pixelDepthMag ?? DEFAULT_LUPTON_DEPTH_MAG;
     lastSkyLevel = o.skyLevel ?? 0;
     skyAuto = o.skyAuto ?? false;
@@ -807,6 +873,43 @@ export async function initStarLab(
       const s = build(next);
       dirty = true; // a rebuilt field must reach the screen even while paused
       return s;
+    },
+    setPositions(xyz) {
+      const field = lastField;
+      if (!field || !graph) return;
+      const n = Math.min(field.count, Math.floor(xyz.length / 3));
+      const dCentre = field.stats.distancePc;
+      const pos = field.position;
+      const bf = field.bandFlux;
+      for (let i = 0; i < n; i++) {
+        const o = i * 3;
+        const x = xyz[o] ?? 0;
+        const y = xyz[o + 1] ?? 0;
+        const z = xyz[o + 2] ?? 0;
+        pos[o] = x;
+        pos[o + 1] = y;
+        pos[o + 2] = z;
+        /* Keep the SOURCE table in step too, so a later `update()` re-prepares the
+           cluster where it now is rather than where it was born. */
+        const so = i * STAR_STRIDE;
+        stars[so] = x;
+        stars[so + 1] = y;
+        stars[so + 2] = z;
+        /* Same clamp as `prepare` (imported, not restated) — see MIN_DISTANCE_PC. */
+        const dRef = Math.max(MIN_DISTANCE_PC, dCentre - (depth0[i] ?? 0));
+        const dNow = Math.max(MIN_DISTANCE_PC, dCentre - z);
+        const k = (dRef / dNow) ** 2;
+        bf[o] = (bandFlux0[o] ?? 0) * k;
+        bf[o + 1] = (bandFlux0[o + 1] ?? 0) * k;
+        bf[o + 2] = (bandFlux0[o + 2] ?? 0) * k;
+      }
+      /* The StarField arrays ARE the InstancedBufferAttribute arrays (starGraph
+         hands the same objects to both), so writing above is the upload — it just
+         has to be flagged. */
+      const geo = graph.mesh.geometry;
+      geo.getAttribute("iPos").needsUpdate = true;
+      geo.getAttribute("iBandFlux").needsUpdate = true;
+      dirty = true;
     },
     setDisplay(next) {
       if (next.bloom !== undefined) uBloom.value = next.bloom;
