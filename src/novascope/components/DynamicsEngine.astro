@@ -46,7 +46,16 @@ const m = (tex: string) => tex;
           <span class="xpl-dyn__clock" data-clock aria-live="off">t = 0.0 Myr</span>
         </div>
       </div>
-      <small class="xpl-dyn__hint" data-hint>Gravity is off — the cluster is frozen as drawn.</small>
+      <small class="xpl-dyn__hint" data-hint>frozen as drawn</small>
+      {/* THE HEARTBEAT TOGGLE SITS UNDER THE CLUSTER IT RESHAPES — census's own
+          rule for its presets row, and this is the control that rule was written
+          for: it is the one switch the whole page is about, and it was buried in
+          a lens you had to open. The explanation of what each mode means stays in
+          the console; only the switch moves. */}
+      <div class="xpl-dyn__modes xpl-dyn__modes--under" role="group" aria-label="Gravity model">
+        <button type="button" data-grav="off" class="is-active" aria-pressed="true">isolated</button>
+        <button type="button" data-grav="on" aria-pressed="false">N-body</button>
+      </div>
     </figure>
 
     <figure class="xpl-dyn__panel" data-lit="gravity segregation">
@@ -83,12 +92,6 @@ const m = (tex: string) => tex;
       <div class="xpl-dyn__controls">
         <section class="xpl-dyn__lens" data-lens="gravity" aria-label="Gravity controls">
           <p class="xpl-dyn__lenshd"><b>Gravity</b> — does every star pull on every other?</p>
-          <div class="xpl-dyn__seg" role="group" aria-label="Gravity model">
-            <button type="button" data-grav="off" class="is-active" aria-pressed="true">
-              isolated
-            </button>
-            <button type="button" data-grav="on" aria-pressed="false">N-body</button>
-          </div>
           <p class="xpl-dyn__note" data-gravnote>
             Isolated: the stars hold the positions they were born with. Nothing moves, and
             nothing segregates.
@@ -371,22 +374,39 @@ const m = (tex: string) => tex;
       /* No box, no framing guess: the scene derives its own from the supplied
          table's half-mass radius. */
       /*
-       * EXPOSURE, not physics. `whitePercentile` is tone mapping — which flux maps
-       * to display white — so it changes how the frame is developed and nothing
-       * about any star. The default 0.995 is cut for the lab's 10,000-star field
-       * and lands on a cliff at 400: measured on this cluster, 0.999 leaves 51
-       * stars above a tenth of white, 0.995 leaves 77, and 0.99 leaves 336 while
-       * every one of the 400 clears 1%. A cluster drawn as 77 dots is not a
-       * fainter picture of 400 stars, it is a picture of a different cluster, and
-       * the point of this page is where all of them go.
+       * PHOTOMETRIC, and the exposure opened up to pay for it.
        *
-       * `population` colour is the default and is kept deliberately: photometric
-       * on this population puts 8 of 400 above 1% of white, because the ZAMS
-       * luminosity range is ~9 dex and the faint majority simply is not there.
+       * This page is about WHERE THE MASSIVE STARS GO, so a star's apparent size
+       * has to follow its own luminosity — the census cluster's rule, and ADR
+       * 0015's ("apparent size and brightness derive from each star's own
+       * luminosity"). The `population` default discards luminosity and draws every
+       * star at unit luminance: measured on this cluster it renders the heaviest
+       * 10% just 1.7x the typical star, so the sinking has nothing to show.
+       * Photometric renders them 19.4x, which is the picture.
+       *
+       * The cost is that ZAMS luminosity spans ~9 dex, so at the lab's default
+       * exposure (0.995, cut for 10,000 stars) only 8 of these 400 clear 1% of
+       * display white. `whitePercentile` is TONE MAPPING — which flux maps to
+       * white, i.e. how the frame is developed — and changes nothing about any
+       * star. Opening it to 0.8 puts all 400 above 1% while KEEPING the 19.4x
+       * contrast. Measured across the sweep; 0.9 still leaves 233 stars dark.
+       */
+      /*
+       * NO DIFFRACTION SPIKES, AND RESTRAINED BLOOM. Both are instrument
+       * signature — what a telescope's spider and a bright source do to an
+       * image — and `prepare` records that spikes were measured "owning 58.2% of
+       * the drawn quad area from SEVEN stars of 1200". At this exposure that is
+       * exactly what happened here: the two most massive stars turned into lens
+       * flares and the cluster disappeared behind them. On a page whose claim is
+       * read off the POSITIONS of the massive stars, an instrument artefact that
+       * large is not atmosphere, it is occlusion.
        */
       const next = await initStarLab(field, {
         stars: packStars(),
-        whitePercentile: 0.99,
+        colorMode: "photometric",
+        whitePercentile: 0.8,
+        spikeStrength: 0,
+        bloom: 0.12,
       });
       if (token !== mountToken) {
         next.dispose(); // a newer mount started while this one was awaiting
@@ -409,7 +429,7 @@ const m = (tex: string) => tex;
      * for a label size that did not exist. Left has to clear "1.00"-width labels
      * at 14px; bottom has to clear one line plus its gap.
      */
-    const AX = { l: 56, r: 14, t: 12, b: 32 };
+    const AX = { l: 64, r: 14, t: 12, b: 32 };
 
     function drawSeries(
       cv: HTMLCanvasElement,
@@ -576,11 +596,15 @@ const m = (tex: string) => tex;
     const syncPlay = () => {
       playBtn.textContent = playing ? "❙❙ pause" : "▶ run";
       playBtn.classList.toggle("is-active", playing);
+      /* Short phrases, as census's under-canvas hint is ("click to zoom & orbit").
+         These were full sentences and made the strip read as a paragraph pinned
+         under the frame; what each mode MEANS is the console's job, not this
+         line's. */
       hint.textContent = gravity
         ? playing
-          ? "Integrating — every star pulls on every other."
-          : "Paused. Press run to continue."
-        : "Gravity is off — the cluster is frozen as drawn.";
+          ? "integrating — every pair interacts"
+          : "paused"
+        : "frozen as drawn";
     };
 
     const rebuild = () => {
@@ -808,7 +832,11 @@ const m = (tex: string) => tex;
   }
   .xpl-dyn__ytitle {
     position: absolute;
-    inset-inline-start: 0.85rem;
+    /* 1.15rem, not census's 0.85rem: rotated, this label's height becomes its
+       width, and `r_h(t)/r_h(0)` has subscripts that make it 32px tall against
+       census's `L/L_\odot`. At 0.85rem it overran the panel edge and `overflow:
+       hidden` clipped it — measured, left 733 against a panel starting at 734. */
+    inset-inline-start: 1.15rem;
     inset-block-start: 50%;
     transform: translate(-50%, -50%) rotate(-90deg);
     transform-origin: center;
@@ -818,16 +846,32 @@ const m = (tex: string) => tex;
     white-space: nowrap;
     pointer-events: none;
   }
-  /* One step above census's hint (--step--2) on purpose: census's hint is a short
-     phrase, these are two-line explanations of what the curves mean. */
   .xpl-dyn__hint {
     display: block;
-    padding: 0 var(--space-s) var(--space-xs);
+    padding: 0 var(--space-s) var(--space-2xs);
     margin-block-start: var(--space-3xs);
     font-family: var(--font-mono);
     font-size: var(--step--1);
-    color: var(--ink-soft);
+    color: var(--ink-faint);
     line-height: 1.5;
+  }
+  /* The plot's hint is still an explanation of what two curves mean, so it keeps
+     its measure and its reading colour; only the field's is a status phrase. */
+  .xpl-dyn__panel--strip .xpl-dyn__hint,
+  .xpl-dyn__plot ~ .xpl-dyn__hint {
+    color: var(--ink-soft);
+    padding-block-end: var(--space-xs);
+  }
+  /* Census's presets row: ghost pills, full width of the panel, sharing the row
+     equally, sitting directly under the frame they act on. */
+  .xpl-dyn__modes--under {
+    display: flex;
+    gap: var(--space-3xs);
+    padding: 0 var(--space-s) var(--space-s);
+  }
+  .xpl-dyn__modes--under button {
+    flex: 1 1 auto;
+    text-align: center;
   }
   .xpl-dyn__clock {
     font-family: var(--font-mono);
