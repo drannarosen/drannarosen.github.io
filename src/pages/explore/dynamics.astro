@@ -35,21 +35,28 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
 
     <div class="dyn-page__note prose wrap">
       <p>
-        Start with gravity <strong>isolated</strong>. The cluster just sits there — it is a
-        drawing. Switch to <strong>N-body</strong> and press run: the two curves in the
-        right-hand panel start together at 1 and then part, the heaviest stars contracting
-        relative to where they began while the lightest hold or expand. That gap <em>is</em>
-        mass segregation, and it is a measurement rather than an impression — the same stars
-        are followed all run, so the curves cannot separate by relabelling who counts as heavy.
-        Each curve is drawn relative to its own starting radius, because the heaviest 10% is a
-        small enough group that its absolute radius is a noisy number; the two absolute radii
-        are in the readout, and at the start they differ by sampling alone.
+        Press run with <strong>no gravity</strong> selected. Every star keeps the velocity it
+        was born with and flies off in a straight line, and within a few million years there
+        is no cluster left — nothing was ever holding it together. Now switch to
+        <strong>N-body</strong> and run it again from the start. The same stars, the same
+        velocities, one term added: now they hold.
       </p>
       <p>
-        Watch the energy strip along the bottom while you do it. A symplectic integrator's
+        With gravity on, the two curves in the right-hand panel start together at 1 and then
+        part, the heaviest stars contracting relative to where they began while the lightest
+        hold or expand. That gap <em>is</em> mass segregation, and it is a measurement rather
+        than an impression — the same stars are followed all run, so the curves cannot
+        separate by relabelling who counts as heavy. Each curve is drawn relative to its own
+        starting radius, because the heaviest 10% is a small enough group that its absolute
+        radius is a noisy number; the two absolute radii are in the readout, and at the start
+        they differ by sampling alone.
+      </p>
+      <p>
+        Watch the energy strip along the bottom while gravity is on. A symplectic integrator's
         error stays <em>bounded</em> — it wobbles and does not grow — which is what earns the
         right to believe the panel above it. If that trace ever walks steadily off the strip,
-        the cluster you are watching is a numerical artefact.
+        the cluster you are watching is a numerical artefact. With gravity off the strip stays
+        empty, because there is no integrator running to make a claim about.
       </p>
       <p>
         Drop <strong>N</strong> and the curves get noisier: with few stars, segregation is a

@@ -2,17 +2,25 @@
 /*
  * DynamicsEngine — the /explore/dynamics explorable.
  *
- * Structure deliberately mirrors CensusEngine: a panel grid, lens chips that
- * swap control groups, `data-lit` panels that highlight when the lens driving
- * them is active, and a live `<dl>` summary. Copying that vocabulary is not
- * only cosmetic — census wraps every `<input>` INSIDE its `<label>`, which is
+ * Structure follows CensusEngine: a panel grid, a live `<dl>` summary, and every
+ * `<input>` wrapped INSIDE its `<label>`. That last one is not cosmetic — it is
  * what gives the controls accessible names. The dynamics LAB put the value in a
  * `<legend>` and left the sliders unnamed, so a screen reader announces
  * "slider, 1". Mimicking census fixes that by construction.
  *
- * HEARTBEAT TOGGLE: gravity isolated <-> N-body. Isolated holds the cluster
- * static, which is literally what the spec asks for ("a static scatter becomes
- * a living, segregating cluster"), and avoids inventing a zero-force model.
+ * It does NOT copy census's lens chips. Census has three real control groups to
+ * switch between; this page has one, so the chips were choosing between
+ * "controls" and "a paragraph", and the `data-lit` panel highlighting they drove
+ * had nothing to distinguish.
+ *
+ * HEARTBEAT TOGGLE: gravity off <-> N-body, and "off" means FREE STREAMING, not
+ * a frozen frame. An earlier version held the cluster static to avoid "inventing
+ * a zero-force model" — but zero force is not invented, it is `x += v dt`, and
+ * the stars already carry velocities. Static made the toggle indistinguishable
+ * from paused, which is why the page had two controls doing one thing and why
+ * `run` had to override the toggle to do anything. Free streaming is both the
+ * honest limit and the page's own title: remove the coupling and the cluster
+ * comes apart.
  *
  * RUNG: the backend knows ZAMS values and a main-sequence lifetime. Stars here
  * MOVE; they do not evolve. The page states that. Nothing in this component may
@@ -27,38 +35,54 @@ const m = (tex: string) => tex;
 
 <div class="xpl-dyn" data-dyn>
   <div class="xpl-dyn__grid">
-    <figure class="xpl-dyn__panel" data-lit="gravity">
+    <figure class="xpl-dyn__panel">
       <figcaption>
         The cluster
         <span>drag to orbit</span>
       </figcaption>
-      {/* The clock and the transport ride ON the frame, as census's readout card
-          rides on the H–R panel. They belong to the view rather than to the page,
-          and lifting them out of the caption is what lets the canvas square up
-          against the plot beside it instead of sitting a control-bar lower. */}
+      {/*
+        EVERY CONTROL RIDES ON THE FRAME, in the two corners the cluster does not
+        use: transport and clock along the top, the physics toggle bottom-left.
+        The cluster is centred and roughly circular, so the corners are the free
+        space — and putting the toggle on the canvas rather than in a row beneath
+        it is what lets the metrics strip sit directly under the image.
+
+        "gravity" / "no gravity", not the spec's "isolated". `isolated` is the
+        right physics term — each star isolated from the others — but it reads as
+        a property of the CLUSTER (isolated from a tide? a galaxy?) rather than as
+        the force being switched off. Gravity leads, because it is the term being
+        added and the one the page is about; "no gravity" is the control.
+      */}
       <div class="xpl-dyn__stage">
         <canvas data-field aria-label="Star cluster in projection; brighter, larger points are more luminous stars"></canvas>
-        <div class="xpl-dyn__hud">
+        <div class="xpl-dyn__hud xpl-dyn__hud--top">
           <span class="xpl-dyn__modes" role="group" aria-label="Clock">
             <button type="button" data-play class="is-active">▶ run</button>
             <button type="button" data-reset>↻ reset</button>
           </span>
           <span class="xpl-dyn__clock" data-clock aria-live="off">t = 0.0 Myr</span>
         </div>
+        <div class="xpl-dyn__hud xpl-dyn__hud--bottom">
+          <span class="xpl-dyn__modes" role="group" aria-label="Gravity">
+            <button type="button" data-grav="on" aria-pressed="false">gravity</button>
+            <button type="button" data-grav="off" class="is-active" aria-pressed="true">no gravity</button>
+          </span>
+        </div>
       </div>
-      <small class="xpl-dyn__hint" data-hint>frozen as drawn</small>
-      {/* THE HEARTBEAT TOGGLE SITS UNDER THE CLUSTER IT RESHAPES — census's own
-          rule for its presets row, and this is the control that rule was written
-          for: it is the one switch the whole page is about, and it was buried in
-          a lens you had to open. The explanation of what each mode means stays in
-          the console; only the switch moves. */}
-      <div class="xpl-dyn__modes xpl-dyn__modes--under" role="group" aria-label="Gravity model">
-        <button type="button" data-grav="off" class="is-active" aria-pressed="true">isolated</button>
-        <button type="button" data-grav="on" aria-pressed="false">N-body</button>
-      </div>
+      {/* The readout sits DIRECTLY under the image it describes, one line, rather
+          than in the console two panels away — these five numbers are what the
+          picture above is doing, and reading them meant looking somewhere else. */}
+      <dl class="xpl-dyn__stats" data-summary aria-live="polite">
+        <div><dt>t</dt><dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} /></dd></div>
+        <div><dt><Math tex={m("t/t_\\mathrm{cr}")} /></dt><dd data-v="tcr">0.0</dd></div>
+        <div><dt><Math tex={m("r_h")} /> hi</dt><dd><span data-v="rhi">—</span></dd></div>
+        <div><dt><Math tex={m("r_h")} /> lo</dt><dd><span data-v="rlo">—</span></dd></div>
+        <div><dt>bound</dt><dd><span data-v="bound">—</span>%</dd></div>
+      </dl>
+      <small class="xpl-dyn__hint" data-hint>paused — press run to let them drift apart</small>
     </figure>
 
-    <figure class="xpl-dyn__panel" data-lit="gravity segregation">
+    <figure class="xpl-dyn__panel">
       <figcaption>
         Half-mass radius
         <span>relative to its own start</span>
@@ -75,31 +99,17 @@ const m = (tex: string) => tex;
     </figure>
 
     <div class="xpl-dyn__panel xpl-dyn__panel--pad">
+      {/* NO LENS CHIPS. Census has three real control groups and the chips choose
+          between them; here there was one group and a paragraph, so the chips
+          selected between "controls" and "no controls" and the `data-lit` panel
+          highlighting had nothing to distinguish. One group needs no switcher. */}
       <div class="xpl-dyn__toolbar">
-        <div
-          class="xpl-dyn__lenses"
-          role="group"
-          aria-label="Lenses — the controls that change what you are looking at"
-        >
-          <button type="button" data-lens-chip="gravity" class="is-active" aria-pressed="true">
-            Gravity
-          </button>
-          <button type="button" data-lens-chip="cluster" aria-pressed="false">Cluster</button>
-        </div>
+        <p class="xpl-dyn__lenshd"><b>Cluster</b> — what is being integrated?</p>
         <button type="button" class="xpl-dyn__reseed" data-reseed>↻ new draw</button>
       </div>
 
       <div class="xpl-dyn__controls">
-        <section class="xpl-dyn__lens" data-lens="gravity" aria-label="Gravity controls">
-          <p class="xpl-dyn__lenshd"><b>Gravity</b> — does every star pull on every other?</p>
-          <p class="xpl-dyn__note" data-gravnote>
-            Isolated: the stars hold the positions they were born with. Nothing moves, and
-            nothing segregates.
-          </p>
-        </section>
-
-        <section class="xpl-dyn__lens" data-lens="cluster" aria-label="Cluster controls" hidden>
-          <p class="xpl-dyn__lenshd"><b>Cluster</b> — what is being integrated?</p>
+        <section class="xpl-dyn__lens" aria-label="Cluster controls">
           <div class="xpl-dyn__lensgrid">
             <label class="xpl-dyn__ctrl">
               <span class="xpl-dyn__ctrl-name">stars</span>
@@ -117,19 +127,6 @@ const m = (tex: string) => tex;
         </section>
       </div>
 
-      <dl class="xpl-dyn__stats" data-summary aria-live="polite">
-        <div><dt>time</dt><dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} /></dd></div>
-        <div><dt>crossings</dt><dd data-v="tcr">0.0</dd></div>
-        <div>
-          <dt><Math tex={m("r_h")} /> heavy</dt>
-          <dd><span data-v="rhi">—</span> <Math tex={m("\\mathrm{pc}")} /></dd>
-        </div>
-        <div>
-          <dt><Math tex={m("r_h")} /> light</dt>
-          <dd><span data-v="rlo">—</span> <Math tex={m("\\mathrm{pc}")} /></dd>
-        </div>
-        <div><dt>bound</dt><dd><span data-v="bound">—</span>%</dd></div>
-      </dl>
     </div>
 
     {/* The energy strip is the RECEIPT, not a co-star. On the lab, drift is the
@@ -195,14 +192,10 @@ const m = (tex: string) => tex;
     const playBtn = $<HTMLButtonElement>("[data-play]");
     const clockEl = $<HTMLElement>("[data-clock]");
     const hint = $<HTMLElement>("[data-hint]");
-    const gravNote = $<HTMLElement>("[data-gravnote]");
     const driftEl = $<HTMLElement>("[data-drift]");
     const summary = $<HTMLElement>("[data-summary]");
 
     const gravBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-grav]"));
-    const lensChips = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-lens-chip]"));
-    const lensSections = Array.from(root.querySelectorAll<HTMLElement>("[data-lens]"));
-    const litPanels = Array.from(root.querySelectorAll<HTMLElement>("[data-lit]"));
 
     const setStat = (key: string, v: string) => {
       const el = summary.querySelector<HTMLElement>(`[data-v="${key}"]`);
@@ -225,6 +218,8 @@ const m = (tex: string) => tex;
     const CLUSTER_Z = 0.02;
     let hi0: number | null = null;
     let lo0: number | null = null;
+    /** Elapsed model time [Myr]. Advanced by BOTH integration paths — see sample(). */
+    let tSim = 0;
 
     /* Bumped by "new draw" only. Reset keeps the seed, so "reset" means "same
        cluster from t=0" and "new draw" means "a different cluster" — two
@@ -266,16 +261,26 @@ const m = (tex: string) => tex;
     }
 
     /*
-     * The monitor is the source for time, the crossing-time clock and the drift
-     * — all three come off one `sample()`. Keeping a separate `t` accumulator
-     * and a separate crossingTime() call would be two clocks that can disagree,
-     * and the monitor's own docs call tCross "the meaningful clock".
+     * TIME IS THE PAGE'S OWN ACCUMULATOR; the monitor supplies the crossing-time
+     * clock and the drift.
+     *
+     * It used to be the monitor's `s.t` for all three, on the reasoning that a
+     * separate accumulator would be a second clock that could disagree. That was
+     * right while the integrator was the only thing advancing the state — and it
+     * broke the moment "no gravity" became free streaming, because that path
+     * never calls `integrator.step()` and so never advances the monitor's `t`.
+     * The symptom was the clock reading 0.0 Myr while the cluster visibly
+     * dispersed, and the radius plot collapsing every sample onto t = 0.
+     *
+     * There is exactly one accumulator and both integration paths advance it by
+     * the same dt, so the two cannot disagree. tCross and energyDrift still come
+     * off the monitor, and both are only meaningful with gravity on.
      */
     function sample() {
       if (!run) return;
       const st = run.built.state;
       const s = run.monitor.sample();
-      const d = measure(st, run.built.force, s.t);
+      const d = measure(st, run.built.force, tSim);
       const hi = lagrangianRadii(st, [0.5], (i) => run!.heavy.has(i))[0];
       const lo = lagrangianRadii(st, [0.5], (i) => run!.light.has(i))[0];
       /* Baseline on the FIRST sample so both curves start at exactly 1.
@@ -288,7 +293,14 @@ const m = (tex: string) => tex;
          the plot shows change; the absolute radii stay in the readout below. */
       if (hi0 === null) hi0 = hi || 1;
       if (lo0 === null) lo0 = lo || 1;
-      hist.push({ t: s.t, hi: hi / hi0, lo: lo / lo0, e: s.energyDrift });
+      /* Energy drift is a claim ABOUT THE INTEGRATOR, so it is only recorded
+         while the integrator is running. Free streaming never calls it: the
+         monitor would still difference kinetic against a potential nothing is
+         solving, report a large and growing "drift", and the strip would tell the
+         reader to stop believing a panel that is perfectly fine. NaN breaks the
+         trace rather than drawing a false one — drawSeries already skips
+         non-finite samples. */
+      hist.push({ t: tSim, hi: hi / hi0, lo: lo / lo0, e: gravity ? s.energyDrift : NaN });
       /*
        * KEEP THE WHOLE RUN, at coarser resolution — never drop the beginning.
        *
@@ -301,16 +313,16 @@ const m = (tex: string) => tex;
        */
       if (hist.length > MAX_SAMPLES) hist = hist.filter((_, i) => i % 2 === 0);
 
-      setStat("t", s.t.toFixed(1));
-      setStat("tcr", s.tCross.toFixed(1));
+      setStat("t", tSim.toFixed(1));
+      setStat("tcr", gravity ? s.tCross.toFixed(1) : "—");
       setStat("rhi", hi.toFixed(2));
       setStat("rlo", lo.toFixed(2));
       setStat("bound", (d.boundMassFraction * 100).toFixed(0));
-      clockEl.textContent = `t = ${s.t.toFixed(1)} Myr`;
-      driftEl.textContent = s.energyDrift.toExponential(1);
+      clockEl.textContent = `t = ${tSim.toFixed(1)} Myr`;
+      driftEl.textContent = gravity ? s.energyDrift.toExponential(1) : "no integrator running";
       /* `healthy` latches false once drift has ever breached tolerance, so this
          cannot flicker back to reassuring after a bad excursion. */
-      driftEl.classList.toggle("is-bad", !run.monitor.healthy);
+      driftEl.classList.toggle("is-bad", gravity && !run.monitor.healthy);
     }
 
     /* ── drawing ───────────────────────────────────────────────── */
@@ -560,18 +572,41 @@ const m = (tex: string) => tex;
     let raf = 0;
     let onScreen = true;
 
+    /*
+     * FREE STREAMING — what "no gravity" actually looks like.
+     *
+     * This used to hold the cluster STATIC, on the reasoning that a zero-force
+     * model would have to be invented. It does not: removing the mutual force
+     * leaves `x += v dt`, which is exact, and the stars already carry the
+     * velocities the initial conditions drew for them. So a cluster without
+     * gravity is not a still image — it disperses in straight lines, because
+     * nothing is holding it together.
+     *
+     * That mistake is what made the toggle useless. "Static" is indistinguishable
+     * from "paused", so the page had two controls doing one thing, and the button
+     * marked run had to override the toggle to do anything at all. The physical
+     * answer removes the redundancy instead of papering over it — and it is the
+     * page's own title: take the coupling away and there is no cluster.
+     */
+    function drift(dt: number) {
+      const st = run!.built.state;
+      for (let i = 0; i < st.n * 3; i++) st.pos[i] += st.vel[i] * dt;
+    }
+
     function frame() {
       raf = 0;
-      if (!run || !playing || !gravity) return;
+      if (!run || !playing) return;
       const dt = (run.built.timeUnit / 64) * Number(speedInput.value);
-      run.integrator.step(dt);
+      if (gravity) run.integrator.step(dt);
+      else drift(dt);
+      tSim += dt;
       sample();
       redraw();
       if (playing && onScreen && !document.hidden) raf = requestAnimationFrame(frame);
     }
 
     const start = () => {
-      if (!raf && playing && gravity && onScreen && !document.hidden) raf = requestAnimationFrame(frame);
+      if (!raf && playing && onScreen && !document.hidden) raf = requestAnimationFrame(frame);
     };
     const stop = () => {
       if (raf) cancelAnimationFrame(raf);
@@ -588,15 +623,18 @@ const m = (tex: string) => tex;
     const syncPlay = () => {
       playBtn.textContent = playing ? "❙❙ pause" : "▶ run";
       playBtn.classList.toggle("is-active", playing);
-      /* Short phrases, as census's under-canvas hint is ("click to zoom & orbit").
-         These were full sentences and made the strip read as a paragraph pinned
-         under the frame; what each mode MEANS is the console's job, not this
-         line's. */
-      hint.textContent = gravity
-        ? playing
-          ? "integrating — every pair interacts"
-          : "paused"
-        : "frozen as drawn";
+      /*
+       * The line says WHAT IS HAPPENING, not what mode is selected — the toggle
+       * beneath it already shows the mode, and a hint that only restated it was
+       * the reason "frozen as drawn" meant nothing to anyone but its author.
+       */
+      hint.textContent = playing
+        ? gravity
+          ? "every star pulling on every other"
+          : "no gravity — the stars just keep going"
+        : gravity
+          ? "paused — press run to integrate"
+          : "paused — press run to let them drift apart";
     };
 
     const rebuild = () => {
@@ -606,6 +644,7 @@ const m = (tex: string) => tex;
       mountField();
       hi0 = null;
       lo0 = null;
+      tSim = 0;
       playing = false;
       sample();
       redraw();
@@ -614,12 +653,15 @@ const m = (tex: string) => tex;
 
     playBtn.addEventListener("click", () => {
       /*
-       * Run used to be DISABLED while gravity was isolated, so the page's
-       * primary action did nothing on arrival and gave no reason why — you had
-       * to discover that another control gates it. Pressing run now turns
-       * gravity on, which is what pressing run plainly means.
+       * Run RUNS THE CLOCK. It does not choose the physics.
+       *
+       * It has been wrong in both directions. First it was DISABLED while gravity
+       * was off, so the page's primary action did nothing on arrival and gave no
+       * reason why. The fix for that was to have it silently switch gravity on —
+       * which then overrode the reader's own choice, and contradicted the page
+       * body's instruction to start with gravity off and watch. Now that "off"
+       * integrates something worth watching, run needs to do neither.
        */
-      if (!gravity) setGravity(true);
       playing = !playing;
       syncPlay();
       playing ? start() : stop();
@@ -638,13 +680,14 @@ const m = (tex: string) => tex;
         o.classList.toggle("is-active", active);
         o.setAttribute("aria-pressed", String(active));
       }
-      gravNote.textContent = gravity
-          ? "N-body: every pair interacts. Mass segregation below is not a rule that was added — it is what this same gravity does."
-        : "Isolated: the stars hold the positions they were born with. Nothing moves, and nothing segregates.";
-      if (!gravity) {
-        playing = false;
-        stop();
-      }
+      /* No standalone note any more. It said the same thing as the live hint under
+         the frame and as the page body, in three places, and it was the tallest
+         thing in the panel. The hint carries the state; the prose carries the
+         explanation. */
+      /* Switching the physics no longer pauses the clock. It used to, because
+         "off" meant "static" and running a static cluster was pointless; now the
+         two modes are two things to WATCH, and stopping the clock between them
+         would hide the very comparison the toggle exists for. */
       syncPlay();
     }
 
@@ -660,19 +703,6 @@ const m = (tex: string) => tex;
       speedVal.value = Number(speedInput.value).toFixed(2);
     });
 
-    for (const chip of lensChips) {
-      chip.addEventListener("click", () => {
-        const key = chip.dataset.lensChip!;
-        for (const c of lensChips) {
-          const on = c === chip;
-          c.classList.toggle("is-active", on);
-          c.setAttribute("aria-pressed", String(on));
-        }
-        for (const s of lensSections) s.hidden = s.dataset.lens !== key;
-        for (const p of litPanels)
-          p.classList.toggle("is-lit", (p.dataset.lit ?? "").split(" ").includes(key));
-      });
-    }
 
     window.addEventListener("resize", redraw);
     rebuild();
@@ -774,14 +804,22 @@ const m = (tex: string) => tex;
   }
   .xpl-dyn__hud {
     position: absolute;
-    inset-block-start: var(--space-2xs);
     inset-inline: var(--space-2xs);
     z-index: 2;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-2xs);
     pointer-events: none; /* the canvas keeps the drag; only the controls take clicks */
+  }
+  .xpl-dyn__hud--top {
+    inset-block-start: var(--space-2xs);
+    justify-content: space-between;
+  }
+  /* Bottom-LEFT, where census puts its scale bar: the cluster is centred and
+     roughly circular, so the corners are the only space it never occupies. */
+  .xpl-dyn__hud--bottom {
+    inset-block-end: var(--space-2xs);
+    justify-content: flex-start;
   }
   .xpl-dyn__hud > * {
     pointer-events: auto;
@@ -853,17 +891,6 @@ const m = (tex: string) => tex;
   .xpl-dyn__plot ~ .xpl-dyn__hint {
     color: var(--ink-soft);
     padding-block-end: var(--space-xs);
-  }
-  /* Census's presets row: ghost pills, full width of the panel, sharing the row
-     equally, sitting directly under the frame they act on. */
-  .xpl-dyn__modes--under {
-    display: flex;
-    gap: var(--space-3xs);
-    padding: 0 var(--space-s) var(--space-s);
-  }
-  .xpl-dyn__modes--under button {
-    flex: 1 1 auto;
-    text-align: center;
   }
   .xpl-dyn__clock {
     font-family: var(--font-mono);
@@ -937,23 +964,49 @@ const m = (tex: string) => tex;
   .xpl-dyn__ctrl input[type="range"] {
     inline-size: 100%;
   }
+  /*
+   * ONE LINE, five columns, label and value side by side.
+   *
+   * It was `auto-fit, minmax(6.5rem, 1fr)` with the label STACKED over the value,
+   * which is two rows of four at this panel width — eight lines of furniture for
+   * five numbers. Fixed columns and an inline pair fit them under the image in a
+   * single strip, which is the whole reason they could move out of the console.
+   */
   .xpl-dyn__stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: var(--space-2xs);
     margin: 0;
-    padding-block-start: var(--space-2xs);
+    padding: var(--space-2xs) var(--space-s) 0;
     border-block-start: 1px solid var(--border);
   }
+  .xpl-dyn__stats > div {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35em;
+    min-inline-size: 0;
+  }
   .xpl-dyn__stats dt {
+    font-family: var(--font-mono);
     font-size: var(--step--2);
     color: var(--ink-faint);
+    white-space: nowrap;
   }
   .xpl-dyn__stats dd {
     margin: 0;
     font-family: var(--font-mono);
-    font-size: var(--step--1);
+    font-size: var(--step--2);
     color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* The stats strip is a readout, not a control row, so it drops to two columns
+     rather than squeezing five into a phone width. */
+  @media (max-width: 40rem) {
+    .xpl-dyn__stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
   .xpl-dyn__noscript {
     color: var(--ink-soft);
