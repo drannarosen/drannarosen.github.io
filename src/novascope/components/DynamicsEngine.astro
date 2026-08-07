@@ -164,11 +164,18 @@ const m = (tex: string) => tex;
     measure,
     lagrangianRadii,
   } from "@novascope/core/dynamics";
-  /* The renderer is named directly, never through the `starfield` barrel: that
-     barrel is deliberately three-free so the node gates can import the pure
-     modules (see viz/starfield/index.ts). */
-  import { initStarLab, type StarLab } from "@novascope/viz/starfield/scene";
-  import { star } from "@novascope/core/stellar";
+  /*
+   * The renderer is named directly, never through the `viz` barrel — the barrel
+   * is three-free so the node gates can import the pure modules, exactly as
+   * viz/starfield/index.ts documents for its own.
+   *
+   * `toRenderModel` is CENSUS'S selector, not a copy of it. Both pages get their
+   * cluster's size, colour and alpha from that one function, which is what
+   * "the ONE physics→pixel mapping" in state/render.ts means and what stops the
+   * two clusters drifting into two different-looking objects.
+   */
+  import { createClusterPoints, type ClusterPoints } from "@novascope/viz/clusterPoints";
+  import { toRenderModel } from "@novascope/state";
   /* Shared with the H–R diagram and the IMF histogram. AXIS_FONT is a LITERAL
      font string on purpose — see the note in axis.ts; this page is the reason it
      is there. */
@@ -211,6 +218,11 @@ const m = (tex: string) => tex;
     /* Halving threshold, not a cap on the run: see the decimation in sample().
        600 samples is already ~4x the horizontal pixels of the plot at 1440px. */
     const MAX_SAMPLES = 600;
+    /* A cluster property, not a per-star one — a coeval cluster is chemically
+       uniform (explore-authoring rule 2). Solar; the dynamics scenario carries no
+       composition of its own, so stating it here is stating an assumption rather
+       than reading one. */
+    const CLUSTER_Z = 0.02;
     let hi0: number | null = null;
     let lo0: number | null = null;
 
@@ -316,47 +328,68 @@ const m = (tex: string) => tex;
       getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
 
     /*
-     * The cluster is drawn by the three.js / WebGPU starfield — the render stack
-     * ADR 0015 chose (WebGPURenderer + TSL, three pinned to 0.185.1, the
-     * renderer's own WebGL 2 backend where WebGPU is absent).
+     * The cluster is drawn by `viz/clusterPoints` — three.js / WebGPU, the stack
+     * ADR 0015 chose — fed by CENSUS'S OWN SELECTOR.
      *
-     * IT REPLACED THE RAW-WebGL ENGINE HERE FOR A MEASURED REASON, not a
-     * preference. That engine sized the box from the 98th percentile of the
-     * cluster's radii, and this cluster's radial distribution has a heavy tail
-     * (p50 0.67 pc, p98 4.69, max 13.47), so the box came out at 15 pc and the
-     * bulk of the cluster was crushed into the middle 5% of the frame: 400 stars
-     * rendered as 87 resolvable blobs around a saturated core. ADR 0015 records
-     * the same failure on the same engine family ("48 stars visible and the core
-     * saturated into one blob") and defers the port until there is evidence; this
-     * is that evidence. The starfield scene frames on the cluster's own half-mass
-     * radius instead, derived from the stars actually drawn.
+     * Two separate things had to be right here, and conflating them cost a
+     * session's worth of knob-turning:
      *
-     * Colour and brightness come from Teff and R via star(), so they are the
-     * contract's values rather than a heavy/light hack of my own — explore-
-     * authoring rule 1. The packing below is already the table `prepare` reads.
+     * 1. THE STACK. The raw-WebGL engine sized its box from the 98th percentile
+     *    of this cluster's radii, and the radial distribution has a heavy tail
+     *    (p50 0.67 pc, p98 4.69, max 13.47), so the box came out at 15 pc and 400
+     *    stars rendered as 87 resolvable blobs around a saturated core. ADR 0015
+     *    records the same failure on the same engine family and defers the port
+     *    until there is evidence; this was that evidence.
+     *
+     * 2. THE LOOK, which is NOT a property of the stack. `viz/starfield` draws a
+     *    photograph — apparent size is the quad containing a real PSF — and no
+     *    exposure setting turns that into census's diagram. Measured on this
+     *    cluster, the photographic path drew the heaviest 10% at 19.4x the
+     *    typical star (flares over an empty frame) and the unit-luminance path at
+     *    1.7x (a flat haze with the segregation invisible).
+     *
+     * `toRenderModel` is the answer to (2) and it already existed. It is census's
+     * selector, called here rather than reimplemented, so both pages' clusters
+     * come from one law: sizePx from log-luminosity compressed into 0.6-5 px,
+     * alpha floored at 0.55 so the faint majority never disappears, framing on
+     * the 90th-percentile radius — which is, independently, the fix for (1).
+     *
+     * It also satisfies explore-authoring rule 1 by construction: `toRenderModel`
+     * derives every star's state through `star()`, so nothing here reaches past
+     * the contract.
      */
-    let lab: StarLab | null = null;
-    /* A mount is async (the renderer awaits device init), and reset / new draw /
-       the N slider can all fire another before the first lands. Without a token
-       the loser's scene would win the canvas. */
-    let mountToken = 0;
+    let points: ClusterPoints | null = null;
 
-    /** n*6: x, y, z, mass, Teff, radius — the layout the engine expects. */
-    function packStars(): Float32Array {
+    /**
+     * The integrator's state as LatentStar[] — the shape `toRenderModel` takes.
+     *
+     * Z is the cluster's, not the star's: a coeval cluster is chemically uniform
+     * (explore-authoring rule 2), which is also why it is not carried per particle
+     * by the dynamics state.
+     */
+    function latentStars() {
       const st = run!.built.state;
-      const out = new Float32Array(st.n * 6);
+      const out = [];
       for (let i = 0; i < st.n; i++) {
-        const M = st.mass[i];
-        const sv = star(M, 0.02, 0);
-        out[6 * i] = st.pos[3 * i];
-        out[6 * i + 1] = st.pos[3 * i + 1];
-        out[6 * i + 2] = st.pos[3 * i + 2];
-        out[6 * i + 3] = M;
-        out[6 * i + 4] = sv.Teff;
-        out[6 * i + 5] = sv.R;
+        out.push({
+          id: i,
+          mass: st.mass[i]!,
+          Z: CLUSTER_Z,
+          x: st.pos[3 * i]!,
+          y: st.pos[3 * i + 1]!,
+          z: st.pos[3 * i + 2]!,
+          vx: st.vel[3 * i]!,
+          vy: st.vel[3 * i + 1]!,
+          vz: st.vel[3 * i + 2]!,
+        });
       }
       return out;
     }
+
+    /* t = 0 always: at this rung a star MOVES but does not evolve, so asking
+       toRenderModel for an age would claim evolution the backend cannot compute.
+       The page says so in as many words. */
+    const renderModel = () => toRenderModel(latentStars(), { t: 0, selectedId: null, toggles: {} });
 
     function positions(): Float32Array {
       const st = run!.built.state;
@@ -365,62 +398,21 @@ const m = (tex: string) => tex;
       return out;
     }
 
-    async function mountField() {
+    function mountField() {
       if (!run) return;
-      const token = ++mountToken;
-      const previous = lab;
-      lab = null;
-      previous?.dispose();
-      /* No box, no framing guess: the scene derives its own from the supplied
-         table's half-mass radius. */
-      /*
-       * PHOTOMETRIC, and the exposure opened up to pay for it.
-       *
-       * This page is about WHERE THE MASSIVE STARS GO, so a star's apparent size
-       * has to follow its own luminosity — the census cluster's rule, and ADR
-       * 0015's ("apparent size and brightness derive from each star's own
-       * luminosity"). The `population` default discards luminosity and draws every
-       * star at unit luminance: measured on this cluster it renders the heaviest
-       * 10% just 1.7x the typical star, so the sinking has nothing to show.
-       * Photometric renders them 19.4x, which is the picture.
-       *
-       * The cost is that ZAMS luminosity spans ~9 dex, so at the lab's default
-       * exposure (0.995, cut for 10,000 stars) only 8 of these 400 clear 1% of
-       * display white. `whitePercentile` is TONE MAPPING — which flux maps to
-       * white, i.e. how the frame is developed — and changes nothing about any
-       * star. Opening it to 0.8 puts all 400 above 1% while KEEPING the 19.4x
-       * contrast. Measured across the sweep; 0.9 still leaves 233 stars dark.
-       */
-      /*
-       * NO DIFFRACTION SPIKES, AND RESTRAINED BLOOM. Both are instrument
-       * signature — what a telescope's spider and a bright source do to an
-       * image — and `prepare` records that spikes were measured "owning 58.2% of
-       * the drawn quad area from SEVEN stars of 1200". At this exposure that is
-       * exactly what happened here: the two most massive stars turned into lens
-       * flares and the cluster disappeared behind them. On a page whose claim is
-       * read off the POSITIONS of the massive stars, an instrument artefact that
-       * large is not atmosphere, it is occlusion.
-       */
-      const next = await initStarLab(field, {
-        stars: packStars(),
-        colorMode: "photometric",
-        whitePercentile: 0.8,
-        spikeStrength: 0,
-        bloom: 0.12,
-      });
-      if (token !== mountToken) {
-        next.dispose(); // a newer mount started while this one was awaiting
+      /* Synchronous now, so the async mount token that guarded reset / new draw /
+         the N slider racing each other is gone with it. */
+      if (points) {
+        points.setModel(renderModel());
         return;
       }
       /*
-       * NO CAMERA DRIFT. The lab auto-rotates because a static portrait wants
-       * parallax; here every pixel of motion has to be attributable to gravity,
-       * and a turning camera would make "the massive stars sink" ambiguous with
-       * "the view moved". Dragging still orbits.
+       * NO CAMERA DRIFT (the default, stated here because it is a claim). Every
+       * pixel of motion on this page has to be attributable to gravity; a turning
+       * camera would make "the massive stars sink" ambiguous with "the view
+       * moved". Dragging still orbits.
        */
-      next.setDrifting(false);
-      lab = next;
-      lab.setPositions(positions());
+      points = createClusterPoints(field, renderModel(), { drifting: false });
     }
 
     /*
@@ -554,7 +546,7 @@ const m = (tex: string) => tex;
     };
 
     const redraw = () => {
-      lab?.setPositions(positions());
+      points?.setPositions(positions());
       drawPlots();
     };
 
@@ -611,7 +603,7 @@ const m = (tex: string) => tex;
       stop();
       run = build();
       hist = [];
-      void mountField();
+      mountField();
       hi0 = null;
       lo0 = null;
       playing = false;
