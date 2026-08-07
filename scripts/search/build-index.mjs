@@ -53,6 +53,10 @@ const EXCLUDED = new Map([
   ["/star-render-lab", "Three.js star-rendering sandbox, linked from nowhere"],
   ["/dynamics-lab", "N-body integrator sandbox, linked from nowhere"],
   ["/extinction-lab", "dust-reddening sandbox, linked from nowhere"],
+  [
+    "/explore/feedback-budget",
+    "deferred: complete and honest, but deliberately not carded on the /explore hub yet",
+  ],
 ]);
 
 function walk(dir, acc = []) {

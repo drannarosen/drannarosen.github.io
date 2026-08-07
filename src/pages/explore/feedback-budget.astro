@@ -2,12 +2,30 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
+
+/*
+ * DEFERRED, not abandoned: this page is finished and its copy is accurate, but
+ * it is deliberately not carded on the /explore hub yet.
+ *
+ * Held back in all three places at once, which is what the other unlinked
+ * pages do and what this one was missing entirely:
+ *   1. `noindex` below,
+ *   2. the sitemap filter in astro.config.mjs,
+ *   3. EXCLUDED in scripts/search/build-index.mjs — which fails the build if
+ *      this page ever stops existing, so the hold cannot rot unnoticed.
+ *
+ * Being unlinked but indexed was the worst of both: a reader arrived from a
+ * search result having had no way to get here deliberately, with nothing
+ * saying the page was being held back. Remove all three together when it gets
+ * a hub card.
+ */
 ---
 
 <BaseLayout
   title="Feedback budget — Anna Rosen"
   description="Do massive-star winds, photoionization, and radiation pressure deliver enough momentum to expel a cluster's natal gas — and does the cluster survive if they do? An interactive budget over six simulated environments."
   path="/explore/feedback-budget"
+  noindex
 >
   <PageHeader
     eyebrow="Explore · interactive"

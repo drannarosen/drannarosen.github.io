@@ -57,9 +57,18 @@ export default defineConfig({
     // are never advertised in the first place.
     sitemap({
       filter: (page) =>
-        !['/style-guide', '/volume-lab', '/cluster-lab', '/model-path'].some((p) =>
-          page.replace(/\/$/, '').endsWith(p),
-        ),
+        // /explore/feedback-budget is deferred rather than a sandbox: it is
+        // finished, but it is not carded on the hub yet. Advertising it to
+        // search engines while nothing on the site links to it is the worst
+        // combination — a reader arrives from Google with no way to have got
+        // there deliberately, and no signal the page is being held back.
+        ![
+          '/style-guide',
+          '/volume-lab',
+          '/cluster-lab',
+          '/model-path',
+          '/explore/feedback-budget',
+        ].some((p) => page.replace(/\/$/, '').endsWith(p)),
     }),
   ],
 });
