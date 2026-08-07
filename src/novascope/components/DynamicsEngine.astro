@@ -105,6 +105,40 @@ const m = (tex: string) => tex;
           >
           <input type="range" data-speed min="0.25" max="4" step="0.25" value="1" />
         </label>
+        {/* The one control here that changes the CLUSTER rather than the view or
+            the clock, so it restarts the run — new initial conditions are a new
+            experiment. Range and meaning match /explore/census's own concentration
+            control, so the same number cannot mean two clusters. */}
+        <label class="xpl-dyn__ctrl xpl-dyn__ctrl--noted">
+          <span class="xpl-dyn__ctrl-val"
+            ><Math tex={m("\\gamma")} /> = <output data-gamma-val>5.0</output></span
+          >
+          <input type="range" data-gamma min="2.5" max="6" step="0.1" value="5" />
+          <button
+            type="button"
+            class="xpl-dyn__info"
+            data-info="gamma"
+            aria-expanded="false"
+            aria-label="About the concentration parameter"
+          >?</button>
+          <span class="xpl-dyn__popover xpl-dyn__popover--up" data-popover="gamma" role="tooltip" hidden>
+            <b>Concentration.</b> The stars are placed from an <b>EFF</b> profile
+            (Elson, Fall &amp; Freeman 1987), whose three-dimensional density falls as
+            <Math tex={m("\\rho(r) \\propto (1 + r^2/a^2)^{-\\gamma/2}")} />.
+            <br /><br />
+            At <Math tex={m("\\gamma = 5")} /> that expression <em>is</em> the Plummer law —
+            the same profile this page used before the slider existed. Lower
+            <Math tex={m("\\gamma")} /> is a shallower fall-off and so a more extended halo
+            (<Math tex={m("\\gamma \\approx 3")} /> is typical of a young cluster); higher is
+            more centrally concentrated.
+            <br /><br />
+            It changes more than the picture. The half-mass radius follows
+            <Math tex={m("\\gamma")} /> — 6.3 scale radii at
+            <Math tex={m("\\gamma = 2.5")} /> against 1.3 at
+            <Math tex={m("\\gamma = 5")} /> — and the crossing time with it, so the clock
+            beneath the cluster means something different at each setting.
+          </span>
+        </label>
       </div>
     </figure>
 
@@ -306,6 +340,8 @@ const m = (tex: string) => tex;
     const nInput = $<HTMLInputElement>("[data-n]");
     const nVal = $<HTMLOutputElement>("[data-n-val]");
     const speedInput = $<HTMLInputElement>("[data-speed]");
+    const gammaInput = $<HTMLInputElement>("[data-gamma]");
+    const gammaVal = $<HTMLOutputElement>("[data-gamma-val]");
     const speedVal = $<HTMLOutputElement>("[data-speed-val]");
     const playBtn = $<HTMLButtonElement>("[data-play]");
     const clockEl = $<HTMLElement>("[data-clock]");
@@ -379,7 +415,11 @@ const m = (tex: string) => tex;
 
     function build() {
       const s = scenario("cluster");
-      const built = s.build({ n: Number(nInput.value), seed });
+      const built = s.build({
+        n: Number(nInput.value),
+        seed,
+        gamma: Number(gammaInput.value),
+      });
       /*
        * The scenario's OWN default scheme, not a faster one chosen here.
        * Forcing leapfrog measured 1.3e-2 energy drift by ten crossing times —
@@ -1200,6 +1240,13 @@ const m = (tex: string) => tex;
       nVal.value = nInput.value;
     });
     nInput.addEventListener("change", rebuild);
+    /* `input` updates the readout continuously; `change` rebuilds ONCE on release.
+       Rebuilding per input event would re-sample and re-integrate a fresh cluster
+       for every pixel of slider travel. */
+    gammaInput.addEventListener("input", () => {
+      gammaVal.value = Number(gammaInput.value).toFixed(1);
+    });
+    gammaInput.addEventListener("change", rebuild);
     speedInput.addEventListener("input", () => {
       speedVal.value = Number(speedInput.value).toFixed(2);
     });
@@ -1407,6 +1454,11 @@ const m = (tex: string) => tex;
   }
   /* Pops OVER the panel, never through it: the plot keeps its height whether the
      note is open or closed, which is the whole reason this is not a paragraph. */
+  /* Anchored so a control's note can open UPWARD: the sliders sit at the bottom
+     of the panel, where a downward popover would fall off the figure. */
+  .xpl-dyn__ctrl--noted {
+    position: relative;
+  }
   .xpl-dyn__popover {
     position: absolute;
     z-index: 5;
@@ -1424,6 +1476,16 @@ const m = (tex: string) => tex;
     line-height: 1.5;
     text-align: start;
     white-space: normal;
+  }
+  /*
+   * Opens UPWARD. Must come after the base rule — it overrides `inset-block-start`
+   * at equal specificity, so placed before it the base simply won and the note
+   * opened downward, where the panel's `overflow: hidden` clips it.
+   */
+  .xpl-dyn__popover--up {
+    inset-block-start: auto;
+    inset-block-end: 100%;
+    margin-block: 0 0.35rem;
   }
   .xpl-dyn__panel canvas {
     display: block;
