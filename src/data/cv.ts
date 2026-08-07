@@ -41,6 +41,18 @@ export interface Advisee {
   program?: string;
   /** When they are due to finish, e.g. "Summer 2026". Drives the /now list. */
   finishing?: string;
+  /*
+   * A member of the SDSU group, which /group lists. Set explicitly rather than
+   * detected by looking for "SDSU" in `affiliation`: that field carries where
+   * someone went NEXT as well as where they were, so Alex Escamilla reads
+   * "SDSU; Astronomy Ph.D., UMass Amherst" and a future alum could read
+   * "Harvard; postdoc, SDSU" — a substring test gets both wrong, in opposite
+   * directions. Membership is Anna's call, not a property of a string.
+   *
+   * Everyone else stays in the arrays and on the CV, which /group links to as
+   * the complete advising record.
+   */
+  group?: boolean;
 }
 
 /*
@@ -64,14 +76,31 @@ export const talkCounts = { invited: 55, contributed: 36 };
  */
 export const finishingAdvisees = (people: Advisee[]) => people.filter((a) => a.finishing);
 
+/*
+ * The SDSU group, for /group — split into who is here now and who has left.
+ *
+ * "Current" is an open-ended date ("2024–Present"). That is the same record the
+ * CV prints, so a student cannot be current on one page and finished on
+ * another: closing out their date does both in one edit.
+ *
+ * /group deliberately shows the SDSU group only, and links to the CV for the
+ * complete advising record — everyone advised before SDSU, and the students
+ * advised at other institutions, remain there.
+ */
+export const isCurrent = (a: Advisee) => a.date.includes("Present");
+export const groupMembers = (people: Advisee[]) => people.filter((a) => a.group);
+export const currentOf = (people: Advisee[]) => groupMembers(people).filter(isCurrent);
+export const formerOf = (people: Advisee[]) =>
+  groupMembers(people).filter((a) => !isCurrent(a));
+
 export const graduateAdvisees: Advisee[] = [
   // Completed Summer 2026. SDSU's M.S. in Computational Science takes a
   // CULMINATING PROJECT rather than a thesis, which is what his title page
   // says, so the wording here is "project" deliberately and should not be
   // "corrected" to thesis. No `finishing` field: he is done, and that field
   // is what puts a student on /now under "Nearly out the door".
-  { name: "Surinder Singh Chhabra", affiliation: "M.S. Computational Science — Data Science, SDSU", date: "2025–2026", project: "AstroRAG: Evidence-Aware Scientific Literature Retrieval — a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery" },
-  { name: "Aisling Acuna", affiliation: "Masters Student, SDSU", finishing: "August 2026", date: "2024–Present", project: "Bridging STARFORGE and SKIRT: A Synthetic Observation Pipeline for High-Fidelity Star Cluster Formation Simulations" },
+  { name: "Surinder Singh Chhabra", affiliation: "M.S. Computational Science — Data Science, SDSU", date: "2025–2026", project: "AstroRAG: Evidence-Aware Scientific Literature Retrieval — a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery" , group: true },
+  { name: "Aisling Acuna", affiliation: "Masters Student, SDSU", finishing: "August 2026", date: "2024–Present", project: "Bridging STARFORGE and SKIRT: A Synthetic Observation Pipeline for High-Fidelity Star Cluster Formation Simulations" , group: true },
   { name: "Paarmita Pandey", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Fermi Observations of the Diffuse γ-ray Emission of Young Massive Star Clusters", refereed: true },
   { name: "Jennifer Rodriguez", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Tracing the Impact of Stellar Wind Feedback in N79 & 30 Doradus in the LMC with Chandra", refereed: true },
   { name: "Sabrina Appel", affiliation: "PhD Student, Rutgers; Postdoc, AMNH", date: "2020–2023", project: "Effects of B-fields and Feedback on the Shape and Evolution of the Density PDF in Star Formation", refereed: true },
@@ -81,10 +110,11 @@ export const graduateAdvisees: Advisee[] = [
 ];
 
 export const undergraduateAdvisees: Advisee[] = [
-  { name: "Victor Del Rio", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" },
-  { name: "Edwin Sarabia", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" },
-  { name: "Alex Escamilla", affiliation: "SDSU; Astronomy Ph.D., UMass Amherst", date: "2024–2026", project: "Bridging Theory and Observation: Synthetic FIR Insights into Star Formation Efficiency", refereed: true },
-  { name: "Kate Gonzalez", affiliation: "SDSU", date: "2024", project: "Initial developer of the Sim2SKIRT synthetic-observation pipeline with SKIRT" },
+  { name: "Victor Del Rio", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" , group: true },
+  { name: "Edwin Sarabia", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" , group: true },
+  // "incoming" is accurate until the Fall 2026 term starts; drop the word then.
+  { name: "Alex Escamilla", affiliation: "B.S. SDSU 2025; incoming Astronomy Ph.D., UMass Amherst", date: "2024–2026", project: "Bridging Theory and Observation: Synthetic FIR Insights into Star Formation Efficiency", refereed: true , group: true },
+  { name: "Kate Gonzalez", affiliation: "SDSU", date: "2024", project: "Initial developer of the Sim2SKIRT synthetic-observation pipeline with SKIRT" , group: true },
   { name: "Trinity Webb", affiliation: "OSU", date: "2023–2024", project: "Tracing the Impact of Stellar Wind Feedback in N79 & 30 Doradus in the LMC with Chandra", refereed: true },
   { name: "Mikayla Wilson", affiliation: "grad student, UCSC; Banneker Intern, Harvard", date: "2020", project: "Tracing the Evolution of Molecular Outflows in Massive Star Formation with Synthetic Observations" },
   { name: "Monica Gallegos-Garcia", affiliation: "grad student, Northwestern; Banneker Intern, Harvard", date: "2018–2020", project: "Winds in Star Clusters Drive Kolmogorov Turbulence", refereed: true },

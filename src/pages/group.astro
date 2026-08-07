@@ -2,7 +2,36 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHeader from "../components/PageHeader.astro";
 import { siteConfig } from "../lib/site";
-import { cvProfile } from "../data/cv";
+import {
+  cvProfile,
+  currentOf,
+  formerOf,
+  graduateAdvisees,
+  undergraduateAdvisees,
+  type Advisee,
+} from "../data/cv";
+
+/*
+ * The roster is DERIVED from the CV record, never retyped. A second hand-kept
+ * list of real people is one where someone graduates, one page is updated and
+ * the other goes on calling them a current student — under their own name.
+ *
+ * SDSU group only (the `group` flag). The students advised at other
+ * institutions and everyone advised before SDSU stay on the CV, which this
+ * page links to as the complete record.
+ */
+const roster: { title: string; people: Advisee[] }[] = [
+  { title: "Graduate students", people: currentOf(graduateAdvisees) },
+  { title: "Undergraduates", people: currentOf(undergraduateAdvisees) },
+];
+const alumni: { title: string; people: Advisee[] }[] = [
+  { title: "Graduate", people: formerOf(graduateAdvisees) },
+  { title: "Undergraduate", people: formerOf(undergraduateAdvisees) },
+];
+/* Empty groups do not render: a heading with nothing under it reads as a bug
+   rather than as the fact that there is nobody in that category right now. */
+const filled = <T extends { people: Advisee[] }>(g: T[]): T[] =>
+  g.filter((s) => s.people.length > 0);
 
 /*
  * /group — for SDSU Astronomy students deciding whether to work with me.
@@ -139,6 +168,51 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
     </p>
   </section>
 
+  <section class="wrap gr-section" aria-labelledby="people-heading">
+    <h2 id="people-heading" class="gr-title">The group</h2>
+    {
+      filled(roster).map((s) => (
+        <>
+          <h3 class="gr-sub">{s.title}</h3>
+          <ul class="gr-people" role="list">
+            {s.people.map((p) => (
+              <li class="gr-person">
+                <span class="gr-person__name">{p.name}</span>
+                <span class="gr-person__meta">{p.affiliation} · {p.date}</span>
+                {p.project && <span class="gr-person__project">{p.project}</span>}
+              </li>
+            ))}
+          </ul>
+        </>
+      ))
+    }
+
+    <h3 class="gr-sub">Alumni</h3>
+    {
+      filled(alumni).map((s) => (
+        <>
+          <p class="gr-alumni-label">{s.title}</p>
+          <ul class="gr-people" role="list">
+            {s.people.map((p) => (
+              <li class="gr-person">
+                <span class="gr-person__name">{p.name}</span>
+                <span class="gr-person__meta">{p.affiliation} · {p.date}</span>
+                {p.project && <span class="gr-person__project">{p.project}</span>}
+              </li>
+            ))}
+          </ul>
+        </>
+      ))
+    }
+
+    <p class="gr-fullrecord">
+      This is the SDSU group. For everyone I've advised — including students at
+      other institutions and before SDSU — see <a href="/cv#advising-and-mentoring"
+        >the full advising record</a
+      >.
+    </p>
+  </section>
+
   <section class="wrap gr-section" aria-labelledby="collab-heading">
     <h2 id="collab-heading" class="gr-title">Potential collaborators</h2>
     <div class="prose gr-prose">
@@ -166,6 +240,53 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
   .gr-prose p {
     color: var(--ink-soft);
     margin-block-end: var(--space-s);
+  }
+
+  .gr-sub {
+    font-size: var(--step-0);
+    color: var(--ink);
+    margin-block: var(--space-m) var(--space-2xs);
+  }
+  .gr-alumni-label {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-faint);
+    margin-block: var(--space-s) var(--space-2xs);
+  }
+  .gr-people {
+    display: grid;
+    gap: var(--space-s);
+    margin: 0;
+    padding: 0;
+  }
+  .gr-person {
+    display: grid;
+    gap: 2px;
+    padding-inline-start: var(--space-s);
+    border-inline-start: 2px solid var(--border);
+  }
+  .gr-person__name {
+    color: var(--ink);
+    font-size: var(--step-0);
+  }
+  .gr-person__meta {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+  }
+  .gr-person__project {
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    max-inline-size: var(--width-prose);
+    line-height: 1.5;
+  }
+  .gr-fullrecord {
+    margin-block-start: var(--space-l);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+    max-inline-size: var(--width-prose);
   }
   .gr-prose code,
   .gr-skills code,
