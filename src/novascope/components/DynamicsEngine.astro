@@ -1,0 +1,654 @@
+---
+/*
+ * DynamicsEngine — the /explore/dynamics explorable.
+ *
+ * Structure deliberately mirrors CensusEngine: a panel grid, lens chips that
+ * swap control groups, `data-lit` panels that highlight when the lens driving
+ * them is active, and a live `<dl>` summary. Copying that vocabulary is not
+ * only cosmetic — census wraps every `<input>` INSIDE its `<label>`, which is
+ * what gives the controls accessible names. The dynamics LAB put the value in a
+ * `<legend>` and left the sliders unnamed, so a screen reader announces
+ * "slider, 1". Mimicking census fixes that by construction.
+ *
+ * HEARTBEAT TOGGLE: gravity isolated <-> N-body. Isolated holds the cluster
+ * static, which is literally what the spec asks for ("a static scatter becomes
+ * a living, segregating cluster"), and avoids inventing a zero-force model.
+ *
+ * RUNG: the backend knows ZAMS values and a main-sequence lifetime. Stars here
+ * MOVE; they do not evolve. The page states that. Nothing in this component may
+ * imply otherwise.
+ *
+ * NAMING: this is `dynamics`, never "gravax". The browser does not run gravax;
+ * it runs a symplectic integrator of the same family. See explore-authoring.
+ */
+import Math from "../../components/Math.astro";
+const m = (tex: string) => tex;
+---
+
+<div class="xpl-dyn" data-dyn>
+  <div class="xpl-dyn__grid">
+    <figure class="xpl-dyn__panel" data-lit="gravity">
+      <figcaption>
+        <span class="xpl-dyn__modes" role="group" aria-label="Clock">
+          <button type="button" data-play class="is-active">▶ run</button>
+          <button type="button" data-reset>↻ reset</button>
+        </span>
+        <span class="xpl-dyn__clock" data-clock aria-live="off">t = 0.0 Myr</span>
+      </figcaption>
+      <canvas data-field aria-label="Star cluster in projection; point size follows stellar mass"></canvas>
+      <small class="xpl-dyn__hint" data-hint>Gravity is off — the cluster is frozen as drawn.</small>
+    </figure>
+
+    <figure class="xpl-dyn__panel" data-lit="gravity segregation">
+      <figcaption>
+        Half-mass radius, relative to its own start
+        <span>the massive stars sink</span>
+      </figcaption>
+      <div class="xpl-dyn__plot">
+        <span class="xpl-dyn__ytitle"><Math tex={m("r_h(t)\\,/\\,r_h(0)")} /></span>
+        <canvas data-radii aria-label="Half-mass radius of the most massive stars and of the least massive stars, against time"></canvas>
+        <span class="xpl-dyn__xtitle"><Math tex={m("t\\;(\\mathrm{Myr})")} /></span>
+      </div>
+      <small class="xpl-dyn__hint">
+        Solid: heaviest 10% of stars. Dashed: lightest half. Each relative to its own starting
+        radius, so both begin at 1 and any gap is what gravity did.
+      </small>
+    </figure>
+
+    <div class="xpl-dyn__panel xpl-dyn__panel--pad">
+      <div class="xpl-dyn__toolbar">
+        <div
+          class="xpl-dyn__lenses"
+          role="group"
+          aria-label="Lenses — the controls that change what you are looking at"
+        >
+          <button type="button" data-lens-chip="gravity" class="is-active" aria-pressed="true">
+            Gravity
+          </button>
+          <button type="button" data-lens-chip="cluster" aria-pressed="false">Cluster</button>
+        </div>
+        <button type="button" class="xpl-dyn__reseed" data-reseed>↻ new draw</button>
+      </div>
+
+      <div class="xpl-dyn__controls">
+        <section class="xpl-dyn__lens" data-lens="gravity" aria-label="Gravity controls">
+          <p class="xpl-dyn__lenshd"><b>Gravity</b> — does every star pull on every other?</p>
+          <div class="xpl-dyn__seg" role="group" aria-label="Gravity model">
+            <button type="button" data-grav="off" class="is-active" aria-pressed="true">
+              isolated
+            </button>
+            <button type="button" data-grav="on" aria-pressed="false">N-body</button>
+          </div>
+          <p class="xpl-dyn__note" data-gravnote>
+            Isolated: the stars hold the positions they were born with. Nothing moves, and
+            nothing segregates.
+          </p>
+        </section>
+
+        <section class="xpl-dyn__lens" data-lens="cluster" aria-label="Cluster controls" hidden>
+          <p class="xpl-dyn__lenshd"><b>Cluster</b> — what is being integrated?</p>
+          <div class="xpl-dyn__lensgrid">
+            <label class="xpl-dyn__ctrl">
+              <span class="xpl-dyn__ctrl-name">stars</span>
+              <span class="xpl-dyn__ctrl-val"><Math tex={m("N")} /> = <output data-n-val>400</output></span>
+              <input type="range" data-n min="100" max="1200" step="50" value="400" />
+              <small>fewer = faster, noisier</small>
+            </label>
+            <label class="xpl-dyn__ctrl">
+              <span class="xpl-dyn__ctrl-name">speed</span>
+              <span class="xpl-dyn__ctrl-val"><output data-speed-val>1.0</output>×</span>
+              <input type="range" data-speed min="0.25" max="4" step="0.25" value="1" />
+              <small>time per frame</small>
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <dl class="xpl-dyn__stats" data-summary aria-live="polite">
+        <div><dt>time</dt><dd><span data-v="t">0.0</span> Myr</dd></div>
+        <div><dt>crossings</dt><dd data-v="tcr">0.0</dd></div>
+        <div>
+          <dt><Math tex={m("r_h")} /> heavy</dt>
+          <dd><span data-v="rhi">—</span> pc</dd>
+        </div>
+        <div>
+          <dt><Math tex={m("r_h")} /> light</dt>
+          <dd><span data-v="rlo">—</span> pc</dd>
+        </div>
+        <div><dt>bound</dt><dd><span data-v="bound">—</span>%</dd></div>
+      </dl>
+    </div>
+
+    {/* The energy strip is the RECEIPT, not a co-star. On the lab, drift is the
+        subject; here it is the evidence that the run above can be trusted, so it
+        is persistent and small rather than a fourth equal panel. */}
+    <figure class="xpl-dyn__panel xpl-dyn__panel--strip">
+      <figcaption>
+        Energy drift
+        <span data-drift>—</span>
+      </figcaption>
+      <canvas data-energy aria-label="Fractional energy error against time"></canvas>
+      <small class="xpl-dyn__hint">
+        A symplectic integrator's error stays bounded rather than growing. If this wanders off
+        the strip, stop believing the panel above it.
+      </small>
+    </figure>
+  </div>
+
+  <noscript>
+    <p class="xpl-dyn__noscript">
+      This explorable integrates a star cluster in your browser, so it needs JavaScript. The
+      physics it demonstrates is described in the text below.
+    </p>
+  </noscript>
+</div>
+
+<script>
+  import {
+    scenario,
+    chooseIntegrator,
+    createConservationMonitor,
+    measure,
+    lagrangianRadii,
+  } from "@novascope/core/dynamics";
+
+  const root = document.querySelector<HTMLElement>("[data-dyn]");
+  if (root) {
+    const $ = <T extends HTMLElement>(sel: string): T => root.querySelector<T>(sel)!;
+
+    const field = $<HTMLCanvasElement>("[data-field]");
+    const radiiCv = $<HTMLCanvasElement>("[data-radii]");
+    const energyCv = $<HTMLCanvasElement>("[data-energy]");
+    const nInput = $<HTMLInputElement>("[data-n]");
+    const nVal = $<HTMLOutputElement>("[data-n-val]");
+    const speedInput = $<HTMLInputElement>("[data-speed]");
+    const speedVal = $<HTMLOutputElement>("[data-speed-val]");
+    const playBtn = $<HTMLButtonElement>("[data-play]");
+    const clockEl = $<HTMLElement>("[data-clock]");
+    const hint = $<HTMLElement>("[data-hint]");
+    const gravNote = $<HTMLElement>("[data-gravnote]");
+    const driftEl = $<HTMLElement>("[data-drift]");
+    const summary = $<HTMLElement>("[data-summary]");
+
+    const gravBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-grav]"));
+    const lensChips = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-lens-chip]"));
+    const lensSections = Array.from(root.querySelectorAll<HTMLElement>("[data-lens]"));
+    const litPanels = Array.from(root.querySelectorAll<HTMLElement>("[data-lit]"));
+
+    const setStat = (key: string, v: string) => {
+      const el = summary.querySelector<HTMLElement>(`[data-v="${key}"]`);
+      if (el) el.textContent = v;
+    };
+
+    /* ── state ─────────────────────────────────────────────────── */
+    let gravity = false;
+    let playing = false;
+    let run: ReturnType<typeof build> | null = null;
+    /* History of (t, r_h heavy, r_h light) and of fractional energy error. */
+    let hist: { t: number; hi: number; lo: number; e: number }[] = [];
+    let hi0: number | null = null;
+    let lo0: number | null = null;
+
+    function build() {
+      const s = scenario("cluster");
+      const built = s.build({ n: Number(nInput.value) });
+      /*
+       * The scenario's OWN default scheme, not a faster one chosen here.
+       * Forcing leapfrog measured 1.3e-2 energy drift by ten crossing times —
+       * past the monitor's 1e-3 tolerance, so `healthy` latched false and the
+       * page's own "stop believing this" threshold had been crossed while the
+       * page went on presenting the result. fsi4 holds 6e-5..3.8e-4 over the
+       * same run with identical segregation. The scenario knows which schemes
+       * are honest for its configuration; overriding that was the bug.
+       */
+      const picked = chooseIntegrator(built.state, built.force, {
+        prefer: s.defaultScheme,
+        maxStep: built.timeUnit / 64,
+      });
+      /* Mass split is fixed once per draw, so the two curves follow the SAME
+         stars all run — a split recomputed each frame would track whichever
+         stars happen to be heavy now and could not show sinking. */
+      const idx = Array.from({ length: built.state.n }, (_, i) => i).sort(
+        (a, b) => built.state.mass[b] - built.state.mass[a],
+      );
+      const nHeavy = Math.max(1, Math.round(idx.length * 0.1));
+      const heavy = new Set(idx.slice(0, nHeavy));
+      const light = new Set(idx.slice(Math.floor(idx.length * 0.5)));
+      return {
+        built,
+        integrator: picked.integrator,
+        monitor: createConservationMonitor(picked.integrator),
+        heavy,
+        light,
+      };
+    }
+
+    /*
+     * The monitor is the source for time, the crossing-time clock and the drift
+     * — all three come off one `sample()`. Keeping a separate `t` accumulator
+     * and a separate crossingTime() call would be two clocks that can disagree,
+     * and the monitor's own docs call tCross "the meaningful clock".
+     */
+    function sample() {
+      if (!run) return;
+      const st = run.built.state;
+      const s = run.monitor.sample();
+      const d = measure(st, run.built.force, s.t);
+      const hi = lagrangianRadii(st, [0.5], (i) => run!.heavy.has(i))[0];
+      const lo = lagrangianRadii(st, [0.5], (i) => run!.light.has(i))[0];
+      /* Baseline on the FIRST sample so both curves start at exactly 1.
+         Absolute r_h of the heaviest 10% is a ~40-star estimate and lands well
+         off the light-star value at t=0 by sampling noise alone — measured 0.48
+         vs 0.70 pc with no primordial segregation in the ICs at all
+         (params.ts defaults segregation to 0). Plotting the raw radii would
+         show the curves already apart before gravity had done anything, which
+         reads as segregation that was imposed. The claim is about CHANGE, so
+         the plot shows change; the absolute radii stay in the readout below. */
+      if (hi0 === null) hi0 = hi || 1;
+      if (lo0 === null) lo0 = lo || 1;
+      hist.push({ t: s.t, hi: hi / hi0, lo: lo / lo0, e: s.energyDrift });
+      if (hist.length > 600) hist.shift();
+
+      setStat("t", s.t.toFixed(1));
+      setStat("tcr", s.tCross.toFixed(1));
+      setStat("rhi", hi.toFixed(2));
+      setStat("rlo", lo.toFixed(2));
+      setStat("bound", (d.boundMassFraction * 100).toFixed(0));
+      clockEl.textContent = `t = ${s.t.toFixed(1)} Myr`;
+      driftEl.textContent = s.energyDrift.toExponential(1);
+      /* `healthy` latches false once drift has ever breached tolerance, so this
+         cannot flicker back to reassuring after a bad excursion. */
+      driftEl.classList.toggle("is-bad", !run.monitor.healthy);
+    }
+
+    /* ── drawing ───────────────────────────────────────────────── */
+    const fit = (cv: HTMLCanvasElement) => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const r = cv.getBoundingClientRect();
+      cv.width = Math.max(1, Math.round(r.width * dpr));
+      cv.height = Math.max(1, Math.round(r.height * dpr));
+      const ctx = cv.getContext("2d")!;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, w: r.width, h: r.height };
+    };
+
+    const css = (name: string, fb: string) =>
+      getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb;
+
+    function drawField() {
+      const { ctx, w, h } = fit(field);
+      ctx.clearRect(0, 0, w, h);
+      if (!run) return;
+      const st = run.built.state;
+      const span = 8;
+      const sx = w / (2 * span);
+      const teal = css("--spec-teal-bright", "#4fd6c4");
+      const rose = css("--spec-rose-bright", "#e58fb4");
+      for (let i = 0; i < st.n; i++) {
+        const x = w / 2 + st.pos[3 * i] * sx;
+        const y = h / 2 - st.pos[3 * i + 1] * sx;
+        const heavy = run.heavy.has(i);
+        const r = heavy ? 2.6 : 1.1;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, 6.2832);
+        ctx.fillStyle = heavy ? rose : teal;
+        ctx.globalAlpha = heavy ? 0.95 : 0.5;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawSeries(
+      cv: HTMLCanvasElement,
+      series: { get: (p: (typeof hist)[number]) => number; colour: string; dash: number[] }[],
+      zeroBase: boolean,
+    ) {
+      const { ctx, w, h } = fit(cv);
+      ctx.clearRect(0, 0, w, h);
+      if (hist.length < 2) return;
+      const pad = 4;
+      const tMax = hist[hist.length - 1].t || 1;
+      let lo = Infinity;
+      let hiV = -Infinity;
+      for (const p of hist)
+        for (const s of series) {
+          const v = s.get(p);
+          if (Number.isFinite(v)) {
+            lo = Math.min(lo, v);
+            hiV = Math.max(hiV, v);
+          }
+        }
+      if (zeroBase) lo = Math.min(lo, 0);
+      if (!Number.isFinite(lo) || !Number.isFinite(hiV) || hiV === lo) return;
+      const X = (t: number) => pad + (t / tMax) * (w - 2 * pad);
+      const Y = (v: number) => h - pad - ((v - lo) / (hiV - lo)) * (h - 2 * pad);
+      for (const s of series) {
+        ctx.beginPath();
+        ctx.setLineDash(s.dash);
+        ctx.strokeStyle = s.colour;
+        ctx.lineWidth = 1.5;
+        hist.forEach((p, k) => {
+          const v = s.get(p);
+          if (!Number.isFinite(v)) return;
+          if (k === 0) ctx.moveTo(X(p.t), Y(v));
+          else ctx.lineTo(X(p.t), Y(v));
+        });
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+
+    const drawPlots = () => {
+      const rose = css("--spec-rose-bright", "#e58fb4");
+      const teal = css("--spec-teal-bright", "#4fd6c4");
+      drawSeries(
+        radiiCv,
+        [
+          { get: (p) => p.hi, colour: rose, dash: [] },
+          { get: (p) => p.lo, colour: teal, dash: [4, 3] },
+        ],
+        true,
+      );
+      drawSeries(energyCv, [{ get: (p) => p.e, colour: css("--spec-amber", "#fbbf24"), dash: [] }], true);
+    };
+
+    const redraw = () => {
+      drawField();
+      drawPlots();
+    };
+
+    /* ── loop ──────────────────────────────────────────────────── */
+    /*
+     * Cancelled on pause, when the page is hidden, and when the engine scrolls
+     * out of view. The dynamics LAB re-schedules unconditionally and never
+     * stops — tolerable on an unlinked development surface, not on a page a
+     * reader leaves open in a background tab.
+     */
+    let raf = 0;
+    let onScreen = true;
+
+    function frame() {
+      raf = 0;
+      if (!run || !playing || !gravity) return;
+      const dt = (run.built.timeUnit / 64) * Number(speedInput.value);
+      run.integrator.step(dt);
+      sample();
+      redraw();
+      if (playing && onScreen && !document.hidden) raf = requestAnimationFrame(frame);
+    }
+
+    const start = () => {
+      if (!raf && playing && gravity && onScreen && !document.hidden) raf = requestAnimationFrame(frame);
+    };
+    const stop = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+    };
+
+    document.addEventListener("visibilitychange", () => (document.hidden ? stop() : start()));
+    new IntersectionObserver((entries) => {
+      onScreen = entries[0]?.isIntersecting ?? true;
+      onScreen ? start() : stop();
+    }).observe(root);
+
+    /* ── wiring ────────────────────────────────────────────────── */
+    const syncPlay = () => {
+      playBtn.textContent = playing ? "❙❙ pause" : "▶ run";
+      playBtn.classList.toggle("is-active", playing);
+      playBtn.disabled = !gravity;
+      hint.textContent = gravity
+        ? playing
+          ? "Integrating — every star pulls on every other."
+          : "Paused. Press run to continue."
+        : "Gravity is off — the cluster is frozen as drawn.";
+    };
+
+    const rebuild = () => {
+      stop();
+      run = build();
+      hist = [];
+      hi0 = null;
+      lo0 = null;
+      playing = false;
+      sample();
+      redraw();
+      syncPlay();
+    };
+
+    playBtn.addEventListener("click", () => {
+      if (!gravity) return;
+      playing = !playing;
+      syncPlay();
+      playing ? start() : stop();
+    });
+
+    $<HTMLButtonElement>("[data-reset]").addEventListener("click", rebuild);
+    $<HTMLButtonElement>("[data-reseed]").addEventListener("click", rebuild);
+
+    for (const b of gravBtns) {
+      b.addEventListener("click", () => {
+        gravity = b.dataset.grav === "on";
+        for (const o of gravBtns) {
+          const on = o === b;
+          o.classList.toggle("is-active", on);
+          o.setAttribute("aria-pressed", String(on));
+        }
+        gravNote.textContent = gravity
+          ? "N-body: every pair interacts. Mass segregation below is not a rule that was added — it is what this same gravity does."
+          : "Isolated: the stars hold the positions they were born with. Nothing moves, and nothing segregates.";
+        if (!gravity) {
+          playing = false;
+          stop();
+        }
+        syncPlay();
+      });
+    }
+
+    nInput.addEventListener("input", () => {
+      nVal.value = nInput.value;
+    });
+    nInput.addEventListener("change", rebuild);
+    speedInput.addEventListener("input", () => {
+      speedVal.value = Number(speedInput.value).toFixed(2);
+    });
+
+    for (const chip of lensChips) {
+      chip.addEventListener("click", () => {
+        const key = chip.dataset.lensChip!;
+        for (const c of lensChips) {
+          const on = c === chip;
+          c.classList.toggle("is-active", on);
+          c.setAttribute("aria-pressed", String(on));
+        }
+        for (const s of lensSections) s.hidden = s.dataset.lens !== key;
+        for (const p of litPanels)
+          p.classList.toggle("is-lit", (p.dataset.lit ?? "").split(" ").includes(key));
+      });
+    }
+
+    window.addEventListener("resize", redraw);
+    rebuild();
+  }
+</script>
+
+<style>
+  .xpl-dyn__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-m);
+  }
+  .xpl-dyn__panel {
+    margin: 0;
+    padding: var(--space-s);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    transition: border-color var(--dur-base) var(--ease-out);
+  }
+  .xpl-dyn__panel.is-lit {
+    border-color: color-mix(in srgb, var(--spec-teal) 45%, var(--border));
+  }
+  .xpl-dyn__panel--pad {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-s);
+  }
+  .xpl-dyn__panel--strip {
+    grid-column: 1 / -1;
+  }
+  .xpl-dyn__panel figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    margin-block-end: var(--space-2xs);
+  }
+  .xpl-dyn__panel figcaption span {
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+  }
+  .xpl-dyn__panel [data-field] {
+    aspect-ratio: 1;
+    inline-size: 100%;
+    block-size: auto;
+  }
+  .xpl-dyn__panel [data-radii] {
+    aspect-ratio: 4 / 3;
+    inline-size: 100%;
+    block-size: auto;
+  }
+  .xpl-dyn__panel [data-energy] {
+    aspect-ratio: 12 / 1;
+    inline-size: 100%;
+    block-size: auto;
+  }
+  .xpl-dyn__plot {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-3xs);
+    align-items: center;
+  }
+  .xpl-dyn__ytitle {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+  }
+  .xpl-dyn__xtitle {
+    grid-column: 2;
+    text-align: center;
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+  }
+  .xpl-dyn__hint {
+    display: block;
+    margin-block-start: var(--space-3xs);
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+    line-height: 1.45;
+  }
+  .xpl-dyn__clock {
+    font-family: var(--font-mono);
+  }
+  .xpl-dyn__toolbar,
+  .xpl-dyn__lenses,
+  .xpl-dyn__modes,
+  .xpl-dyn__seg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs);
+    align-items: center;
+  }
+  .xpl-dyn__toolbar {
+    justify-content: space-between;
+  }
+  .xpl-dyn__lenses button,
+  .xpl-dyn__modes button,
+  .xpl-dyn__seg button,
+  .xpl-dyn__reseed {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-soft);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.25em 0.7em;
+    cursor: pointer;
+  }
+  .xpl-dyn__lenses button.is-active,
+  .xpl-dyn__modes button.is-active,
+  .xpl-dyn__seg button.is-active {
+    color: var(--bg-void);
+    background: var(--spec-teal-bright);
+    border-color: var(--spec-teal-bright);
+  }
+  .xpl-dyn__lenses button:disabled,
+  .xpl-dyn__modes button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .xpl-dyn__lenshd {
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    margin-block-end: var(--space-2xs);
+  }
+  .xpl-dyn__note {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+    line-height: 1.5;
+  }
+  .xpl-dyn__lensgrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-s);
+  }
+  .xpl-dyn__ctrl {
+    display: grid;
+    gap: 2px;
+    font-size: var(--step--2);
+    color: var(--ink-soft);
+  }
+  .xpl-dyn__ctrl-val {
+    font-family: var(--font-mono);
+    color: var(--ink);
+  }
+  .xpl-dyn__ctrl small {
+    color: var(--ink-faint);
+  }
+  .xpl-dyn__ctrl input[type="range"] {
+    inline-size: 100%;
+  }
+  .xpl-dyn__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+    gap: var(--space-2xs);
+    margin: 0;
+    padding-block-start: var(--space-2xs);
+    border-block-start: 1px solid var(--border);
+  }
+  .xpl-dyn__stats dt {
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+  }
+  .xpl-dyn__stats dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .xpl-dyn__noscript {
+    color: var(--ink-soft);
+  }
+  @media (max-width: 60rem) {
+    .xpl-dyn__grid {
+      grid-template-columns: 1fr;
+    }
+    .xpl-dyn__lensgrid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

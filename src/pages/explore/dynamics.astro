@@ -1,0 +1,86 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
+
+/*
+ * Thin, like /explore/census: the page owns the copy and the framing, the engine
+ * owns the interaction. /dynamics-lab is a 762-line monolith, which is exactly
+ * why nothing could be reused from it.
+ *
+ * This is the DYNAMICAL counterpart to /explore/mass-segregation, which shows
+ * PRIMORDIAL segregation — a knob set at birth, no clock. Here the same
+ * arrangement is earned by integrating gravity. The two link to each other
+ * because side by side they are the argument: one assumed, one emergent.
+ */
+---
+
+<BaseLayout
+  title="No star is an island — Anna Rosen"
+  description="Turn gravity on and watch a star cluster come alive: the heaviest stars sink, the cluster segregates, and none of it was put in by hand."
+  path="/explore/dynamics"
+>
+  <PageHeader eyebrow="Explore · interactive" title="No star is an island">
+    <Fragment slot="lede">
+      Until now a cluster has been a list of stars. Switch gravity on and it becomes a
+      <em>system</em>: every star pulls on every other, energies get shuffled by close
+      passages, and the heaviest stars give up energy and sink toward the centre. Nothing
+      below is choreographed — <strong>mass segregation is not a rule that was added</strong>,
+      it is what this same gravity does when you let it run.
+    </Fragment>
+  </PageHeader>
+
+  <div class="dyn-page wrap-wide">
+    <DynamicsEngine />
+
+    <div class="dyn-page__note prose wrap">
+      <p>
+        Start with gravity <strong>isolated</strong>. The cluster just sits there — it is a
+        drawing. Switch to <strong>N-body</strong> and press run: the two curves in the
+        right-hand panel start together at 1 and then part, the heaviest stars contracting
+        relative to where they began while the lightest hold or expand. That gap <em>is</em>
+        mass segregation, and it is a measurement rather than an impression — the same stars
+        are followed all run, so the curves cannot separate by relabelling who counts as heavy.
+        Each curve is drawn relative to its own starting radius, because the heaviest 10% is a
+        small enough group that its absolute radius is a noisy number; the two absolute radii
+        are in the readout, and at the start they differ by sampling alone.
+      </p>
+      <p>
+        Watch the energy strip along the bottom while you do it. A symplectic integrator's
+        error stays <em>bounded</em> — it wobbles and does not grow — which is what earns the
+        right to believe the panel above it. If that trace ever walks steadily off the strip,
+        the cluster you are watching is a numerical artefact.
+      </p>
+      <p>
+        Drop <strong>N</strong> and the curves get noisier: with few stars, segregation is a
+        statement about an average that barely has enough members to be an average. This is
+        the same sampling problem the <a href="/explore/census">census</a> shows at the
+        high-mass end, arriving from the other direction.
+      </p>
+      <p class="dyn-page__limits">
+        <strong>What this model does and does not know.</strong> The integrator is a symplectic
+        scheme of the same family my <code>gravax</code> code uses, run here on a few hundred
+        stars so it keeps up with a browser; gravity is softened at small separations, so very
+        close encounters are smoothed rather than resolved. The stars <em>move</em> but they do
+        not <em>age</em> — masses, temperatures and luminosities are ZAMS values held fixed for
+        the run, so nothing here evolves off the main sequence. And the segregation you are
+        watching is earned; for the version that is imposed at birth instead, see
+        <a href="/explore/mass-segregation">primordial mass segregation</a>.
+      </p>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .dyn-page {
+    padding-block: var(--space-l) var(--space-3xl);
+  }
+  .dyn-page__note {
+    margin-block-start: var(--space-2xl);
+  }
+  .dyn-page__limits {
+    padding-block-start: var(--space-s);
+    border-block-start: 1px solid var(--border);
+    color: var(--ink-dim);
+  }
+</style>
