@@ -1,4 +1,16 @@
 ---
+/*
+ * QUARANTINED 2026-08-07, at Anna's direction. The page still builds and still
+ * works; it is held back from navigation because it needs a redesign rather than
+ * a patch, and a stale demo that stays reachable becomes the thing later pages
+ * are designed to match. It is `noindex`, out of the sitemap, out of the search
+ * index and off the hub — the four parts `check-explore` requires together, so
+ * it is hidden from readers rather than merely hidden from the hub while still
+ * being advertised to search engines.
+ *
+ * Nothing links here any more. `/explore/dynamics` used to cite it as the
+ * primordial-segregation counterpart; that paragraph now stands on its own.
+ */
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import { starCount } from "../../lib/gravoturb";
@@ -10,6 +22,7 @@ import Math from "../../components/Math.astro";
   title="Mass segregation — Anna Rosen"
   description="Watch massive stars sink to a star cluster's core as primordial mass segregation strengthens — computed live from the same density-coupling progenax uses."
   path="/explore/mass-segregation"
+  noindex
 >
   <PageHeader eyebrow="Explore · interactive" title="Mass segregation">
     <Fragment slot="lede">

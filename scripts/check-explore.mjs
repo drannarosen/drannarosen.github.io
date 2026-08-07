@@ -29,6 +29,7 @@ const HUB = resolve(DIST, "explore/index.html");
  */
 const HELD_BACK = new Map([
   ["/explore/feedback-budget", "deferred: finished, not carded on the hub yet"],
+  ["/explore/mass-segregation", "quarantined 2026-08-07: needs a redesign, not a patch — held back rather than shipped stale"],
 ]);
 
 if (!existsSync(HUB)) {

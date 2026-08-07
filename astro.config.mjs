@@ -68,6 +68,10 @@ export default defineConfig({
           '/cluster-lab',
           '/model-path',
           '/explore/feedback-budget',
+          // Quarantined pending a redesign. Same reasoning as feedback-budget:
+          // nothing links to it, so advertising it to search engines would land a
+          // reader on a page being deliberately withheld.
+          '/explore/mass-segregation',
           // Still in development. It already carries noindex, and a page that is
           // noindex but sitemapped is a contradiction: the sitemap advertises a
           // URL the same page asks robots to ignore.
