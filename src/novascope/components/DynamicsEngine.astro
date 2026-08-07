@@ -138,36 +138,69 @@ const m = (tex: string) => tex;
     */}
     <figure class="xpl-dyn__panel">
       <figcaption>
-        Half-mass radius
+        {/* TABS, not a third panel. A separate panel per curve is what pushed the
+            energy strip off the same screen as the cluster; tabs keep the
+            footprint fixed and let each plot be full size. The energy strip stays
+            OUTSIDE them deliberately — it is the receipt that vouches for whichever
+            tab you are on, and behind a tab it could not do that job. */}
+        <span class="xpl-dyn__modes" role="group" aria-label="Plot">
+          <button type="button" data-plot-tab="radii" class="is-active" aria-pressed="true">
+            half-mass radius
+          </button>
+          <button type="button" data-plot-tab="bound" aria-pressed="false">bound fraction</button>
+        </span>
         <span class="xpl-dyn__legend">
-          <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>heaviest 10%</span>
-          <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>lightest half</span>
+          <span class="xpl-dyn__keys" data-legend="radii">
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>heaviest 10%</span>
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>lightest half</span>
+          </span>
+          <span class="xpl-dyn__keys" data-legend="bound" hidden>
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>by mass</span>
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>by number</span>
+          </span>
           <button
             type="button"
             class="xpl-dyn__info"
-            data-info="radii"
+            data-info="plot"
             aria-expanded="false"
-            aria-label="About the half-mass radius curves"
+            aria-label="About this plot"
           >?</button>
-          <span class="xpl-dyn__popover" data-popover="radii" role="tooltip" hidden>
-            Each curve is the half-mass radius of its own group, divided by that group's value at
-            <Math tex={m("t = 0")} />, so both start at 1. The split is fixed at the first frame,
-            so the same stars are followed all run and the curves cannot separate by relabelling
-            who counts as heavy. With gravity on, both are measured about the bound cluster's own
-            centre and over its bound stars — a dissolving cluster recoils, and its escapers would
-            otherwise dominate the radius.
-            <br /><br />
-            <b>A gap on its own is not the evidence.</b> With gravity off the curves still separate
-            by about 20% within eight crossing times and then hold there, because the two groups
-            begin at different radii and with different speeds. What gravity does is different in
-            kind: the heavy curve drops <em>below</em> 1 while the light one climbs. Measured here,
-            the heaviest 10% reach 0.46 of their starting radius by fifty crossing times.
+          <span class="xpl-dyn__popover" data-popover="plot" role="tooltip" hidden>
+            <span data-note="radii">
+              Each curve is the half-mass radius of its own group, divided by that group's value at
+              <Math tex={m("t = 0")} />, so both start at 1. The split is fixed at the first frame,
+              so the same stars are followed all run and the curves cannot separate by relabelling
+              who counts as heavy. With gravity on, both are measured about the bound cluster's own
+              centre and over its bound stars — a dissolving cluster recoils, and its escapers would
+              otherwise dominate the radius.
+              <br /><br />
+              <b>A gap on its own is not the evidence.</b> With gravity off the curves still
+              separate by about 20% within eight crossing times and then hold there, because the two
+              groups begin at different radii and with different speeds. What gravity does is
+              different in kind: the heavy curve drops <em>below</em> 1 while the light one climbs.
+              Measured here, the heaviest 10% reach 0.46 of their starting radius by fifty crossing
+              times.
+            </span>
+            <span data-note="bound" hidden>
+              The fraction of the cluster still gravitationally bound, by <b>mass</b> and by
+              <b>number</b>. They disagree, and the gap is the point: the heaviest stars carry most
+              of the mass and are the last to leave, so the mass curve stays high while the star
+              count falls away beneath it. Measured on this cluster at a thousand crossing times,
+              64% of the mass was still bound but only 49% of the stars.
+              <br /><br />
+              Both are blank with gravity off. Boundness is measured against a potential that is not
+              being integrated then, so a number there would be a counterfactual rather than a
+              property of what you are watching.
+            </span>
           </span>
         </span>
       </figcaption>
       <div class="xpl-dyn__plot">
-        <span class="xpl-dyn__ytitle"><Math tex={m("r_h(t)\\,/\\,r_h(0)")} /></span>
-        <canvas data-radii aria-label="Half-mass radius of the most massive stars and of the least massive stars, against time"></canvas>
+        <span class="xpl-dyn__ytitle" data-ytitle="radii"
+          ><Math tex={m("r_h(t)\\,/\\,r_h(0)")} /></span
+        >
+        <span class="xpl-dyn__ytitle" data-ytitle="bound" hidden>bound fraction</span>
+        <canvas data-radii aria-label="Cluster evolution against time: half-mass radius of the heaviest and lightest stars, or the bound fraction"></canvas>
         <span class="xpl-dyn__xtitle"><Math tex={m("t\\;(\\mathrm{Myr})")} /></span>
       </div>
     </figure>
@@ -259,6 +292,8 @@ const m = (tex: string) => tex;
     const hint = $<HTMLElement>("[data-hint]");
     const driftEl = $<HTMLElement>("[data-drift]");
     const scaleBar = root.querySelector<HTMLElement>("[data-scalebar]");
+    /** Which evolution curve the shared plot canvas is showing. */
+    let plotTab: "radii" | "bound" = "radii";
     const scaleLabel = root.querySelector<HTMLElement>("[data-scalelabel]");
     const summary = $<HTMLElement>("[data-summary]");
 
@@ -274,7 +309,7 @@ const m = (tex: string) => tex;
     let playing = false;
     let run: ReturnType<typeof build> | null = null;
     /* History of (t, r_h heavy, r_h light) and of fractional energy error. */
-    let hist: { t: number; hi: number; lo: number; e: number }[] = [];
+    let hist: { t: number; hi: number; lo: number; e: number; bm: number; bn: number }[] = [];
     /* Halving threshold, not a cap on the run: see the decimation in sample().
        600 samples is already ~4x the horizontal pixels of the plot at 1440px. */
     const MAX_SAMPLES = 600;
@@ -455,7 +490,16 @@ const m = (tex: string) => tex;
        * update every frame — only the history is thinned.
        */
       if (tSim - lastStored >= storeEvery) {
-        hist.push({ t: tSim, hi: hi / hi0, lo: lo / lo0, e: gravity ? s.energyDrift : NaN });
+        hist.push({
+          t: tSim,
+          hi: hi / hi0,
+          lo: lo / lo0,
+          e: gravity ? s.energyDrift : NaN,
+          /* Same rule as the drift: boundness is a gravity quantity, so with the
+             force switched off there is nothing to record rather than a zero. */
+          bm: d ? d.boundMassFraction : NaN,
+          bn: d ? d.boundFraction : NaN,
+        });
         lastStored = tSim;
       }
       if (hist.length > MAX_SAMPLES) {
@@ -714,6 +758,10 @@ const m = (tex: string) => tex;
          * zero drift is not a small number, it is not a number.
          */
         logY?: boolean;
+        /** Pin the y-axis. A fraction plot must not autoscale — 0 and 1 are the
+         *  meaningful ends, and a curve that never leaves 0.6-1.0 would otherwise
+         *  be drawn as though it had swung across the whole panel. */
+        fixed?: [number, number];
       } = {},
     ) {
       const { ctx, w, h } = fit(cv);
@@ -766,10 +814,16 @@ const m = (tex: string) => tex;
         lo = 0;
         hiV = 1;
       }
+      if (opts.fixed) {
+        lo = opts.fixed[0];
+        hiV = opts.fixed[1];
+      }
       if (hiV === lo) hiV = lo + 1;
-      const pad = (hiV - lo) * 0.08;
-      lo -= pad;
-      hiV += pad;
+      if (!opts.fixed) {
+        const pad = (hiV - lo) * 0.08;
+        lo -= pad;
+        hiV += pad;
+      }
 
       const X = (t: number) => AX.l + (t / tMax) * (w - AX.l - AX.r);
       const Y = (v: number) => h - AX.b - ((v - lo) / (hiV - lo)) * (h - AX.t - AX.b);
@@ -873,14 +927,29 @@ const m = (tex: string) => tex;
     const drawPlots = () => {
       const rose = css("--spec-rose-bright", "#e58fb4");
       const teal = css("--spec-teal-bright", "#4fd6c4");
-      drawSeries(
-        radiiCv,
-        [
-          { get: (p) => p.hi, colour: rose, dash: [] },
-          { get: (p) => p.lo, colour: teal, dash: [4, 3] },
-        ],
-        { refOne: true },
-      );
+      if (plotTab === "bound") {
+        /* Fractions, so the axis is PINNED to 0..1. Autoscaled, a run that never
+           left 0.6-1.0 would be drawn as though it had swung across the whole
+           panel, and the one number that matters — how far from 1 — would be
+           unreadable. */
+        drawSeries(
+          radiiCv,
+          [
+            { get: (p) => p.bm, colour: rose, dash: [] },
+            { get: (p) => p.bn, colour: teal, dash: [4, 3] },
+          ],
+          { fixed: [0, 1], fmt: (v) => v.toFixed(1) },
+        );
+      } else {
+        drawSeries(
+          radiiCv,
+          [
+            { get: (p) => p.hi, colour: rose, dash: [] },
+            { get: (p) => p.lo, colour: teal, dash: [4, 3] },
+          ],
+          { refOne: true },
+        );
+      }
       /* The tolerance comes from the MONITOR, not from a number typed here — it is
          the same value `healthy` latches on, so the line a reader sees and the
          verdict the page reports cannot drift apart. */
@@ -1122,6 +1191,26 @@ const m = (tex: string) => tex;
        has already applied the new zoom by the time this reads pxPerPc. */
     field.addEventListener("wheel", () => requestAnimationFrame(updateScaleBar), { passive: true });
 
+    /* Tabs swap the SERIES, the legend, the y-title and the note together — one
+       state, four things that must agree, so they are set in one place. */
+    for (const b of root.querySelectorAll<HTMLButtonElement>("[data-plot-tab]")) {
+      b.addEventListener("click", () => {
+        plotTab = (b.dataset.plotTab as "radii" | "bound") ?? "radii";
+        for (const o of root.querySelectorAll<HTMLButtonElement>("[data-plot-tab]")) {
+          const on = o === b;
+          o.classList.toggle("is-active", on);
+          o.setAttribute("aria-pressed", String(on));
+        }
+        for (const el of root.querySelectorAll<HTMLElement>("[data-legend]"))
+          el.hidden = el.dataset.legend !== plotTab;
+        for (const el of root.querySelectorAll<HTMLElement>("[data-ytitle]"))
+          el.hidden = el.dataset.ytitle !== plotTab;
+        for (const el of root.querySelectorAll<HTMLElement>("[data-note]"))
+          el.hidden = el.dataset.note !== plotTab;
+        drawPlots();
+      });
+    }
+
     window.addEventListener("resize", redraw);
     rebuild();
   }
@@ -1193,6 +1282,12 @@ const m = (tex: string) => tex;
     color: var(--ink-faint);
   }
   /* ── legend + "?" popover, census's `data-info` pattern ── */
+  .xpl-dyn__keys {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    flex-wrap: wrap;
+  }
   .xpl-dyn__legend {
     position: relative;
     display: inline-flex;
