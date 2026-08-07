@@ -96,7 +96,11 @@ const m = (tex: string) => tex;
           <span class="xpl-dyn__ctrl-val"
             ><Math tex={m("N")} /> = <output data-n-val>400</output></span
           >
-          <input type="range" data-n min="100" max="1200" step="50" value="400" />
+          {/* 512 is the scenario's OWN ceiling (`clamp(n, 20, 512)` in
+              scenarios.ts), not a number chosen here. The slider ran to 1200 and
+              the readout printed "N = 1200" while 512 stars integrated — a
+              control that reported a population the run did not have. */}
+          <input type="range" data-n min="100" max="512" step="4" value="400" />
         </label>
         <label class="xpl-dyn__ctrl">
           <span class="xpl-dyn__ctrl-val"
@@ -484,15 +488,44 @@ const m = (tex: string) => tex;
       return out;
     }
 
+    /*
+     * `toRenderModel` SORTS its output (painter's order, render.ts), so the model's
+     * k-th star is NOT the k-th particle of the integrator state. `renderOrder[k]`
+     * is the state index the k-th drawn instance belongs to.
+     *
+     * THIS IS THE MAPPING THAT WAS MISSING, and its absence was the worst bug on
+     * the page. `positions()` returned `st.pos` in state order while the renderer
+     * had packed sizes and colours in SORTED order, so every frame each instance
+     * was moved to a different star's position. Measured: 400 of 400 instances
+     * mismatched, mean displacement 1.51 pc on a cluster with r_h = 0.55 pc. The
+     * biggest, bluest points were drawn wherever, which means "the heaviest stars
+     * sink" — the entire claim of this page — was never visible in the canvas,
+     * from the first frame.
+     *
+     * It was invisible to me because the frame still looked like a plausible
+     * cluster: the right stars with the wrong coordinates is a correct-looking
+     * picture of nothing.
+     */
+    let renderOrder: number[] = [];
+
     /* t = 0 always: at this rung a star MOVES but does not evolve, so asking
        toRenderModel for an age would claim evolution the backend cannot compute.
        The page says so in as many words. */
-    const renderModel = () => toRenderModel(latentStars(), { t: 0, selectedId: null, toggles: {} });
+    function renderModel() {
+      const model = toRenderModel(latentStars(), { t: 0, selectedId: null, toggles: {} });
+      renderOrder = model.stars.map((st) => st.id); // latentStars() sets id = state index
+      return model;
+    }
 
     function positions(): Float32Array {
       const st = run!.built.state;
-      const out = new Float32Array(st.n * 3);
-      out.set(st.pos.subarray(0, st.n * 3));
+      const out = new Float32Array(renderOrder.length * 3);
+      for (let k = 0; k < renderOrder.length; k++) {
+        const i = renderOrder[k]!;
+        out[3 * k] = st.pos[3 * i]!;
+        out[3 * k + 1] = st.pos[3 * i + 1]!;
+        out[3 * k + 2] = st.pos[3 * i + 2]!;
+      }
       return out;
     }
 
