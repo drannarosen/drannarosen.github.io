@@ -49,6 +49,16 @@ export interface Advisee {
   /** When they are due to finish, e.g. "Summer 2026". Drives the /now list. */
   finishing?: string;
   /*
+   * When they finished, e.g. "Summer 2026" — the counterpart to `finishing`,
+   * and mutually exclusive with it: one is a plan, the other an outcome.
+   *
+   * Drives the "just finished" list on /now, which is deliberately a derived
+   * list rather than a sentence. A completion written into prose is how a page
+   * ends up still announcing a defence two years later; a dated field can be
+   * aged out by the page itself.
+   */
+  completed?: string;
+  /*
    * A member of the SDSU group, which /group lists. Set explicitly rather than
    * detected by looking for "SDSU" in `affiliation`: that field carries where
    * someone went NEXT as well as where they were, so Alex Escamilla reads
@@ -83,6 +93,9 @@ export const talkCounts = { invited: 55, contributed: 36 };
  */
 export const finishingAdvisees = (people: Advisee[]) => people.filter((a) => a.finishing);
 
+/** Advisees who have just finished, for /now. Counterpart to the above. */
+export const completedAdvisees = (people: Advisee[]) => people.filter((a) => a.completed);
+
 /*
  * The SDSU group, for /group — split into who is here now and who has left.
  *
@@ -101,12 +114,12 @@ export const formerOf = (people: Advisee[]) =>
   groupMembers(people).filter((a) => !isCurrent(a));
 
 export const graduateAdvisees: Advisee[] = [
-  // Completed Summer 2026. SDSU's M.S. in Computational Science takes a
-  // CULMINATING PROJECT rather than a thesis, which is what his title page
-  // says, so the wording here is "project" deliberately and should not be
-  // "corrected" to thesis. No `finishing` field: he is done, and that field
-  // is what puts a student on /now under "Nearly out the door".
-  { name: "Surinder Singh Chhabra", affiliation: "M.S. Computational Science — Data Science, SDSU", date: "2025–2026", project: "AstroRAG: Evidence-Aware Scientific Literature Retrieval — a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery" , group: true },
+  // SDSU's M.S. in Computational Science takes a CULMINATING PROJECT rather
+  // than a thesis, which is what his title page says, so the wording here is
+  // "project" deliberately and should not be "corrected" to thesis.
+  // `completed`, not `finishing`: he is done, and those two fields are what put
+  // a student under "just finished" versus "nearly out the door" on /now.
+  { name: "Surinder Singh Chhabra", completed: "Summer 2026", affiliation: "M.S. Computational Science — Data Science, SDSU", date: "2025–2026", project: "AstroRAG: Evidence-Aware Scientific Literature Retrieval — a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery" , group: true },
   { name: "Aisling Acuna", affiliation: "Masters Student, SDSU", finishing: "August 2026", date: "2024–Present", project: "Bridging STARFORGE and SKIRT: A Synthetic Observation Pipeline for High-Fidelity Star Cluster Formation Simulations" , group: true },
   { name: "Paarmita Pandey", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Fermi Observations of the Diffuse γ-ray Emission of Young Massive Star Clusters", refereed: true },
   { name: "Jennifer Rodriguez", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Tracing the Impact of Stellar Wind Feedback in N79 & 30 Doradus in the LMC with Chandra", refereed: true },
@@ -170,7 +183,14 @@ export const cvProfile = {
       value: String(graduateAdvisees.length + undergraduateAdvisees.length),
       label: "Students advised",
     },
-    { value: String(courses.length), label: "Courses developed" },
+    {
+      /* Counts the `developed` flag, NOT the length of the course list: one of
+         the five listed courses was taught as inherited, so a length would have
+         said 5 while the label claimed development. New and redesigned both
+         count — a redesign here changed catalog descriptions and prerequisites. */
+      value: String(courses.filter((c) => c.developed).length),
+      label: "Courses developed",
+    },
   ],
   interests: [
     "Differentiable stellar astrophysics",

@@ -76,6 +76,17 @@ export interface Course {
   blurb: string;
   terms: Term[];
   url?: string | null;
+  /*
+   * Course development, which the CV's "courses developed" stat counts.
+   *
+   * "new" is a course that did not exist before; "redesigned" is an existing
+   * course rebuilt to the point of changing its catalog description and
+   * prerequisites. Both count as development; teaching a course as inherited
+   * does not, which is why this is set per course rather than taken from the
+   * length of this array — the two differ, and a count that quietly meant
+   * "courses listed" while the label said "developed" would overstate it.
+   */
+  developed?: "new" | "redesigned";
 }
 
 /** Display string for a course's terms. Derived — never authored. */
@@ -116,6 +127,7 @@ export const courses: Course[] = [
       "Build glass-box computational models — from stellar dynamics to cosmology — using Python/JAX.",
     terms: [{ season: "fall", year: 2025 }],
     url: "https://astrobytes-edu.github.io/astr596-modeling-universe/",
+    developed: "new"
   },
   {
     code: "COMP 536",
@@ -127,6 +139,7 @@ export const courses: Course[] = [
       { season: "spring", year: 2026 },
     ],
     url: "https://astrobytes-edu.github.io/comp536-sp26/",
+    developed: "redesigned"
   },
   {
     code: "ASTR 201",
@@ -139,6 +152,7 @@ export const courses: Course[] = [
       { season: "spring", year: 2026 },
     ],
     url: "https://astrobytes-edu.github.io/astr201-sp26/",
+    developed: "redesigned"
   },
   {
     code: "ASTR 101",
@@ -155,6 +169,7 @@ export const courses: Course[] = [
       "From scratch to professional practice: numerical methods, data science, and software engineering — all in Python.",
     terms: [{ season: "fall", year: 2024 }],
     url: null,
+    developed: "redesigned"
   },
 ];
 
