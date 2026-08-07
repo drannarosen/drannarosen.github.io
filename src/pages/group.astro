@@ -65,21 +65,95 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
 ---
 
 <BaseLayout
-  title="Group & Opportunities — Anna Rosen, Ph.D."
-  description="Research projects for SDSU Astronomy undergraduates and Master's students: differentiable software turns big questions into ones you can own end to end."
+  title="Group — Anna Rosen, Ph.D."
+  description="The SDSU students working with me on differentiable models of stars and star clusters, what they built, and where they went next."
   path="/group"
 >
-  <PageHeader eyebrow="Group & Opportunities" title="A question you can actually finish">
+  {/* TITLE IS A PLACEHOLDER. "A question you can actually finish" was written
+      when this was a recruiting page; it is a slogan, and it now sits above a
+      roster. Anna's line to write, not one to invent here. */}
+  <PageHeader eyebrow="Group" title="A question you can actually finish">
+    {/* Eligibility stays in the lede — it is the first filter, and it has to be
+        read before anything else. What follows it used to be the pitch ("so you
+        can own a real project end to end"); that argument now lives in its own
+        section below the people, where a reader meets it after the evidence
+        rather than instead of it. */}
     <Fragment slot="lede">
-      I advise <strong>SDSU Astronomy undergraduate and Master's students</strong>.
-      Differentiable, modular software turns a big question into a focused one — so
-      you can own a real project end to end rather than hold a corner of someone
-      else's.
+      I advise <strong>SDSU Astronomy undergraduate and Master's students</strong>,
+      building differentiable models of stars and star clusters. Below: who is in
+      the group, what they worked on, and where they went next.
     </Fragment>
   </PageHeader>
 
+  <section class="wrap gr-section" aria-labelledby="people-heading">
+    <h2 id="people-heading" class="gr-title">The group</h2>
+    {
+      filled(roster).map((s) => (
+        <>
+          <h3 class="gr-sub">{s.title}</h3>
+          <ul class="gr-people" role="list">
+            {s.people.map((p) => (
+              <li class="gr-person">
+                <span class="gr-person__name">{p.name}</span>
+                <span class="gr-person__meta">{p.affiliation} · {p.date}</span>
+                {p.project && (
+                  <span class="gr-person__project">
+                    {paperFor(p)?.href ? (
+                      <a href={paperFor(p)!.href!} rel="noopener">{p.project}</a>
+                    ) : (
+                      p.project
+                    )}
+                    {paperFor(p)?.cite && (
+                      <span class="gr-person__cite">{paperFor(p)!.cite}</span>
+                    )}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      ))
+    }
+
+    <h3 class="gr-sub">Alumni</h3>
+    {
+      filled(alumni).map((s) => (
+        <>
+          <p class="gr-alumni-label">{s.title}</p>
+          <ul class="gr-people" role="list">
+            {s.people.map((p) => (
+              <li class="gr-person">
+                <span class="gr-person__name">{p.name}</span>
+                <span class="gr-person__meta">{p.affiliation} · {p.date}</span>
+                {p.project && (
+                  <span class="gr-person__project">
+                    {paperFor(p)?.href ? (
+                      <a href={paperFor(p)!.href!} rel="noopener">{p.project}</a>
+                    ) : (
+                      p.project
+                    )}
+                    {paperFor(p)?.cite && (
+                      <span class="gr-person__cite">{paperFor(p)!.cite}</span>
+                    )}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      ))
+    }
+
+    <p class="gr-fullrecord">
+      This is the SDSU group. For everyone I've advised — including students at
+      other institutions and before SDSU — see <a href="/cv#advising-and-mentoring"
+        >the full advising record</a
+      >.
+    </p>
+  </section>
+
   <section class="wrap gr-section" aria-labelledby="work-heading">
-    <h2 id="work-heading" class="gr-title">What you'd work on</h2>
+    <h2 id="work-heading" class="gr-title">What the group works on</h2>
     <div class="prose gr-prose">
       <p>
         The Jaxstro ecosystem is deliberately modular. Because each package owns
@@ -151,25 +225,35 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
 
   <section class="wrap gr-section" aria-labelledby="email-heading">
     <h2 id="email-heading" class="gr-title">Before you email me</h2>
+    {/* The three asks are about the PAST, not about proposed research.
+        They used to ask which question you'd work on and one thing you'd want
+        to try — both speculative, and a speculative prompt is exactly what a
+        language model answers fluently, so the ask selected for whoever was
+        willing to paste something in. What someone has already done is
+        concrete, personal, and cannot be generated for them, and it filters
+        just as hard without inviting anyone to invent a proposal. */}
     <div class="prose gr-prose">
       <p>
         Have a look around first, then tell me three things. Two or three sentences
-        each is plenty — I'm not looking for a polished proposal, I'm looking for
-        evidence that something specific here caught your interest.
+        each is plenty. I am not looking for a research proposal — you are not
+        expected to have one yet — just for a sense of who you are and what caught
+        your attention.
       </p>
     </div>
     <ol class="gr-ask" role="list">
       <li>
-        <strong>Which package or question</strong> you'd like to work on, and what
-        drew you to it.
+        <strong>What you're curious about</strong> — a topic, a class that clicked,
+        something you read here or elsewhere. It does not have to be a research
+        question.
       </li>
       <li>
         <strong>Where you are</strong>: your year, your major, and which of my
         courses you've taken, if any.
       </li>
       <li>
-        <strong>One thing you'd want to try</strong> — a plot you'd make, a test
-        you'd run, a number you'd check. It doesn't have to be right.
+        <strong>Something you've built or debugged</strong> — a class project, a
+        script, anything you had to make actually work. It does not have to be
+        astronomy, and it does not have to have gone well.
       </li>
     </ol>
     <p class="gr-tag-note">
@@ -177,73 +261,6 @@ const mailto = `mailto:${siteConfig.email}?subject=${encodeURIComponent("SDSU-AS
     </p>
     <p class="gr-cta">
       <a class="gr-btn" href={mailto}>Email me →</a>
-    </p>
-  </section>
-
-  <section class="wrap gr-section" aria-labelledby="people-heading">
-    <h2 id="people-heading" class="gr-title">The group</h2>
-    {
-      filled(roster).map((s) => (
-        <>
-          <h3 class="gr-sub">{s.title}</h3>
-          <ul class="gr-people" role="list">
-            {s.people.map((p) => (
-              <li class="gr-person">
-                <span class="gr-person__name">{p.name}</span>
-                <span class="gr-person__meta">{p.affiliation} · {p.date}</span>
-                {p.project && (
-                  <span class="gr-person__project">
-                    {paperFor(p)?.href ? (
-                      <a href={paperFor(p)!.href!} rel="noopener">{p.project}</a>
-                    ) : (
-                      p.project
-                    )}
-                    {paperFor(p)?.cite && (
-                      <span class="gr-person__cite">{paperFor(p)!.cite}</span>
-                    )}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
-      ))
-    }
-
-    <h3 class="gr-sub">Alumni</h3>
-    {
-      filled(alumni).map((s) => (
-        <>
-          <p class="gr-alumni-label">{s.title}</p>
-          <ul class="gr-people" role="list">
-            {s.people.map((p) => (
-              <li class="gr-person">
-                <span class="gr-person__name">{p.name}</span>
-                <span class="gr-person__meta">{p.affiliation} · {p.date}</span>
-                {p.project && (
-                  <span class="gr-person__project">
-                    {paperFor(p)?.href ? (
-                      <a href={paperFor(p)!.href!} rel="noopener">{p.project}</a>
-                    ) : (
-                      p.project
-                    )}
-                    {paperFor(p)?.cite && (
-                      <span class="gr-person__cite">{paperFor(p)!.cite}</span>
-                    )}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
-      ))
-    }
-
-    <p class="gr-fullrecord">
-      This is the SDSU group. For everyone I've advised — including students at
-      other institutions and before SDSU — see <a href="/cv#advising-and-mentoring"
-        >the full advising record</a
-      >.
     </p>
   </section>
 
