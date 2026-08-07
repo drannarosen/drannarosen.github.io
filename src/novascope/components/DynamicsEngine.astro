@@ -217,6 +217,24 @@ const m = (tex: string) => tex;
             <Math tex={m("r_h")} />, so the two sliders are independent.
           </span>
         </label>
+        <label class="xpl-dyn__ctrl xpl-dyn__ctrl--noted">
+          <span class="xpl-dyn__ctrl-val"
+            ><Math tex={m("\\alpha")} /> = <output data-alpha-val>2.3</output></span
+          >
+          <input type="range" data-alpha min="1.5" max="3" step="0.1" value="2.3" />
+          <button type="button" class="xpl-dyn__info" data-info="alpha" aria-expanded="false"
+            aria-label="About the high-mass slope">?</button>
+          <span class="xpl-dyn__popover" data-popover="alpha" role="tooltip" hidden>
+            <b>High-mass slope.</b> The power law the mass function follows above about a solar
+            mass, <Math tex={m("\\xi(m) \\propto m^{-\\alpha}")} />. Salpeter is 2.35; the
+            default here is 2.3.
+            <br /><br />
+            It is a <em>dynamics</em> knob, not just a population one. Alpha sets how much of the
+            cluster's mass sits in its few heaviest stars, and segregation is driven by exactly
+            that contrast — flatten it and the heavy tail that does the sinking gets heavier.
+            Steepen it and the cluster becomes a crowd of low-mass stars with little to segregate.
+          </span>
+        </label>
         <label class="xpl-dyn__ctrl">
           <span class="xpl-dyn__ctrl-val"
             >speed <output data-speed-val>1.0</output><Math tex={m("\\times")} /></span
@@ -375,6 +393,8 @@ const m = (tex: string) => tex;
     const speedInput = $<HTMLInputElement>("[data-speed]");
     const rhInput = $<HTMLInputElement>("[data-rh]");
     const rhVal = $<HTMLOutputElement>("[data-rh-val]");
+    const alphaInput = $<HTMLInputElement>("[data-alpha]");
+    const alphaVal = $<HTMLOutputElement>("[data-alpha-val]");
     const gammaInput = $<HTMLInputElement>("[data-gamma]");
     const gammaVal = $<HTMLOutputElement>("[data-gamma-val]");
     const speedVal = $<HTMLOutputElement>("[data-speed-val]");
@@ -455,6 +475,7 @@ const m = (tex: string) => tex;
         seed,
         gamma: Number(gammaInput.value),
         rHalfPc: Number(rhInput.value),
+        alphaHigh: Number(alphaInput.value),
       });
       /*
        * The scenario's OWN default scheme, not a faster one chosen here.
@@ -1281,6 +1302,10 @@ const m = (tex: string) => tex;
     /* `input` updates the readout continuously; `change` rebuilds ONCE on release.
        Rebuilding per input event would re-sample and re-integrate a fresh cluster
        for every pixel of slider travel. */
+    alphaInput.addEventListener("input", () => {
+      alphaVal.value = Number(alphaInput.value).toFixed(1);
+    });
+    alphaInput.addEventListener("change", rebuild);
     rhInput.addEventListener("input", () => {
       rhVal.value = Number(rhInput.value).toFixed(2);
     });
@@ -1526,6 +1551,12 @@ const m = (tex: string) => tex;
      of the panel, where a downward popover would fall off the figure. */
   .xpl-dyn__ctrl--noted {
     position: relative;
+  }
+  /* The note button rides on the label line rather than taking a grid row. */
+  .xpl-dyn__ctrl--noted .xpl-dyn__info {
+    position: absolute;
+    inset-block-start: -2px;
+    inset-inline-end: 0;
   }
   /*
    * FIXED, and positioned by JS — see `placePopover`.
@@ -1777,23 +1808,30 @@ const m = (tex: string) => tex;
      the ~90 px of slider travel they had inside the cluster column. */
   .xpl-dyn__controls {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: var(--space-2xs) var(--space-m);
     padding-inline: var(--space-s);
   }
   @media (max-width: 52rem) {
     .xpl-dyn__controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
+  /*
+   * Label ABOVE the slider, not beside it.
+   *
+   * Inline, five controls across the console left 73 px of travel each — and r_h
+   * steps 0.05 across 0.3-5 pc, so that is 94 steps in 73 px, under a pixel
+   * apiece. Stacking gives the full ~205 px of cell width to the track and costs
+   * about 16 px of figure height, which is the right way round: the row is still
+   * one row, each cell is just two lines.
+   */
   .xpl-dyn__ctrl {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
+    display: grid;
+    gap: 1px;
     min-inline-size: 0;
     font-size: var(--step--2);
     color: var(--ink-soft);
   }
   .xpl-dyn__ctrl-val {
-    flex: none;
     font-family: var(--font-mono);
     color: var(--ink);
     white-space: nowrap;
@@ -1802,9 +1840,9 @@ const m = (tex: string) => tex;
     color: var(--spec-teal-bright);
   }
   .xpl-dyn__ctrl input[type="range"] {
-    flex: 1 1 auto;
+    inline-size: 100%;
     min-inline-size: 0;
-    block-size: 1rem;
+    block-size: 0.9rem;
     accent-color: var(--spec-rose-bright);
   }
   @media (max-width: 30rem) {

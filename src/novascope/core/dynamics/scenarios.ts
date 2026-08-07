@@ -49,6 +49,11 @@ export const GAMMA_MAX = 6;
 /* Half-mass radius range, matching /explore/census's own control. */
 export const RHALF_MIN_PC = 0.3;
 export const RHALF_MAX_PC = 5;
+
+/* High-mass IMF slope range, again matching census so one number means one thing
+   across the two pages. 2.3 is the default; Salpeter is 2.35. */
+export const ALPHA_MIN = 1.5;
+export const ALPHA_MAX = 3;
 import type { Scheme } from "./choose.ts";
 
 export type ScenarioId = "two-body" | "cluster" | "binary-in-cluster";
@@ -89,6 +94,15 @@ export interface ScenarioParams {
   n?: number;
   /** Cluster: softening as a fraction of r_h N^(-1/3). */
   softeningFraction?: number;
+  /**
+   * Cluster: the IMF's high-mass slope alpha (Salpeter is 2.35).
+   *
+   * A DYNAMICS knob as much as a population one, which is why it belongs here
+   * rather than only on /explore/census: alpha sets how much of the cluster's mass
+   * sits in its few heaviest stars, and mass segregation is driven by exactly that
+   * contrast. Flatten it and the heavy tail that does the sinking gets heavier.
+   */
+  alphaHigh?: number;
   /**
    * Cluster: HALF-MASS radius [pc].
    *
@@ -230,6 +244,7 @@ function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
     defaultIdentity({
       seed: p.seed ?? 2026,
       sampling: { mode: "count", target: n },
+      imf: { alphaHigh: clamp(p.alphaHigh ?? 2.3, ALPHA_MIN, ALPHA_MAX) },
       profile: { kind: "eff", scaleRadius: scalePc, gamma },
       kinematics: { virialRatio: 0.5 },
     }),
