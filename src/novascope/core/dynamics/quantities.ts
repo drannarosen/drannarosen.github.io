@@ -79,11 +79,33 @@ export function totalMass(state: State): number {
 
 /** Distance of each particle from the origin [pc], written into `out` (length n). */
 export function radii(state: State, out: Float64Array): void {
+  radiiAbout(state, [0, 0, 0], out);
+}
+
+/**
+ * Distance of each particle from an arbitrary CENTRE [pc], into `out` (length n).
+ *
+ * The origin is not the cluster. Total momentum is conserved, so the whole
+ * system's centre of mass stays put — but a dissolving cluster ejects stars
+ * anisotropically and the BOUND remnant recoils against them. Measured on the
+ * `/explore/dynamics` configuration, the bound subset's centre of mass walks to
+ * 12.3 pc by 800 crossing times while a half-mass radius quoted about the origin
+ * reads 11.6 pc: at that point the "radius" is almost entirely displacement, and
+ * the quantity has stopped describing the cluster's size at all.
+ */
+export function radiiAbout(
+  state: State,
+  centre: readonly [number, number, number] | Float64Array,
+  out: Float64Array,
+): void {
   const { n, pos } = state;
+  const cx = centre[0] ?? 0;
+  const cy = centre[1] ?? 0;
+  const cz = centre[2] ?? 0;
   for (let i = 0; i < n; i++) {
-    const x = pos[i * 3];
-    const y = pos[i * 3 + 1];
-    const z = pos[i * 3 + 2];
+    const x = pos[i * 3] - cx;
+    const y = pos[i * 3 + 1] - cy;
+    const z = pos[i * 3 + 2] - cz;
     out[i] = Math.sqrt(x * x + y * y + z * z);
   }
 }
@@ -97,14 +119,26 @@ export function rmsSpeed(state: State): number {
   return Math.sqrt(s / n);
 }
 
-/** Mass-weighted centre of position [pc] and centre-of-mass velocity [pc/Myr]. */
-export function centreOfMass(state: State): { position: Vec3Array; velocity: Vec3Array } {
+/**
+ * Mass-weighted centre of position [pc] and centre-of-mass velocity [pc/Myr].
+ *
+ * `include` restricts it to a subset — the bound stars, typically. The whole
+ * system's centre is conserved and therefore uninformative once stars start
+ * escaping; the bound remnant's centre is the one a radius should be measured
+ * about. See `radiiAbout`.
+ */
+export function centreOfMass(
+  state: State,
+  include?: (i: number) => boolean,
+): { position: Vec3Array; velocity: Vec3Array } {
   const { n, mass, pos, vel } = state;
   const position = new Float64Array(3);
   const velocity = new Float64Array(3);
-  const mTot = totalMass(state);
+  let mTot = 0;
+  for (let i = 0; i < n; i++) if (!include || include(i)) mTot += mass[i]!;
   if (!(mTot > 0)) return { position, velocity };
   for (let i = 0; i < n; i++) {
+    if (include && !include(i)) continue;
     for (let k = 0; k < 3; k++) {
       position[k] += mass[i] * pos[i * 3 + k];
       velocity[k] += mass[i] * vel[i * 3 + k];

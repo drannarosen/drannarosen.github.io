@@ -12,7 +12,7 @@
  * invisible — a plausible energy that drifts.
  */
 import type { ForceModel, State } from "./types.ts";
-import { kineticEnergy, radii, rmsSpeed, totalMass } from "./quantities.ts";
+import { kineticEnergy, radii, radiiAbout, rmsSpeed, totalMass } from "./quantities.ts";
 import { G_PC3_MSUN_MYR2 } from "../constants/index.ts";
 
 export interface Diagnostics {
@@ -70,11 +70,22 @@ export function lagrangianRadii(
   state: State,
   fractions: readonly number[],
   include?: (i: number) => boolean,
+  /**
+   * Measure about this point instead of the origin. OPTIONAL, so every existing
+   * caller keeps its behaviour exactly.
+   *
+   * Pass the bound subset's centre of mass for any run that lasts long enough to
+   * eject stars: the system's centre is conserved, but the bound remnant recoils
+   * against its escapers, and a radius about the origin then measures that
+   * displacement rather than the cluster. See `radiiAbout`.
+   */
+  centre?: readonly [number, number, number] | Float64Array,
 ): number[] {
   const idx: number[] = [];
   for (let i = 0; i < state.n; i++) if (!include || include(i)) idx.push(i);
   const r = new Float64Array(state.n);
-  radii(state, r);
+  if (centre) radiiAbout(state, centre, r);
+  else radii(state, r);
   idx.sort((a, b) => r[a] - r[b]);
 
   /* Cumulative mass AT each particle, so the interpolation has both endpoints of every

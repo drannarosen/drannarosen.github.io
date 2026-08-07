@@ -89,6 +89,7 @@ export {
 export {
   angularMomentum,
   centreOfMass,
+  radiiAbout,
   kineticEnergy,
   momentum,
   radii,

@@ -81,7 +81,11 @@ const m = (tex: string) => tex;
         <div><dt><Math tex={m("t/t_\\mathrm{cr}")} /></dt><dd data-v="tcr">0.0</dd></div>
         <div><dt><Math tex={m("r_h")} /> hi</dt><dd><span data-v="rhi">—</span></dd></div>
         <div><dt><Math tex={m("r_h")} /> lo</dt><dd><span data-v="rlo">—</span></dd></div>
-        <div><dt>bound</dt><dd><span data-v="bound">—</span>%</dd></div>
+        {/* TWO cells, not one labelled "bound". They disagree and the gap is the
+            story: mass-bound is dominated by a few heavy stars that stay put,
+            so it reads high while half the STARS have already left. */}
+        <div><dt>bound <Math tex={m("M")} /></dt><dd><span data-v="boundm">—</span>%</dd></div>
+        <div><dt>bound <Math tex={m("N")} /></dt><dd><span data-v="boundn">—</span>%</dd></div>
       </dl>
       <small class="xpl-dyn__hint" data-hint>paused — press run to let them drift apart</small>
       {/*
@@ -197,6 +201,7 @@ const m = (tex: string) => tex;
     createConservationMonitor,
     measure,
     lagrangianRadii,
+    centreOfMass,
   } from "@novascope/core/dynamics";
   /*
    * The renderer is named directly, never through the `viz` barrel — the barrel
@@ -344,9 +349,42 @@ const m = (tex: string) => tex;
       if (!run) return;
       const st = run.built.state;
       const s = run.monitor.sample();
-      const d = measure(st, run.built.force, tSim);
-      const hi = lagrangianRadii(st, [0.5], (i) => run!.heavy.has(i))[0];
-      const lo = lagrangianRadii(st, [0.5], (i) => run!.light.has(i))[0];
+      /*
+       * BOUNDNESS IS A GRAVITY QUANTITY, so it is only measured when gravity is
+       * acting. `measure` computes each star's energy against the force model's
+       * potential; during free streaming that potential is not being integrated,
+       * so a "bound fraction" there is a counterfactual — it answers "what would
+       * be bound IF gravity were on", presented as a live property. (It also
+       * costs two O(N^2) passes per frame in the one mode that needs none.)
+       */
+      const d = gravity ? measure(st, run.built.force, tSim) : null;
+      /*
+       * RADII ABOUT THE BOUND CLUSTER, AND OVER BOUND STARS ONLY.
+       *
+       * Both halves were wrong and both mattered by ~100 crossing times:
+       *
+       *  - About the ORIGIN, `lagrangianRadii` measured displacement as much as
+       *    size. Momentum is conserved so the whole system's centre stays put, but
+       *    the bound remnant recoils against its escapers: measured, |COM_bound|
+       *    reaches 12.3 pc by 800 t_cross while r_h(heavy) read 11.6 pc.
+       *
+       *  - Over ALL members of a subset, the light curve became an escaper
+       *    diagnostic. Measured at t/t_cr = 1064: r_h(light) = 92.7 pc unfiltered
+       *    against 21.8 pc over bound light stars. Its late rise was half the
+       *    light subset's mass sitting beyond 90 pc — stars that had left, not a
+       *    cluster that had grown. `diagnostics.ts` documents this exact filtered
+       *    call as the intended use.
+       *
+       * With gravity off there is no bound set and no cluster to centre on, so
+       * both fall back to every star about the origin — which is the honest
+       * description of a cloud that is simply dispersing.
+       */
+      const boundOnly = d ? (i: number) => d.bound[i] === 1 : null;
+      const centre = d ? centreOfMass(st, boundOnly!).position : undefined;
+      const inSet = (set: Set<number>) => (i: number) =>
+        set.has(i) && (!boundOnly || boundOnly(i));
+      const hi = lagrangianRadii(st, [0.5], inSet(run.heavy), centre)[0];
+      const lo = lagrangianRadii(st, [0.5], inSet(run.light), centre)[0];
       /* Baseline on the FIRST sample so both curves start at exactly 1.
          Absolute r_h of the heaviest 10% is a ~40-star estimate and lands well
          off the light-star value at t=0 by sampling noise alone — measured 0.48
@@ -407,7 +445,16 @@ const m = (tex: string) => tex;
       setStat("tcr", gravity ? s.tCross.toFixed(1) : "—");
       setStat("rhi", hi.toFixed(2));
       setStat("rlo", lo.toFixed(2));
-      setStat("bound", (d.boundMassFraction * 100).toFixed(0));
+      /*
+       * BOTH FRACTIONS, because they disagree and the difference is the story.
+       * `boundMassFraction` is the quantity the literature quotes and it is
+       * dominated by a handful of heavy stars that stay put — measured 65% by mass
+       * against 52.5% by NUMBER at the same instant, because the heaviest 40 carry
+       * 61.7% of the cluster's mass. Labelled bare, the mass figure reads as "most
+       * of the cluster is still there" while half the stars have gone.
+       */
+      setStat("boundm", d ? (d.boundMassFraction * 100).toFixed(0) : "—");
+      setStat("boundn", d ? (d.boundFraction * 100).toFixed(0) : "—");
       clockEl.textContent = `t = ${tSim.toFixed(1)} Myr`;
       driftEl.textContent = gravity ? s.energyDrift.toExponential(1) : "no integrator running";
       /* `healthy` latches false once drift has ever breached tolerance, so this
@@ -1377,7 +1424,7 @@ const m = (tex: string) => tex;
    */
   .xpl-dyn__stats {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: var(--space-2xs);
     margin: 0;
     padding: var(--space-2xs) var(--space-s) 0;
