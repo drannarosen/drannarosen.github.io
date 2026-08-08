@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
+import Math from "../../components/Math.astro";
 import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
 
 /*
@@ -47,6 +48,23 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
         going. The same stars, the same velocities, one term added — and now they hold.
       </p>
       <p>
+        That one term is the entire model. Every star is pulled by every other star, so the
+        acceleration of star <Math tex="i" /> is just the sum of those pulls:
+      </p>
+      <Math
+        tex="\ddot{\mathbf{r}}_i = -G \sum_{j \neq i} m_j \, \frac{\mathbf{r}_i - \mathbf{r}_j}{\left(\left|\mathbf{r}_i - \mathbf{r}_j\right|^2 + \varepsilon^2\right)^{3/2}}"
+        display
+      />
+      <p>
+        <strong>That is the only equation being solved.</strong> Nothing in it says heavy stars
+        should sink. Nothing in it builds a binary, or decides when a cluster comes apart, or
+        knows what a cluster is. Everything below is this one sum, evaluated for every pair of
+        stars, over and over — so when the heaviest stars end up in the middle, <em>this</em> is
+        what put them there, and that is what makes it a result rather than a setting. The single
+        liberty taken is <Math tex="\varepsilon" />, the softening: it keeps the pull finite when
+        two stars pass very close, and the note under the figure says how large it is.
+      </p>
+      <p>
         With gravity on, the two curves in the right-hand panel start together at 1 and then
         part — the heaviest stars contracting <em>below</em> where they began while the
         lightest climb away. That is a measurement rather than an impression: the same stars
@@ -73,10 +91,11 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
       <p>
         <strong>The cluster builds a binary, and then the binary breaks the arithmetic.</strong>
         Segregation sinks the heaviest stars to the centre, where two of them capture each other
-        — and a hard binary <em>hardens</em>, giving up energy to every star that passes it. On
-        the draw I measured, the pair's orbit tightened from about 20,000 integrator steps per
-        orbit to under 100 while its binding energy went from 3 to roughly 400 times a typical
-        star's kinetic energy. Once an orbit takes only tens of steps, a fixed step cannot follow
+        — and a hard binary <em>hardens</em>, giving up energy to every star that passes it. Watch
+        the readout while it happens: the pair's orbit tightens until a single orbit takes a few
+        dozen integrator steps instead of thousands, while its binding energy climbs from a few
+        times a typical star's kinetic energy to hundreds of times it. Once an orbit takes only
+        tens of steps, a fixed step cannot follow
         it through closest approach, and the error jumps. It then sits flat until the next jump —
         which is exactly what a symplectic scheme should do: the error arrives in discrete events
         and does not creep between them.
@@ -84,15 +103,26 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
       <p>
         So the strip is measuring two things at once, and it is worth keeping them apart. The
         <em>steps</em> are real cluster physics — binaries form and harden, and that is a result,
-        not a bug. The <em>height</em> of them is a statement about this browser's arithmetic. On
-        about a third of draws the trace eventually crosses the limit — late, typically past ten
-        crossing times, long after the segregation above has happened. <strong>When it does, the
-        run ends.</strong> It would be easy to keep integrating and let the picture go on looking
-        convincing, and that is exactly the problem: past that line the arithmetic is no longer
-        solving these equations well enough for the picture to mean anything, so the panel stops
-        and says why rather than showing you a cluster it is no longer computing.
+        not a bug. The <em>height</em> of them is a statement about this browser's arithmetic.
+        Let it run and some clusters climb to the limit; others never do. <strong>When one does,
+        the run ends.</strong> It would be easy to keep integrating and let the picture go on
+        looking convincing, and that is exactly the problem: past that line the arithmetic is no
+        longer solving these equations well enough for the picture to mean anything, so the panel
+        stops and says why rather than showing you a cluster it is no longer computing.
         With gravity off the strip stays empty, because there is no integrator running to make a
         claim about.
+      </p>
+      <p>
+        <strong>Run the same cluster twice and you may not get the same ending.</strong> That is
+        not a flaw in the model; it is the thing the model is about. The error is not spread
+        evenly over the run — it is delivered in single close passages between stars, and a close
+        passage magnifies whatever difference it is handed. So a discrepancy far below anything
+        visible on screen is enough, a few encounters later, to decide whether one passage lands
+        just inside the limit or just outside it. The same draw can stop in one browser and run on
+        in another for exactly that reason. A cluster core is chaotic in the strict sense: the
+        individual trajectory is not something you can pin down and keep — only the statistics
+        are, which is why a real study runs a cluster many times and quotes a distribution
+        instead of a number.
       </p>
       <p>
         Drop <strong>N</strong> and the curves get noisier: with few stars, segregation is a
