@@ -75,11 +75,13 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
       </p>
       <p>
         A gap between those curves is not by itself the evidence, and it is worth seeing why.
-        Run it with gravity <strong>off</strong> and the two still separate — by about 20%
-        within eight crossing times, and then they hold there, because the heavy and light
-        groups simply start at different radii and with different speeds. What gravity does is
-        different in kind rather than in size: the heavy curve drops <em>below</em> 1 while the
-        light one climbs away. That crossing is the segregation; the offset is not.
+        Run it with gravity <strong>off</strong> and the two separate anyway, because the heavy
+        and light groups simply start at different radii and with different speeds. How far
+        they separate is an accident of the draw rather than a result: measured across eight
+        consecutive draws, the gap after eight crossing times ran from −22% to +40%, and in
+        three of the eight it was the <em>heavy</em> group that spread faster. What gravity does
+        is different in kind rather than in size: the heavy curve drops <em>below</em> 1 while
+        the light one climbs away. That crossing is the segregation; the offset is not.
       </p>
       <p>
         Watch the energy strip along the bottom while gravity is on. It plots the fractional
@@ -140,9 +142,11 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
       <p class="dyn-page__limits">
         The stars <em>move</em> but they do not <em>age</em>: masses, temperatures and
         luminosities are ZAMS values held fixed for the whole run. That is a limit on the
-        dynamics and not only on the picture. The most massive star in a typical draw here is
-        about 39 M<sub>☉</sub>, which would leave the main sequence within roughly 5 Myr and
-        return most of its mass — but this run keeps integrating it at its birth mass. Past a few
+        dynamics and not only on the picture. The most massive star is a different star in every
+        draw — measured across eight consecutive draws it ran from 16 to 47 M<sub>☉</sub> — and
+        even the lightest of those would leave the main sequence within about 12 Myr, the
+        heaviest within about 4, returning most of its mass. This run keeps integrating them at
+        their birth masses throughout. Past a few
         tens of Myr the cluster you are watching is a cluster of stars that would no longer exist,
         and the energy strip cannot tell you that: a conserved energy says the integrator solved
         the equations it was given, not that those equations still describe a star cluster.
