@@ -157,6 +157,16 @@ const m = (tex: string) => tex;
         </div>
       </div>
       <small class="xpl-dyn__hint" data-hint>paused — press run</small>
+      {/*
+        SHOWN ONLY WHEN THE SOFTENING IS NOT THE PAGE'S OWN.
+
+        `?eps=` is a diagnostic knob, and a diagnostic knob that changes the physics silently
+        would leave the paragraph below the figure — which states ε = 0.1 r_h N^(−1/3), about
+        0.009 pc at N = 400 — asserting a softening the run is not using. That is exactly the
+        class of quiet untruth the rest of this component is built against, so the override
+        announces itself and states the value actually in force.
+      */}
+      <small class="xpl-dyn__hint xpl-dyn__hint--eps" data-epsnote hidden></small>
     </figure>
 
     {/*
@@ -949,6 +959,20 @@ const m = (tex: string) => tex;
      * needs a finer step. At 0.1 the step has to reach t_cross/2048 to stay
      * honest — /1024 drifts 1.24e-3 and would breach the limit below.
      */
+    /*
+     * THE PAGE'S OWN VALUE, and the default of the `?eps=` knob below.
+     *
+     * That knob exists because this number is exactly the kind of claim that should be
+     * checkable by running it rather than by believing a note. eps and dt are coupled, so
+     * lowering it does not simply "resolve encounters better" — the run needs a finer step to
+     * stay honest, and the page's own trust limit is what says whether it got one. Turning the
+     * knob down and watching what the limit does is a measurement; a sentence predicting it is
+     * not.
+     *
+     * It is URL-only rather than a slider on purpose: it changes what the page's prose says
+     * about itself, so it announces the override (see `data-epsnote`) instead of quietly
+     * contradicting the paragraph under the figure.
+     */
     const SOFTENING_FRACTION = 0.1;
     /*
      * TIGHTER THAN THE MONITOR'S 1e-3 DEFAULT, which was calibrated for
@@ -999,6 +1023,8 @@ const m = (tex: string) => tex;
        cluster from t=0" and "new draw" means "a different cluster" — two
        distinct things that were previously the same button twice. */
     let seed = 2026;
+    /* The softening actually in force. Set from the URL on load; never from a control. */
+    let softeningFraction = SOFTENING_FRACTION;
 
     /*
      * THE URL SCHEMA. Ranges mirror the controls' own `min`/`max` so a hand-edited or stale
@@ -1020,6 +1046,15 @@ const m = (tex: string) => tex;
       scheme: enumField(["fsi4", "logh", "hermite"] as const, "fsi4"),
       tab: enumField(["radii", "bound", "mf", "lagr", "binary"] as const, "radii"),
       gravity: boolField(false),
+      /*
+       * SOFTENING FRACTION — a diagnostic, deliberately reachable only by URL.
+       *
+       * Down to 0.001, a hundredth of the page's own value, because the interesting question is
+       * what happens BELOW the shipped setting and a range that stopped at it could not ask.
+       * Clamped like every other field, so a hand-typed 0 opens at 0.001 rather than dividing
+       * by zero in the force model.
+       */
+      eps: numberField(0.001, 1, 0.1, 4),
     };
 
     /* `replaceState`, never `pushState`: dragging a slider must not fill the back button with
@@ -1035,6 +1070,7 @@ const m = (tex: string) => tex;
         scheme,
         tab: plotTab,
         gravity,
+        eps: softeningFraction,
       });
       history.replaceState(null, "", query ? `?${query}` : location.pathname);
     };
@@ -1047,7 +1083,7 @@ const m = (tex: string) => tex;
         gamma: Number(gammaInput.value),
         rHalfPc: Number(rhInput.value),
         alphaHigh: Number(alphaInput.value),
-        softeningFraction: SOFTENING_FRACTION,
+        softeningFraction,
       });
       /*
        * The scenario's OWN default scheme, not a faster one chosen here.
@@ -2643,6 +2679,19 @@ const m = (tex: string) => tex;
          number and cannot drift apart. It is a property of the draw, so it is set
          on rebuild rather than sampled every frame. */
       setStat("tc0", run.built.timeUnit.toFixed(3));
+      /*
+       * Read off the BUILD, so the badge states the softening the force model is actually
+       * using rather than the fraction that was asked for.
+       */
+      const epsNote = root.querySelector<HTMLElement>("[data-epsnote]");
+      if (epsNote) {
+        const off = softeningFraction !== SOFTENING_FRACTION;
+        epsNote.hidden = !off;
+        epsNote.textContent = off
+          ? `ε = ${softeningFraction} r_h N^(−1/3) = ${run.built.softeningPc.toExponential(2)} pc — ` +
+            `NOT this page's ${SOFTENING_FRACTION}; the note below the figure describes the default`
+          : "";
+      }
       /* Frozen here and nowhere else: "born" means the draw this run started from, so it is
          captured once per rebuild and never recomputed while the run proceeds. */
       bornIMF = run.built.identity ? toIMFHistogram(latentStars(), run.built.identity) : null;
@@ -2973,6 +3022,7 @@ const m = (tex: string) => tex;
       speedInput.value = String(st.speed);
       speedVal.value = st.speed.toFixed(2);
       scheme = st.scheme;
+      softeningFraction = st.eps;
       for (const o of root.querySelectorAll<HTMLButtonElement>("[data-scheme]")) {
         const on = o.dataset.scheme === scheme;
         o.classList.toggle("is-active", on);
@@ -3641,6 +3691,13 @@ const m = (tex: string) => tex;
     font-size: var(--step--1);
     color: var(--ink-faint);
     line-height: 1.5;
+  }
+  /* The softening override. Amber rather than faint, because its whole job is to stop the
+     paragraph under the figure being read as true of THIS run — a note nobody notices would
+     not do that. No font-size of its own: it inherits the hint's --step--1. */
+  .xpl-dyn__hint--eps {
+    color: var(--spec-amber, #fbbf24);
+    padding-block-end: var(--space-2xs);
   }
   /* The plot's hint is still an explanation of what two curves mean, so it keeps
      its measure and its reading colour; only the field's is a status phrase. */
