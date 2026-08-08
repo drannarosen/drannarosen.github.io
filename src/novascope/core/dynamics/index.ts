@@ -70,6 +70,10 @@ export { createTTL } from "./ttl.ts";
    /explore/dynamics's binary banner — see the measurements in the module header. */
 export type { HardestPair, PairResolution } from "./binaries.ts";
 export { hardestBoundPair, pairResolution } from "./binaries.ts";
+/* Is that pair a BINARY, is it still the same one, and has it just swapped a companion —
+   the state machine `/explore/dynamics` keys its banner, its tab and its halt on. */
+export type { PairWatch, PairWatchOptions, PairWatchResult, WatchedPair } from "./pairWatch.ts";
+export { createPairWatch } from "./pairWatch.ts";
 
 export type { SymmetricHermite, SymmetricHermiteOptions } from "./symmetric.ts";
 export {
