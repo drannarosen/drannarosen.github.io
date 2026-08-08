@@ -730,18 +730,60 @@ const m = (tex: string) => tex;
      */
     const fieldPanel = $<HTMLElement>(".xpl-dyn__panel--field");
     const expandBtn = $<HTMLButtonElement>("[data-expand]");
+    const isExpanded = () =>
+      document.fullscreenElement === fieldPanel || fieldPanel.classList.contains("is-expanded");
     const syncExpand = () => {
-      const on = document.fullscreenElement === fieldPanel;
+      const on = isExpanded();
       expandBtn.textContent = on ? "⛶ close" : "⛶ expand";
       expandBtn.setAttribute("aria-pressed", String(on));
     };
+    /*
+     * NATIVE FULL SCREEN IF ALLOWED, A FIXED OVERLAY IF NOT.
+     *
+     * `requestFullscreen` is refused in more places than it is granted: an embedded frame
+     * without the permission, an iframe missing `allowfullscreen`, a browser preview pane. And
+     * it refuses in TWO different shapes — some engines reject the promise, others THROW
+     * SYNCHRONOUSLY, which is what this one does ("TypeError: Permissions check failed"). A
+     * lone `.catch()` handles the first and misses the second, which is exactly how the first
+     * version of this button did nothing at all: the throw escaped before the catch attached.
+     *
+     * So the call is wrapped, and the fallback is not an error message but the feature: a
+     * fixed, inset-0 overlay that no permission can refuse. The reader gets a full-window
+     * cluster either way, and only the browser chrome differs.
+     */
+    const expandFallback = (on: boolean) => {
+      fieldPanel.classList.toggle("is-expanded", on);
+      /* The renderer sizes itself from `resize`, which a class change does not fire. */
+      window.dispatchEvent(new Event("resize"));
+      syncExpand();
+    };
     expandBtn.addEventListener("click", () => {
-      if (document.fullscreenElement === fieldPanel) void document.exitFullscreen().catch(() => {});
-      else void fieldPanel.requestFullscreen?.().catch(() => {});
+      if (isExpanded()) {
+        if (document.fullscreenElement === fieldPanel) {
+          try {
+            void document.exitFullscreen()?.catch(() => {});
+          } catch {
+            /* already gone */
+          }
+        }
+        expandFallback(false);
+        return;
+      }
+      try {
+        const p = fieldPanel.requestFullscreen?.();
+        if (p) void p.catch(() => expandFallback(true));
+        else expandFallback(true);
+      } catch {
+        expandFallback(true);
+      }
     });
     /* Fires for Escape and for the browser's own controls too, so the label cannot get stuck
        reading "close" on a panel that has already left full screen. */
     document.addEventListener("fullscreenchange", syncExpand);
+    /* Escape leaves the fallback as well, since nothing else would. */
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && fieldPanel.classList.contains("is-expanded")) expandFallback(false);
+    });
 
     /*
      * Scoped to ROOT, not to `summary`.
@@ -2638,16 +2680,25 @@ const m = (tex: string) => tex;
    * here the height IS the available space, and a 1:1 canvas would letterbox itself on a wide
    * display and waste exactly the room this button was pressed to get.
    */
-  .xpl-dyn__panel--field:fullscreen {
+  .xpl-dyn__panel--field:fullscreen,
+  .xpl-dyn__panel--field.is-expanded {
     border: 0;
     border-radius: 0;
     background: var(--bg-void);
   }
-  .xpl-dyn__panel--field:fullscreen .xpl-dyn__stage {
+  /* The permission-free half: a fixed overlay covering the window. */
+  .xpl-dyn__panel--field.is-expanded {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+  }
+  .xpl-dyn__panel--field:fullscreen .xpl-dyn__stage,
+  .xpl-dyn__panel--field.is-expanded .xpl-dyn__stage {
     flex: 1;
     min-block-size: 0;
   }
-  .xpl-dyn__panel--field:fullscreen [data-field] {
+  .xpl-dyn__panel--field:fullscreen [data-field],
+  .xpl-dyn__panel--field.is-expanded [data-field] {
     aspect-ratio: auto;
     inline-size: 100%;
     block-size: 100%;
