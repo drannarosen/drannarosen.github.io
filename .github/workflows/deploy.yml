@@ -7,11 +7,11 @@ on:
   # Allow manual runs from the Actions tab
   workflow_dispatch:
 
-# Least-privilege permissions the Pages deployment needs
+# `contents: write` because this now PUBLISHES BY PUSHING A BRANCH rather than by
+# uploading an artifact — see the note on the publish step. The old `pages: write`
+# and `id-token: write` were for `actions/deploy-pages`, which is no longer used.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 # Allow one concurrent deployment; don't cancel an in-progress one
 concurrency:
@@ -56,18 +56,36 @@ jobs:
       - name: Build and verify
         run: pnpm build
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
+      # ── PUBLISH BY PUSHING A BRANCH, NOT BY UPLOADING AN ARTIFACT ──
+      #
+      # This used `actions/upload-pages-artifact` + `actions/deploy-pages`, and
+      # that is what put the account at 90% of its Actions storage.
+      #
+      # GitHub bills Actions storage on BYTES CREATED PER BILLING CYCLE, not on a
+      # snapshot — so short retention does not help and deleting artifacts
+      # afterwards reclaims nothing. Each deploy uploaded the whole `dist`, which
+      # is 28 MB (19 MB of it `data/gravoturb`, which never changes) and 12.6 MB
+      # compressed. Measured on 2026-08-08: 31 deploys in one cycle = 390 MB
+      # against a 0.5 GB allowance, i.e. this repo could afford about forty
+      # deploys a month.
+      #
+      # A branch deploy stores nothing in Actions. Git already deduplicates by
+      # content, so the 19 MB of unchanged binaries is transferred and stored
+      # ONCE rather than on every push.
+      #
+      # `force_orphan` is what keeps that true. Without it the branch would
+      # accumulate a commit per deploy and the repository would grow without
+      # bound — the usual and fair objection to committing build output. With it
+      # the branch is always exactly one commit, and unchanged blobs are shared
+      # with the previous one rather than re-sent.
+      #
+      # `dist/CNAME` comes from `public/CNAME` (anna-rosen.com), so the custom
+      # domain rides along in the published tree and does not need re-declaring.
+      - name: Publish to the gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: ./dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "deploy: ${{ github.sha }}"

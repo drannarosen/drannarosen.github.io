@@ -59,6 +59,17 @@ fetch from the wrong host. See `docs/domain-migration.md`.
 
 Do NOT touch DNS or reconfigure the domain.
 
+**Pages serves the `gh-pages` branch, not an Actions artifact, and PUSHES ARE
+RATIONED.** GitHub bills Actions storage on bytes *created* per billing cycle,
+so every artifact-based deploy cost 12.6 MB permanently — 31 deploys in one
+cycle took the account to 90% of its 0.5 GB allowance. Shortening retention does
+not help (it was already one day) and deleting artifacts reclaims nothing.
+
+So: **ask before every push, and no more than one a day.** Commit locally and
+batch them. The dev server is what gets reviewed, so nothing is lost by staying
+local. See `docs/deployment.md` for the branch-deploy design and the switchover
+runbook — the switchover order matters, and reversing it 404s the live domain.
+
 (This section previously described the migration as a future step and told
 agents not to perform it. It had already happened, which is the kind of stale
 instruction that costs a session — `astro.config.mjs` was right and this file
