@@ -74,6 +74,14 @@ export { hardestBoundPair, pairResolution } from "./binaries.ts";
    the state machine `/explore/dynamics` keys its banner, its tab and its halt on. */
 export type { PairWatch, PairWatchOptions, PairWatchResult, WatchedPair } from "./pairWatch.ts";
 export { createPairWatch } from "./pairWatch.ts";
+/* An adaptive step that does NOT forfeit the bounded error — Hairer-Soderlind reversible
+   step-density control around a complete FSI4 map. Ported from gravax. */
+export type {
+  PairFrequencyDensity,
+  ReversibleAdaptive,
+  ReversibleAdaptiveOptions,
+} from "./reversibleAdaptive.ts";
+export { createReversibleAdaptive, pairFrequencyDensity } from "./reversibleAdaptive.ts";
 
 export type { SymmetricHermite, SymmetricHermiteOptions } from "./symmetric.ts";
 export {
