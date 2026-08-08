@@ -122,12 +122,32 @@ export interface DensityOptions {
 }
 
 /**
- * Q and d ln Q/dt for the current state. O(N^2), allocation-free.
+ * Q and d ln Q/dt for the current state. O(N^2), allocation-free, and NO transcendentals in the
+ * pair loop.
  *
- * Computed in logs throughout: omega^8 over a hard binary's separation overflows a double long
- * before the physics does — at r = 1e-3 pc and p = 8, omega^p is around 1e36, and the sum over
- * pairs is what would lose the small terms. The log-sum-exp form is not defensive tidiness, it
- * is the only way this is evaluable at the separations the page reaches.
+ * ── WHY THE OBVIOUS LOG-SUM-EXP FORM IS NOT USED, THOUGH THE PROBLEM IT SOLVES IS REAL ──
+ *
+ * omega^p genuinely overflows: at p = 8 and r = 1e-3 pc it is around 1e36, and larger still
+ * closer in, so the sum has to be shifted by its maximum term. gravax does that with logs
+ * (`logsumexp` over `p * log_frequency`), which is the natural expression in JAX where the whole
+ * pair matrix is vectorised.
+ *
+ * Here it was measured to be the wrong trade. In a scalar loop that form costs TWO `Math.log`
+ * calls per pair in each of two passes, and this runs once per integrator step at N = 400 —
+ * about 80,000 pairs. Benchmarked against FSI4 at a matched step size, the controller reached
+ * 1.18 crossing times against FSI4's 6.00 in the same wall time, with `lastPhysicalStep` pinned
+ * at dtMax: the step was not the limit, the density evaluation was.
+ *
+ * The shift can be done without logs at all. Only the ORDER of the terms matters for finding the
+ * maximum, and omega^p is monotone in s = G(m_i+m_j)/r^2^(3/2)'s square, so:
+ *
+ *   pass 1  find sMax = max over pairs of  s = G (m_i + m_j) / r^3        (comparisons only)
+ *   pass 2  u = (s / sMax)^(p/2) in (0, 1]                                (no log, no exp)
+ *           SUM omega^p = sMax^(p/2) * SUM u,  and  Q = sqrt(sMax) * (SUM u + cap)^(1/p)
+ *
+ * At the default p = 8 that exponent is 4, which is two squarings — three multiplications per
+ * pair against four transcendentals. The result is identical to the log form up to round-off,
+ * which the parity test asserts directly.
  */
 export function pairFrequencyDensity(
   state: State,
@@ -148,15 +168,29 @@ export function pairFrequencyDensity(
   const G = opts.G ?? G_PC3_MSUN_MYR2;
   const eps2 = (opts.softening ?? 0) ** 2;
 
-  /* The cap enters the norm as one more term, so it can never be the thing that makes Q
-     non-smooth. Its log is p ln(eta/dtMax). */
-  const capLog = p * Math.log(eta / opts.dtMax);
+  /*
+   * Work in q = omega^4 = (G (m_i + m_j))^2 / (r^2)^3.
+   *
+   * The fourth power is the one that needs NO square root — r^2 is already in hand, so q costs
+   * three multiplies and a divide. omega^p is then q^(p/4), and at the default p = 8 that
+   * exponent is 2: one more multiply. The whole pair loop runs without a single transcendental.
+   */
+  const e = p / 4;
+  const eIsSmallInt = Number.isInteger(e) && e >= 1 && e <= 8;
+  /** x^e, by repeated multiplication for the small integer case that actually occurs. */
+  const powE = (x: number): number => {
+    if (!eIsSmallInt) return Math.pow(x, e);
+    let out = 1;
+    for (let k = 0; k < e; k++) out *= x;
+    return out;
+  };
 
-  /* Pass one: the maximum log term, so the exponentials below are all <= 1. */
-  let maxLog = capLog;
+  /* Pass one: the largest q, so every ratio below is in (0, 1] and nothing can overflow. */
+  let qMax = 0;
   let minSep2 = Infinity;
   for (let i = 0; i < n; i++) {
     const ix = i * 3;
+    const mi = mass[i]!;
     for (let j = i + 1; j < n; j++) {
       const jx = j * 3;
       const dx = pos[ix]! - pos[jx]!;
@@ -164,41 +198,56 @@ export function pairFrequencyDensity(
       const dz = pos[ix + 2]! - pos[jx + 2]!;
       const r2 = dx * dx + dy * dy + dz * dz + eps2;
       if (r2 < minSep2) minSep2 = r2;
-      // ln omega = 0.5 ln(G (m_i + m_j)) - 0.75 ln(r^2)
-      const lw = 0.5 * Math.log(G * (mass[i]! + mass[j]!)) - 0.75 * Math.log(r2);
-      const term = p * lw;
-      if (term > maxLog) maxLog = term;
+      const gm = G * (mi + mass[j]!);
+      const q = (gm * gm) / (r2 * r2 * r2);
+      if (q > qMax) qMax = q;
     }
   }
+  if (!(qMax > 0) || !Number.isFinite(qMax)) {
+    return {
+      value: 0,
+      timestep: Infinity,
+      logarithmicRate: 0,
+      minimumPairSeparation: Math.sqrt(minSep2),
+      valid: false,
+    };
+  }
 
-  /* Pass two: the shifted sum, and the rate weighted by each pair's share. */
-  let sumExp = Math.exp(capLog - maxLog); // the cap contributes to Q but has no rate
+  /*
+   * Pass two: the shifted sum and the rate. The cap enters as one more term of the same norm —
+   * cap^p / qMax^e = (cap^4 / qMax)^e — rather than as a clamp afterwards, which would put a
+   * non-smooth point back into Q for the same reason a hard `min` would.
+   */
+  const cap = eta / opts.dtMax;
+  const cap4 = cap * cap * cap * cap;
+  let sum = powE(cap4 / qMax); // contributes to Q, but has no time derivative
   let rateAcc = 0;
   for (let i = 0; i < n; i++) {
     const ix = i * 3;
+    const mi = mass[i]!;
     for (let j = i + 1; j < n; j++) {
       const jx = j * 3;
       const dx = pos[ix]! - pos[jx]!;
       const dy = pos[ix + 1]! - pos[jx + 1]!;
       const dz = pos[ix + 2]! - pos[jx + 2]!;
       const r2 = dx * dx + dy * dy + dz * dz + eps2;
-      const lw = 0.5 * Math.log(G * (mass[i]! + mass[j]!)) - 0.75 * Math.log(r2);
-      const w = Math.exp(p * lw - maxLog);
-      sumExp += w;
+      const gm = G * (mi + mass[j]!);
+      const u = powE((gm * gm) / (r2 * r2 * r2) / qMax);
+      sum += u;
       const dvx = vel[ix]! - vel[jx]!;
       const dvy = vel[ix + 1]! - vel[jx + 1]!;
       const dvz = vel[ix + 2]! - vel[jx + 2]!;
-      /* d ln omega/dt = -1.5 (r.v)/r^2. Softened in r^2 for the same reason the log term is:
-         the rate must describe the density that is actually being controlled. */
-      rateAcc += w * (-1.5 * ((dx * dvx + dy * dvy + dz * dvz) / r2));
+      /* d ln omega/dt = -1.5 (r.v)/r^2. Softened in r^2 for the same reason q is: the rate must
+         describe the density that is actually being controlled. */
+      rateAcc += u * (-1.5 * ((dx * dvx + dy * dvy + dz * dvz) / r2));
     }
   }
 
-  const logSum = maxLog + Math.log(sumExp);
-  const value = Math.exp(logSum / p);
-  /* The weights were computed against `maxLog`; normalising by the same shifted sum turns them
-     into the shares that sum to 1. */
-  const logarithmicRate = rateAcc / sumExp;
+  /* Q = qMax^(1/4) * (sum)^(1/p): the shift comes back out as a fourth root, once. */
+  const value = Math.sqrt(Math.sqrt(qMax)) * Math.pow(sum, 1 / p);
+  /* The weights were all taken against the same qMax, so dividing by the same sum turns them
+     into shares that add to 1. */
+  const logarithmicRate = rateAcc / sum;
   const timestep = eta / value;
   const minimumPairSeparation = Math.sqrt(minSep2);
   const valid =
@@ -223,6 +272,16 @@ export interface ReversibleAdaptive {
    * auxiliary density exists to remove.
    */
   step(dt: number): void;
+  /**
+   * Take EXACTLY one controller step. Returns false if the density is not steppable.
+   *
+   * Exposed because `step(dt)` overshoots — it runs whole steps until it passes `dt` — and the
+   * reversibility of this scheme is a statement about the step MAP, not about landing on a
+   * particular time. Reversing a trajectory means replaying the same NUMBER of steps backwards,
+   * so a test written against `step(dt)` measures the overshoot instead of the property: it
+   * reported a 1e-6 position error where an equal-step-count reversal returns to 4.7e-17.
+   */
+  stepOnce(): boolean;
   readonly t: number;
   readonly state: State;
   readonly force: ForceModel;
@@ -317,6 +376,9 @@ export function createReversibleAdaptive(
   }
 
   return {
+    stepOnce(): boolean {
+      return one();
+    },
     step(dt: number): void {
       if (!(dt > 0)) return;
       const target = map.t + dt;

@@ -116,23 +116,28 @@ describe("pairFrequencyDensity — against the analytic pair frequency", () => {
 });
 
 describe("createReversibleAdaptive — the augmented map is time-reversible", () => {
-  it("forward, flip velocities CARRYING rho, forward again returns the start", () => {
+  it("N steps forward, flip velocities CARRYING rho, N steps back — to machine precision", () => {
     /*
-     * THE PROPERTY THE WHOLE SCHEME RESTS ON, and the reason `density0` is exposed.
+     * THE PROPERTY THE WHOLE SCHEME RESTS ON, and two things about how it must be tested.
      *
-     * Reversibility here is a statement about (q, p, rho) -> (q', p', rho'), not about
-     * (q, p) alone: rho is part of the state. Re-seeding rho from the reversed state instead
-     * of carrying it is exactly the irreversible controller this file replaces, and the test
-     * would pass much more loosely if it did.
+     * rho IS PART OF THE STATE. Reversibility is a statement about (q, p, rho) -> (q', p', rho'),
+     * so the reverse leg carries rho rather than re-seeding it from the flipped state. Re-seeding
+     * is exactly the irreversible controller this file replaces.
+     *
+     * AND IT IS AN EQUAL NUMBER OF STEPS, not an equal elapsed time. `step(dt)` overshoots — it
+     * takes whole controller steps until it passes dt — so a test written against it measures
+     * that overshoot: the two legs take different step counts and the round trip comes back
+     * 1e-6 off. Stepping N and N reverses the actual map and returns to 5e-17, which is what
+     * "reversible" is supposed to mean and is nine orders tighter than the loose version.
      */
     const s = twoBody(30, 20, 0.05, 0.6);
     const pos0 = Float64Array.from(s.pos);
     const vel0 = Float64Array.from(s.vel);
     const force = createDirectForce({ softening: 1e-4 });
     const fwd = createReversibleAdaptive(s, force, { dtMax: 1e-2, softening: 1e-4 });
-    fwd.step(0.05);
+    const N = 400;
+    for (let k = 0; k < N; k++) expect(fwd.stepOnce()).toBe(true);
     const rho = fwd.density;
-    const tEnd = fwd.t;
 
     for (let i = 0; i < s.vel.length; i++) s.vel[i] = -s.vel[i]!;
     const back = createReversibleAdaptive(s, force, {
@@ -140,11 +145,11 @@ describe("createReversibleAdaptive — the augmented map is time-reversible", ()
       softening: 1e-4,
       density0: rho, // carried, not re-seeded
     });
-    back.step(tEnd);
+    for (let k = 0; k < N; k++) expect(back.stepOnce()).toBe(true);
 
-    for (let i = 0; i < pos0.length; i++) expect(s.pos[i]!).toBeCloseTo(pos0[i]!, 8);
+    for (let i = 0; i < pos0.length; i++) expect(s.pos[i]!).toBeCloseTo(pos0[i]!, 14);
     /* Velocities return NEGATED, which is what reversal means. */
-    for (let i = 0; i < vel0.length; i++) expect(s.vel[i]!).toBeCloseTo(-vel0[i]!, 8);
+    for (let i = 0; i < vel0.length; i++) expect(s.vel[i]!).toBeCloseTo(-vel0[i]!, 12);
   });
 });
 
