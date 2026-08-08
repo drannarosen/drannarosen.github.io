@@ -285,15 +285,36 @@ const m = (tex: string) => tex;
             one binary is diluted among four hundred stars. Resolving that properly needs per-pair
             regularisation, which the research codes do and a browser does not.
             <br /><br />
-            <b>Hermite</b> is also fourth order and sizes its own sub-steps, but it is
-            <em>not</em> symplectic: its energy error is <b>secular</b>, growing steadily rather
-            than returning. Measured on this cluster over forty crossing times, FSI4 fell from a
-            worst of 1.35e-6 to 3.41e-8 by the end, while Hermite sat at 2.07e-6 both times —
-            never coming back.
+            <b>Hermite</b> is also fourth order and also adapts, but by a different route: it
+            <em>measures</em> a step from each star's acceleration and jerk (Aarseth's criterion)
+            and takes the smallest. That is a controller, and it costs it the symplectic
+            property — its energy error is <b>secular</b>, growing steadily rather than
+            returning.
             <br /><br />
-            So the two are not simply "more or less accurate". Switching to Hermite changes what
-            the energy strip can tell you: a small number there no longer implies the error will
-            stay small. It is here as a comparison, which is why FSI4 is the default.
+            <b>So the three differ in what adapts, and in what the error does.</b> Worst
+            <Math tex={m("|\\Delta E/E|")} /> so far, measured on this cluster at this page's own
+            settings:
+            <table class="xpl-dyn__cmp">
+              <thead>
+                <tr><th></th><th>adapts?</th><th>2</th><th>10</th><th>15</th><th>20</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>FSI4</td><td>no</td><td>1.3e−6</td><td>1.1e−5</td><td>3.0e−4</td><td>3.0e−4</td></tr>
+                <tr><td>LogH</td><td>by transformation</td><td>2.6e−6</td><td>3.5e−5</td><td>6.1e−5</td><td>6.1e−5</td></tr>
+                <tr><td>Hermite</td><td>by criterion</td><td>5.7e−8</td><td>2.8e−6</td><td>1.6e−5</td><td>3.5e−5</td></tr>
+              </tbody>
+            </table>
+            Read the last two columns rather than the first: <b>the two symplectic schemes stop
+            getting worse</b> — 3.0e−4 and 6.1e−5, unchanged from fifteen crossing times to
+            twenty — while Hermite is still climbing, 1.6e−5 to 3.5e−5. That is "bounded" and
+            "secular" showing up as numbers rather than as adjectives.
+            <br /><br />
+            Which means <em>Hermite is the most accurate here and the least trustworthy to
+            extrapolate</em>. Its small number does not promise to stay small; theirs do. FSI4
+            is the default despite being the least accurate of the three on this configuration,
+            because it is the one ported directly from my <code>gravax</code> code — so what you
+            are watching is the scheme the research code runs, not the best result a browser
+            could produce.
           </span>
         </div>
         <label class="xpl-dyn__ctrl">
@@ -2102,10 +2123,22 @@ const m = (tex: string) => tex;
    * flip and clamp against the VIEWPORT, which is the thing that actually
    * constrains it.
    */
+  /*
+   * A POP-OVER MUST FIT ON THE SCREEN, and until the scheme note grew a comparison table
+   * nothing here was long enough to prove it did not. Measured at 1440x900: that note came out
+   * 1279 px tall in a 900 px viewport, so its last third — the part explaining why the default
+   * is what it is — was simply unreachable.
+   *
+   * `max-block-size` plus `overflow-y: auto` bounds it and lets the rest be scrolled to. The
+   * 2rem leaves room for the JS placement to sit it clear of the viewport edge.
+   */
   .xpl-dyn__popover {
     position: fixed;
     z-index: 20;
     inline-size: min(26rem, 70vw);
+    max-block-size: calc(100vh - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: var(--space-2xs) var(--space-s);
     border: 1px solid color-mix(in srgb, var(--spec-teal) 30%, var(--border));
     border-radius: var(--radius-m);
@@ -2349,6 +2382,51 @@ const m = (tex: string) => tex;
   }
   .xpl-dyn__alert-btn[hidden] {
     display: none;
+  }
+  /*
+   * The scheme comparison table. The first table to appear in one of these pop-overs, and it
+   * earns the format: three schemes x four epochs is a grid, and the point — that two of them
+   * PLATEAU while the third keeps climbing — is only readable when the columns line up.
+   * Monospace figures so 3.0e-4 and 6.1e-5 can be compared by eye down a column.
+   */
+  .xpl-dyn__cmp {
+    inline-size: 100%;
+    border-collapse: collapse;
+    margin-block: var(--space-2xs);
+    font-family: var(--font-mono);
+    /*
+     * Measured at 1440: this table wanted 503 px inside a 416 px pop-over and pushed its own
+     * right-hand columns out of the box. `table-layout: fixed` is what actually bounds it —
+     * it makes the columns share the available width instead of sizing to content.
+     *
+     * The font stays at --step--2. My first attempt was --step--3, which DOES NOT EXIST: the
+     * scale stops at --step--2, and `check:type` passed anyway because it validates the
+     * `--step-*` pattern rather than that the token resolves. `font-size: var(--step--3)` is
+     * an invalid declaration that silently inherits — the same shape of failure as the dead
+     * `.xpl-dyn__val` selector and the `var()` inside `ctx.font`.
+     */
+    font-size: var(--step--2);
+    table-layout: fixed;
+  }
+  .xpl-dyn__cmp th,
+  .xpl-dyn__cmp td {
+    padding: 0.15em 0.25em;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .xpl-dyn__cmp th:first-child,
+  .xpl-dyn__cmp td:first-child,
+  .xpl-dyn__cmp th:nth-child(2),
+  .xpl-dyn__cmp td:nth-child(2) {
+    text-align: left;
+  }
+  .xpl-dyn__cmp thead th {
+    color: var(--ink-faint);
+    font-weight: 400;
+    border-block-end: 1px solid var(--border);
+  }
+  .xpl-dyn__cmp tbody td:first-child {
+    color: var(--ink);
   }
   .xpl-dyn__hint {
     display: block;
