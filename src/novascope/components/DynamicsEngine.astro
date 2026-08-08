@@ -1686,11 +1686,23 @@ const m = (tex: string) => tex;
     border-block-start-style: solid;
     border-color: var(--spec-amber);
   }
-  .xpl-dyn__val {
-    font-family: var(--font-mono);
-    color: var(--ink);
-  }
-  .xpl-dyn__val.is-bad {
+  /*
+   * THE BREACH FLAG, ON A SELECTOR THAT MATCHES.
+   *
+   * This was `.xpl-dyn__val.is-bad`, and `xpl-dyn__val` appeared nowhere in the
+   * markup — only here, twice. So the rule matched nothing and the flag has never
+   * been visible: `sample()` sets `is-bad` from the monitor's latched `healthy`
+   * every frame, and the readout went on rendering in `--ink` as though the run
+   * were fine. Confirmed live on seed 2028, which latches at t/t_cr = 13.8 —
+   * `classList.contains('is-bad')` was true while the computed colour was still
+   * white.
+   *
+   * The class survived last session's rewrite of the readout into the console's
+   * `<dl>`; the class name it depended on did not. That is the failure mode a
+   * styling hook has and a data attribute does not, so this now hangs off the
+   * one the script actually sets.
+   */
+  .xpl-dyn__stats .is-bad {
     color: var(--spec-rose-bright);
   }
   .xpl-dyn__info {
