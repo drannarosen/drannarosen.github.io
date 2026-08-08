@@ -92,7 +92,15 @@ const m = (tex: string) => tex;
                 which is the opposite of what a bigger cluster is for. */}
             <button type="button" data-expand aria-pressed="false">⛶ expand</button>
           </span>
-          <span class="xpl-dyn__clock" data-clock aria-live="off">t = 0.0 Myr</span>
+          {/* TWO LINES, NOT ONE. Both clocks matter — Myr is what a reader has intuition for,
+              crossing times is what the cluster actually keeps — but side by side they made a
+              pill wide enough to crowd the frame. Stacked, the chip is as wide as its longer
+              line instead of their sum. The second line is empty without gravity, where
+              t/t_cr is undefined. */}
+          <span class="xpl-dyn__clock" data-clock aria-live="off">
+            <span data-clock-t>t = 0.0 Myr</span>
+            <span class="xpl-dyn__clock-sub" data-clock-tcr></span>
+          </span>
         </div>
         <div class="xpl-dyn__hud xpl-dyn__hud--bottom">
           <span class="xpl-dyn__modes" role="group" aria-label="Gravity">
@@ -676,6 +684,23 @@ const m = (tex: string) => tex;
    * "the ONE physics→pixel mapping" in state/render.ts means and what stops the
    * two clusters drifting into two different-looking objects.
    */
+  /*
+   * THE STATE IS THE ADDRESS. ADR 0012 committed to "(seed, params, t) — reproducible and
+   * URL-shareable" and this page had none of it: every cluster on it was unreachable except by
+   * setting five sliders in the right order. The codec is `core/params/urlState`, already built
+   * and build-gated for the star lab; this is the second consumer, not a second copy.
+   *
+   * It matters most where the page is going: a lecture wants one link per concept so the demo
+   * cannot be fumbled live, a talk becomes a set of bookmarks, and a bug report from a stranger
+   * arrives as a URL that reproduces the state exactly.
+   */
+  import {
+    decode,
+    encode,
+    enumField,
+    numberField,
+    boolField,
+  } from "@novascope/core/params/urlState";
   import { createClusterPoints, type ClusterPoints } from "@novascope/viz/clusterPoints";
   import { toRenderModel, toIMFHistogram, type IMFModel } from "@novascope/state";
   /* The SAME histogram census draws, given a second bar series — see viz/histogram.ts.
@@ -705,7 +730,8 @@ const m = (tex: string) => tex;
     const gammaVal = $<HTMLOutputElement>("[data-gamma-val]");
     const speedVal = $<HTMLOutputElement>("[data-speed-val]");
     const playBtn = $<HTMLButtonElement>("[data-play]");
-    const clockEl = $<HTMLElement>("[data-clock]");
+    const clockT = $<HTMLElement>("[data-clock-t]");
+    const clockTcr = $<HTMLElement>("[data-clock-tcr]");
     const hint = $<HTMLElement>("[data-hint]");
     const driftEl = $<HTMLElement>("[data-v=\"drift\"]");
     const scaleBar = root.querySelector<HTMLElement>("[data-scalebar]");
@@ -920,6 +946,45 @@ const m = (tex: string) => tex;
        cluster from t=0" and "new draw" means "a different cluster" — two
        distinct things that were previously the same button twice. */
     let seed = 2026;
+
+    /*
+     * THE URL SCHEMA. Ranges mirror the controls' own `min`/`max` so a hand-edited or stale
+     * link is CLAMPED into something runnable rather than rejected — the codec's own rule, and
+     * the reason a bookmark survives a range being narrowed later.
+     *
+     * `t` is deliberately absent. The run is a trajectory, not a coordinate: restoring it would
+     * mean integrating to that time on load, which is seconds of work and — since the page's own
+     * measurements show late-time states are not reproducible across engines — would not even
+     * land on the same cluster. A link carries the DRAW and the settings; the reader presses run.
+     */
+    const URL_SCHEMA = {
+      seed: numberField(0, 999999, 2026, 0),
+      n: numberField(100, 800, 400, 0),
+      rh: numberField(0.3, 5, 0.65, 2),
+      gamma: numberField(2.5, 6, 5, 1),
+      alpha: numberField(1.5, 3, 2.3, 1),
+      speed: numberField(0.25, 4, 1, 2),
+      scheme: enumField(["fsi4", "logh", "hermite"] as const, "fsi4"),
+      tab: enumField(["radii", "bound", "mf", "lagr"] as const, "radii"),
+      gravity: boolField(false),
+    };
+
+    /* `replaceState`, never `pushState`: dragging a slider must not fill the back button with
+       a hundred history entries. The address bar is the shareable artefact, not the history. */
+    const syncUrl = () => {
+      const query = encode(URL_SCHEMA, {
+        seed,
+        n: Number(nInput.value),
+        rh: Number(rhInput.value),
+        gamma: Number(gammaInput.value),
+        alpha: Number(alphaInput.value),
+        speed: Number(speedInput.value),
+        scheme,
+        tab: plotTab,
+        gravity,
+      });
+      history.replaceState(null, "", query ? `?${query}` : location.pathname);
+    };
 
     function build() {
       const s = scenario("cluster");
@@ -1158,9 +1223,8 @@ const m = (tex: string) => tex;
       /* Both clocks in one chip on the frame. t/t_cr is omitted rather than shown as "—"
          when there is no gravity: it is undefined there, and a dash inside a running clock
          reads as a broken readout rather than an absent quantity. */
-      clockEl.textContent = s
-        ? `t = ${tSim.toFixed(1)} Myr · ${s.tCross.toFixed(1)} t_cr`
-        : `t = ${tSim.toFixed(1)} Myr`;
+      clockT.textContent = `t = ${tSim.toFixed(1)} Myr`;
+      clockTcr.textContent = s ? `${s.tCross.toFixed(1)} t_cr` : "";
       setStat("rhi", `${hi.toFixed(2)} pc`);
       setStat("rlo", `${lo.toFixed(2)} pc`);
       /*
@@ -2341,6 +2405,7 @@ const m = (tex: string) => tex;
       redraw();
       syncPlay();
       syncScheme();
+      syncUrl();
     };
 
     playBtn.addEventListener("click", () => {
@@ -2512,6 +2577,7 @@ const m = (tex: string) => tex;
     gammaInput.addEventListener("change", rebuild);
     speedInput.addEventListener("input", () => {
       speedVal.value = Number(speedInput.value).toFixed(2);
+      syncUrl();
     });
 
 
@@ -2584,11 +2650,13 @@ const m = (tex: string) => tex;
 
     /* Tabs swap the SERIES, the legend, the y-title and the note together — one
        state, four things that must agree, so they are set in one place. */
-    for (const b of root.querySelectorAll<HTMLButtonElement>("[data-plot-tab]")) {
-      b.addEventListener("click", () => {
-        plotTab = (b.dataset.plotTab as typeof plotTab) ?? "radii";
+    /* One path for a click and for a link. When the URL could select a tab the click handler
+       could not, the two drifted immediately — this is the same reason `selectGravity` exists. */
+    const selectTab = (tab: typeof plotTab) => {
+      plotTab = tab;
+      {
         for (const o of root.querySelectorAll<HTMLButtonElement>("[data-plot-tab]")) {
-          const on = o === b;
+          const on = o.dataset.plotTab === tab;
           o.classList.toggle("is-active", on);
           o.setAttribute("aria-pressed", String(on));
         }
@@ -2605,10 +2673,49 @@ const m = (tex: string) => tex;
            still show the current state rather than the last one cached. */
         mfStale = true;
         drawPlots();
+      }
+    };
+    for (const b of root.querySelectorAll<HTMLButtonElement>("[data-plot-tab]")) {
+      b.addEventListener("click", () => {
+        selectTab((b.dataset.plotTab as typeof plotTab) ?? "radii");
+        syncUrl();
       });
     }
 
     window.addEventListener("resize", redraw);
+
+    /*
+     * THE ADDRESS IS READ BEFORE THE FIRST BUILD, because `build()` takes its values from the
+     * INPUTS. Setting `seed` and the scheme but leaving the sliders at their markup defaults
+     * would produce a cluster that matched the URL in some fields and the HTML in others —
+     * the shared-link failure that is hardest to notice, because the picture still looks
+     * plausible.
+     *
+     * The readouts beside each slider are set here too: they are written by `input` events,
+     * which assigning `.value` does not fire.
+     */
+    {
+      const st = decode(URL_SCHEMA, location.search);
+      seed = st.seed;
+      nInput.value = String(st.n);
+      nVal.value = nInput.value;
+      rhInput.value = String(st.rh);
+      rhVal.value = st.rh.toFixed(2);
+      gammaInput.value = String(st.gamma);
+      gammaVal.value = st.gamma.toFixed(1);
+      alphaInput.value = String(st.alpha);
+      alphaVal.value = st.alpha.toFixed(1);
+      speedInput.value = String(st.speed);
+      speedVal.value = st.speed.toFixed(2);
+      scheme = st.scheme;
+      for (const o of root.querySelectorAll<HTMLButtonElement>("[data-scheme]")) {
+        const on = o.dataset.scheme === scheme;
+        o.classList.toggle("is-active", on);
+        o.setAttribute("aria-pressed", String(on));
+      }
+      setGravity(st.gravity);
+      selectTab(st.tab);
+    }
     rebuild();
   }
 </script>
@@ -3032,6 +3139,11 @@ const m = (tex: string) => tex;
   /* Legible over a star field of unknown brightness: the readout gets the same
      panel-tinted plate census gives its H–R card, rather than bare text that
      disappears the moment a bright star drifts under it. */
+  .xpl-dyn__clock-sub {
+    display: block;
+    text-align: end;
+    color: var(--ink-soft);
+  }
   .xpl-dyn__hud .xpl-dyn__clock {
     padding: 0.15em 0.6em;
     border: 1px solid var(--border);
