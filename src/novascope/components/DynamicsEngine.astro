@@ -128,6 +128,7 @@ const m = (tex: string) => tex;
           </button>
           <button type="button" data-plot-tab="bound" aria-pressed="false">bound fraction</button>
           <button type="button" data-plot-tab="mf" aria-pressed="false">mass function</button>
+          <button type="button" data-plot-tab="lagr" aria-pressed="false">Lagrangian radii</button>
         </span>
         <span class="xpl-dyn__legend">
           <span class="xpl-dyn__keys" data-legend="radii">
@@ -143,6 +144,11 @@ const m = (tex: string) => tex;
               ><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>by number
               <b data-v="legend-bn">—</b></span
             >
+          </span>
+          <span class="xpl-dyn__keys" data-legend="lagr" hidden>
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>20%</span>
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>50%</span>
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--e"></i>90%</span>
           </span>
           <span class="xpl-dyn__keys" data-legend="mf" hidden>
             <span class="xpl-dyn__key"
@@ -198,6 +204,23 @@ const m = (tex: string) => tex;
               being integrated then, so a number there would be a counterfactual rather than a
               property of what you are watching.
             </span>
+            <span data-note="lagr" hidden>
+              The radii enclosing <b>20%</b>, <b>50%</b> and <b>90%</b> of the bound cluster's
+              mass — the standard way a cluster's evolution is read, because the inner and outer
+              parts do opposite things and a single half-mass radius shows neither.
+              <br /><br />
+              <b>A cluster comes apart from the outside in.</b> Encounters move energy outward:
+              the inner region gives it up and stays compact, while the stars that receive it
+              move onto wider and wider orbits. Measured here over twenty crossing times, the
+              90% radius grew about three and a half times while the half-mass radius grew by
+              roughly half and the 20% radius hardly moved. The <em>spread</em> between the
+              curves is the result, not any one of them.
+              <br /><br />
+              The inner curve is the noisy one — it is a few dozen stars, and it wanders. Read
+              the gap between top and bottom rather than any single wiggle. With gravity off all
+              three simply expand together, which is the honest picture of a cloud with nothing
+              holding it: no redistribution, so no differentiation.
+            </span>
             <span data-note="mf" hidden>
               The mass function <b>as drawn</b> (grey) against the stars <b>still bound</b>
               (teal), in counts per dex, with the law they were sampled from over both.
@@ -224,6 +247,9 @@ const m = (tex: string) => tex;
           ><Math tex={m("r_h(t)\\,/\\,r_h(0)")} /></span
         >
         <span class="xpl-dyn__ytitle" data-ytitle="bound" hidden>bound fraction</span>
+        <span class="xpl-dyn__ytitle" data-ytitle="lagr" hidden
+          ><Math tex={m("r\\;(\\mathrm{pc})")} /></span
+        >
         <span class="xpl-dyn__ytitle" data-ytitle="mf" hidden
           ><Math tex={m("\\mathrm{d}N/\\mathrm{d}\\log m")} /></span
         >
@@ -231,7 +257,7 @@ const m = (tex: string) => tex;
         {/* The x axis is TIME for two tabs and MASS for the third, so it swaps with them —
             a plot labelled t (Myr) over a mass axis is the same class of quiet untruth the
             scheme label guards against. Space-separated list, matched by inclusion. */}
-        <span class="xpl-dyn__xtitle" data-xtitle="radii bound"
+        <span class="xpl-dyn__xtitle" data-xtitle="radii bound lagr"
           ><Math tex={m("t\\;(\\mathrm{Myr})")} /></span
         >
         <span class="xpl-dyn__xtitle" data-xtitle="mf" hidden
@@ -682,7 +708,7 @@ const m = (tex: string) => tex;
     const driftEl = $<HTMLElement>("[data-v=\"drift\"]");
     const scaleBar = root.querySelector<HTMLElement>("[data-scalebar]");
     /** Which evolution curve the shared plot canvas is showing. */
-    let plotTab: "radii" | "bound" | "mf" = "radii";
+    let plotTab: "radii" | "bound" | "mf" | "lagr" = "radii";
     const scaleLabel = root.querySelector<HTMLElement>("[data-scalelabel]");
     const summary = $<HTMLElement>("[data-summary]");
 
@@ -714,7 +740,11 @@ const m = (tex: string) => tex;
     let playing = false;
     let run: ReturnType<typeof build> | null = null;
     /* History of (t, r_h heavy, r_h light) and of fractional energy error. */
-    let hist: { t: number; hi: number; lo: number; e: number; bm: number; bn: number }[] = [];
+    let hist: {
+      t: number; hi: number; lo: number; e: number; bm: number; bn: number;
+      /* Lagrangian radii of the BOUND cluster [pc] — 20/50/90% of its mass. */
+      l20: number; l50: number; l90: number;
+    }[] = [];
     /* Halving threshold, not a cap on the run: see the decimation in sample().
        600 samples is already ~4x the horizontal pixels of the plot at 1440px. */
     const MAX_SAMPLES = 600;
@@ -950,6 +980,11 @@ const m = (tex: string) => tex;
         set.has(i) && (!boundOnly || boundOnly(i));
       const hi = lagrangianRadii(st, [0.5], inSet(run.heavy), centre)[0];
       const lo = lagrangianRadii(st, [0.5], inSet(run.light), centre)[0];
+      /* All three fractions from ONE call: `lagrangianRadii` sorts once and reads the
+         cumulative mass off that sort, so asking for three costs no more than asking for one.
+         Over the WHOLE cluster, not a mass subset — this tab is about structure, where the
+         heavy/light split above is about segregation. */
+      const [l20, l50, l90] = lagrangianRadii(st, [0.2, 0.5, 0.9], boundOnly ?? undefined, centre);
       /* Baseline on the FIRST sample so both curves start at exactly 1.
          Absolute r_h of the heaviest 10% is a ~40-star estimate and lands well
          off the light-star value at t=0 by sampling noise alone — measured 0.48
@@ -1014,6 +1049,9 @@ const m = (tex: string) => tex;
              force switched off there is nothing to record rather than a zero. */
           bm: d ? d.boundMassFraction : NaN,
           bn: d ? d.boundFraction : NaN,
+          l20: l20!,
+          l50: l50!,
+          l90: l90!,
         });
         lastStored = tSim;
         worstSinceStore = 0;
@@ -1646,6 +1684,20 @@ const m = (tex: string) => tex;
             text: css("--ink-faint", "#8b8f9a"),
           },
         });
+        return;
+      }
+      if (plotTab === "lagr") {
+        /* Absolute parsecs, zero-based: the story is that the outer radius runs away from the
+           inner one, and a floating baseline would hide how far apart they get. */
+        drawSeries(
+          radiiCv,
+          [
+            { get: (p) => p.l20, colour: rose, dash: [] },
+            { get: (p) => p.l50, colour: teal, dash: [4, 3] },
+            { get: (p) => p.l90, colour: css("--spec-amber", "#fbbf24"), dash: [] },
+          ],
+          { zeroBase: true },
+        );
         return;
       }
       if (plotTab === "bound") {
@@ -2413,7 +2465,7 @@ const m = (tex: string) => tex;
        state, four things that must agree, so they are set in one place. */
     for (const b of root.querySelectorAll<HTMLButtonElement>("[data-plot-tab]")) {
       b.addEventListener("click", () => {
-        plotTab = (b.dataset.plotTab as "radii" | "bound") ?? "radii";
+        plotTab = (b.dataset.plotTab as typeof plotTab) ?? "radii";
         for (const o of root.querySelectorAll<HTMLButtonElement>("[data-plot-tab]")) {
           const on = o === b;
           o.classList.toggle("is-active", on);
