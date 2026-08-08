@@ -86,6 +86,11 @@ const m = (tex: string) => tex;
                 action — start over — differing only in whether the seed changes.
                 It was across the panel in a toolbar of its own. */}
             <button type="button" data-reseed>↻ new draw</button>
+            {/* Full-screen the CLUSTER, not the whole engine. The panel carries its own
+                transport, gravity toggle, scale bar and zoom in the HUD, so it stays usable
+                alone — and expanding the engine instead would scale the plots up with it,
+                which is the opposite of what a bigger cluster is for. */}
+            <button type="button" data-expand aria-pressed="false">⛶ expand</button>
           </span>
           <span class="xpl-dyn__clock" data-clock aria-live="off">t = 0.0 Myr</span>
         </div>
@@ -299,7 +304,7 @@ const m = (tex: string) => tex;
         >
         <span class="xpl-dyn__ytitle" data-ytitle="bound" hidden>bound fraction</span>
         <span class="xpl-dyn__ytitle" data-ytitle="lagr" hidden
-          ><Math tex={m("r\\;(\\mathrm{pc})")} /></span
+          ><Math tex={m("r\\;[\\mathrm{pc}]")} /></span
         >
         <span class="xpl-dyn__ytitle" data-ytitle="mf" hidden
           ><Math tex={m("\\mathrm{d}N/\\mathrm{d}\\log m")} /></span
@@ -309,10 +314,10 @@ const m = (tex: string) => tex;
             a plot labelled t (Myr) over a mass axis is the same class of quiet untruth the
             scheme label guards against. Space-separated list, matched by inclusion. */}
         <span class="xpl-dyn__xtitle" data-xtitle="radii bound lagr"
-          ><Math tex={m("t\\;(\\mathrm{Myr})")} /></span
+          ><Math tex={m("t\\;[\\mathrm{Myr}]")} /></span
         >
         <span class="xpl-dyn__xtitle" data-xtitle="mf" hidden
-          ><Math tex={m("m\\;(M_\\odot)")} /></span
+          ><Math tex={m("m\\;[M_\\odot]")} /></span
         >
       </div>
     </figure>
@@ -637,7 +642,7 @@ const m = (tex: string) => tex;
       <div class="xpl-dyn__plot xpl-dyn__plot--strip">
         <span class="xpl-dyn__ytitle"><Math tex={m("|\\Delta E/E|")} /></span>
         <canvas data-energy aria-label="Fractional energy error against time"></canvas>
-        <span class="xpl-dyn__xtitle"><Math tex={m("t\\;(\\mathrm{Myr})")} /></span>
+        <span class="xpl-dyn__xtitle"><Math tex={m("t\\;[\\mathrm{Myr}]")} /></span>
       </div>
     </figure>
   </div>
@@ -711,6 +716,32 @@ const m = (tex: string) => tex;
     const summary = $<HTMLElement>("[data-summary]");
 
     const gravBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-grav]"));
+
+    /*
+     * FULL-SCREEN THE CLUSTER PANEL.
+     *
+     * `requestFullscreen` returns a promise that REJECTS when the document is not allowed to
+     * enter it — an iframe without `allowfullscreen`, or a call not driven by a gesture. An
+     * unhandled rejection there would surface as a console error and nothing else, so the
+     * failure is caught and the button simply stays as it was.
+     *
+     * Nothing here resizes the renderer: `clusterPoints` already listens for `resize`, and
+     * entering or leaving full screen fires one.
+     */
+    const fieldPanel = $<HTMLElement>(".xpl-dyn__panel--field");
+    const expandBtn = $<HTMLButtonElement>("[data-expand]");
+    const syncExpand = () => {
+      const on = document.fullscreenElement === fieldPanel;
+      expandBtn.textContent = on ? "⛶ close" : "⛶ expand";
+      expandBtn.setAttribute("aria-pressed", String(on));
+    };
+    expandBtn.addEventListener("click", () => {
+      if (document.fullscreenElement === fieldPanel) void document.exitFullscreen().catch(() => {});
+      else void fieldPanel.requestFullscreen?.().catch(() => {});
+    });
+    /* Fires for Escape and for the browser's own controls too, so the label cannot get stuck
+       reading "close" on a panel that has already left full screen. */
+    document.addEventListener("fullscreenchange", syncExpand);
 
     /*
      * Scoped to ROOT, not to `summary`.
@@ -2583,18 +2614,43 @@ const m = (tex: string) => tex;
   .xpl-dyn__grid {
     display: grid;
     /*
-     * NOT EQUAL COLUMNS. Column two carries four plot tabs on one row, which needs 636 px of
-     * caption; equal halves gave it 572 and they wrapped. The cluster gives up the difference
-     * — it loses width only, since its height is set by the span rather than by its own
-     * aspect, so a slightly narrower frame costs nothing but frame.
+     * THE CLUSTER IS A FIXED 550 px CANVAS; the plots take what is left.
+     *
+     * It was briefly squeezed to 525 to fit the four plot tabs on one row. That trade is off:
+     * the tab set is going to keep growing, so no column width wins that race, and two rows of
+     * tabs is the accepted answer. Fixing the cluster instead means the frame a reader watches
+     * stops moving every time a tab is added — which is worth more than a tidy caption.
+     *
+     * 552 px, not 550: the panel's 1 px borders come out of the column, and the canvas is what
+     * the number is about.
      */
-    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+    grid-template-columns: 552px minmax(0, 1fr);
     gap: var(--space-s);
     align-items: stretch; /* each row's two cells match height → columns align */
   }
   .xpl-dyn__panel--field {
     grid-column: 1;
     grid-row: 1 / 3;
+  }
+  /*
+   * IN FULL SCREEN THE CANVAS FILLS THE SCREEN, so the aspect ratio has to go. Everywhere
+   * else the frame is width-driven — that is what keeps the grid's height predictable — but
+   * here the height IS the available space, and a 1:1 canvas would letterbox itself on a wide
+   * display and waste exactly the room this button was pressed to get.
+   */
+  .xpl-dyn__panel--field:fullscreen {
+    border: 0;
+    border-radius: 0;
+    background: var(--bg-void);
+  }
+  .xpl-dyn__panel--field:fullscreen .xpl-dyn__stage {
+    flex: 1;
+    min-block-size: 0;
+  }
+  .xpl-dyn__panel--field:fullscreen [data-field] {
+    aspect-ratio: auto;
+    inline-size: 100%;
+    block-size: 100%;
   }
   .xpl-dyn__panel--energy {
     grid-column: 2;
@@ -2669,12 +2725,10 @@ const m = (tex: string) => tex;
   .xpl-dyn__panel figcaption > .xpl-dyn__modes {
     flex-basis: 100%;
     /*
-     * The last 4.6 px. Given its own line at this column width the group had 630.2 px and the
-     * four labels needed 634.8 — measured, not estimated. Tightening the gap and the buttons'
-     * side padding closes it with room to spare, and it is scoped to the PLOT tabs so the
-     * transport, gravity and integrator groups keep their original proportions.
-     *
-     * The alternative was shortening the labels, and descriptive names are worth 4.6 px.
+     * Tighter than the other mode groups, and scoped to the plot tabs so the transport, gravity
+     * and integrator groups keep their original proportions. It was originally the last 4.6 px
+     * needed to fit four labels on one row; the tab set has since been allowed to wrap, so what
+     * it buys now is simply more tabs per row as that set grows.
      */
     gap: 2px;
   }
@@ -2998,11 +3052,22 @@ const m = (tex: string) => tex;
      names the axis once; the tick values are read repeatedly and against the
      curve, so they are the thing that has to be legible. This was --step-0, which
      put the furniture above the numbers in the visual hierarchy. */
+  /* 0.9em on top of --step--2. KaTeX applies its own internal sizing, so a title set at the
+     same token as the surrounding text renders a step larger than it; em is the right unit
+     because the correction is RELATIVE to whatever the scale hands down, and check-type allows
+     em for exactly that reason. --step--2 is already the floor of the scale, so there is
+     nothing smaller to reach for. */
+  .xpl-dyn__xtitle .math,
+  .xpl-dyn__ytitle .math {
+    font-size: 0.9em;
+  }
   .xpl-dyn__xtitle {
     display: block;
     text-align: center;
     padding-block: 0.2rem 0.35rem;
-    font-size: var(--step--1);
+    /* Matched to the y-title. These were a step apart, and the x-title read visibly
+       larger than the label rotated beside it. */
+    font-size: var(--step--2);
     color: var(--ink-soft);
   }
   .xpl-dyn__ytitle {
