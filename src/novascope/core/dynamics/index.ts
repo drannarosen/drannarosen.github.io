@@ -58,6 +58,11 @@ export { createHermite, supportsJerk, HERMITE_ETA } from "./hermite.ts";
 export type { LogH, LogHOptions } from "./logh.ts";
 export { createLogH } from "./logh.ts";
 
+/* The tightest bound pair, and whether the step can still follow it. The diagnostic behind
+   /explore/dynamics's binary banner — see the measurements in the module header. */
+export type { HardestPair, PairResolution } from "./binaries.ts";
+export { hardestBoundPair, pairResolution } from "./binaries.ts";
+
 export type { SymmetricHermite, SymmetricHermiteOptions } from "./symmetric.ts";
 export {
   createSymmetricHermite,

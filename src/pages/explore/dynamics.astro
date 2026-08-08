@@ -65,12 +65,30 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
       </p>
       <p>
         Watch the energy strip along the bottom while gravity is on. It plots the fractional
-        energy error against the tolerance the run is checked at. A symplectic integrator's
-        error does not run away — but it does not sit still either: here it climbs about three
-        orders of magnitude in steps, each step a close encounter, and then holds at a few times
-        10<sup>−4</sup>, well under the limit. If it crosses that line the arithmetic has stopped
-        being trustworthy and nothing above it means anything. With gravity off the strip stays
-        empty, because there is no integrator running to make a claim about.
+        energy error against the tolerance the run is checked at, and for the first several
+        crossing times it sits around 10<sup>−9</sup> — the integrator is barely working.
+        Then it climbs, in <em>steps</em>. Each step is not a generic "close encounter": it is
+        one specific thing, and the panel above will tell you when it happens.
+      </p>
+      <p>
+        <strong>The cluster builds a binary, and then the binary breaks the arithmetic.</strong>
+        Segregation sinks the heaviest stars to the centre, where two of them capture each other
+        — and a hard binary <em>hardens</em>, giving up energy to every star that passes it. On
+        the draw I measured, the pair's orbit tightened from about 20,000 integrator steps per
+        orbit to under 100 while its binding energy went from 3 to roughly 400 times a typical
+        star's kinetic energy. Once an orbit takes only tens of steps, a fixed step cannot follow
+        it through closest approach, and the error jumps. It then sits flat until the next jump —
+        which is exactly what a symplectic scheme should do: the error arrives in discrete events
+        and does not creep between them.
+      </p>
+      <p>
+        So the strip is measuring two things at once, and it is worth keeping them apart. The
+        <em>steps</em> are real cluster physics — binaries form and harden, and that is a result,
+        not a bug. The <em>height</em> of them is a statement about this browser's arithmetic. On
+        some draws the trace crosses the limit; when it does, the number turns red and the run has
+        stopped being trustworthy from that point on, whatever the picture above it looks like.
+        With gravity off the strip stays empty, because there is no integrator running to make a
+        claim about.
       </p>
       <p>
         Drop <strong>N</strong> and the curves get noisier: with few stars, segregation is a

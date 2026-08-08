@@ -79,6 +79,24 @@ const m = (tex: string) => tex;
             <span class="xpl-dyn__scale-label" data-scalelabel>1 pc</span>
           </span>
         </div>
+        {/*
+          THE BINARY BANNER — the page's own limit, announced rather than discovered.
+
+          This run's energy error does not come from everywhere: it comes from one hard
+          binary in the core that the fixed step can no longer follow. Measured on seed
+          2028, the tightest pair goes from 20551 steps per orbit to 76, and |dE/E| steps
+          up with it. That is a real result about star clusters AND the point where this
+          model runs out, so the page says which is happening while it happens.
+
+          It rides ON the canvas because vertical space is the binding constraint of this
+          layout — a banner in the flow would cost a row on every run, including the ones
+          that never form a binary.
+        */}
+        <div class="xpl-dyn__alert" data-alert role="status" hidden>
+          <strong data-alert-title></strong>
+          <span data-alert-body></span>
+          <button type="button" class="xpl-dyn__alert-btn" data-zoom-pair>show me</button>
+        </div>
       </div>
       <small class="xpl-dyn__hint" data-hint>paused — press run</small>
     </figure>
@@ -374,10 +392,12 @@ const m = (tex: string) => tex;
           >?</button>
           <span class="xpl-dyn__popover" data-popover="energy" role="tooltip" hidden>
             Fractional energy error against the tolerance this run is checked at (the dashed line).
-            A symplectic integrator's error does not run away, but it does not sit still either:
-            measured on this cluster it climbs about three orders of magnitude in steps — each step
-            a close encounter — and then holds at a few times
-            <Math tex={m("10^{-4}")} />, well under the limit. If the trace crosses that line the
+            For the first several crossing times it sits near <Math tex={m("10^{-9}")} />, then
+            climbs in <b>steps</b> — and each step has a cause the panel above names: a
+            <b>hard binary</b> in the core. Measured here, the tightest pair went from about
+            20,000 integrator steps per orbit to under 100 as it hardened, and the error jumped
+            each time it tightened, sitting flat in between. Discrete jumps with no creep between
+            them is what a symplectic scheme should do. If the trace crosses the dashed line the
             arithmetic has stopped being trustworthy and nothing above it means anything.
             <br /><br />
             The reverse does not follow. A conserved energy says the integrator solved the equations
@@ -418,6 +438,7 @@ const m = (tex: string) => tex;
     measure,
     lagrangianRadii,
     centreOfMass,
+    pairResolution,
   } from "@novascope/core/dynamics";
   /*
    * The renderer is named directly, never through the `viz` barrel — the barrel
@@ -1282,14 +1303,174 @@ const m = (tex: string) => tex;
       for (let i = 0; i < st.n * 3; i++) st.pos[i] += st.vel[i] * dt;
     }
 
+    /* ── the banner ────────────────────────────────────────────── */
+    const alertEl = $<HTMLElement>("[data-alert]");
+    const alertTitle = $<HTMLElement>("[data-alert-title]");
+    const alertBody = $<HTMLElement>("[data-alert-body]");
+    const zoomPairBtn = $<HTMLButtonElement>("[data-zoom-pair]");
+
+    function showAlert(title: string, body: string, canZoom: boolean): void {
+      alertTitle.textContent = title;
+      alertBody.textContent = body;
+      zoomPairBtn.hidden = !canZoom || !pair;
+      alertEl.hidden = false;
+    }
+    function hideAlert(): void {
+      alertEl.hidden = true;
+    }
+
+    /* ── the binary watch ──────────────────────────────────────── */
+    /*
+     * Thresholds in STEPS PER ORBIT of the tightest bound pair, which is the quantity that
+     * predicts the energy error — see `core/dynamics/binaries.ts` for the measurements the
+     * numbers come from. Below ~200 the drift on seed 2028 had already climbed three orders;
+     * by 76 it was pinned near the trust limit.
+     *
+     * WATCH is set well above the damage (400) so the reader is told BEFORE the receipt goes
+     * bad rather than after. HALT is far below it (30), so stopping stays rare and means the
+     * orbit is genuinely unresolvable rather than merely coarse.
+     */
+    const PAIR_WATCH_STEPS = 400;
+    const PAIR_HALT_STEPS = 30;
+    /* O(N^2) — about one diagnostics pass at N = 800 — so it is not run every frame. */
+    const PAIR_EVERY = 8;
+    /*
+     * A BINARY IS DEFINED BY PERSISTING, and without this the banner lies.
+     *
+     * The threshold alone fires on any close passage: measured live on seed 2028 it announced
+     * "a hard binary has formed" at t/t_cr = 5.3 for a 2 + 38 Msun pair at hardness 15 — a
+     * flyby, gone moments later. The actual binary on that seed is 38.5 + 29.9 Msun and forms
+     * around t/t_cr = 15, where it then STAYS for the rest of the run.
+     *
+     * So the same two stars must hold the condition for half a crossing time before the page
+     * says anything. That is a physical criterion rather than a debounce: an unbound pair
+     * separates on roughly its own encounter timescale, so surviving half a crossing time
+     * together is what distinguishes a bound pair from two stars passing.
+     */
+    const PAIR_PERSIST_TCROSS = 0.5;
+    let pairFrame = 0;
+    let pair: ReturnType<typeof pairResolution> = null;
+    /** Model time at which the CURRENT pair first met the threshold, and which pair that is. */
+    let pairSince = Infinity;
+    let pairKey = "";
+    /** Latched once the pair has persisted: what the banner and the slow-down both key on. */
+    let pairConfirmed = false;
+    let halted = false;
+
+    /*
+     * THE STEP IS NOT SHORTENED, the CLOCK IS SLOWED, and the difference is the whole point.
+     *
+     * Shrinking dt mid-run is the instinct, and for FSI4 it is exactly wrong: a symplectic
+     * map's bounded error comes from conserving one shadow Hamiltonian H~ = H + O(h^4), and
+     * changing h mid-run switches to a different H~ whose mismatch accumulates. It would
+     * trade a visible, bounded error for an invisible, secular one.
+     *
+     * So the accuracy is left alone and the SUBSTEP COUNT falls instead: fewer steps of the
+     * same size per frame, so less model time passes per second and the reader can watch the
+     * pair rather than the run racing past it. The real answer to a hardening binary is a
+     * scheme that adapts legitimately — `logh.ts` — not a fudge here.
+     */
+    function substepsNow(): number {
+      /* Gated on `pairConfirmed`, not on the raw threshold: otherwise every close passage
+         would jolt the clock for a few frames, which reads as stuttering rather than as the
+         deliberate slow-down it is meant to be. */
+      if (!pairConfirmed || !pair || pair.stepsPerOrbit >= PAIR_WATCH_STEPS) return SUBSTEPS;
+      const frac = Math.max(0.125, pair.stepsPerOrbit / PAIR_WATCH_STEPS);
+      return Math.max(1, Math.round(SUBSTEPS * frac));
+    }
+
+    function halt(title: string, body: string): void {
+      halted = true;
+      playing = false;
+      stop();
+      syncPlay();
+      showAlert(title, body, false);
+    }
+
+    function watchBinary(dt: number): void {
+      if (++pairFrame % PAIR_EVERY !== 0) return;
+      /* The softening comes from the BUILD, never recomputed here — the pair this reports
+         has to be the pair the force model actually feels, and a second copy of
+         `softeningForCluster` in this file is how the two would drift apart. */
+      pair = pairResolution(run!.built.state, run!.built.softeningPc, dt);
+      if (!pair) return;
+
+      /* Identity, not just tightness: an exchange encounter swaps a companion — measured on
+         seed 2028 at t/t_cr = 15, where the 29.9 Msun star replaced the 10.0 — and that is a
+         NEW pair whose persistence starts over. */
+      const key = `${pair.i}:${pair.j}`;
+      if (pair.stepsPerOrbit < PAIR_WATCH_STEPS) {
+        if (key !== pairKey) {
+          pairKey = key;
+          pairSince = tSim;
+        }
+      } else {
+        pairKey = "";
+        pairSince = Infinity;
+      }
+      const persisted = tSim - pairSince >= PAIR_PERSIST_TCROSS * run!.built.timeUnit;
+      pairConfirmed = persisted;
+
+      if (pair.stepsPerOrbit < PAIR_HALT_STEPS) {
+        /* Longer than the watch banner, and that is proportionate: the run has STOPPED, and a
+           reader is owed the reason on the spot rather than in a paragraph below the fold. */
+        halt(
+          "Stopped — binary unresolvable",
+          `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} M☉ at ` +
+            `a = ${pair.semiMajorAxis.toExponential(1)} pc is down to ` +
+            `${pair.stepsPerOrbit.toFixed(0)} steps/orbit. Below this the arithmetic no longer ` +
+            `describes the orbit, so the run stops rather than showing you a cluster it has ` +
+            `stopped solving. Reset or draw again.`,
+        );
+        return;
+      }
+      if (pair.stepsPerOrbit < PAIR_WATCH_STEPS && persisted) {
+        /*
+         * ONE LINE OF NUMBERS. The first version put the whole explanation here and covered
+         * about 40% of the cluster with text — over the one thing the panel exists to show.
+         * The reasoning lives in the energy strip's "?" and in the page body; the banner's
+         * job is to say THAT it happened, with the figures, and offer to show you.
+         */
+        showAlert(
+          "Hard binary",
+          `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} M☉ · ` +
+            `${pair.hardness.toFixed(0)}× hard · ${pair.stepsPerOrbit.toFixed(0)} steps/orbit · ` +
+            `clock slowed`,
+          true,
+        );
+      } else if (!halted) {
+        hideAlert();
+      }
+    }
+
     function frame() {
       raf = 0;
       if (!run || !playing) return;
       const dt = (run.built.timeUnit / STEP_DIVISOR) * Number(speedInput.value);
-      for (let k = 0; k < SUBSTEPS; k++) {
-        if (gravity) run.integrator.step(dt);
-        else drift(dt);
-        tSim += dt;
+      /*
+       * WRAPPED, because a throw here does not fail loudly — it fails INVISIBLY.
+       *
+       * An exception escaping a requestAnimationFrame callback skips the re-schedule at the
+       * bottom, so the loop simply stops: the cluster freezes, the button still reads
+       * "pause", and nothing on the page says why. Hermite's adaptive arm throws by design
+       * when a pair hardens past what it can resolve — its own message says so — and that
+       * arm is reachable from the integrator toggle, so this is a live path and not a
+       * hypothetical one.
+       */
+      try {
+        const subs = substepsNow();
+        for (let k = 0; k < subs; k++) {
+          if (gravity) run.integrator.step(dt);
+          else drift(dt);
+          tSim += dt;
+        }
+        if (gravity) watchBinary(dt);
+      } catch (err) {
+        halt(
+          "The integrator stopped",
+          err instanceof Error ? err.message : String(err),
+        );
+        return;
       }
       sample();
       redraw();
@@ -1297,6 +1478,9 @@ const m = (tex: string) => tex;
     }
 
     const start = () => {
+      /* `halted` gates here rather than only at the button, so neither the visibility handler
+         nor the intersection observer can quietly restart a run the model has given up on. */
+      if (halted) return;
       if (!raf && playing && onScreen && !document.hidden) raf = requestAnimationFrame(frame);
     };
     const stop = () => {
@@ -1341,6 +1525,16 @@ const m = (tex: string) => tex;
     const rebuild = () => {
       stop();
       run = build();
+      /* A new run is not the old run's binary. Clearing all three together is deliberate:
+         leaving `halted` set would make the fresh run refuse to start, and leaving `pair` set
+         would keep the clock slowed for a cluster that has no hard pair in it. */
+      halted = false;
+      pair = null;
+      pairFrame = 0;
+      pairSince = Infinity;
+      pairKey = "";
+      pairConfirmed = false;
+      hideAlert();
       /* Read off the BUILD, and only here. `built.timeUnit` is `crossingTime(state)`
          of the initial configuration — the same quantity the monitor divides by for
          `tCross` — so the displayed unit and the clock counted in it come from one
@@ -1377,9 +1571,47 @@ const m = (tex: string) => tex;
        * body's instruction to start with gravity off and watch. Now that "off"
        * integrates something worth watching, run needs to do neither.
        */
+      /* A halted run cannot be resumed by pressing play — the state it stopped in is one the
+         integrator has said it cannot advance honestly, so the only way on is reset or a new
+         draw. Saying that is better than a button that appears to work and does nothing. */
+      if (halted) return;
       playing = !playing;
       syncPlay();
       playing ? start() : stop();
+    });
+
+    /*
+     * ZOOM TO THE PAIR. The banner says a binary has formed; this is what lets a reader
+     * actually look at it — at r_h ~ 0.65 pc and a ~ 0.03 pc the pair is a fraction of a
+     * pixel in the default frame, so "a hard binary formed" is otherwise a claim about
+     * something invisible.
+     *
+     * It reframes on the pair's own centre and a few times its semi-major axis. The scale bar
+     * reports the new span, which is what keeps a moving frame honest here exactly as it does
+     * for the reader's own scroll-zoom.
+     */
+    zoomPairBtn.addEventListener("click", () => {
+      if (!pair || !run) return;
+      const st = run.built.state;
+      const { i, j } = pair;
+      const mi = st.mass[i];
+      const mj = st.mass[j];
+      const mT = mi + mj;
+      const centre: [number, number, number] = [
+        (st.pos[i * 3] * mi + st.pos[j * 3] * mj) / mT,
+        (st.pos[i * 3 + 1] * mi + st.pos[j * 3 + 1] * mj) / mT,
+        (st.pos[i * 3 + 2] * mi + st.pos[j * 3 + 2] * mj) / mT,
+      ];
+      points?.setFraming({ centre, radiusPc: Math.max(4 * pair.semiMajorAxis, 1e-3) });
+      /*
+       * rAF, exactly as the wheel listener does, and for the same reason: `setFraming` only
+       * raises `reframe`, and the renderer recomputes `pxPerPc` inside `syncSize()` on its
+       * NEXT tick. Reading it synchronously gets the previous framing's value, so the picture
+       * zooms and the bar goes on reporting the old span — measured, it still read "2 pc"
+       * after a zoom to a 0.12 pc frame. A scale bar that disagrees with the picture is worse
+       * than none, because it is the thing that makes a moving frame honest.
+       */
+      requestAnimationFrame(updateScaleBar);
     });
 
     $<HTMLButtonElement>("[data-reset]").addEventListener("click", rebuild);
@@ -1926,6 +2158,52 @@ const m = (tex: string) => tex;
     color: var(--ink-soft);
     white-space: nowrap;
     pointer-events: none;
+  }
+  /*
+   * The binary banner. Sits ON the canvas, between the two HUD rows, because vertical space
+   * is what this layout is short of — a banner in the flow would cost a row on every run,
+   * including the ones that never form a binary.
+   *
+   * `pointer-events: none` on the box with `auto` on the button: the banner covers a slab of
+   * the cluster, and drag-to-orbit has to keep working through it.
+   */
+  .xpl-dyn__alert {
+    position: absolute;
+    inset-inline: var(--space-2xs);
+    inset-block-start: 2.6rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4em;
+    padding: var(--space-2xs) var(--space-xs);
+    border: 1px solid var(--spec-amber);
+    border-radius: var(--radius-s);
+    background: color-mix(in srgb, var(--bg-void) 88%, transparent);
+    color: var(--ink);
+    font-size: var(--step--2);
+    line-height: 1.45;
+    pointer-events: none;
+  }
+  .xpl-dyn__alert[hidden] {
+    display: none;
+  }
+  .xpl-dyn__alert strong {
+    color: var(--spec-amber);
+  }
+  .xpl-dyn__alert-btn {
+    pointer-events: auto;
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--bg-void);
+    background: var(--spec-amber);
+    border: 0;
+    border-radius: 999px;
+    padding: 0.15em 0.7em;
+    cursor: pointer;
+  }
+  .xpl-dyn__alert-btn[hidden] {
+    display: none;
   }
   .xpl-dyn__hint {
     display: block;

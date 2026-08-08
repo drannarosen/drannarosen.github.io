@@ -83,6 +83,19 @@ export interface ScenarioBuild {
   markerScale: number;
   /** Human-readable softening statement, for the status line. */
   softeningNote: string;
+  /**
+   * The softening applied to the general population [pc]. The NUMBER behind `softeningNote`.
+   *
+   * Exposed because a caller that needs the value — `binaries.ts` must use the same softening
+   * the force model does, or it reports a tighter binary than the one being integrated — would
+   * otherwise re-derive it from `softeningForCluster(rHalf, n, fraction)` and own a second copy
+   * of a formula this file already owns. Two copies of a derivation is how the r_h/a ratio went
+   * wrong here once already.
+   *
+   * For `binary-in-cluster` this is the BACKGROUND softening; the featured pair runs at exactly
+   * zero, which is the point of that scenario and is why the note is prose and this is not.
+   */
+  softeningPc: number;
 }
 
 export interface ScenarioParams {
@@ -188,6 +201,7 @@ function buildTwoBody(p: ScenarioParams = {}): ScenarioBuild {
     viewPc: 1.35 * rApo,
     markerScale: 5, // two bodies in an empty frame: the orbit is the subject, so show them
     softeningNote: "ε = 0 (exact)",
+    softeningPc: 0,
   };
 }
 
@@ -273,6 +287,7 @@ function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
       fraction === 0
         ? "ε = 0 (fixed-step schemes will fail here — that is the point)"
         : `ε = ${softening.toFixed(4)} pc = ${fraction} · r_h N^(−1/3)`,
+    softeningPc: softening,
   };
 }
 
@@ -332,6 +347,7 @@ function buildBinaryInCluster(p: ScenarioParams = {}): ScenarioBuild {
        pair is also 5 Msun against ~0.5, so mass^(1/3) already separates them by ~2x. */
     markerScale: 1.6,
     softeningNote: `ε = 0 for the pair, ${bgSoftening.toFixed(4)} pc for the background`,
+    softeningPc: bgSoftening,
   };
 }
 
