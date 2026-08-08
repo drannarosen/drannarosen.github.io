@@ -483,6 +483,14 @@ const m = (tex: string) => tex;
      * at the pace it always did and only the cost goes up (2x the force
      * evaluations — measured in the browser before relying on it).
      */
+    /*
+     * MEASURED HERE, not taken from `stepsForSoftening`. That helper derives the
+     * step from the softening and is right down to fraction 0.25, but it
+     * under-predicts below: at 0.1 it returns 405, where the measured drift is
+     * 2.96e-1 — six orders past this page's tolerance. 2048 is what fraction 0.1
+     * actually needs (1024 drifts 1.24e-3; 2048 holds at 4.38e-5). See the
+     * validated-range note on `stepsForSoftening`.
+     */
     const STEP_DIVISOR = 2048;
     const SUBSTEPS = 8;
     /*

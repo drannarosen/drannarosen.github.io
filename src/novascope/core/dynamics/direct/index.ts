@@ -226,6 +226,30 @@ export function softeningForCluster(rHalfPc: number, n: number, fraction = 0.5):
  * the step scaled the result reversed: segregation strengthened rather than collapsing.
  *
  * Deriving one from the other makes that mistake unavailable rather than merely documented.
+ *
+ * ── VALIDATED RANGE: fraction >= 0.25. BELOW THAT IT UNDER-PREDICTS. ──
+ *
+ * The sqrt law is the Courant scaling, and it holds while the softening length is what limits
+ * the step. It stops holding once eps is small enough that genuine close encounters set the
+ * timescale instead — those scale with the pericentre distance, not with eps, so no function of
+ * `fraction` alone can predict them.
+ *
+ * Measured, N = 400, seed 2026, FSI4, worst |dE/E| over ten crossing times AT THE STEP THIS
+ * FUNCTION RETURNS:
+ *
+ *     fraction        1.00      0.50      0.25      0.10
+ *     predicted        128       181       256       405
+ *     worst |dE/E|  3.27e-7   2.32e-7   5.52e-5   2.96e-1
+ *     actually needed  128       181       256      1024
+ *
+ * At 0.10 the prediction is 2.5x too coarse and the run drifts six orders past a 1e-4 tolerance
+ * — it is not slightly optimistic, it is unusable. A caller working below 0.25 must measure its
+ * own step rather than trust this; `/explore/dynamics` runs fraction 0.1 at 2048 for that reason
+ * and says so at the call site.
+ *
+ * Left as a documented range rather than "fixed" with a steeper exponent, because the residual
+ * below 0.25 is chaotic close encounters and a fitted power law would be a curve through noise
+ * — the same misreading `DIRECT_STEPS_PER_TCROSS` warns about above.
  */
 export function stepsForSoftening(fraction: number): number {
   return Math.round(DIRECT_STEPS_PER_TCROSS * Math.sqrt(1 / Math.max(fraction, 1e-6)));
