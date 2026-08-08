@@ -93,6 +93,9 @@ const m = (tex: string) => tex;
                 alone — and expanding the engine instead would scale the plots up with it,
                 which is the opposite of what a bigger cluster is for. */}
             <button type="button" data-expand aria-pressed="false">⛶ expand</button>
+          {/* Beside the thing it exports, rather than in a toolbar of its own — this saves the
+              cluster, the one on the plot panel saves that panel's numbers. */}
+          <button type="button" data-save-png title="Save the cluster as a PNG">⤓ png</button>
           </span>
           {/* TWO LINES, NOT ONE. Both clocks matter — Myr is what a reader has intuition for,
               crossing times is what the cluster actually keeps — but side by side they made a
@@ -256,6 +259,8 @@ const m = (tex: string) => tex;
             >
             <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>the law</span>
           </span>
+          <button type="button" class="xpl-dyn__info" data-save-csv
+            title="Save this plot's numbers as CSV">⤓</button>
           <button
             type="button"
             class="xpl-dyn__info"
@@ -3146,6 +3151,127 @@ const m = (tex: string) => tex;
         syncUrl();
       });
     }
+
+    /* ── export ────────────────────────────────────────────────── */
+    /*
+     * A filename that IDENTIFIES THE RUN. A folder of "dynamics.png" is a folder of files
+     * nobody can tell apart six months later; the state that produced it is already the URL,
+     * so the stem carries the same fields. This is the same argument the URL codec makes,
+     * applied to a file.
+     */
+    const stem = (): string => {
+      const bits = [`n${nInput.value}`, `seed${seed}`, scheme];
+      if (softeningFraction !== SOFTENING_FRACTION) bits.push(`eps${softeningFraction}`);
+      if (stepDivisor !== STEP_DIVISOR) bits.push(`dt${stepDivisor}`);
+      if (autostep) bits.push("autostep");
+      return `cluster-${bits.join("-")}`;
+    };
+    const download = (blob: Blob, filename: string): void => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      /* Revoked on the next tick, not immediately: the click is synchronous but the fetch the
+         browser makes for it is not, and revoking first gives an empty file. */
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    };
+
+    $<HTMLButtonElement>("[data-save-png]").addEventListener("click", () => {
+      /* `toBlob` on the WebGPU canvas snapshots what is on screen — including the trail and
+         the current framing, which is what makes it worth putting in a talk. */
+      field.toBlob((blob) => {
+        if (blob) download(blob, `${stem()}-t${tSim.toFixed(1)}Myr.png`);
+      }, "image/png");
+    });
+
+    /*
+     * CSV OF THE TAB YOU ARE LOOKING AT, with the same decimation the plot has.
+     *
+     * It exports `hist`, which is thinned by the pairwise merge in sample() — so the file is
+     * exactly what is drawn and not a secretly finer record. A header line says so, because a
+     * student handed a CSV will reasonably assume it is the raw output.
+     */
+    const toCSV = (): { text: string; name: string } => {
+      const meta =
+        `# /explore/dynamics — ${stem()}\n` +
+        `# t_cr = ${run?.built.timeUnit.toFixed(4) ?? "?"} Myr, ` +
+        `eps = ${run?.built.softeningPc.toExponential(3) ?? "?"} pc, dt = t_cr/${stepDivisor}\n` +
+        `# history is decimated by pairwise merge as the run grows: rows are the plotted ` +
+        `samples, not every step\n`;
+      if (plotTab === "mf") {
+        const rows = (bornIMF?.bins ?? []).map((b, i) =>
+          [b.logMlo, b.logMhi, b.logMc, b.count, mfCounts?.[i] ?? "", b.expected].join(","),
+        );
+        return {
+          text: `${meta}logM_lo,logM_hi,logM_centre,count_born,count_bound,count_expected\n${rows.join("\n")}\n`,
+          name: `${stem()}-massfunction.csv`,
+        };
+      }
+      if (plotTab === "binary") {
+        const rows = pairTrack.map((p) =>
+          [p.t, p.a, p.e, p.hard, p.seg].join(","),
+        );
+        return {
+          text: `${meta}t_Myr,a_pc,eccentricity,hardness,pair_segment\n${rows.join("\n")}\n`,
+          name: `${stem()}-binary.csv`,
+        };
+      }
+      /* The three time series share a file: they share an x axis, and a reader comparing them
+         should not have to join three downloads on it. */
+      const rows = hist.map((p) =>
+        [p.t, p.hi, p.lo, p.bm, p.bn, p.l20, p.l50, p.l90, p.e].join(","),
+      );
+      return {
+        text:
+          `${meta}t_Myr,rh_heavy_over_rh0,rh_light_over_rh0,bound_mass_frac,bound_number_frac,` +
+          `r20_pc,r50_pc,r90_pc,worst_abs_dE_over_E\n${rows.join("\n")}\n`,
+        name: `${stem()}-series.csv`,
+      };
+    };
+
+    $<HTMLButtonElement>("[data-save-csv]").addEventListener("click", (e) => {
+      e.stopPropagation(); // the document listener that closes popovers
+      const { text, name } = toCSV();
+      download(new Blob([text], { type: "text/csv;charset=utf-8" }), name);
+    });
+
+    /* ── keyboard ──────────────────────────────────────────────── */
+    /*
+     * SPACE run/pause, R reset, N new draw — for presenting, and for reaching the transport
+     * without a pointer.
+     *
+     * IT MUST NOT STEAL A KEY THAT BELONGS TO A CONTROL. A slider takes arrow keys and Home/End,
+     * a button takes Space and Enter, and a text field takes everything — so a handler that
+     * fired regardless would make the sliders unusable from the keyboard, which is worse than
+     * having no shortcuts at all. Anything focused inside a form control, and any modifier
+     * combination the browser or the OS owns, is left alone.
+     */
+    document.addEventListener("keydown", (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        tag === "BUTTON" ||
+        el?.isContentEditable
+      )
+        return;
+      /* Only while the engine is on screen: a reader further down the page pressing space
+         expects to scroll, and hijacking that is the same class of theft. */
+      if (!onScreen) return;
+      if (e.key === " ") {
+        e.preventDefault(); // or the page scrolls as well as the run starting
+        playBtn.click();
+      } else if (e.key === "r" || e.key === "R") {
+        rebuild();
+      } else if (e.key === "n" || e.key === "N") {
+        seed += 1;
+        rebuild();
+      }
+    });
 
     window.addEventListener("resize", redraw);
 
