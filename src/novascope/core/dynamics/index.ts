@@ -82,6 +82,10 @@ export type {
   ReversibleAdaptiveOptions,
 } from "./reversibleAdaptive.ts";
 export { createReversibleAdaptive, pairFrequencyDensity } from "./reversibleAdaptive.ts";
+/* Shorten the step BEFORE the run breaches its own trust limit, triggered on the DRIFT rather
+   than on the binary — which is structurally too late. See the measurements in the header. */
+export type { StepGuard, StepGuardEvent, StepGuardOptions } from "./stepGuard.ts";
+export { createStepGuard } from "./stepGuard.ts";
 
 export type { SymmetricHermite, SymmetricHermiteOptions } from "./symmetric.ts";
 export {

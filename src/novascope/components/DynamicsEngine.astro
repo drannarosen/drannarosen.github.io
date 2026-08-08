@@ -736,6 +736,8 @@ const m = (tex: string) => tex;
     pairResolution,
     hardestBoundPair,
     createPairWatch,
+    createStepGuard,
+    type StepGuard,
   } from "@novascope/core/dynamics";
   /*
    * The renderer is named directly, never through the `viz` barrel — the barrel
@@ -946,6 +948,14 @@ const m = (tex: string) => tex;
     const STEP_DIVISOR = 2048;
     /* The divisor actually in force. Set from the URL on load; never from a control. */
     let stepDivisor = STEP_DIVISOR;
+    /* Opt-in: shorten the step as the drift climbs instead of halting. Set from the URL. */
+    let autostep = false;
+    /*
+     * Rebuilt with every run, because its whole state is a statement about THIS trajectory —
+     * carrying a scale over from the last cluster would start a fresh run at a step it never
+     * earned, and the strip would be certifying a run at a resolution nothing had justified.
+     */
+    let stepGuard: StepGuard | null = null;
     const SUBSTEPS = 8;
     /*
      * SOFTENING, and why it is a tenth of the mean interparticle spacing.
@@ -1069,6 +1079,16 @@ const m = (tex: string) => tex;
        * (1024 drifts 1.24e-3, 2048 holds at 4.38e-5). Values are clamped, not rejected.
        */
       steps: numberField(256, 32768, 2048, 0),
+      /*
+       * SHORTEN THE STEP RATHER THAN STOP — off by default, and that is a pedagogical choice
+       * rather than a technical one.
+       *
+       * The page's best moment is that the cluster builds a binary and the binary breaks the
+       * arithmetic. A run that quietly survived it would delete the lesson, so the default keeps
+       * the fixed step and the honest halt. This mode is the answer to the question the halt
+       * raises — what does a real code DO about it — and it is opt-in.
+       */
+      autostep: boolField(false),
     };
 
     /* `replaceState`, never `pushState`: dragging a slider must not fill the back button with
@@ -1086,6 +1106,7 @@ const m = (tex: string) => tex;
         gravity,
         eps: softeningFraction,
         steps: stepDivisor,
+        autostep,
       });
       history.replaceState(null, "", query ? `?${query}` : location.pathname);
     };
@@ -2529,7 +2550,9 @@ const m = (tex: string) => tex;
     function frame() {
       raf = 0;
       if (!run || !playing) return;
-      const dt = (run.built.timeUnit / stepDivisor) * Number(speedInput.value);
+      /* The guard only ever shortens, so this can fall mid-run but never climb back. */
+      const dt =
+        (run.built.timeUnit / stepDivisor) * Number(speedInput.value) * (stepGuard?.scale ?? 1);
       /*
        * WRAPPED, because a throw here does not fail loudly — it fails INVISIBLY.
        *
@@ -2573,7 +2596,17 @@ const m = (tex: string) => tex;
              * and force gradient FSI4 already needs — the expensive per-frame work
              * (boundness, the Lagrangian sorts, the draw) stays once per frame.
              */
-            worstSinceStore = Math.max(worstSinceStore, run.monitor.sample().energyDrift);
+            const drift = run.monitor.sample().energyDrift;
+            worstSinceStore = Math.max(worstSinceStore, drift);
+            /*
+             * EVERY STEP, not once a frame — the same reason the monitor itself moved here. The
+             * error arrives as narrow spikes at the binary's periapsis, and sampling every
+             * eighth step aliased them away once already.
+             */
+            if (stepGuard) {
+              const ev = stepGuard.update(drift, run.integrator.t);
+              if (ev) syncStepNote();
+            }
           } else {
             drift(dt);
             tSim += dt;
@@ -2643,6 +2676,45 @@ const m = (tex: string) => tex;
               : "Hermite · secular";
     };
 
+    /*
+     * ANY DEPARTURE FROM THIS PAGE'S OWN SETTINGS ANNOUNCES ITSELF.
+     *
+     * The paragraph under the figure states ε = 0.1 r_h N^(−1/3) and a fixed step, and the
+     * energy strip's argument rests on the step being fixed. A knob that changed either
+     * silently would leave both asserting something untrue of the run on screen — which is the
+     * class of quiet untruth this component is built against. So each override names the
+     * default it replaced, and a step the guard has shortened says when and why.
+     */
+    const syncStepNote = (): void => {
+      const el = root.querySelector<HTMLElement>("[data-epsnote]");
+      if (!el || !run) return;
+      const parts: string[] = [];
+      if (softeningFraction !== SOFTENING_FRACTION)
+        parts.push(
+          `ε = ${softeningFraction} r_h N^(−1/3) = ${run.built.softeningPc.toExponential(2)} pc ` +
+            `(default ${SOFTENING_FRACTION})`,
+        );
+      if (stepDivisor !== STEP_DIVISOR)
+        parts.push(
+          `dt = t_cr/${stepDivisor} = ${(run.built.timeUnit / stepDivisor).toExponential(2)} Myr ` +
+            `(default t_cr/${STEP_DIVISOR})`,
+        );
+      if (stepGuard) {
+        parts.push(
+          stepGuard.drops === 0
+            ? "step shortens as the drift climbs, instead of the run stopping"
+            : `step shortened ${stepGuard.drops}x to dt/${1 / stepGuard.scale} at t/t_cr ` +
+              stepGuard.events
+                .map((e) => (e.at / run!.built.timeUnit).toFixed(1))
+                .join(", "),
+        );
+      }
+      el.hidden = parts.length === 0;
+      el.textContent = parts.length
+        ? `${parts.join(" · ")} — not this page's defaults; the note below the figure describes those`
+        : "";
+    };
+
     const syncPlay = () => {
       playBtn.textContent = playing ? "❙❙ pause" : "▶ run";
       playBtn.classList.toggle("is-active", playing);
@@ -2693,32 +2765,17 @@ const m = (tex: string) => tex;
          `tCross` — so the displayed unit and the clock counted in it come from one
          number and cannot drift apart. It is a property of the draw, so it is set
          on rebuild rather than sampled every frame. */
+      /* A fresh guard per run: its scale is a statement about THIS trajectory, and carrying one
+         over would start a new cluster at a step it had not earned. */
+      stepGuard = autostep
+        ? createStepGuard({ tolerance: ENERGY_TOLERANCE })
+        : null;
       setStat("tc0", run.built.timeUnit.toFixed(3));
       /*
        * Read off the BUILD, so the badge states the softening the force model is actually
        * using rather than the fraction that was asked for.
        */
-      const epsNote = root.querySelector<HTMLElement>("[data-epsnote]");
-      if (epsNote) {
-        /* Either override announces itself, and both name the DEFAULT they replaced — the
-           paragraph under the figure describes that default, and a reader has to be able to
-           tell it no longer describes what is on screen. */
-        const parts: string[] = [];
-        if (softeningFraction !== SOFTENING_FRACTION)
-          parts.push(
-            `ε = ${softeningFraction} r_h N^(−1/3) = ${run.built.softeningPc.toExponential(2)} pc ` +
-              `(default ${SOFTENING_FRACTION})`,
-          );
-        if (stepDivisor !== STEP_DIVISOR)
-          parts.push(
-            `dt = t_cr/${stepDivisor} = ${(run.built.timeUnit / stepDivisor).toExponential(2)} Myr ` +
-              `(default t_cr/${STEP_DIVISOR})`,
-          );
-        epsNote.hidden = parts.length === 0;
-        epsNote.textContent = parts.length
-          ? `${parts.join(" · ")} — not this page's settings; the note below the figure describes the defaults`
-          : "";
-      }
+      syncStepNote();
       /* Frozen here and nowhere else: "born" means the draw this run started from, so it is
          captured once per rebuild and never recomputed while the run proceeds. */
       bornIMF = run.built.identity ? toIMFHistogram(latentStars(), run.built.identity) : null;
@@ -3051,6 +3108,7 @@ const m = (tex: string) => tex;
       scheme = st.scheme;
       softeningFraction = st.eps;
       stepDivisor = st.steps;
+      autostep = st.autostep;
       for (const o of root.querySelectorAll<HTMLButtonElement>("[data-scheme]")) {
         const on = o.dataset.scheme === scheme;
         o.classList.toggle("is-active", on);
