@@ -163,15 +163,17 @@ const m = (tex: string) => tex;
               separate by about 20% within eight crossing times and then hold there, because the two
               groups begin at different radii and with different speeds. What gravity does is
               different in kind: the heavy curve drops <em>below</em> 1 while the light one climbs.
-              Measured here, the heaviest 10% reach 0.46 of their starting radius by fifty crossing
-              times.
+              Left running, the heavy curve settles well below half its starting radius while the
+              light one keeps climbing. How far, and how fast, is not a fixed number: the heaviest
+              10% is a few dozen stars, so the curve is noisy from one sample to the next.
             </span>
             <span data-note="bound" hidden>
               The fraction of the cluster still gravitationally bound, by <b>mass</b> and by
               <b>number</b>. They disagree, and the gap is the point: the heaviest stars carry most
               of the mass and are the last to leave, so the mass curve stays high while the star
-              count falls away beneath it. Measured on this cluster at a thousand crossing times,
-              64% of the mass was still bound but only 49% of the stars.
+              count falls away beneath it. Run it long enough and the two separate by tens of
+              percent — most of the mass still bound while a third or more of the stars have
+              gone.
               <br /><br />
               It does not start at 100%, and that is the initial conditions rather than a bug: the
               velocities are an isotropic Maxwellian scaled to a virial ratio of
@@ -388,7 +390,11 @@ const m = (tex: string) => tex;
 
       {/* Each label is its own note trigger — a "?" per metric would be seven icons
           in a row, so the label carries the affordance instead. */}
-      <dl class="xpl-dyn__stats" data-summary aria-live="polite">
+      {/* aria-live="off", like the clock above and for the same reason: every one of these
+        seven values is rewritten each frame, so "polite" queues an announcement per frame
+        and a screen reader never finishes the first. The figures are readable on demand;
+        a live region is for something that changes occasionally. */}
+    <dl class="xpl-dyn__stats" data-summary aria-live="off">
         <div>
           <dt><button type="button" data-info="m-t" aria-expanded="false">t</button></dt>
           <dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} /></dd>
@@ -485,7 +491,7 @@ const m = (tex: string) => tex;
         describe the SAME object, so six separate explanations would repeat each other five
         times.
       */}
-      <dl class="xpl-dyn__stats xpl-dyn__stats--pair" data-pair-stats aria-live="polite" hidden>
+      <dl class="xpl-dyn__stats xpl-dyn__stats--pair" data-pair-stats aria-live="off" hidden>
         <div class="xpl-dyn__pairlabel">
           <dt><button type="button" data-info="m-pair" aria-expanded="false">hard binary</button></dt>
           <dd></dd>
@@ -998,7 +1004,27 @@ const m = (tex: string) => tex;
         worstSinceStore = 0;
       }
       if (hist.length > MAX_SAMPLES) {
-        hist = hist.filter((_, i) => i % 2 === 0);
+        /*
+         * MERGED IN PAIRS, not filtered — `e` is a MAX OVER AN INTERVAL, so dropping the odd
+         * samples throws their peaks away rather than thinning the record. Over a long run
+         * the plotted envelope then loses exactly the spikes the strip exists to show, which
+         * is the same aliasing as the once-per-frame sampling this file already fixed, one
+         * layer up. Confirmed in the browser: on a long run the trust-limit line was not
+         * drawn at all, because the PLOTTED maximum never came within a decade of it while
+         * the monitor's own peak was 5.8e-5.
+         *
+         * The other fields are smooth in time, so the survivor's value is representative;
+         * only the error envelope needs the max.
+         */
+        const mergeE = (x: number, y: number): number =>
+          Number.isFinite(x) ? (Number.isFinite(y) ? Math.max(x, y) : x) : y;
+        const merged: typeof hist = [];
+        for (let i = 0; i < hist.length; i += 2) {
+          const a = hist[i]!;
+          const b = hist[i + 1];
+          merged.push(b ? { ...a, e: mergeE(a.e, b.e) } : a);
+        }
+        hist = merged;
         const span = hist[hist.length - 1]!.t - hist[0]!.t;
         /* Measured from what survived, not doubled blindly, so the interval can
            never drift out of step with the array it is meant to describe. */
@@ -1168,7 +1194,10 @@ const m = (tex: string) => tex;
       let Lpc = NICE_PC[0]!;
       for (const c of NICE_PC) if (c * cssPerPc <= target) Lpc = c;
       scaleBar.style.inlineSize = `${(Lpc * cssPerPc).toFixed(1)}px`;
-      if (scaleLabel) scaleLabel.textContent = Lpc >= 1 ? `${Lpc} pc` : `${Lpc} pc`;
+      /* One branch: `${Lpc} pc` reads correctly either side of a parsec (0.05 pc, 2 pc), and
+         the ladder above has no value needing another form. This was a ternary with two
+         identical arms. */
+      if (scaleLabel) scaleLabel.textContent = `${Lpc} pc`;
     }
 
     /* ── drawing ───────────────────────────────────────────────── */
@@ -1867,7 +1896,24 @@ const m = (tex: string) => tex;
       pairConfirmed = persisted;
       if (pairConfirmed !== wasConfirmed) syncPlay();
 
-      if (pair.stepsPerOrbit < PAIR_HALT_STEPS) {
+      /*
+       * `persisted` GATES THE HALT TOO, and it did not.
+       *
+       * The banner has required half a crossing time since it was written, for a reason
+       * spelled out above: the raw threshold fires on any close passage. Measured live on
+       * seed 2028 it announced a hard binary at t/t_cr = 5.3 for a 2 + 38 Msun pair — a
+       * flyby, gone moments later.
+       *
+       * The HALT was left on the bare threshold, which is the worse place for it: two stars
+       * momentarily bound at a small separation have a small `a` and a short period, so a
+       * single passage can read below thirty steps per orbit and END THE RUN, asserting an
+       * unresolvable binary that does not exist. The banner merely appears and leaves; the
+       * halt cannot be undone without a reset.
+       *
+       * Same criterion, same reason. The energy limit still guards the run in the meantime,
+       * and it is the one that catches a pair which really is destroying the integration.
+       */
+      if (pair.stepsPerOrbit < PAIR_HALT_STEPS && persisted) {
         /* Longer than the watch banner, and that is proportionate: the run has STOPPED, and a
            reader is owed the reason on the spot rather than in a paragraph below the fold. */
         halt(
@@ -2040,13 +2086,18 @@ const m = (tex: string) => tex;
          and a wrapped status line costs the figure a whole row of height — which
          is the scarcest thing in this layout. The toggle beside it already says
          which mode is selected, so the phrase only has to say what is happening. */
-      hint.textContent = playing
-        ? pairConfirmed
-          ? "hard binary — clock slowed"
-          : gravity
-            ? "every star pulls on every other"
-            : "no gravity — stars keep going"
-        : "paused — press run";
+      /* HALTED IS NOT PAUSED. The play handler returns early once `halted` is set, so
+         "press run" pointed at a button that does nothing — the banner said the run had
+         ended while the line under it invited you to resume. */
+      hint.textContent = halted
+        ? "stopped — reset or draw again"
+        : playing
+          ? pairConfirmed
+            ? "hard binary — clock slowed"
+            : gravity
+              ? "every star pulls on every other"
+              : "no gravity — stars keep going"
+          : "paused — press run";
     };
 
     const rebuild = () => {

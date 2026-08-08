@@ -81,7 +81,8 @@ export interface PairResolution extends HardestPair {
 /**
  * The most bound pair in the state, by two-body relative energy, or null if nothing is bound.
  *
- * O(N^2) and allocation-free apart from the result, but it is NOT free — at N = 800 it costs
+ * O(N^2), allocating only when it finds a tighter pair than the best so far, and it is
+ * NOT free — at N = 800 it costs
  * about what one diagnostics pass does. Callers on a frame budget should throttle it rather
  * than run it every frame.
  *
