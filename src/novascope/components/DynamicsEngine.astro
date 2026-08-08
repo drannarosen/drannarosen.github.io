@@ -1816,7 +1816,28 @@ const m = (tex: string) => tex;
       ctx.setLineDash([]);
     }
 
-    const drawPlots = () => {
+    /*
+     * THE TAB'S OWN PLOT ONLY. The energy strip is drawn by its own function below, and the
+     * two are called together by `drawPlots`.
+     *
+     * They were one function, and the receipt did not survive it. Each tab returns early —
+     * `mf` and `lagr` do, because their plots are not time series — and the energy strip was
+     * the last statement AFTER those returns, so it was simply never reached on those two
+     * tabs. Measured in Chrome at 1512x857: with the clock running 6.7 -> 7.9 Myr, the energy
+     * canvas's pixels were byte-identical the whole time on both `lagr` and `mf`, and started
+     * changing again the instant the `radii` tab came back.
+     *
+     * The strip is the RECEIPT — this file's own note says it "stays OUTSIDE them
+     * deliberately … it is the receipt that vouches for whichever tab you are on". On two of
+     * four tabs it was vouching for a state the run had left, which is worse than showing
+     * nothing: a stale trace still looks like a live one. The halt was never affected (it
+     * fires from `sample()`), so what a reader lost was the visible approach to the limit.
+     *
+     * Splitting them is the fix rather than moving one line, because the shape that caused it
+     * — "add a tab, copy the early return above" — will recur every time a tab is added, and
+     * items on this page's own roadmap add more.
+     */
+    const drawTabPlot = () => {
       const rose = css("--spec-rose-bright", "#e58fb4");
       const teal = css("--spec-teal-bright", "#4fd6c4");
       if (plotTab === "mf") {
@@ -1908,6 +1929,10 @@ const m = (tex: string) => tex;
           { refOne: true },
         );
       }
+    };
+
+    /* Drawn on EVERY tab, which is the whole point of it — see the note on `drawTabPlot`. */
+    const drawEnergyStrip = () => {
       /* The tolerance comes from the MONITOR, not from a number typed here — it is
          the same value `healthy` latches on, so the line a reader sees and the
          verdict the page reports cannot drift apart. */
@@ -1918,6 +1943,11 @@ const m = (tex: string) => tex;
           ? { threshold: { value: tol, colour: css("--spec-rose-bright", "#e58fb4"), label: "trust limit" } }
           : {}),
       });
+    };
+
+    const drawPlots = () => {
+      drawTabPlot();
+      drawEnergyStrip();
     };
 
     const redraw = () => {
