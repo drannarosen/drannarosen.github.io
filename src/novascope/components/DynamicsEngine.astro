@@ -257,6 +257,7 @@ const m = (tex: string) => tex;
           <span class="xpl-dyn__ctrl-val">integrator</span>
           <span class="xpl-dyn__modes" role="group" aria-label="Integrator">
             <button type="button" data-scheme="fsi4" class="is-active" aria-pressed="true">FSI4</button>
+            <button type="button" data-scheme="logh" aria-pressed="false">LogH</button>
             <button type="button" data-scheme="hermite" aria-pressed="false">Hermite</button>
           </span>
           <button type="button" class="xpl-dyn__info" data-info="scheme" aria-expanded="false"
@@ -264,7 +265,25 @@ const m = (tex: string) => tex;
           <span class="xpl-dyn__popover" data-popover="scheme" role="tooltip" hidden>
             <b>FSI4</b> is a fourth-order <b>symplectic</b> scheme (Forest-Ruth family). Its energy
             error is <em>bounded</em> — it wanders and comes back — which is what lets the strip
-            below certify a run at all.
+            below certify a run at all. Its one weakness is the one this cluster produces: a fixed
+            step cannot shorten itself for a hardening binary.
+            <br /><br />
+            <b>LogH</b> fixes exactly that, and it is the interesting one. A symplectic scheme
+            cannot simply be given a step controller — its bounded error comes <em>from</em> the
+            fixed step, which is what makes it conserve one nearby Hamiltonian instead of a
+            different one each step. So LogH changes the problem instead: it integrates in a
+            <em>fictitious</em> time <Math tex={m("s")} /> with
+            <Math tex={m("\\mathrm{d}t/\\mathrm{d}s = 1/(-U)")} />, so a fixed step in
+            <Math tex={m("s")} /> gives a step in <Math tex={m("t")} /> that shortens itself
+            wherever the potential deepens — symplectic <em>and</em> adaptive, with no criterion
+            anywhere in it (Mikkola &amp; Tanikawa 1999; Preto &amp; Tremaine 1999).
+            <br /><br />
+            On a two-body orbit it is spectacular: measured over twenty orbits at eccentricity
+            0.99, FSI4's peak error is 1.7×10<sup>2</sup> — the orbit is destroyed — against
+            4.2×10<sup>−11</sup> for LogH at the same step count. On <em>this</em> cluster it is
+            merely better, 4× to 24× depending on the draw, because the transformation is global:
+            one binary is diluted among four hundred stars. Resolving that properly needs per-pair
+            regularisation, which the research codes do and a browser does not.
             <br /><br />
             <b>Hermite</b> is also fourth order and sizes its own sub-steps, but it is
             <em>not</em> symplectic: its energy error is <b>secular</b>, growing steadily rather
@@ -500,7 +519,7 @@ const m = (tex: string) => tex;
      * Hermite is fourth order but NOT symplectic, so its energy error is secular
      * rather than bounded — which is the property the strip's argument rests on.
      */
-    let scheme: "fsi4" | "hermite" = "fsi4";
+    let scheme: "fsi4" | "logh" | "hermite" = "fsi4";
     let playing = false;
     let run: ReturnType<typeof build> | null = null;
     /* History of (t, r_h heavy, r_h light) and of fractional energy error. */
@@ -811,7 +830,44 @@ const m = (tex: string) => tex;
        * without it a recoiling cluster simply exits the fixed frame sideways and
        * the panel goes blank for a reason that has nothing to do with expansion.
        */
-      if (centre) points?.setFraming({ centre: Array.from(centre) });
+      /*
+       * FOLLOWING THE PAIR IS A MODE, not a one-shot jump.
+       *
+       * "show me" used to call setFraming once. This line then overwrote the centre on the
+       * VERY NEXT FRAME, so the picture zoomed to the binary's scale and immediately snapped
+       * back to the cluster's centre — leaving the reader staring at a tiny empty patch of
+       * core. Anna reported exactly that: "i don't see the binary when i clicked show me."
+       *
+       * A binary also MOVES — it orbits in the cluster potential and recoils — and it
+       * HARDENS, so its own scale shrinks while you watch. Both have to be tracked or it
+       * drifts out of frame within a crossing time.
+       */
+      if (followPair && pair) {
+        /*
+         * CENTRE ONLY — THE SCALE IS SET ONCE, when follow mode is entered.
+         *
+         * This passed `radiusPc: 3a` every frame, and `a` is computed from the pair's
+         * INSTANTANEOUS relative energy, which oscillates around the orbit. So the frame
+         * rescaled a few percent every frame and the scale bar visibly jittered. Anna: "don't
+         * let it self-zoom after you zoom into the binary, it causes the scale to jitter."
+         *
+         * It is the same rule as the cluster frame's, and for the same reason: a picture that
+         * quietly redefines its own units while you watch is not showing you the physics. The
+         * pair does shrink in frame as it hardens — that IS the physics — and the reader can
+         * zoom if they want a closer look.
+         */
+        const st = run.built.state;
+        const mi = st.mass[pair.i];
+        const mj = st.mass[pair.j];
+        const mT = mi + mj;
+        points?.setFraming({
+          centre: [
+            (st.pos[pair.i * 3] * mi + st.pos[pair.j * 3] * mj) / mT,
+            (st.pos[pair.i * 3 + 1] * mi + st.pos[pair.j * 3 + 1] * mj) / mT,
+            (st.pos[pair.i * 3 + 2] * mi + st.pos[pair.j * 3 + 2] * mj) / mT,
+          ],
+        });
+      } else if (centre) points?.setFraming({ centre: Array.from(centre) });
       updateScaleBar();
 
       setStat("boundm", d ? (d.boundMassFraction * 100).toFixed(0) : "—");
@@ -1355,6 +1411,8 @@ const m = (tex: string) => tex;
     let pairKey = "";
     /** Latched once the pair has persisted: what the banner and the slow-down both key on. */
     let pairConfirmed = false;
+    /** Whether the frame is TRACKING the binary rather than the cluster. See sample(). */
+    let followPair = false;
     let halted = false;
 
     /*
@@ -1409,7 +1467,12 @@ const m = (tex: string) => tex;
         pairSince = Infinity;
       }
       const persisted = tSim - pairSince >= PAIR_PERSIST_TCROSS * run!.built.timeUnit;
+      /* The status line under the canvas reports the slow-down, and it is only rewritten by
+         syncPlay — so a transition here has to poke it, or the line goes on saying "every star
+         pulls on every other" while the clock is visibly crawling. */
+      const wasConfirmed = pairConfirmed;
       pairConfirmed = persisted;
+      if (pairConfirmed !== wasConfirmed) syncPlay();
 
       if (pair.stepsPerOrbit < PAIR_HALT_STEPS) {
         /* Longer than the watch banner, and that is proportionate: the run has STOPPED, and a
@@ -1431,11 +1494,20 @@ const m = (tex: string) => tex;
          * The reasoning lives in the energy strip's "?" and in the page body; the banner's
          * job is to say THAT it happened, with the figures, and offer to show you.
          */
+        /*
+         * Trimmed to hold ONE line in the 500 px panel, and the trimming was measured rather
+         * than guessed: at --step--2 (14.96 px here) the full string needed 485 px of text
+         * plus an 86 px button against 484 px available, so it wrapped to three lines.
+         *
+         * Hardness went to the energy strip's "?" — steps-per-orbit is the number that
+         * explains what the trace below is DOING — and "clock slowed" went to the status line
+         * under the canvas, which is where every other phrase about what the run is currently
+         * doing already lives.
+         */
         showAlert(
           "Hard binary",
           `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} M☉ · ` +
-            `${pair.hardness.toFixed(0)}× hard · ${pair.stepsPerOrbit.toFixed(0)} steps/orbit · ` +
-            `clock slowed`,
+            `${pair.stepsPerOrbit.toFixed(0)} steps/orbit`,
           true,
         );
       } else if (!halted) {
@@ -1461,9 +1533,26 @@ const m = (tex: string) => tex;
         const subs = substepsNow();
         for (let k = 0; k < subs; k++) {
           if (gravity) run.integrator.step(dt);
-          else drift(dt);
-          tSim += dt;
+          else {
+            drift(dt);
+            tSim += dt;
+          }
         }
+        /*
+         * WITH GRAVITY ON, THE INTEGRATOR'S CLOCK IS THE CLOCK — read, not accumulated.
+         *
+         * This used to be `tSim += dt` on both paths, which is exact for a fixed-step scheme
+         * and WRONG for LogH: it takes whole steps in fictitious time and stops on the first
+         * one past the target, deliberately, because truncating the last step would forfeit
+         * the symplecticity that is the entire reason to use it. Its `t` is therefore slightly
+         * ahead of the requested dt, and an accumulator would drift away from it — the readout
+         * and the energy history would end up describing a different time from the state.
+         *
+         * Free streaming keeps its own accumulator because that path never touches the
+         * integrator. The two can only disagree if gravity changes mid-run, and it cannot:
+         * `selectGravity` rebuilds, resetting both to zero together.
+         */
+        if (gravity) tSim = run.integrator.t;
         if (gravity) watchBinary(dt);
       } catch (err) {
         halt(
@@ -1500,7 +1589,17 @@ const m = (tex: string) => tex;
        panel exists to prevent. */
     const syncScheme = () => {
       const el = root.querySelector<HTMLElement>("[data-schemename]");
-      if (el) el.textContent = scheme === "fsi4" ? "FSI4 · bounded" : "Hermite · secular";
+      /* Each name carries the claim the strip below is entitled to make, and they differ:
+         "bounded" is only true of a symplectic map, and LogH is the one that is BOTH
+         symplectic and adaptive. Labelling them alike would let the panel's argument survive
+         a switch that invalidates it. */
+      if (el)
+        el.textContent =
+          scheme === "fsi4"
+            ? "FSI4 · bounded"
+            : scheme === "logh"
+              ? "LogH · bounded, adaptive"
+              : "Hermite · secular";
     };
 
     const syncPlay = () => {
@@ -1516,9 +1615,11 @@ const m = (tex: string) => tex;
          is the scarcest thing in this layout. The toggle beside it already says
          which mode is selected, so the phrase only has to say what is happening. */
       hint.textContent = playing
-        ? gravity
-          ? "every star pulls on every other"
-          : "no gravity — stars keep going"
+        ? pairConfirmed
+          ? "hard binary — clock slowed"
+          : gravity
+            ? "every star pulls on every other"
+            : "no gravity — stars keep going"
         : "paused — press run";
     };
 
@@ -1534,6 +1635,10 @@ const m = (tex: string) => tex;
       pairSince = Infinity;
       pairKey = "";
       pairConfirmed = false;
+      /* A new run has no binary to follow, and leaving this set would frame the fresh cluster
+         on a pair that no longer exists. */
+      followPair = false;
+      zoomPairBtn.textContent = "show me";
       hideAlert();
       /* Read off the BUILD, and only here. `built.timeUnit` is `crossingTime(state)`
          of the initial configuration — the same quantity the monitor divides by for
@@ -1592,6 +1697,17 @@ const m = (tex: string) => tex;
      */
     zoomPairBtn.addEventListener("click", () => {
       if (!pair || !run) return;
+      followPair = !followPair;
+      zoomPairBtn.textContent = followPair ? "back" : "show me";
+      if (!followPair) {
+        /* Leaving follow mode has to restore the SCALE too. `maxR` is sticky, so returning
+           the centre alone would leave the reader at the binary's ~0.1 pc frame looking at a
+           cluster four hundred times wider than the view. */
+        points?.setFraming({ radiusPc: run.built.viewPc });
+        points?.setZoom(1);
+        requestAnimationFrame(updateScaleBar);
+        return;
+      }
       const st = run.built.state;
       const { i, j } = pair;
       const mi = st.mass[i];
@@ -1602,7 +1718,10 @@ const m = (tex: string) => tex;
         (st.pos[i * 3 + 1] * mi + st.pos[j * 3 + 1] * mj) / mT,
         (st.pos[i * 3 + 2] * mi + st.pos[j * 3 + 2] * mj) / mT,
       ];
-      points?.setFraming({ centre, radiusPc: Math.max(4 * pair.semiMajorAxis, 1e-3) });
+      /* 3a, not 4a: the pair's separation swings between periapsis and apoapsis, and the
+         apoapsis of a bound orbit is at most 2a, so 3a holds the whole orbit with margin
+         while still filling the frame with it. */
+      points?.setFraming({ centre, radiusPc: Math.max(3 * pair.semiMajorAxis, 1e-4) });
       /*
        * rAF, exactly as the wheel listener does, and for the same reason: `setFraming` only
        * raises `reframe`, and the renderer recomputes `pxPerPc` inside `syncSize()` on its
@@ -1686,7 +1805,7 @@ const m = (tex: string) => tex;
        for every pixel of slider travel. */
     for (const b of root.querySelectorAll<HTMLButtonElement>("[data-scheme]")) {
       b.addEventListener("click", () => {
-        const next = (b.dataset.scheme as "fsi4" | "hermite") ?? "fsi4";
+        const next = (b.dataset.scheme as "fsi4" | "logh" | "hermite") ?? "fsi4";
         if (next === scheme) return;
         scheme = next;
         for (const o of root.querySelectorAll<HTMLButtonElement>("[data-scheme]")) {
@@ -2167,40 +2286,66 @@ const m = (tex: string) => tex;
    * `pointer-events: none` on the box with `auto` on the button: the banner covers a slab of
    * the cluster, and drag-to-orbit has to keep working through it.
    */
+  /*
+   * Styled as a HUD CHIP, not as an alert box.
+   *
+   * The first version was a full-width slab with a solid amber border and a filled amber
+   * pill, sitting directly under the transport row — Anna: "that pop-up looks horrible". It
+   * was loud in a panel whose whole visual language is quiet monospace chips, and it crowded
+   * the controls it sat beneath.
+   *
+   * Now: bottom-anchored, above the gravity row rather than under the transport one; content
+   * width rather than full width; the same surface, border and radius as every other chip on
+   * this canvas, with amber carried by ONE word and a dot instead of a frame. The button
+   * borrows `.xpl-dyn__modes button`'s outline styling for the same reason.
+   */
   .xpl-dyn__alert {
     position: absolute;
-    inset-inline: var(--space-2xs);
-    inset-block-start: 2.6rem;
+    inset-inline-start: var(--space-2xs);
+    inset-block-end: 2.8rem;
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.4em;
-    padding: var(--space-2xs) var(--space-xs);
-    border: 1px solid var(--spec-amber);
-    border-radius: var(--radius-s);
-    background: color-mix(in srgb, var(--bg-void) 88%, transparent);
-    color: var(--ink);
+    align-items: center;
+    gap: 0.5em;
+    inline-size: fit-content;
+    max-inline-size: calc(100% - 2 * var(--space-2xs));
+    padding: 0.3em 0.75em;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-void) 82%, transparent);
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
     font-size: var(--step--2);
-    line-height: 1.45;
+    line-height: 1.5;
     pointer-events: none;
   }
   .xpl-dyn__alert[hidden] {
     display: none;
   }
+  /* The one amber thing, plus a dot — enough to read as a notice without a frame around it. */
   .xpl-dyn__alert strong {
     color: var(--spec-amber);
+    font-weight: 600;
+  }
+  .xpl-dyn__alert strong::before {
+    content: "● ";
+    font-size: 0.8em;
   }
   .xpl-dyn__alert-btn {
     pointer-events: auto;
     flex: none;
     font-family: var(--font-mono);
     font-size: var(--step--2);
-    color: var(--bg-void);
-    background: var(--spec-amber);
-    border: 0;
+    color: var(--ink-soft);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
     border-radius: 999px;
-    padding: 0.15em 0.7em;
+    padding: 0.1em 0.7em;
     cursor: pointer;
+  }
+  .xpl-dyn__alert-btn:hover {
+    color: var(--spec-teal-bright);
+    border-color: var(--spec-teal-bright);
   }
   .xpl-dyn__alert-btn[hidden] {
     display: none;
@@ -2287,9 +2432,13 @@ const m = (tex: string) => tex;
    * Slider travel degrades smoothly; a wrapped button row is a step change in the
    * panel's height.
    */
+  /* 1.9fr, up from 1.4: the integrator cell went from two pill buttons to THREE when LogH
+     joined, and at 1.4fr "FSI4 | LogH | Hermite | ?" needed ~197 px in a ~190 px cell, so it
+     wrapped again — the same failure this rule was written to fix, reintroduced by adding a
+     scheme. Speed gives up the width; it is a 16-step slider and the least travel-hungry. */
   .xpl-dyn__controls {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) 1.4fr 0.8fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) 1.9fr 0.7fr;
     gap: var(--space-2xs) var(--space-m);
     padding-inline: var(--space-s);
   }
