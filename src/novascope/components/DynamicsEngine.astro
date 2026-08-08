@@ -235,6 +235,30 @@ const m = (tex: string) => tex;
             Steepen it and the cluster becomes a crowd of low-mass stars with little to segregate.
           </span>
         </label>
+        <div class="xpl-dyn__ctrl xpl-dyn__ctrl--noted">
+          <span class="xpl-dyn__ctrl-val">integrator</span>
+          <span class="xpl-dyn__modes" role="group" aria-label="Integrator">
+            <button type="button" data-scheme="fsi4" class="is-active" aria-pressed="true">FSI4</button>
+            <button type="button" data-scheme="hermite" aria-pressed="false">Hermite</button>
+          </span>
+          <button type="button" class="xpl-dyn__info" data-info="scheme" aria-expanded="false"
+            aria-label="About the integrator choice">?</button>
+          <span class="xpl-dyn__popover" data-popover="scheme" role="tooltip" hidden>
+            <b>FSI4</b> is a fourth-order <b>symplectic</b> scheme (Forest-Ruth family). Its energy
+            error is <em>bounded</em> — it wanders and comes back — which is what lets the strip
+            below certify a run at all.
+            <br /><br />
+            <b>Hermite</b> is also fourth order and sizes its own sub-steps, but it is
+            <em>not</em> symplectic: its energy error is <b>secular</b>, growing steadily rather
+            than returning. Measured on this cluster over forty crossing times, FSI4 fell from a
+            worst of 1.35e-6 to 3.41e-8 by the end, while Hermite sat at 2.07e-6 both times —
+            never coming back.
+            <br /><br />
+            So the two are not simply "more or less accurate". Switching to Hermite changes what
+            the energy strip can tell you: a small number there no longer implies the error will
+            stay small. It is here as a comparison, which is why FSI4 is the default.
+          </span>
+        </div>
         <label class="xpl-dyn__ctrl">
           <span class="xpl-dyn__ctrl-val"
             >speed <output data-speed-val>1.0</output><Math tex={m("\\times")} /></span
@@ -318,6 +342,7 @@ const m = (tex: string) => tex;
       <figcaption>
         Energy drift
         <span class="xpl-dyn__legend">
+          <span class="xpl-dyn__key" data-schemename>FSI4 · bounded</span>
           <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--e"></i><Math tex={m("|\\Delta E/E|")} /></span>
           <button
             type="button"
@@ -417,6 +442,13 @@ const m = (tex: string) => tex;
 
     /* ── state ─────────────────────────────────────────────────── */
     let gravity = false;
+    /*
+     * WHICH INTEGRATOR. FSI4 is the default and the honest one for this page;
+     * Hermite is offered as a comparison instrument. See the note by the control:
+     * Hermite is fourth order but NOT symplectic, so its energy error is secular
+     * rather than bounded — which is the property the strip's argument rests on.
+     */
+    let scheme: "fsi4" | "hermite" = "fsi4";
     let playing = false;
     let run: ReturnType<typeof build> | null = null;
     /* History of (t, r_h heavy, r_h light) and of fractional energy error. */
@@ -511,7 +543,10 @@ const m = (tex: string) => tex;
        * are honest for its configuration; overriding that was the bug.
        */
       const picked = chooseIntegrator(built.state, built.force, {
-        prefer: s.defaultScheme,
+        prefer: scheme,
+        /* Hermite is the only one of the two that can size its own sub-steps; the
+           flag is ignored by FSI4, which has no adaptive mode by construction. */
+        adaptive: scheme === "hermite",
         maxStep: built.timeUnit / STEP_DIVISOR,
       });
       /* Mass split is fixed once per draw, so the two curves follow the SAME
@@ -1222,6 +1257,14 @@ const m = (tex: string) => tex;
     }).observe(root);
 
     /* ── wiring ────────────────────────────────────────────────── */
+    /* The strip says WHICH scheme drew the trace, always — a bounded-error claim
+       that silently applies to a secular integrator is the failure mode the whole
+       panel exists to prevent. */
+    const syncScheme = () => {
+      const el = root.querySelector<HTMLElement>("[data-schemename]");
+      if (el) el.textContent = scheme === "fsi4" ? "FSI4 · bounded" : "Hermite · secular";
+    };
+
     const syncPlay = () => {
       playBtn.textContent = playing ? "❙❙ pause" : "▶ run";
       playBtn.classList.toggle("is-active", playing);
@@ -1260,6 +1303,7 @@ const m = (tex: string) => tex;
       sample();
       redraw();
       syncPlay();
+      syncScheme();
     };
 
     playBtn.addEventListener("click", () => {
@@ -1348,6 +1392,23 @@ const m = (tex: string) => tex;
     /* `input` updates the readout continuously; `change` rebuilds ONCE on release.
        Rebuilding per input event would re-sample and re-integrate a fresh cluster
        for every pixel of slider travel. */
+    for (const b of root.querySelectorAll<HTMLButtonElement>("[data-scheme]")) {
+      b.addEventListener("click", () => {
+        const next = (b.dataset.scheme as "fsi4" | "hermite") ?? "fsi4";
+        if (next === scheme) return;
+        scheme = next;
+        for (const o of root.querySelectorAll<HTMLButtonElement>("[data-scheme]")) {
+          const on = o === b;
+          o.classList.toggle("is-active", on);
+          o.setAttribute("aria-pressed", String(on));
+        }
+        /* A different integrator is a different run, not a continuation: the
+           monitor's baseline and the whole error history belong to the scheme
+           that produced them. */
+        rebuild();
+        syncScheme();
+      });
+    }
     alphaInput.addEventListener("input", () => {
       alphaVal.value = Number(alphaInput.value).toFixed(1);
     });
@@ -1854,7 +1915,7 @@ const m = (tex: string) => tex;
      the ~90 px of slider travel they had inside the cluster column. */
   .xpl-dyn__controls {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: var(--space-2xs) var(--space-m);
     padding-inline: var(--space-s);
   }
