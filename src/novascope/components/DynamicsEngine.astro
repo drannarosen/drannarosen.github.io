@@ -38,7 +38,30 @@ const m = (tex: string) => tex;
     <figure class="xpl-dyn__panel xpl-dyn__panel--field">
       <figcaption>
         The cluster
-        <span>drag to orbit · scroll to zoom</span>
+        <span class="xpl-dyn__legend">
+          <span>drag to orbit · scroll to zoom</span>
+          <button type="button" class="xpl-dyn__info" data-info="clock" aria-expanded="false"
+            aria-label="About the clock">?</button>
+          <span class="xpl-dyn__popover" data-popover="clock" role="tooltip" hidden>
+            The clock on the frame reads model time twice: in <b>millions of years</b>, and in
+            <b>crossing times</b> — how long a typical star takes to cross the cluster. The
+            second is the one a cluster actually keeps, because relaxation and segregation
+            happen on multiples of it rather than on Myr. It is blank without gravity, where it
+            is undefined.
+            <br /><br />
+            This draw's crossing time is <b><span data-v="tc0">—</span> Myr</b>, fixed at
+            <Math tex={m("t = 0")} /> so the crossing-time clock stays a ruler rather than one
+            that stretches while you read it. It is set by the cluster you built: roughly
+            <Math tex={m("t_\mathrm{cr} \sim r_h / v")} /> with
+            <Math tex={m("v \sim \sqrt{GM/r_h}")} />, so a bigger
+            <Math tex={m("r_h")} /> or a lighter cluster gives a slower clock. Changing
+            <Math tex={m("N")} />, <Math tex={m("r_h")} /> or
+            <Math tex={m("\gamma")} /> redraws it.
+            <br /><br />
+            Model time is not wall-clock time — the speed control changes how much of it passes
+            per frame.
+          </span>
+        </span>
       </figcaption>
       {/*
         EVERY CONTROL RIDES ON THE FRAME, in the two corners the cluster does not
@@ -154,8 +177,14 @@ const m = (tex: string) => tex;
         </span>
         <span class="xpl-dyn__legend">
           <span class="xpl-dyn__keys" data-legend="radii">
-            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>heaviest 10%</span>
-            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>lightest half</span>
+            <span class="xpl-dyn__key"
+              ><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>heaviest 10%
+              <b data-v="rhi">—</b></span
+            >
+            <span class="xpl-dyn__key"
+              ><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>lightest half
+              <b data-v="rlo">—</b></span
+            >
           </span>
           <span class="xpl-dyn__keys" data-legend="bound" hidden>
             <span class="xpl-dyn__key"
@@ -454,78 +483,21 @@ const m = (tex: string) => tex;
         seven values is rewritten each frame, so "polite" queues an announcement per frame
         and a screen reader never finishes the first. The figures are readable on demand;
         a live region is for something that changes occasionally. */}
-    <dl class="xpl-dyn__stats" data-summary aria-live="off">
-        <div>
-          <dt><button type="button" data-info="m-t" aria-expanded="false">t</button></dt>
-          <dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} />
-          <span class="xpl-dyn__popover" data-popover="m-t" role="tooltip" hidden>
-            Model time since the run began, in millions of years. Not wall-clock time — the
-            speed control changes how much of it passes per frame.
-          </span></dd>
-        </div>
-        <div>
-          <dt><button type="button" data-info="m-tcr" aria-expanded="false"><Math tex={m("t/t_\\mathrm{cr}")} /></button></dt>
-          <dd data-v="tcr">0.0
-          <span class="xpl-dyn__popover" data-popover="m-tcr" role="tooltip" hidden>
-            The same time in <b>crossing times</b> — how long a typical star takes to cross the
-            cluster. It is the clock a cluster actually keeps: relaxation and segregation happen
-            on multiples of it, not on Myr. Blank without gravity, where it is undefined.
-          </span></dd>
-        </div>
-        {/* The unit the readout above is counted in. It was never shown, so
-            "t/t_cr = 1129" sat beside "t = 821 Myr" with no way to get from one
-            to the other — and t_cr is not a constant of the page, it moves with
-            every one of N, r_h and gamma. */}
-        <div>
-          <dt><button type="button" data-info="m-tc0" aria-expanded="false"><Math tex={m("t_\\mathrm{cr}")} /></button></dt>
-          <dd><span data-v="tc0">—</span> <Math tex={m("\\mathrm{Myr}")} />
-          <span class="xpl-dyn__popover" data-popover="m-tc0" role="tooltip" hidden>
-            The crossing time of the cluster <b>as drawn</b>, in millions of years — the unit
-            <Math tex={m("t/t_\\mathrm{cr}")} /> counts in. It is fixed at
-            <Math tex={m("t = 0")} /> and does not move as the run proceeds, so the crossing-time
-            clock stays a fixed ruler rather than one that stretches while you read it.
-            <br /><br />
-            It is set by the cluster you built: roughly
-            <Math tex={m("t_\\mathrm{cr} \\sim r_h / v")} /> with
-            <Math tex={m("v \\sim \\sqrt{GM/r_h}")} />, so a bigger
-            <Math tex={m("r_h")} /> or a lighter cluster gives a slower clock. Changing
-            <Math tex={m("N")} />, <Math tex={m("r_h")} /> or
-            <Math tex={m("\\gamma")} /> redraws it.
-          </span></dd>
-        </div>
-        <div>
-          <dt><button type="button" data-info="m-rhi" aria-expanded="false"><Math tex={m("r_h")} /> hi</button></dt>
-          <dd><span data-v="rhi">—</span>
-          <span class="xpl-dyn__popover" data-popover="m-rhi" role="tooltip" hidden>
-            Half-mass radius of the heaviest 10% of stars, in parsecs — the radius containing
-            half of that group's mass. Measured about the bound cluster's centre and over its
-            bound members only. This is the number that falls as the massive stars sink.
-          </span></dd>
-        </div>
-        <div>
-          <dt><button type="button" data-info="m-rlo" aria-expanded="false"><Math tex={m("r_h")} /> lo</button></dt>
-          <dd><span data-v="rlo">—</span>
-          <span class="xpl-dyn__popover" data-popover="m-rlo" role="tooltip" hidden>
-            The same quantity for the lightest half of the cluster. It rises as light stars are
-            scattered outward — the other half of the segregation the plot shows.
-          </span></dd>
-        </div>
-        {/* bound M and bound N used to sit here. They live in the BOUND FRACTION tab's own
-            legend now, beside the curves they label — a number is easier to read against the
-            line it belongs to than eight cells away, and the tab's "?" already carries the
-            explanation these two popovers held. It also returns two of eight cells to a strip
-            whose height is the binding constraint of this layout. */}
-        <div>
-          <dt><button type="button" data-info="m-de" aria-expanded="false"><Math tex={m("|\\Delta E/E|")} /></button></dt>
-          <dd><span data-v="drift">—</span>
-          <span class="xpl-dyn__popover" data-popover="m-de" role="tooltip" hidden>
-            Fractional energy error of the integration — the same number the strip below plots.
-            Blank with gravity off: there is no integrator running to make a claim about.
-            It licenses the arithmetic, not the model: a small value means the equations were
-            solved accurately, not that they still describe a star cluster.
-          </span></dd>
-        </div>
-      </dl>
+    {/*
+      THE METRICS BAR IS GONE, and every number in it is still on the page — beside the curve
+      it describes rather than in a row of eight cells that belonged to nothing in particular.
+
+        r_h hi, r_h lo   -> the half-mass tab's legend
+        |dE/E|           -> the energy strip's legend
+        bound M, bound N -> the bound-fraction tab's legend (moved earlier)
+        t, t/t_cr        -> the clock on the cluster, which is where time was already shown
+        t_cr             -> the clock's own note, since it is a property of the draw
+
+      Its popovers moved with them. This is also what makes the four plot tabs fit on one row:
+      the grid's height runs about C + 0.75 x W2, and dropping this band takes C down far
+      enough that the column can be widened to the 660 px the tabs need while the whole engine
+      still fits an 857 px screen. The bar was costing the page twice.
+    */}
 
       {/*
         THE BINARY'S OWN NUMBERS, and this row EXISTS ONLY WHILE THERE IS A BINARY.
@@ -625,7 +597,10 @@ const m = (tex: string) => tex;
         Energy drift
         <span class="xpl-dyn__legend">
           <span class="xpl-dyn__key" data-schemename>FSI4 · bounded</span>
-          <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--e"></i><Math tex={m("|\\Delta E/E|")} /></span>
+          <span class="xpl-dyn__key"
+            ><i class="xpl-dyn__swatch xpl-dyn__swatch--e"></i><Math tex={m("|\\Delta E/E|")} />
+            <b data-v="drift">—</b></span
+          >
           <button
             type="button"
             class="xpl-dyn__info"
@@ -1107,10 +1082,14 @@ const m = (tex: string) => tex;
         storeEvery = hist.length > 1 ? span / (hist.length - 1) : storeEvery * 2;
       }
 
-      setStat("t", tSim.toFixed(1));
-      setStat("tcr", s ? s.tCross.toFixed(1) : "—");
-      setStat("rhi", hi.toFixed(2));
-      setStat("rlo", lo.toFixed(2));
+      /* Both clocks in one chip on the frame. t/t_cr is omitted rather than shown as "—"
+         when there is no gravity: it is undefined there, and a dash inside a running clock
+         reads as a broken readout rather than an absent quantity. */
+      clockEl.textContent = s
+        ? `t = ${tSim.toFixed(1)} Myr · ${s.tCross.toFixed(1)} t_cr`
+        : `t = ${tSim.toFixed(1)} Myr`;
+      setStat("rhi", `${hi.toFixed(2)} pc`);
+      setStat("rlo", `${lo.toFixed(2)} pc`);
       /*
        * BOTH FRACTIONS, because they disagree and the difference is the story.
        * `boundMassFraction` is the quantity the literature quotes and it is
@@ -1184,7 +1163,6 @@ const m = (tex: string) => tex;
          counterfactual. */
       setStat("legend-bm", d ? `${(d.boundMassFraction * 100).toFixed(0)}%` : "—");
       setStat("legend-bn", d ? `${(d.boundFraction * 100).toFixed(0)}%` : "—");
-      clockEl.textContent = `t = ${tSim.toFixed(1)} Myr`;
       driftEl.textContent = s ? s.energyDrift.toExponential(1) : "—";
       /* `healthy` latches false once drift has ever breached tolerance, so this
          cannot flicker back to reassuring after a bad excursion. */
@@ -2604,7 +2582,13 @@ const m = (tex: string) => tex;
    */
   .xpl-dyn__grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /*
+     * NOT EQUAL COLUMNS. Column two carries four plot tabs on one row, which needs 636 px of
+     * caption; equal halves gave it 572 and they wrapped. The cluster gives up the difference
+     * — it loses width only, since its height is set by the span rather than by its own
+     * aspect, so a slightly narrower frame costs nothing but frame.
+     */
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
     gap: var(--space-s);
     align-items: stretch; /* each row's two cells match height → columns align */
   }
@@ -2684,6 +2668,18 @@ const m = (tex: string) => tex;
    */
   .xpl-dyn__panel figcaption > .xpl-dyn__modes {
     flex-basis: 100%;
+    /*
+     * The last 4.6 px. Given its own line at this column width the group had 630.2 px and the
+     * four labels needed 634.8 — measured, not estimated. Tightening the gap and the buttons'
+     * side padding closes it with room to spare, and it is scoped to the PLOT tabs so the
+     * transport, gravity and integrator groups keep their original proportions.
+     *
+     * The alternative was shortening the labels, and descriptive names are worth 4.6 px.
+     */
+    gap: 2px;
+  }
+  .xpl-dyn__panel figcaption > .xpl-dyn__modes button {
+    padding-inline: 0.55em;
   }
   .xpl-dyn__keys {
     display: inline-flex;
@@ -3020,7 +3016,9 @@ const m = (tex: string) => tex;
     transform: translate(-50%, -50%) rotate(-90deg);
     transform-origin: center;
     line-height: 1;
-    font-size: var(--step--1);
+    /* One step down. These are labels ON a figure, not body copy, and at --step--1 the
+       rotated y-title was competing with the tick labels it sits beside. */
+    font-size: var(--step--2);
     color: var(--ink-soft);
     white-space: nowrap;
     pointer-events: none;
