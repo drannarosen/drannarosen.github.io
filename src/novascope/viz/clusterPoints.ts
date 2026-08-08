@@ -48,7 +48,7 @@
  * every star gets the disc.
  */
 import * as THREE from "three";
-import { MeshBasicNodeMaterial, WebGPURenderer } from "three/webgpu";
+import { LineBasicNodeMaterial, MeshBasicNodeMaterial, WebGPURenderer } from "three/webgpu";
 import {
   Fn,
   instancedBufferAttribute,
@@ -139,6 +139,19 @@ export interface ClusterPoints {
    * went on describing a panel that was empty.
    */
   setFraming(opts: { centre?: readonly number[]; radiusPc?: number }): void;
+  /**
+   * A world-space polyline through `xyz` (`count * 3` floats [pc]), or null to clear.
+   *
+   * IT LIVES IN THE RENDERER, and that is the point. The trail has to sit under the same
+   * orthographic camera, the same pivot and the same yaw/pitch as the stars; drawing it on an
+   * overlay canvas would mean a second copy of that whole transform, which is the drift hazard
+   * this codebase keeps designing against — the trail would part company with the cluster the
+   * first time either changed.
+   *
+   * Added to the PIVOT rather than the scene, like the stars, so it orbits about the cluster's
+   * own centre rather than about a coordinate origin the cluster may have recoiled far from.
+   */
+  setTrail(xyz: Float32Array | null, colour?: readonly [number, number, number]): void;
   /** User zoom about the frame centre; >1 magnifies. Clamped to [0.15, 40]. */
   setZoom(z: number): void;
   readonly zoom: number;
@@ -352,6 +365,39 @@ export function createClusterPoints(
     material = null;
   }
 
+  /*
+   * THE TRAIL. Lazily built, capacity-preallocated, and hidden rather than destroyed when
+   * cleared — a binary's orbit is sampled every step while "show me" is on, so this is
+   * rebuilt at frame rate and churning a geometry per frame would be the expensive way to
+   * draw a line.
+   */
+  const TRAIL_CAPACITY = 8192;
+  let trailLine: THREE.Line | null = null;
+  let trailGeom: THREE.BufferGeometry | null = null;
+  let trailMat: LineBasicNodeMaterial | null = null;
+
+  function ensureTrail(): void {
+    if (trailLine) return;
+    trailGeom = new THREE.BufferGeometry();
+    trailGeom.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array(TRAIL_CAPACITY * 3), 3),
+    );
+    trailGeom.setDrawRange(0, 0);
+    trailMat = new LineBasicNodeMaterial({
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      depthTest: false,
+    });
+    trailLine = new THREE.Line(trailGeom, trailMat);
+    /* Same reason the star mesh sets it: a trail that leaves the frame must keep drawing the
+       part that has not, and three culls on a bounding sphere it would have to be told about. */
+    trailLine.frustumCulled = false;
+    /* Under the PIVOT, so it shares the cluster-centred origin and the drag rotation. */
+    pivot.add(trailLine);
+  }
+
   let bufW = 0;
   let bufH = 0;
   let pxPerPc = 1;
@@ -563,6 +609,27 @@ export function createClusterPoints(
       reframe = true;
       dirty = true;
     },
+    setTrail(xyz, colour) {
+      if (!xyz || xyz.length < 6) {
+        if (trailLine) trailLine.visible = false;
+        dirty = true;
+        if (!raf) draw();
+        return;
+      }
+      ensureTrail();
+      const arr = trailGeom!.getAttribute("position") as THREE.BufferAttribute;
+      const target = arr.array as Float32Array;
+      /* The TAIL is what matters — a trail longer than the buffer should drop its oldest
+         points, not its newest, or the line would stop at the star's past position. */
+      const floats = Math.min(xyz.length, TRAIL_CAPACITY * 3);
+      target.set(xyz.subarray(xyz.length - floats));
+      arr.needsUpdate = true;
+      trailGeom!.setDrawRange(0, floats / 3);
+      if (colour) trailMat!.color.setRGB(colour[0], colour[1], colour[2]);
+      trailLine!.visible = true;
+      dirty = true;
+      if (!raf) draw();
+    },
     setZoom(z) {
       zoom = Math.min(40, Math.max(0.15, z));
       reframe = true;
@@ -580,6 +647,12 @@ export function createClusterPoints(
     },
     dispose() {
       disposed = true;
+      if (trailLine) pivot.remove(trailLine);
+      trailGeom?.dispose();
+      trailMat?.dispose();
+      trailLine = null;
+      trailGeom = null;
+      trailMat = null;
       stop();
       io.disconnect();
       window.removeEventListener("resize", onResize);

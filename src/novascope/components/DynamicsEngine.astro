@@ -611,6 +611,14 @@ const m = (tex: string) => tex;
             which is also why the damage is concentrated in the small part of the orbit spent
             near periapsis.
             <br /><br />
+            <b>"Show me" draws the orbit as well as framing it.</b> The curve is the lighter
+            star's path around the pair's <em>centre of mass</em> — the two stars both orbit that
+            point, and it is itself moving through the cluster, so the trail is drawn in its frame
+            or the ellipse would be smeared along the binary's own path. Every point on it is a
+            state the integrator produced: it is sampled every step rather than every eighth
+            frame, because by the time this matters one orbit takes tens of steps, and nothing
+            between the samples is filled in.
+            <br /><br />
             {/*
               HEGGIE'S LAW, in the note the `hard` figure already lives in rather than as a
               seventh "?" — these six readouts describe one object, which is why they share one
@@ -2156,9 +2164,35 @@ const m = (tex: string) => tex;
       drawEnergyStrip();
     };
 
+    /*
+     * The stored offsets are in the pair's COM frame; placing them needs the CURRENT centre of
+     * mass, because that point is itself moving through the cluster. Rebuilt per frame, which
+     * is a few hundred adds — against the alternative of storing world positions, where the
+     * orbit would be smeared along the binary's own path through the cluster and invisible.
+     */
+    const drawPairTrail = (): void => {
+      if (!followPair || !pair || !run || pairTrail.length < 6) {
+        points?.setTrail(null);
+        return;
+      }
+      const st2 = run.built.state;
+      const mi = st2.mass[pair.i]!;
+      const mj = st2.mass[pair.j]!;
+      const mT = mi + mj;
+      const out = new Float32Array(pairTrail.length);
+      for (let k = 0; k < pairTrail.length; k += 3) {
+        for (let c = 0; c < 3; c++) {
+          const com = (st2.pos[pair.i * 3 + c]! * mi + st2.pos[pair.j * 3 + c]! * mj) / mT;
+          out[k + c] = pairTrail[k + c]! + com;
+        }
+      }
+      points?.setTrail(out, [0.9, 0.56, 0.71]); // --spec-rose-bright, as the binary tab uses
+    };
+
     const redraw = () => {
       points?.setPositions(positions());
       points?.setAlpha(alphas());
+      drawPairTrail();
       drawPlots();
       updateScaleBar(); // zoom and resize both change it without a physics step
     };
@@ -2333,6 +2367,27 @@ const m = (tex: string) => tex;
     };
     /** Whether the frame is TRACKING the binary rather than the cluster. See sample(). */
     let followPair = false;
+    /*
+     * THE PAIR'S ORBIT, SAMPLED EVERY INTEGRATOR STEP.
+     *
+     * `pairResolution` is O(N^2) and runs every eighth frame, which is fine for a readout and
+     * useless for a curve: at the point the page is about, one orbit takes tens of steps, so a
+     * trail sampled at that cadence would be three or four points and would draw a triangle
+     * where the physics has an ellipse. But `i` and `j` are already known between searches, so
+     * reading those two stars' positions costs six array loads and can happen every step.
+     *
+     * THIS IS A TRAJECTORY PLOT, NOT A DECORATION, and the distinction has a test: every point
+     * is a state the integrator actually produced. Nothing is interpolated between samples —
+     * which is the tempting shortcut when an orbit is short, and is exactly where this would
+     * stop being the model's own history and start being a drawing of what an orbit ought to
+     * look like.
+     *
+     * Stored in the pair's CENTRE-OF-MASS FRAME, because the binary is also orbiting in the
+     * cluster and recoiling: in world coordinates the samples smear along that path and no
+     * ellipse is visible. The frame change is stated on the page rather than assumed.
+     */
+    let pairTrail: number[] = [];
+    const MAX_TRAIL_SAMPLES = 2400;
     let halted = false;
 
     /*
@@ -2562,6 +2617,24 @@ const m = (tex: string) => tex;
         for (let k = 0; k < subs; k++) {
           if (gravity) {
             run.integrator.step(dt);
+            /* Every step, and only while the reader is looking at the pair — see pairTrail. */
+            if (followPair && pair) {
+              const st2 = run.built.state;
+              const i = pair.i;
+              const j = pair.j;
+              const mi = st2.mass[i]!;
+              const mj = st2.mass[j]!;
+              const mT = mi + mj;
+              /* The LIGHTER star's offset from the pair's centre of mass: the ellipse that
+                 actually passes through a star the reader can see moving. */
+              const light = mi <= mj ? i : j;
+              for (let c = 0; c < 3; c++) {
+                const com = (st2.pos[i * 3 + c]! * mi + st2.pos[j * 3 + c]! * mj) / mT;
+                pairTrail.push(st2.pos[light * 3 + c]! - com);
+              }
+              if (pairTrail.length > MAX_TRAIL_SAMPLES * 3)
+                pairTrail = pairTrail.slice(pairTrail.length - MAX_TRAIL_SAMPLES * 3);
+            }
             /*
              * THE MONITOR IS POLLED EVERY STEP, NOT ONCE A FRAME — AND THAT IS THE
              * DIFFERENCE BETWEEN NOTICING THE BREACH AND NOT.
@@ -2750,6 +2823,7 @@ const m = (tex: string) => tex;
       /* A new run has no binary to follow, and leaving this set would frame the fresh cluster
          on a pair that no longer exists. */
       followPair = false;
+      pairTrail = [];
       zoomPairBtn.textContent = "show me";
       hideAlert();
       hidePairStats();
@@ -2830,6 +2904,9 @@ const m = (tex: string) => tex;
     zoomPairBtn.addEventListener("click", () => {
       if (!pair || !run) return;
       followPair = !followPair;
+      /* A fresh look starts a fresh trail: carrying the old one over would draw an orbit the
+         pair has since left, and after an exchange it would not even be the same pair. */
+      pairTrail = [];
       zoomPairBtn.textContent = followPair ? "back" : "show me";
       if (!followPair) {
         /* Leaving follow mode has to restore the SCALE too. `maxR` is sticky, so returning
