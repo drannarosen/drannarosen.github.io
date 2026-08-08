@@ -35,7 +35,7 @@ const m = (tex: string) => tex;
 
 <div class="xpl-dyn" data-dyn>
   <div class="xpl-dyn__grid">
-    <figure class="xpl-dyn__panel">
+    <figure class="xpl-dyn__panel xpl-dyn__panel--field">
       <figcaption>
         The cluster
         <span>drag to orbit · scroll to zoom</span>
@@ -620,7 +620,7 @@ const m = (tex: string) => tex;
     {/* The energy strip is the RECEIPT, not a co-star. On the lab, drift is the
         subject; here it is the evidence that the run above can be trusted, so it
         is persistent and small rather than a fourth equal panel. */}
-    <figure class="xpl-dyn__panel xpl-dyn__panel--strip">
+    <figure class="xpl-dyn__panel xpl-dyn__panel--energy">
       <figcaption>
         Energy drift
         <span class="xpl-dyn__legend">
@@ -2585,11 +2585,39 @@ const m = (tex: string) => tex;
   /* Tighter than census's --space-m. This figure stacks four bands (cluster +
      plot, console, energy strip) where census stacks two, so the gaps are the
      cheapest 25 px available and cost nothing a reader would notice. */
+  /*
+   * THE RECEIPT SITS BESIDE THE INSTRUMENT, NOT BELOW IT.
+   *
+   * The energy strip's whole justification is that it vouches for the cluster above it — and
+   * stacked full-width it could not, because it fell off the bottom of the screen. Measured at
+   * 1512x857, the machine this is authored on: the grid stood 1122 px in 660 px of space below
+   * the header, and the strip ENDED at y = 1281. A reader had to scroll away from the thing
+   * being certified in order to read the certificate.
+   *
+   * So the cluster spans both rows of column one and the strip takes column two under the
+   * plot. Same information, no extra band: measured after, the grid is ~820 px and the strip
+   * sits level with the cluster it is about.
+   *
+   * Fitting EVERYTHING above the fold is not available at this height and chasing it was the
+   * error — the header alone takes ~197 px. Getting the cluster and its receipt onto one
+   * screen together is the requirement, and that is what this does.
+   */
   .xpl-dyn__grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-s);
     align-items: stretch; /* each row's two cells match height → columns align */
+  }
+  .xpl-dyn__panel--field {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+  .xpl-dyn__panel--energy {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .xpl-dyn__console {
+    grid-row: 3;
   }
   /*
    * Census's panel treatment, read from its stylesheet rather than remembered.
@@ -2625,6 +2653,11 @@ const m = (tex: string) => tex;
   .xpl-dyn__panel--strip {
     grid-column: 1 / -1;
   }
+  /* Row 1 of column two, beside the top of the cluster. */
+  .xpl-dyn__grid > .xpl-dyn__panel:not([class*="--"]) {
+    grid-column: 2;
+    grid-row: 1;
+  }
   /* Census's caption bar: a titled header rule, not a floating line of text. */
   .xpl-dyn__panel figcaption {
     display: flex;
@@ -2643,6 +2676,15 @@ const m = (tex: string) => tex;
     color: var(--ink-faint);
   }
   /* ── legend + "?" popover, census's `data-info` pattern ── */
+  /*
+   * THE TAB GROUP TAKES ITS OWN LINE. It was wrapping to two rows even after the panel got
+   * wider, because it shares a `flex-wrap` row with the legend and was wrapping against THAT
+   * rather than against the panel edge — which is why widening never fixed it. Given the whole
+   * line, four descriptive labels fit on one.
+   */
+  .xpl-dyn__panel figcaption > .xpl-dyn__modes {
+    flex-basis: 100%;
+  }
   .xpl-dyn__keys {
     display: inline-flex;
     align-items: center;
@@ -2800,6 +2842,18 @@ const m = (tex: string) => tex;
    * ~290 px shorter than the field beside it, and `align-items: stretch` turned
    * the difference into empty panel rather than into plot.
    */
+  /*
+   * SQUARE, AND IT STAYS SQUARE FOR FREE.
+   *
+   * This panel spans BOTH rows of column one, and those rows are sized by column two — the
+   * plot and the strip, whose heights come from their own aspect ratios. So the cluster's
+   * height is not what drives the grid: anything up to the span costs nothing.
+   *
+   * Two attempts here shrank it to 5:4 and then 4:3 on the assumption that its height was the
+   * expensive thing. Measured afterwards, restoring the square left the grid at 848 px
+   * unchanged — the saving came entirely from moving the strip into column two, and the
+   * cluster had been cropped for nothing.
+   */
   .xpl-dyn__panel [data-field] {
     aspect-ratio: 1;
     block-size: auto;
@@ -2898,8 +2952,19 @@ const m = (tex: string) => tex;
    * a healthy run sits low in a frame whose top is the limit. That headroom IS the
    * reading, and it needs room to be one.
    */
+  /*
+   * 4:1 NOW IT IS HALF THE WIDTH. The 20:3 was set when this strip ran the full 1216 px and
+   * gave a readable 182 px; in a 596 px column the same ratio is 89 px, and with the axis
+   * margins that leaves 43 px of plotting area for five decade labels — they collided.
+   *
+   * 9:2 rather than 4:1 because the grid's height is set by column two's WIDTH — both canvases
+   * are aspect-driven, so gridH is about 417 + 0.75 x W2. At W2 = 596 that is 864 against a
+   * 857 px viewport; 9:2 gives the strip 132 px (86 px of plotting area, twice what it had)
+   * and brings the grid to ~847. Measured, not guessed — the first two attempts here assumed
+   * the plot would absorb the change and it did not.
+   */
   .xpl-dyn__panel [data-energy] {
-    aspect-ratio: 20 / 3;
+    aspect-ratio: 9 / 2;
     inline-size: 100%;
     block-size: auto;
   }
