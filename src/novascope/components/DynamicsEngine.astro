@@ -74,9 +74,31 @@ const m = (tex: string) => tex;
           {/* The scale bar is what makes a frame that moves honest: it reports how
               far the picture now spans, so an expanding cluster reads as expansion
               rather than as a camera trick. Census puts one in the same corner. */}
-          <span class="xpl-dyn__scale" aria-hidden="true">
-            <span class="xpl-dyn__scale-bar" data-scalebar></span>
-            <span class="xpl-dyn__scale-label" data-scalelabel>1 pc</span>
+          {/*
+            THE SCALE BAR AND THE ZOOM THAT MOVES IT, together in one corner.
+            Scroll-to-zoom stays, but it is a poor primary control: it fights the page scroll,
+            has no visible range, and gives no way back to 1x except guessing. The slider shows
+            where you are and where the ends are; the bar underneath keeps it honest by
+            reporting what the frame now spans.
+          */}
+          <span class="xpl-dyn__viewctl">
+            <span class="xpl-dyn__scale" aria-hidden="true">
+              <span class="xpl-dyn__scale-bar" data-scalebar></span>
+              <span class="xpl-dyn__scale-label" data-scalelabel>1 pc</span>
+            </span>
+            {/* LOGARITHMIC. The renderer clamps zoom to [0.15, 40], nearly two and a half
+                decades — linear travel would spend most of the slider above 20x. The value IS
+                log10(zoom), so the midpoint is 1x. */}
+            <input
+              class="xpl-dyn__zoom"
+              type="range"
+              data-zoom
+              min="-0.82"
+              max="1.6"
+              step="0.01"
+              value="0"
+              aria-label="Zoom the cluster view"
+            />
           </span>
         </div>
         {/*
@@ -707,6 +729,7 @@ const m = (tex: string) => tex;
     const hint = $<HTMLElement>("[data-hint]");
     const driftEl = $<HTMLElement>("[data-v=\"drift\"]");
     const scaleBar = root.querySelector<HTMLElement>("[data-scalebar]");
+    const zoomInput = root.querySelector<HTMLInputElement>("[data-zoom]");
     /** Which evolution curve the shared plot canvas is showing. */
     let plotTab: "radii" | "bound" | "mf" | "lagr" = "radii";
     const scaleLabel = root.querySelector<HTMLElement>("[data-scalelabel]");
@@ -1244,6 +1267,12 @@ const m = (tex: string) => tex;
     ];
     function updateScaleBar() {
       if (!points || !scaleBar) return;
+      /* The wheel changes the renderer's zoom directly, so the slider is re-read FROM it
+         rather than treated as the source of truth — otherwise the two disagree the moment
+         anyone scrolls. This runs wherever the framing changed, which is exactly when. */
+      if (zoomInput && document.activeElement !== zoomInput) {
+        zoomInput.value = String(Math.log10(points.zoom));
+      }
       const cssPerPc = points.pxPerPc / Math.min(2, window.devicePixelRatio || 1);
       if (!(cssPerPc > 0)) return;
       const target = field.clientWidth * 0.22;
@@ -2460,6 +2489,13 @@ const m = (tex: string) => tex;
        nothing else would redraw the bar. rAF so the renderer's own wheel handler
        has already applied the new zoom by the time this reads pxPerPc. */
     field.addEventListener("wheel", () => requestAnimationFrame(updateScaleBar), { passive: true });
+    /* rAF for the same reason the wheel handler uses one: `setZoom` only raises `reframe`, and
+       `pxPerPc` is recomputed on the renderer's next tick. Reading it synchronously would give
+       the previous framing's scale. */
+    zoomInput?.addEventListener("input", () => {
+      points?.setZoom(10 ** Number(zoomInput.value));
+      requestAnimationFrame(updateScaleBar);
+    });
 
     /* Tabs swap the SERIES, the legend, the y-title and the note together — one
        state, four things that must agree, so they are set in one place. */
@@ -2768,6 +2804,17 @@ const m = (tex: string) => tex;
     inset-block-end: var(--space-2xs);
     justify-content: space-between;
     align-items: flex-end;
+  }
+  .xpl-dyn__viewctl {
+    display: grid;
+    justify-items: end;
+    gap: var(--space-3xs, 4px);
+  }
+  /* Short enough to stay out of the cluster's way; the track is the only wide part. */
+  .xpl-dyn__zoom {
+    inline-size: 7rem;
+    accent-color: var(--spec-teal-bright);
+    cursor: pointer;
   }
   .xpl-dyn__scale {
     display: grid;
