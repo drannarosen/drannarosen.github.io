@@ -81,6 +81,46 @@ describe("binaries", () => {
     expect(res!.stepsPerOrbit).toBeCloseTo(500, 2);
   });
 
+  it("recovers the eccentricity of orbits built with a known one", () => {
+    /* The fixture is constructed at apoapsis from a chosen e, so the right answer is known
+       independently of this arithmetic. Checked across the range because the formula
+       e^2 = 1 + 2 E L^2 / (mu k^2) fails in different ways at the ends: near 0 the bracket can
+       go a few ulps negative, and near 1 it is the difference of two nearly equal numbers. */
+    const atApoapsis = (ecc: number) => {
+      const { G, m, a } = KEPLER;
+      const rApo = a * (1 + ecc);
+      const vApo = Math.sqrt((G * 2 * m * (1 - ecc)) / (a * (1 + ecc)));
+      const s = createState(2);
+      s.mass[0] = m;
+      s.mass[1] = m;
+      s.pos[0] = -rApo / 2;
+      s.pos[3] = rApo / 2;
+      s.vel[1] = -vApo / 2;
+      s.vel[4] = vApo / 2;
+      return s;
+    };
+    for (const ecc of [0, 0.3, 0.5, 0.9, 0.99]) {
+      const pair = hardestBoundPair(atApoapsis(ecc), 1e-9, KEPLER.G);
+      expect(pair, `e = ${ecc} should be a bound pair`).not.toBeNull();
+      expect(pair!.eccentricity, `e = ${ecc}`).toBeCloseTo(ecc, 6);
+    }
+  });
+
+  it("never returns a NaN eccentricity for a circular orbit", () => {
+    /* The specific round-off trap: at e = 0 the bracket under the square root is exactly zero
+       in exact arithmetic and can be negative in floating point. An unclamped sqrt returns NaN,
+       which would render as "NaN" in the readout rather than as "0.00". */
+    const s = keplerPair();
+    // Force a circular orbit: speed for a circle at the current separation.
+    const r = KEPLER.a * (1 + KEPLER.eccentricity);
+    const vCirc = Math.sqrt((KEPLER.G * 2 * KEPLER.m) / r);
+    s.vel[1] = -vCirc / 2;
+    s.vel[4] = vCirc / 2;
+    const pair = hardestBoundPair(s, 1e-9, KEPLER.G)!;
+    expect(Number.isNaN(pair.eccentricity)).toBe(false);
+    expect(pair.eccentricity).toBeCloseTo(0, 6);
+  });
+
   it("measures hardness against the mean stellar kinetic energy", () => {
     const s = keplerPair();
     const pair = hardestBoundPair(s, KEPLER.softening, KEPLER.G)!;

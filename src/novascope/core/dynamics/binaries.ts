@@ -51,6 +51,19 @@ export interface HardestPair {
    * from ~3 at formation to ~430.
    */
   hardness: number;
+  /**
+   * Eccentricity of the relative orbit, from e^2 = 1 + 2 E L^2 / (mu k^2) with k = G m_i m_j.
+   *
+   * Worth showing rather than just `a`, because a hard binary is usually a VERY eccentric one:
+   * it forms by capture rather than in place, so it arrives on a long thin orbit and hardens by
+   * repeated close periapsis passages. That is also why it breaks a fixed step — the damage is
+   * done in the small fraction of the orbit spent near periapsis, not spread over it.
+   *
+   * Keplerian, so it assumes a point-mass pair. Valid while the separation is well above the
+   * softening, which is exactly the regime a hard binary is in; near eps it degrades, and the
+   * value is clamped to [0, 1) rather than allowed to go imaginary through round-off.
+   */
+  eccentricity: number;
   masses: [number, number];
 }
 
@@ -107,6 +120,15 @@ export function hardestBoundPair(
       if (e < bestE) {
         bestE = e;
         const a = (-G * mi * mj) / (2 * e);
+        /* Specific-to-the-pair angular momentum L = mu |r x v|, for the eccentricity. */
+        const lx = dy * dvz - dz * dvy;
+        const ly = dz * dvx - dx * dvz;
+        const lz = dx * dvy - dy * dvx;
+        const l2 = mu * mu * (lx * lx + ly * ly + lz * lz);
+        const k = G * mi * mj;
+        /* e^2 = 1 + 2 E L^2 / (mu k^2). Clamped at 0: for a nearly circular orbit the bracket
+           can land a few ulps below zero, and Math.sqrt of that is NaN rather than 0. */
+        const ecc2 = 1 + (2 * e * l2) / (mu * k * k);
         best = {
           i,
           j,
@@ -115,6 +137,7 @@ export function hardestBoundPair(
           bindingEnergy: -e,
           period: 2 * Math.PI * Math.sqrt(a ** 3 / (G * (mi + mj))),
           hardness: 0, // filled below, once the mean kinetic energy is known
+          eccentricity: Math.sqrt(Math.max(0, ecc2)),
           masses: [mi, mj],
         };
       }

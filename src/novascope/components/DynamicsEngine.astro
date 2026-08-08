@@ -210,11 +210,37 @@ const m = (tex: string) => tex;
           <span class="xpl-dyn__ctrl-val"><Math tex={m("N")} /> = <output data-n-val>400</output></span>
           <input type="range" data-n min="100" max="800" step="10" value="400" />
         </label>
-        <label class="xpl-dyn__ctrl">
+        <label class="xpl-dyn__ctrl xpl-dyn__ctrl--noted">
           <span class="xpl-dyn__ctrl-val"
             ><Math tex={m("r_h")} /> = <output data-rh-val>0.65</output> pc</span
           >
           <input type="range" data-rh min="0.3" max="5" step="0.05" value="0.65" />
+          <button type="button" class="xpl-dyn__info" data-info="rh" aria-expanded="false"
+            aria-label="About the half-mass radius">?</button>
+          <span class="xpl-dyn__popover" data-popover="rh" role="tooltip" hidden>
+            <b>Half-mass radius</b> — the radius containing half the cluster's mass. It sets the
+            profile's scale, and the scale radius <Math tex={m("a")} /> is derived from it, so
+            changing <Math tex={m("\\gamma")} /> reshapes the cluster without resizing it.
+            <br /><br />
+            <b>You get approximately what you ask for, and the difference is the point.</b> This
+            slider sets the scale the stars are DRAWN from; the cluster that comes out is one
+            finite sample of it. Measured across eight consecutive draws at
+            <Math tex={m("N = 400")} />, a requested 0.65 pc produced an actual half-mass radius
+            between 0.52 and 0.86 pc.
+            <br /><br />
+            The reason is the mass function, not the profile. Sorted by <em>number</em> the
+            half-radius barely moves — 0.61 to 0.70 pc across the same draws — so the stars are
+            being placed correctly. It is the <em>mass</em> weighting that swings: a single
+            40 <Math tex={m("M_\\odot")} /> star is about a seventh of a
+            270 <Math tex={m("M_\\odot")} /> cluster, so whether it happens to land at 0.04 pc or
+            at 1.17 pc moves the half-mass radius on its own.
+            <br /><br />
+            That propagates: <Math tex={m("t_\\mathrm{cr} \\propto r_h^{3/2}")} />, so the
+            crossing time varies by a factor of two between draws that asked for the same
+            cluster. It is the same sampling problem the
+            <a href="/explore/census">census</a> is about, arriving through a control rather than
+            through a histogram.
+          </span>
         </label>
         <label class="xpl-dyn__ctrl xpl-dyn__ctrl--noted">
           <span class="xpl-dyn__ctrl-val"
@@ -412,6 +438,67 @@ const m = (tex: string) => tex;
           </span>
         </div>
       </dl>
+
+      {/*
+        THE BINARY'S OWN NUMBERS, and this row EXISTS ONLY WHILE THERE IS A BINARY.
+
+        A contextual row rather than six more cells in the strip above: most of a run has no
+        hard pair, and six permanently-empty readouts would cost a line of the scarcest thing
+        in this layout to say "nothing here". It appears with the banner and leaves with it.
+
+        One shared note rather than a "?" per metric, unlike the strip above — these six all
+        describe the SAME object, so six separate explanations would repeat each other five
+        times.
+      */}
+      <dl class="xpl-dyn__stats xpl-dyn__stats--pair" data-pair-stats aria-live="polite" hidden>
+        <div class="xpl-dyn__pairlabel">
+          <dt><button type="button" data-info="m-pair" aria-expanded="false">hard binary</button></dt>
+          <dd></dd>
+          <span class="xpl-dyn__popover" data-popover="m-pair" role="tooltip" hidden>
+            The most bound pair in the cluster, once it has held together for half a crossing
+            time — long enough to be a binary rather than two stars passing.
+            <br /><br />
+            <b>a</b> is the semi-major axis and <b>e</b> the eccentricity of their orbit about
+            each other; <b>P</b> is its period. <b>hard</b> is the binding energy in units of a
+            typical star's kinetic energy — above 1 the pair is "hard", meaning encounters
+            tighten it further instead of breaking it up, which is why the number climbs.
+            <br /><br />
+            <b>steps/orbit</b> is the one that explains the energy strip. It is how many
+            integrator steps fall in one orbit, and a fixed step needs of order a hundred to
+            follow periapsis. Watch it fall as <b>a</b> shrinks: that is the model running out,
+            and the error below rising is the consequence.
+            <br /><br />
+            Expect <b>e</b> to be large. A binary like this forms by capture rather than in
+            place, so it arrives on a long thin orbit and hardens by repeated close passages —
+            which is also why the damage is concentrated in the small part of the orbit spent
+            near periapsis.
+          </span>
+        </div>
+        <div>
+          <dt><Math tex={m("m_1{+}m_2")} /></dt>
+          <dd><span data-v="pair-m">—</span> <Math tex={m("M_\\odot")} /></dd>
+        </div>
+        <div>
+          <dt><Math tex={m("a")} /></dt>
+          <dd><span data-v="pair-a">—</span> pc</dd>
+        </div>
+        <div>
+          <dt><Math tex={m("e")} /></dt>
+          <dd data-v="pair-e">—</dd>
+        </div>
+        <div>
+          <dt><Math tex={m("P")} /></dt>
+          <dd><span data-v="pair-p">—</span> <Math tex={m("\\mathrm{Myr}")} /></dd>
+        </div>
+        <div>
+          <dt>hard</dt>
+          <dd><span data-v="pair-hard">—</span><Math tex={m("\\times")} /></dd>
+        </div>
+        <div>
+          <dt>steps/orbit</dt>
+          <dd data-v="pair-steps">—</dd>
+        </div>
+      </dl>
     </div>
 
     {/* The energy strip is the RECEIPT, not a co-star. On the lab, drift is the
@@ -527,8 +614,17 @@ const m = (tex: string) => tex;
 
     const gravBtns = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-grav]"));
 
+    /*
+     * Scoped to ROOT, not to `summary`.
+     *
+     * It queried inside the main `<dl data-summary>`, which silently did nothing for the
+     * binary row — that is a SIBLING `<dl>`, so `summary.querySelector` found none of its
+     * cells and every value stayed at the placeholder "—" while the row itself dutifully
+     * appeared. `if (el)` made the failure silent, which is right for a readout that may not
+     * exist and is exactly why this was invisible until the numbers were read back.
+     */
     const setStat = (key: string, v: string) => {
-      const el = summary.querySelector<HTMLElement>(`[data-v="${key}"]`);
+      const el = root.querySelector<HTMLElement>(`[data-v="${key}"]`);
       if (el) el.textContent = v;
     };
 
@@ -1386,6 +1482,25 @@ const m = (tex: string) => tex;
     const alertBody = $<HTMLElement>("[data-alert-body]");
     const zoomPairBtn = $<HTMLButtonElement>("[data-zoom-pair]");
 
+    /*
+     * The binary readout, driven by the SAME `pair` object the banner is. One source, so the
+     * chip and the row cannot report different orbits — which they would, sooner or later, if
+     * each recomputed the pair on its own schedule.
+     */
+    const pairStats = $<HTMLElement>("[data-pair-stats]");
+    function showPairStats(p: NonNullable<ReturnType<typeof pairResolution>>): void {
+      setStat("pair-m", `${p.masses[0].toFixed(0)}+${p.masses[1].toFixed(0)}`);
+      setStat("pair-a", p.semiMajorAxis.toExponential(2));
+      setStat("pair-e", p.eccentricity.toFixed(3));
+      setStat("pair-p", p.period.toExponential(2));
+      setStat("pair-hard", p.hardness.toFixed(0));
+      setStat("pair-steps", p.stepsPerOrbit.toFixed(0));
+      pairStats.hidden = false;
+    }
+    function hidePairStats(): void {
+      pairStats.hidden = true;
+    }
+
     function showAlert(title: string, body: string, canZoom: boolean): void {
       alertTitle.textContent = title;
       alertBody.textContent = body;
@@ -1506,6 +1621,7 @@ const m = (tex: string) => tex;
             `describes the orbit, so the run stops rather than showing you a cluster it has ` +
             `stopped solving. Reset or draw again.`,
         );
+        showPairStats(pair); // the stop's own explanation — keep the figures on screen
         return;
       }
       if (pair.stepsPerOrbit < PAIR_WATCH_STEPS && persisted) {
@@ -1531,8 +1647,10 @@ const m = (tex: string) => tex;
             `${pair.stepsPerOrbit.toFixed(0)} steps/orbit`,
           true,
         );
+        showPairStats(pair);
       } else if (!halted) {
         hideAlert();
+        hidePairStats();
       }
     }
 
@@ -1661,6 +1779,7 @@ const m = (tex: string) => tex;
       followPair = false;
       zoomPairBtn.textContent = "show me";
       hideAlert();
+      hidePairStats();
       /* Read off the BUILD, and only here. `built.timeUnit` is `crossingTime(state)`
          of the initial configuration — the same quantity the monitor divides by for
          `tCross` — so the displayed unit and the clock counted in it come from one
@@ -2623,6 +2742,25 @@ const m = (tex: string) => tex;
     gap: 0.35em;
     flex: 0 0 auto;
     white-space: nowrap;
+  }
+  /*
+   * The binary row. Amber-keyed like the banner it appears with, so the two read as one
+   * event rather than as two unrelated things arriving at once, and separated by a rule so it
+   * is not mistaken for more of the cluster's own metrics above.
+   */
+  .xpl-dyn__stats--pair {
+    padding-block-start: var(--space-2xs);
+    border-block-start: 1px solid color-mix(in srgb, var(--spec-amber) 35%, var(--border));
+  }
+  .xpl-dyn__stats--pair[hidden] {
+    display: none;
+  }
+  .xpl-dyn__pairlabel dt button {
+    color: var(--spec-amber);
+  }
+  .xpl-dyn__pairlabel dt button::before {
+    content: "● ";
+    font-size: 0.8em;
   }
   .xpl-dyn__stats dt {
     font-family: var(--font-mono);
