@@ -64,13 +64,46 @@
  * Kepler ellipse with NO secular energy error at any eccentricity, the error appearing as a
  * phase shift instead. That is the regime a hardening binary lives in.
  *
- * The transformation is GLOBAL, though — V is the system's total potential — so it responds to
- * a binary only insofar as that binary contributes to the total. Measured on seed 2028 at
- * t/t_cr = 22 the pair carried ~37% of |U|, so the response is real and large; but a pair that
- * hardens without bound would eventually dominate V and freeze the cluster's own evolution to
- * resolve it. The production answer to that is per-pair regularisation (KS, or AR-chain), which
- * is a different and much larger piece of machinery. This is the global version, and its limit
- * should be stated wherever it is used rather than discovered.
+ * The transformation is GLOBAL, though — V is the system's total potential — and on a cluster
+ * that turns out to matter far more than it does on a pair. Measured, N = 400, seed 2028, to
+ * t/t_cr = 18 at the shipped softening:
+ *
+ *   physical step 1.62e-4 .. 6.00e-4 Myr  ->  3.7x range
+ *   (against 19x on an isolated pair, and a fixed step of 7.06e-4)
+ *
+ * So it does adapt, and every step it takes is shorter than the fixed one — which is where the
+ * accuracy comes from and why it costs ~11% — but 3.7x is nowhere near what one tight pair
+ * needs.
+ *
+ * THAT HAS A CONSEQUENCE WORTH STATING PLAINLY: LogH does NOT license reducing the softening.
+ * The obvious hope is that a scheme which resolves close encounters would let eps shrink toward
+ * something physical. Measured on the same configuration:
+ *
+ *   eps          x shipped     |dE/E|
+ *   8.80e-3            1       3.6e-6
+ *   8.80e-4          0.1       7.7
+ *   8.80e-5         0.01       9.0e+2
+ *   0                  0       3.1e+3
+ *
+ * A tight pair barely moves the SYSTEM's |U|, so dt does not shrink for it, so the encounter is
+ * not resolved. Per-pair regularisation (KS, or AR-chain) is what would change this, and it is
+ * a different and much larger piece of machinery. State the limit wherever this is used rather
+ * than letting someone discover it by lowering a softening slider.
+ *
+ * AND IF SMALL SOFTENING IS THE GOAL, THIS IS THE WRONG SCHEME. Adaptive Hermite holds where
+ * LogH collapses, because its Aarseth criterion is a LOCAL controller — it reads the tightest
+ * pair's own acceleration and jerk — while this transformation can only see the global total.
+ * Same configuration, worst |dE/E| over 8 crossing times:
+ *
+ *   eps x shipped        LogH      Hermite (adaptive)
+ *              1      3.5e-5                  1.1e-6
+ *            0.1      3.9e+0                  4.5e-6
+ *           0.01      8.8e+2                  1.5e-5
+ *
+ * Read that with its run length in mind, though: at 22 crossing times the two are comparable
+ * (5.9e-5 Hermite against 6.1e-5 here), because Hermite's error is SECULAR and keeps growing
+ * while this one's is bounded. Hermite wins early and gives the lead back; the crossover is the
+ * reason both are offered rather than one being retired.
  */
 import type { Energy, ForceModel, State } from "./types.ts";
 import { kineticEnergy } from "./quantities.ts";
