@@ -468,10 +468,38 @@ const m = (tex: string) => tex;
             follow periapsis. Watch it fall as <b>a</b> shrinks: that is the model running out,
             and the error below rising is the consequence.
             <br /><br />
+            It reads <b>—</b> under <b>Hermite</b>, and that is the honest answer rather than a
+            missing feature: Hermite sizes every sub-step from the local acceleration and jerk,
+            so there is no one step to count an orbit in. <b>LogH</b> does report one — its
+            physical step floats with the depth of the potential — so the figure there is the
+            step it actually took, and you should expect it to hold up far better than FSI4's
+            as the pair tightens. That is the adaptivity, visible as a number.
+            <br /><br />
             Expect <b>e</b> to be large. A binary like this forms by capture rather than in
             place, so it arrives on a long thin orbit and hardens by repeated close passages —
             which is also why the damage is concentrated in the small part of the orbit spent
             near periapsis.
+            <br /><br />
+            {/*
+              HEGGIE'S LAW, in the note the `hard` figure already lives in rather than as a
+              seventh "?" — these six readouts describe one object, which is why they share one
+              note (see the header above). Author-year only, matching the citation style of the
+              concentration and integrator notes; Heggie D. C., 1975, MNRAS, 173, 729 and Hills
+              J. G., 1975, AJ, 80, 809, verified against their records rather than recalled.
+            */}
+            <b>Why it tightens instead of breaking up — Heggie's law.</b> The rule for what
+            encounters do to a binary is one of the oldest results in stellar dynamics:
+            <b>hard binaries get harder, soft binaries get softer</b> (Heggie 1975; Hills 1975).
+            A soft pair — more loosely bound than a passing star's kinetic energy — is pulled
+            apart by the next encounter. A hard one is not: on average a passing star leaves it
+            <em>more</em> tightly bound than it found it, and carries the difference away as
+            kinetic energy.
+            <br /><br />
+            So a hard binary never settles. It keeps giving energy to the cluster around it, which
+            is why the <b>hard</b> figure above only ever climbs, and why a single binary can heat
+            a whole cluster. It is also why this one eventually outruns the timestep: nothing in
+            the physics stops it tightening, so the only question is whether the arithmetic can
+            keep up.
           </span>
         </div>
         <div>
@@ -568,6 +596,7 @@ const m = (tex: string) => tex;
     lagrangianRadii,
     centreOfMass,
     pairResolution,
+    hardestBoundPair,
   } from "@novascope/core/dynamics";
   /*
    * The renderer is named directly, never through the `viz` barrel — the barrel
@@ -802,8 +831,13 @@ const m = (tex: string) => tex;
        * because every route back to gravity rebuilds the monitor, which is a
        * coincidence of control flow rather than a guarantee. It also cost an
        * O(N^2) energy evaluation per frame in the one mode that needs none.
+       *
+       * IT IS NO LONGER POLLED **HERE**, THOUGH — `frame()` polls it once per
+       * INTEGRATOR STEP and this reads the latest of those. See the note there.
+       * `latest` is null only before anything has stepped (`rebase` clears it), so
+       * the fallback covers the reading `rebuild()` takes at t = 0.
        */
-      const s = gravity ? run.monitor.sample() : null;
+      const s = gravity ? (run.monitor.latest ?? run.monitor.sample()) : null;
       /*
        * BOUNDNESS IS A GRAVITY QUANTITY, so it is only measured when gravity is
        * acting. `measure` computes each star's energy against the force model's
@@ -834,6 +868,9 @@ const m = (tex: string) => tex;
        * both fall back to every star about the origin — which is the honest
        * description of a cloud that is simply dispersing.
        */
+      /* Idempotent now that `frame()` folds every step's drift in as it takes it —
+         `s` is the last of those. It is kept for the one reading that does NOT come
+         through the step loop: the sample `rebuild()` takes at t = 0. */
       if (s) worstSinceStore = Math.max(worstSinceStore, s.energyDrift);
       const boundOnly = d ? (i: number) => d.bound[i] === 1 : null;
       const centre = d ? centreOfMass(st, boundOnly!).position : undefined;
@@ -1009,11 +1046,27 @@ const m = (tex: string) => tex;
        * later good sample; the run stops at the moment the claim stopped being true, not at
        * some point after it recovered.
        *
-       * Measured: at dt = t_cross/2048 this happens on roughly a third of reachable draws, and
-       * late — around fifteen to twenty-five crossing times, well after segregation is visible.
-       * Halving the step would prevent it (all three breaching seeds fall to 1.3e-5..8.9e-5)
-       * at twice the wall time, which is the trade Anna declined; ending the run is the honest
-       * alternative to running past the limit.
+       * MEASURED 2026-08-08, after the monitor began sampling every STEP (see frame()). Twelve
+       * consecutive draws at N = 400, dt = t_cross/2048, run to 25 crossing times in node:
+       *
+       *   ends on the trust limit         5   at t/t_cr 5.9, 6.7, 7.3, 8.4, 19.2
+       *   ends on an unresolvable binary  3   at 13.1, 16.8, 21.9
+       *   runs the full 25                4
+       *
+       * This note previously read "roughly a third of reachable draws ... around fifteen to
+       * twenty-five crossing times". Both halves came from the once-per-frame sampling this file
+       * has since abandoned, which aliased the peaks away: FOUR OF THE FIVE energy breaches are
+       * before ten crossing times, not after fifteen. The old parenthetical measuring the halved
+       * step is dropped for the same reason rather than kept as a number nothing now supports.
+       *
+       * AND THE EXACT TIME DOES NOT TRANSFER TO A READER'S BROWSER. Same seed, initial conditions
+       * bit-identical to 21 digits, node vs Chrome: worst |dE/E| agrees to eight significant
+       * figures at 8,640 steps and then diverges — node peaks at 1.017e-4 and halts, Chrome never
+       * exceeds 5.82e-5. The peak is set by individual close passages, so round-off is amplified
+       * chaotically. Hence the page states the MECHANISM and never a rate; keep it that way.
+       *
+       * Halving the step would cost twice the wall time, which is the trade Anna declined;
+       * ending the run is the honest alternative to running past the limit.
        */
       if (s && !run.monitor.healthy && !halted) {
         const why = pairConfirmed && pair
@@ -1021,9 +1074,23 @@ const m = (tex: string) => tex;
             `almost certainly why: at ${pair.stepsPerOrbit.toFixed(0)} steps per orbit its ` +
             `periapsis is no longer resolved.`
           : "";
+        /*
+         * THE PEAK, NOT THE LATEST SAMPLE — and this only became wrong when the monitor
+         * started being polled every step.
+         *
+         * `breached` latches on the step that crossed the line, but `latest` is the LAST
+         * step of the frame, and the error is a narrow spike: by the end of the frame it
+         * has already fallen back. Measured on seed 2028, which breaches at a peak of
+         * 2.2e-4 — `latest` there is 4.7e-6, so the banner would have read "the energy
+         * error reached 4.7e-6, crossing the line", quoting a number forty times UNDER
+         * the limit it says was crossed.
+         *
+         * `worst.energy` is the max across every sample, so it is the value that actually
+         * tripped the latch.
+         */
         halt(
           "Stopped — past the trust limit",
-          `The energy error reached ${s.energyDrift.toExponential(1)}, crossing the line this ` +
+          `The energy error reached ${run.monitor.worst.energy.toExponential(1)}, crossing the line this ` +
             `run is checked against. Beyond it the integration is no longer solving the ` +
             `equations accurately enough to mean anything, so the run ends rather than showing ` +
             `you a cluster it has stopped computing.${why} Reset or draw again.`,
@@ -1529,7 +1596,8 @@ const m = (tex: string) => tex;
       setStat("pair-e", p.eccentricity.toFixed(3));
       setStat("pair-p", p.period.toExponential(2));
       setStat("pair-hard", p.hardness.toFixed(0));
-      setStat("pair-steps", p.stepsPerOrbit.toFixed(0));
+      /* "—" rather than "NaN" when the scheme sizes its own step — see `resolvedStep`. */
+      setStat("pair-steps", Number.isFinite(p.stepsPerOrbit) ? p.stepsPerOrbit.toFixed(0) : "—");
       pairStats.hidden = false;
     }
     function hidePairStats(): void {
@@ -1603,7 +1671,9 @@ const m = (tex: string) => tex;
       /* Gated on `pairConfirmed`, not on the raw threshold: otherwise every close passage
          would jolt the clock for a few frames, which reads as stuttering rather than as the
          deliberate slow-down it is meant to be. */
-      if (!pairConfirmed || !pair || pair.stepsPerOrbit >= PAIR_WATCH_STEPS) return SUBSTEPS;
+      if (!pairConfirmed || !pair) return SUBSTEPS;
+      /* No step size, no slow-down: the criterion is a statement about a fixed step. */
+      if (!Number.isFinite(pair.stepsPerOrbit) || pair.stepsPerOrbit >= PAIR_WATCH_STEPS) return SUBSTEPS;
       const frac = Math.max(0.125, pair.stepsPerOrbit / PAIR_WATCH_STEPS);
       return Math.max(1, Math.round(SUBSTEPS * frac));
     }
@@ -1616,13 +1686,71 @@ const m = (tex: string) => tex;
       showAlert(title, body, false);
     }
 
+    /*
+     * THE STEP THE INTEGRATOR ACTUALLY TAKES [Myr] — not the frame's dt. Null when the
+     * scheme sizes its own step and does not report it.
+     *
+     * `steps/orbit` was computed from the FRAME dt, and it is wrong there in two ways:
+     *
+     *  - AT SPEED > 1 the frame dt is a multiple of maxStep, and every fixed-step scheme
+     *    SUBDIVIDES it internally (`nSub = ceil(dt / maxStep)` in fsi4.ts). At speed 4 the
+     *    real step is a quarter of the frame's, so the readout under-reported the resolution
+     *    fourfold and both thresholds below fired four times too early.
+     *
+     *  - THE ADAPTIVE SCHEMES DO NOT HAVE ONE FIXED STEP AT ALL. LogH's physical step floats
+     *    as h_s/(-U) and shrinks exactly where a binary tightens — which is the entire reason
+     *    to use it — so `period / frameDt` describes a step it is not taking. It reports
+     *    `lastPhysicalStep`, so ask it. Hermite's adaptive arm sizes each sub-step from the
+     *    Aarseth criterion and reports nothing, so there is no honest number to print: it
+     *    gets null, and every claim keyed on steps-per-orbit is withheld rather than guessed.
+     *
+     * That last case matters most: the halt below ENDS THE RUN and names a figure while doing
+     * it. Ending a LogH run for a resolution failure it is not having — on a page whose own
+     * copy says LogH "fixes exactly that" — is the worst version of this bug.
+     */
+    function resolvedStep(frameDt: number): number | null {
+      const maxStep = run!.built.timeUnit / STEP_DIVISOR;
+      if (scheme === "logh") {
+        const h = (run!.integrator as { lastPhysicalStep?: number }).lastPhysicalStep;
+        return typeof h === "number" && h > 0 ? h : null;
+      }
+      /* Hermite is only ever built adaptive here (`adaptive: scheme === "hermite"`). */
+      if (scheme === "hermite") return null;
+      return frameDt / Math.max(1, Math.ceil(frameDt / maxStep));
+    }
+
     function watchBinary(dt: number): void {
       if (++pairFrame % PAIR_EVERY !== 0) return;
       /* The softening comes from the BUILD, never recomputed here — the pair this reports
          has to be the pair the force model actually feels, and a second copy of
          `softeningForCluster` in this file is how the two would drift apart. */
-      pair = pairResolution(run!.built.state, run!.built.softeningPc, dt);
+      const h = resolvedStep(dt);
+      if (h === null) {
+        /* Still find the pair — a, e, P and hardness are properties of the ORBIT and stay
+           true whatever the integrator does. Only the steps-per-orbit claim is withheld. */
+        const base = hardestBoundPair(run!.built.state, run!.built.softeningPc);
+        pair = base ? { ...base, stepsPerOrbit: NaN } : null;
+      } else {
+        pair = pairResolution(run!.built.state, run!.built.softeningPc, h);
+      }
       if (!pair) return;
+      /* Every threshold below is a statement about a step size. Without one there is nothing
+         to compare, so the watch, the slow-down and the halt all stand down. The energy limit
+         still guards the run, and Hermite's own arm throws with its own message if the pair
+         hardens past what it can resolve. */
+      if (!Number.isFinite(pair.stepsPerOrbit)) {
+        pairKey = "";
+        pairSince = Infinity;
+        if (pairConfirmed) {
+          pairConfirmed = false;
+          syncPlay();
+        }
+        if (!halted) {
+          hideAlert();
+          hidePairStats();
+        }
+        return;
+      }
 
       /* Identity, not just tightness: an exchange encounter swaps a companion — measured on
          seed 2028 at t/t_cr = 15, where the 29.9 Msun star replaced the 10.0 — and that is a
@@ -1706,8 +1834,38 @@ const m = (tex: string) => tex;
       try {
         const subs = substepsNow();
         for (let k = 0; k < subs; k++) {
-          if (gravity) run.integrator.step(dt);
-          else {
+          if (gravity) {
+            run.integrator.step(dt);
+            /*
+             * THE MONITOR IS POLLED EVERY STEP, NOT ONCE A FRAME — AND THAT IS THE
+             * DIFFERENCE BETWEEN NOTICING THE BREACH AND NOT.
+             *
+             * This ran in `sample()`, once per frame, while a frame advances SUBSTEPS
+             * (8) steps. A symplectic scheme's energy error is not a slow drift: it
+             * arrives as narrow spikes at the periapsis of the hard binary, and a
+             * spike is over inside one step. Sampling every eighth step aliases them
+             * away, so the run sailed past the trust limit it claims to enforce.
+             *
+             * Measured on this cluster at N = 400, worst |dE/E| over 25 crossing
+             * times as a function of the sampling stride:
+             *
+             *   stride   seed 2026   seed 2028   seed 2029
+             *        1    1.02e-4     2.22e-4     9.02e-4   <- the truth
+             *        8    8.95e-5     8.44e-5     8.99e-4   <- what this page saw
+             *     1024    8.88e-8     4.13e-5     5.08e-4
+             *
+             * At stride 8 the DEFAULT draw peaks at 8.95e-5 and never trips the 1e-4
+             * limit, while the trajectory it is drawing actually crosses it at
+             * t/t_cr = 19.2. Seed 2028 crosses at 7.25 and was likewise never caught.
+             * The halt fired on one of three draws, ten crossing times late.
+             *
+             * So the limit is now tested against every state the integrator produces.
+             * The cost is one O(N^2) potential per step on top of the accelerations
+             * and force gradient FSI4 already needs — the expensive per-frame work
+             * (boundness, the Lagrangian sorts, the draw) stays once per frame.
+             */
+            worstSinceStore = Math.max(worstSinceStore, run.monitor.sample().energyDrift);
+          } else {
             drift(dt);
             tSim += dt;
           }
