@@ -127,6 +127,7 @@ const m = (tex: string) => tex;
             half-mass radius
           </button>
           <button type="button" data-plot-tab="bound" aria-pressed="false">bound fraction</button>
+          <button type="button" data-plot-tab="mf" aria-pressed="false">mass function</button>
         </span>
         <span class="xpl-dyn__legend">
           <span class="xpl-dyn__keys" data-legend="radii">
@@ -136,6 +137,11 @@ const m = (tex: string) => tex;
           <span class="xpl-dyn__keys" data-legend="bound" hidden>
             <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>by mass</span>
             <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>by number</span>
+          </span>
+          <span class="xpl-dyn__keys" data-legend="mf" hidden>
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--born"></i>born</span>
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--kept"></i>still bound</span>
+            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>the law</span>
           </span>
           <button
             type="button"
@@ -178,6 +184,24 @@ const m = (tex: string) => tex;
               being integrated then, so a number there would be a counterfactual rather than a
               property of what you are watching.
             </span>
+            <span data-note="mf" hidden>
+              The mass function <b>as drawn</b> (grey) against the stars <b>still bound</b>
+              (teal), in counts per dex, with the law they were sampled from over both.
+              <br /><br />
+              <b>The gap is dynamical, and it is one-sided.</b> A cluster evaporates from the
+              bottom up: energy is shared out by encounters, the lightest stars end up moving
+              fastest, and they are the ones that reach escape speed. So the low-mass bins
+              hollow out while the heavy end sits there. Measured on this cluster at twenty
+              crossing times, about seven in ten of the lightest stars were still bound against
+              nine in ten above a solar mass.
+              <br /><br />
+              <b>Two honest limits.</b> The heaviest bins hold a handful of stars — often three
+              or four — so their bars are noise, not a trend; the low-mass end is where this
+              plot has the numbers to say anything. And the stars here do not age, so this is
+              only the <em>dynamical</em> half of the story. A real cluster also loses its most
+              massive stars to their own deaths, which empties the opposite end of the diagram
+              from the one you are watching.
+            </span>
           </span>
         </span>
       </figcaption>
@@ -186,8 +210,19 @@ const m = (tex: string) => tex;
           ><Math tex={m("r_h(t)\\,/\\,r_h(0)")} /></span
         >
         <span class="xpl-dyn__ytitle" data-ytitle="bound" hidden>bound fraction</span>
-        <canvas data-radii aria-label="Cluster evolution against time: half-mass radius of the heaviest and lightest stars, or the bound fraction"></canvas>
-        <span class="xpl-dyn__xtitle"><Math tex={m("t\\;(\\mathrm{Myr})")} /></span>
+        <span class="xpl-dyn__ytitle" data-ytitle="mf" hidden
+          ><Math tex={m("\\mathrm{d}N/\\mathrm{d}\\log m")} /></span
+        >
+        <canvas data-radii aria-label="Cluster evolution: half-mass radius of the heaviest and lightest stars, the bound fraction, or the mass function as drawn against what is still bound"></canvas>
+        {/* The x axis is TIME for two tabs and MASS for the third, so it swaps with them —
+            a plot labelled t (Myr) over a mass axis is the same class of quiet untruth the
+            scheme label guards against. Space-separated list, matched by inclusion. */}
+        <span class="xpl-dyn__xtitle" data-xtitle="radii bound"
+          ><Math tex={m("t\\;(\\mathrm{Myr})")} /></span
+        >
+        <span class="xpl-dyn__xtitle" data-xtitle="mf" hidden
+          ><Math tex={m("m\\;(M_\\odot)")} /></span
+        >
       </div>
     </figure>
 
@@ -609,7 +644,10 @@ const m = (tex: string) => tex;
    * two clusters drifting into two different-looking objects.
    */
   import { createClusterPoints, type ClusterPoints } from "@novascope/viz/clusterPoints";
-  import { toRenderModel } from "@novascope/state";
+  import { toRenderModel, toIMFHistogram, type IMFModel } from "@novascope/state";
+  /* The SAME histogram census draws, given a second bar series — see viz/histogram.ts.
+     A private copy here would drift from it in ticks, margins and log handling. */
+  import { renderHistogram } from "@novascope/viz/histogram";
   /* The LARGE pair, not the one census's H–R diagram and IMF histogram use: these
      two plots are full-width, where 14px reads small. See the note in axis.ts.
      Both are LITERAL font strings on purpose — also documented there, and this
@@ -639,7 +677,7 @@ const m = (tex: string) => tex;
     const driftEl = $<HTMLElement>("[data-v=\"drift\"]");
     const scaleBar = root.querySelector<HTMLElement>("[data-scalebar]");
     /** Which evolution curve the shared plot canvas is showing. */
-    let plotTab: "radii" | "bound" = "radii";
+    let plotTab: "radii" | "bound" | "mf" = "radii";
     const scaleLabel = root.querySelector<HTMLElement>("[data-scalelabel]");
     const summary = $<HTMLElement>("[data-summary]");
 
@@ -737,6 +775,18 @@ const m = (tex: string) => tex;
     const ENERGY_TOLERANCE = 1e-4;
     let hi0: number | null = null;
     let lo0: number | null = null;
+    /*
+     * THE MASS FUNCTION AS DRAWN, frozen at t = 0, and which stars are still bound.
+     *
+     * Binned by `toIMFHistogram` against the scenario's OWN identity — the same law the
+     * sampler drew from — so the bars and the analytic line over them cannot come from
+     * different distributions. `state/render.ts` documents why that would be an artefact
+     * rather than sampling noise, and `scenarios.ts` exposes `identity` for exactly this.
+     */
+    let bornIMF: IMFModel | null = null;
+    /* Reused from the diagnostics pass `sample()` already runs, rather than a second O(N^2)
+       `measure()` for the plot: boundness is expensive and is already known each frame. */
+    let boundFlags: Uint8Array | null = null;
     /** Elapsed model time [Myr]. Advanced by BOTH integration paths — see sample(). */
     let tSim = 0;
     /** Model time between STORED history samples; grows as the run outlives the buffer. */
@@ -847,6 +897,7 @@ const m = (tex: string) => tex;
        * costs two O(N^2) passes per frame in the one mode that needs none.)
        */
       const d = gravity ? measure(st, run.built.force, tSim) : null;
+      boundFlags = d ? d.bound : null;
       /*
        * RADII ABOUT THE BOUND CLUSTER, AND OVER BOUND STARS ONLY.
        *
@@ -1506,6 +1557,49 @@ const m = (tex: string) => tex;
     const drawPlots = () => {
       const rose = css("--spec-rose-bright", "#e58fb4");
       const teal = css("--spec-teal-bright", "#4fd6c4");
+      if (plotTab === "mf") {
+        /*
+         * BORN under, STILL BOUND over — a subset drawn on top of the set, so the exposed
+         * remainder of each bar is what has left. The evolution here is in the DIFFERENCE
+         * between two samples, which is why this tab is not a time series and why the axis
+         * titles swap with it.
+         */
+        const { ctx, w, h } = fit(radiiCv);
+        const identity = run?.built.identity;
+        if (!bornIMF || !identity) {
+          ctx.clearRect(0, 0, w, h);
+          return;
+        }
+        const flags = boundFlags;
+        const overlay = flags
+          ? {
+              counts: toIMFHistogram(
+                latentStars().filter((star) => flags[star.id] === 1),
+                identity,
+              ).bins.map((b) => b.count),
+              colour: teal,
+            }
+          : undefined;
+        renderHistogram(ctx, bornIMF, w, h, {
+          /* Counts per dex, not dN/dM: the question here is "how many are left", and a
+             division by bin width puts the answer in units nobody is counting in. */
+          form: "perDex",
+          /* LINEAR, unlike census: a log axis compresses the very depletion this tab is
+             for — see the note on `scale` in viz/histogram.ts. */
+          scale: "linear",
+          overlay,
+          font: AXIS_FONT_LG,
+          margin: { left: AX.l, right: AX.r, top: AX.t, bottom: AX.b },
+          colors: {
+            bar: css("--ink-faint", "#8b8f9a"),
+            line: rose,
+            axis: css("--border", "#2a2c31"),
+            grid: css("--bg-hairline", "#2b2d38"),
+            text: css("--ink-faint", "#8b8f9a"),
+          },
+        });
+        return;
+      }
       if (plotTab === "bound") {
         /* Fractions, so the axis is PINNED to 0..1. Autoscaled, a run that never
            left 0.6-1.0 would be drawn as though it had swung across the whole
@@ -1979,6 +2073,10 @@ const m = (tex: string) => tex;
          number and cannot drift apart. It is a property of the draw, so it is set
          on rebuild rather than sampled every frame. */
       setStat("tc0", run.built.timeUnit.toFixed(3));
+      /* Frozen here and nowhere else: "born" means the draw this run started from, so it is
+         captured once per rebuild and never recomputed while the run proceeds. */
+      bornIMF = run.built.identity ? toIMFHistogram(latentStars(), run.built.identity) : null;
+      boundFlags = null;
       hist = [];
       mountField();
       hi0 = null;
@@ -2244,6 +2342,9 @@ const m = (tex: string) => tex;
           el.hidden = el.dataset.legend !== plotTab;
         for (const el of root.querySelectorAll<HTMLElement>("[data-ytitle]"))
           el.hidden = el.dataset.ytitle !== plotTab;
+        /* Space-separated: two tabs share the time axis, one has its own. */
+        for (const el of root.querySelectorAll<HTMLElement>("[data-xtitle]"))
+          el.hidden = !(el.dataset.xtitle ?? "").split(" ").includes(plotTab);
         for (const el of root.querySelectorAll<HTMLElement>("[data-note]"))
           el.hidden = el.dataset.note !== plotTab;
         drawPlots();
@@ -2369,6 +2470,20 @@ const m = (tex: string) => tex;
   .xpl-dyn__swatch--e {
     border-block-start-style: solid;
     border-color: var(--spec-amber);
+  }
+  /* The mass-function tab draws BARS, so its keys are filled blocks rather than the
+     line strokes above — a 2px rule is the wrong glyph for an area. */
+  .xpl-dyn__swatch--born,
+  .xpl-dyn__swatch--kept {
+    block-size: 0.7em;
+    border: 0;
+    border-radius: 1px;
+  }
+  .xpl-dyn__swatch--born {
+    background: var(--ink-faint);
+  }
+  .xpl-dyn__swatch--kept {
+    background: var(--spec-teal-bright);
   }
   /*
    * THE BREACH FLAG, ON A SELECTOR THAT MATCHES.

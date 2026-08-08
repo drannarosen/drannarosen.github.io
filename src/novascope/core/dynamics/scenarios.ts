@@ -33,7 +33,7 @@ import { createDirectForce, softeningForCluster } from "./direct/index.ts";
 import { clusterState } from "./ic.ts";
 import { crossingTime } from "./diagnostics.ts";
 import { G_PC3_MSUN_MYR2 } from "../constants/index.ts";
-import { defaultIdentity } from "../cluster/params.ts";
+import { defaultIdentity, type ClusterIdentity } from "../cluster/params.ts";
 import { effRhOverA } from "../cluster/profiles.ts";
 
 /*
@@ -96,6 +96,19 @@ export interface ScenarioBuild {
    * zero, which is the point of that scenario and is why the note is prose and this is not.
    */
   softeningPc: number;
+  /**
+   * The identity the population was SAMPLED from — IMF law, profile, seed.
+   *
+   * Absent for the configurations that place their stars by hand (`two-body`), which have no
+   * mass function to speak of. Present wherever one was drawn.
+   *
+   * Exposed so a caller can bin the mass function against THE SAME law the sampler used
+   * rather than rebuilding an identity of its own. `state/render.ts` spells out why that
+   * matters: bars and an analytic line drawn from different distributions assert a mismatch
+   * that is an artefact rather than sampling noise. It is also the second copy of a
+   * derivation this file already warns about for `r_h/a`.
+   */
+  identity?: ClusterIdentity;
 }
 
 export interface ScenarioParams {
@@ -265,16 +278,16 @@ function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
   const force = createDirectForce({ softening });
   /* The IC's virial scaling must use the SAME force law that will step it, or the cluster
      starts at a Q it is not actually at. */
-  const state = clusterState(
-    defaultIdentity({
-      seed: p.seed ?? 2026,
-      sampling: { mode: "count", target: n },
-      imf: { alphaHigh: clamp(p.alphaHigh ?? 2.3, ALPHA_MIN, ALPHA_MAX) },
-      profile: { kind: "eff", scaleRadius: scalePc, gamma },
-      kinematics: { virialRatio: 0.5 },
-    }),
-    force,
-  );
+  /* Named rather than inlined, so the SAME identity that drew the stars can be handed back
+     to a caller binning their mass function. See `identity` on ScenarioBuild. */
+  const identity = defaultIdentity({
+    seed: p.seed ?? 2026,
+    sampling: { mode: "count", target: n },
+    imf: { alphaHigh: clamp(p.alphaHigh ?? 2.3, ALPHA_MIN, ALPHA_MAX) },
+    profile: { kind: "eff", scaleRadius: scalePc, gamma },
+    kinematics: { virialRatio: 0.5 },
+  });
+  const state = clusterState(identity, force);
 
   return {
     state,
@@ -288,6 +301,7 @@ function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
         ? "ε = 0 (fixed-step schemes will fail here — that is the point)"
         : `ε = ${softening.toFixed(4)} pc = ${fraction} · r_h N^(−1/3)`,
     softeningPc: softening,
+    identity,
   };
 }
 
