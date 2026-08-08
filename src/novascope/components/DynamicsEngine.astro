@@ -135,12 +135,24 @@ const m = (tex: string) => tex;
             <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>lightest half</span>
           </span>
           <span class="xpl-dyn__keys" data-legend="bound" hidden>
-            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>by mass</span>
-            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>by number</span>
+            <span class="xpl-dyn__key"
+              ><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>by mass
+              <b data-v="legend-bm">—</b></span
+            >
+            <span class="xpl-dyn__key"
+              ><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>by number
+              <b data-v="legend-bn">—</b></span
+            >
           </span>
           <span class="xpl-dyn__keys" data-legend="mf" hidden>
-            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--born"></i>born</span>
-            <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--kept"></i>still bound</span>
+            <span class="xpl-dyn__key"
+              ><i class="xpl-dyn__swatch xpl-dyn__swatch--born"></i>born
+              <b data-v="legend-born">—</b></span
+            >
+            <span class="xpl-dyn__key"
+              ><i class="xpl-dyn__swatch xpl-dyn__swatch--kept"></i>still bound
+              <b data-v="legend-kept">—</b></span
+            >
             <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>the law</span>
           </span>
           <button
@@ -450,24 +462,11 @@ const m = (tex: string) => tex;
             scattered outward — the other half of the segregation the plot shows.
           </span></dd>
         </div>
-        <div>
-          <dt><button type="button" data-info="m-bm" aria-expanded="false">bound <Math tex={m("M")} /></button></dt>
-          <dd><span data-v="boundm">—</span>%
-          <span class="xpl-dyn__popover" data-popover="m-bm" role="tooltip" hidden>
-            Share of the cluster's <b>mass</b> still gravitationally bound. The quantity the
-            literature quotes, and the more flattering one: the heaviest stars carry most of the
-            mass and are the last to leave.
-          </span></dd>
-        </div>
-        <div>
-          <dt><button type="button" data-info="m-bn" aria-expanded="false">bound <Math tex={m("N")} /></button></dt>
-          <dd><span data-v="boundn">—</span>%
-          <span class="xpl-dyn__popover" data-popover="m-bn" role="tooltip" hidden>
-            Share of the <b>stars</b> still bound. Compare it with bound
-            <Math tex={m("M")} />: the gap is real, and it is why "most of the cluster is still
-            here" can be true by mass while half the stars have gone.
-          </span></dd>
-        </div>
+        {/* bound M and bound N used to sit here. They live in the BOUND FRACTION tab's own
+            legend now, beside the curves they label — a number is easier to read against the
+            line it belongs to than eight cells away, and the tab's "?" already carries the
+            explanation these two popovers held. It also returns two of eight cells to a strip
+            whose height is the binding constraint of this layout. */}
         <div>
           <dt><button type="button" data-info="m-de" aria-expanded="false"><Math tex={m("|\\Delta E/E|")} /></button></dt>
           <dd><span data-v="drift">—</span>
@@ -790,6 +789,21 @@ const m = (tex: string) => tex;
      * rather than sampling noise, and `scenarios.ts` exposes `identity` for exactly this.
      */
     let bornIMF: IMFModel | null = null;
+    /*
+     * THE OVERLAY IS NOT REBUILT EVERY FRAME.
+     *
+     * Binning the bound stars means allocating a LatentStar per star, filtering, and running
+     * `toIMFHistogram` — measured, doing that per frame roughly halved the frame rate on this
+     * tab against the others. It is also pointless at that rate: escape is a relaxation-time
+     * process, so the histogram barely moves between one frame and the next.
+     *
+     * Recomputed every MF_EVERY frames, and immediately whenever something has actually
+     * changed underneath it — a rebuild, or arriving on the tab.
+     */
+    const MF_EVERY = 8;
+    let mfCounts: number[] | null = null;
+    let mfStale = true;
+    let mfFrame = 0;
     /* Reused from the diagnostics pass `sample()` already runs, rather than a second O(N^2)
        `measure()` for the plot: boundness is expensive and is already known each frame. */
     let boundFlags: Uint8Array | null = null;
@@ -904,6 +918,7 @@ const m = (tex: string) => tex;
        */
       const d = gravity ? measure(st, run.built.force, tSim) : null;
       boundFlags = d ? d.bound : null;
+      if (++mfFrame % MF_EVERY === 0) mfStale = true;
       /*
        * RADII ABOUT THE BOUND CLUSTER, AND OVER BOUND STARS ONLY.
        *
@@ -1103,8 +1118,11 @@ const m = (tex: string) => tex;
       } else if (centre) points?.setFraming({ centre: Array.from(centre) });
       updateScaleBar();
 
-      setStat("boundm", d ? (d.boundMassFraction * 100).toFixed(0) : "—");
-      setStat("boundn", d ? (d.boundFraction * 100).toFixed(0) : "—");
+      /* Into the plot legends, not the strip. Blank without gravity, for the same reason the
+         curves are: boundness measured against a potential nothing is integrating would be a
+         counterfactual. */
+      setStat("legend-bm", d ? `${(d.boundMassFraction * 100).toFixed(0)}%` : "—");
+      setStat("legend-bn", d ? `${(d.boundFraction * 100).toFixed(0)}%` : "—");
       clockEl.textContent = `t = ${tSim.toFixed(1)} Myr`;
       driftEl.textContent = s ? s.energyDrift.toExponential(1) : "—";
       /* `healthy` latches false once drift has ever breached tolerance, so this
@@ -1600,15 +1618,16 @@ const m = (tex: string) => tex;
           return;
         }
         const flags = boundFlags;
-        const overlay = flags
-          ? {
-              counts: toIMFHistogram(
-                latentStars().filter((star) => flags[star.id] === 1),
-                identity,
-              ).bins.map((b) => b.count),
-              colour: teal,
-            }
-          : undefined;
+        if (!flags) {
+          mfCounts = null;
+        } else if (mfStale || mfCounts === null) {
+          const kept = latentStars().filter((star) => flags[star.id] === 1);
+          mfCounts = toIMFHistogram(kept, identity).bins.map((b) => b.count);
+          mfStale = false;
+          setStat("legend-kept", String(kept.length));
+        }
+        if (!flags) setStat("legend-kept", "—");
+        const overlay = mfCounts ? { counts: mfCounts, colour: teal } : undefined;
         renderHistogram(ctx, bornIMF, w, h, {
           /* Counts per dex, not dN/dM: the question here is "how many are left", and a
              division by bin width puts the answer in units nobody is counting in. */
@@ -1640,7 +1659,15 @@ const m = (tex: string) => tex;
             { get: (p) => p.bm, colour: rose, dash: [] },
             { get: (p) => p.bn, colour: teal, dash: [4, 3] },
           ],
-          { fixed: [0, 1], fmt: (v) => v.toFixed(1) },
+          /*
+           * PINNED, BUT NOT TO ZERO. The axis must not autoscale — 1 is the meaningful top and
+           * a curve that never leaves 0.7-1.0 would otherwise be drawn as though it had swung
+           * across the whole panel. But [0, 1] spent about seventy percent of the height on
+           * fractions this cluster never reaches: measured over twenty crossing times the two
+           * curves occupy 0.72 to 0.97. The floor is 0.4 rather than 0.7 so a long run has
+           * somewhere to go — the lowest bound fraction on record here is near 0.49.
+           */
+          { fixed: [0.4, 1], fmt: (v) => v.toFixed(1) },
         );
       } else {
         drawSeries(
@@ -2128,6 +2155,9 @@ const m = (tex: string) => tex;
          captured once per rebuild and never recomputed while the run proceeds. */
       bornIMF = run.built.identity ? toIMFHistogram(latentStars(), run.built.identity) : null;
       boundFlags = null;
+      mfCounts = null;
+      mfStale = true;
+      setStat("legend-born", bornIMF ? String(run.built.state.n) : "—");
       hist = [];
       mountField();
       hi0 = null;
@@ -2398,6 +2428,9 @@ const m = (tex: string) => tex;
           el.hidden = !(el.dataset.xtitle ?? "").split(" ").includes(plotTab);
         for (const el of root.querySelectorAll<HTMLElement>("[data-note]"))
           el.hidden = el.dataset.note !== plotTab;
+        /* The cadence above only fires while the clock runs; arriving on the tab paused must
+           still show the current state rather than the last one cached. */
+        mfStale = true;
         drawPlots();
       });
     }
