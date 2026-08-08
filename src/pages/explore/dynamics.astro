@@ -85,8 +85,12 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
         So the strip is measuring two things at once, and it is worth keeping them apart. The
         <em>steps</em> are real cluster physics — binaries form and harden, and that is a result,
         not a bug. The <em>height</em> of them is a statement about this browser's arithmetic. On
-        some draws the trace crosses the limit; when it does, the number turns red and the run has
-        stopped being trustworthy from that point on, whatever the picture above it looks like.
+        about a third of draws the trace eventually crosses the limit — late, typically past ten
+        crossing times, long after the segregation above has happened. <strong>When it does, the
+        run ends.</strong> It would be easy to keep integrating and let the picture go on looking
+        convincing, and that is exactly the problem: past that line the arithmetic is no longer
+        solving these equations well enough for the picture to mean anything, so the panel stops
+        and says why rather than showing you a cluster it is no longer computing.
         With gravity off the strip stays empty, because there is no integrator running to make a
         claim about.
       </p>

@@ -524,8 +524,10 @@ const m = (tex: string) => tex;
             <b>hard binary</b> in the core. Measured here, the tightest pair went from about
             20,000 integrator steps per orbit to under 100 as it hardened, and the error jumped
             each time it tightened, sitting flat in between. Discrete jumps with no creep between
-            them is what a symplectic scheme should do. If the trace crosses the dashed line the
-            arithmetic has stopped being trustworthy and nothing above it means anything.
+            them is what a symplectic scheme should do. <b>If the trace crosses the dashed line
+            the run ends</b> — past it the arithmetic is no longer solving these equations well
+            enough for anything above to mean anything, and continuing would just be a
+            convincing-looking picture of nothing.
             <br /><br />
             The reverse does not follow. A conserved energy says the integrator solved the equations
             it was given; it says nothing about whether those equations still describe a star
@@ -994,6 +996,39 @@ const m = (tex: string) => tex;
       /* `healthy` latches false once drift has ever breached tolerance, so this
          cannot flicker back to reassuring after a bad excursion. */
       driftEl.classList.toggle("is-bad", !!s && !run.monitor.healthy);
+
+      /*
+       * CROSSING THE TRUST LIMIT ENDS THE RUN.
+       *
+       * The page has always claimed that "if it crosses that line the arithmetic has stopped
+       * being trustworthy and nothing above it means anything" — and then carried on
+       * integrating and drawing, which made the sentence decorative. A limit a page states and
+       * then ignores teaches a reader that limits are decorative.
+       *
+       * `healthy` is LATCHING, so this fires on the first breach and cannot be un-fired by a
+       * later good sample; the run stops at the moment the claim stopped being true, not at
+       * some point after it recovered.
+       *
+       * Measured: at dt = t_cross/2048 this happens on roughly a third of reachable draws, and
+       * late — around fifteen to twenty-five crossing times, well after segregation is visible.
+       * Halving the step would prevent it (all three breaching seeds fall to 1.3e-5..8.9e-5)
+       * at twice the wall time, which is the trade Anna declined; ending the run is the honest
+       * alternative to running past the limit.
+       */
+      if (s && !run.monitor.healthy && !halted) {
+        const why = pairConfirmed && pair
+          ? ` The ${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} M☉ binary below is ` +
+            `almost certainly why: at ${pair.stepsPerOrbit.toFixed(0)} steps per orbit its ` +
+            `periapsis is no longer resolved.`
+          : "";
+        halt(
+          "Stopped — past the trust limit",
+          `The energy error reached ${s.energyDrift.toExponential(1)}, crossing the line this ` +
+            `run is checked against. Beyond it the integration is no longer solving the ` +
+            `equations accurately enough to mean anything, so the run ends rather than showing ` +
+            `you a cluster it has stopped computing.${why} Reset or draw again.`,
+        );
+      }
     }
 
     /*
