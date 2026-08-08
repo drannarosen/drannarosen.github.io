@@ -79,11 +79,14 @@
  * The obvious hope is that a scheme which resolves close encounters would let eps shrink toward
  * something physical. Measured on the same configuration:
  *
- *   eps          x shipped     |dE/E|
- *   8.80e-3            1       3.6e-6
- *   8.80e-4          0.1       7.7
- *   8.80e-5         0.01       9.0e+2
- *   0                  0       3.1e+3
+ * (eps [pc], against the value `/explore/dynamics` runs at: eps = 0.1 r_h N^(-1/3), which is
+ * 8.80e-3 pc at that page's defaults of N = 400 and r_h = 0.65 pc.)
+ *
+ *   eps [pc]                    |dE/E|
+ *   8.80e-3   (as shipped)      3.6e-6
+ *   8.80e-4   (a tenth)         7.7
+ *   8.80e-5   (a hundredth)     9.0e+2
+ *   0         (none)            3.1e+3
  *
  * A tight pair barely moves the SYSTEM's |U|, so dt does not shrink for it, so the encounter is
  * not resolved. Per-pair regularisation (KS, or AR-chain) is what would change this, and it is
@@ -95,10 +98,10 @@
  * pair's own acceleration and jerk — while this transformation can only see the global total.
  * Same configuration, worst |dE/E| over 8 crossing times:
  *
- *   eps x shipped        LogH      Hermite (adaptive)
- *              1      3.5e-5                  1.1e-6
- *            0.1      3.9e+0                  4.5e-6
- *           0.01      8.8e+2                  1.5e-5
+ *   eps [pc]                      LogH      Hermite (adaptive)
+ *   8.80e-3  (as shipped)      3.5e-5                  1.1e-6
+ *   8.80e-4  (a tenth)         3.9e+0                  4.5e-6
+ *   8.80e-5  (a hundredth)     8.8e+2                  1.5e-5
  *
  * Read that with its run length in mind, though: at 22 crossing times the two are comparable
  * (5.9e-5 Hermite against 6.1e-5 here), because Hermite's error is SECULAR and keeps growing
@@ -140,11 +143,21 @@ export interface LogH {
 
 export interface LogHOptions {
   /**
-   * The INITIAL physical step [Myr]. Converted once to a fixed fictitious step via h_s = V0 * dt.
+   * The INITIAL physical step [Myr] — NOT a maximum, despite the name.
    *
-   * Named for physical time because that is what a caller can reason about — a crossing time
-   * over some number of steps. What is held fixed thereafter is h_s, so the physical step then
-   * moves on its own, which is the point.
+   * The name is inherited from the other integrators so a caller building a scheme selector can
+   * pass one options object to all of them, and it is the wrong word here: nothing caps the
+   * physical step, and it can and does exceed this value where the potential is shallow.
+   *
+   * What actually happens is a one-off calibration, `h_s = V0 * maxStep`, which sets the FIXED
+   * fictitious step so the run BEGINS at the physical step you asked for. `/explore/dynamics`
+   * passes t_cross/2048, the same step its fixed schemes run at, so the arms are comparable at
+   * t = 0. Thereafter h_s is frozen — that is what the symplecticity rests on — and the physical
+   * step floats as dt = h_s/(-U). Measured on a cluster it ranged 1.62e-4 .. 6.00e-4 Myr against
+   * a calibration value of 7.06e-4.
+   *
+   * So: choose it the way you would choose a fixed step, and read `lastPhysicalStep` to see what
+   * the scheme is actually doing.
    */
   maxStep?: number;
   /** Starting simulation time [Myr]. Default 0. */
