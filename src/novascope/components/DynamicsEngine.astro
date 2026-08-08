@@ -187,6 +187,15 @@ const m = (tex: string) => tex;
           <button type="button" data-plot-tab="bound" aria-pressed="false">bound fraction</button>
           <button type="button" data-plot-tab="mf" aria-pressed="false">mass function</button>
           <button type="button" data-plot-tab="lagr" aria-pressed="false">Lagrangian radii</button>
+          {/*
+            CONTEXTUAL — it appears when a binary is confirmed and leaves when the binary does.
+            The pair does not form until well into the run (measured across four draws: t/t_cr
+            7.9, 8.3, 9.1, 14.1), so a permanent tab would sit blank for the best part of a
+            minute, and a tab that is empty when you press it teaches you not to press it.
+          */}
+          <button type="button" data-plot-tab="binary" aria-pressed="false" data-pair-tab hidden>
+            the binary
+          </button>
         </span>
         <span class="xpl-dyn__legend">
           <span class="xpl-dyn__keys" data-legend="radii">
@@ -213,6 +222,16 @@ const m = (tex: string) => tex;
             <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>20%</span>
             <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--lo"></i>50%</span>
             <span class="xpl-dyn__key"><i class="xpl-dyn__swatch xpl-dyn__swatch--e"></i>90%</span>
+          </span>
+          <span class="xpl-dyn__keys" data-legend="binary" hidden>
+            <span class="xpl-dyn__key"
+              ><i class="xpl-dyn__swatch xpl-dyn__swatch--hi"></i>this pair
+              <b data-v="legend-pair">—</b></span
+            >
+            <span class="xpl-dyn__key"
+              ><i class="xpl-dyn__swatch xpl-dyn__swatch--e"></i>after an exchange</span
+            >
+            <span class="xpl-dyn__key">now <b data-v="legend-pairnow">—</b></span>
           </span>
           <span class="xpl-dyn__keys" data-legend="mf" hidden>
             <span class="xpl-dyn__key"
@@ -288,6 +307,30 @@ const m = (tex: string) => tex;
               three simply expand together, which is the honest picture of a cloud with nothing
               holding it: no redistribution, so no differentiation.
             </span>
+            <span data-note="binary" hidden>
+              The core binary's own orbit: <b>semi-major axis</b> across, <b>eccentricity</b> up,
+              one point per sample since it formed. Hardening moves it <em>left</em>. The colour
+              changes at an <b>exchange</b> — where a passing star swapped itself in for one of
+              the pair — so a jump in the track is a change of binary rather than a change of
+              orbit.
+              <br /><br />
+              <b>The scatter is real, and it is not noise in the measurement.</b> Both numbers are
+              INSTANTANEOUS, computed from the pair's relative energy at that moment, and that
+              energy is perturbed by the rest of the cluster and softened at small separations. So
+              a single unchanging orbit still draws a cloud rather than a point: measured over four
+              draws, <Math tex={m("a")} /> ranged over a factor of 1.7 to 2.9 within one pair's
+              own track. The cloud is smoothed nowhere — a tidier line would be a claim about a
+              Keplerian orbit that this pair is not on.
+              <br /><br />
+              Eccentricity is high but not uniformly so: median <Math tex={m("e")} /> across those
+              four draws ran from 0.50 to 0.94. A binary like this forms by capture rather than in
+              place, so it arrives on a long thin orbit — and the damage to the energy strip is
+              done in the small part of that orbit spent near periapsis.
+              <br /><br />
+              The tab is here only while there is a binary. It appears once a pair has held
+              together for half a crossing time and leaves if that pair is broken up or replaced;
+              across four draws the pair first formed between 8 and 14 crossing times in.
+            </span>
             <span data-note="mf" hidden>
               The mass function <b>as drawn</b> (grey) against the stars <b>still bound</b>
               (teal), in counts per dex, with the law they were sampled from over both.
@@ -320,6 +363,9 @@ const m = (tex: string) => tex;
         <span class="xpl-dyn__ytitle" data-ytitle="mf" hidden
           ><Math tex={m("\\mathrm{d}N/\\mathrm{d}\\log m")} /></span
         >
+        <span class="xpl-dyn__ytitle" data-ytitle="binary" hidden
+          ><Math tex={m("e")} /></span
+        >
         <canvas data-radii aria-label="Cluster evolution: half-mass radius of the heaviest and lightest stars, the bound fraction, or the mass function as drawn against what is still bound"></canvas>
         {/* The x axis is TIME for two tabs and MASS for the third, so it swaps with them —
             a plot labelled t (Myr) over a mass axis is the same class of quiet untruth the
@@ -329,6 +375,9 @@ const m = (tex: string) => tex;
         >
         <span class="xpl-dyn__xtitle" data-xtitle="mf" hidden
           ><Math tex={m("m\\;[M_\\odot]")} /></span
+        >
+        <span class="xpl-dyn__xtitle" data-xtitle="binary" hidden
+          ><Math tex={m("a\\;[\\mathrm{pc}]")} /></span
         >
       </div>
     </figure>
@@ -676,6 +725,7 @@ const m = (tex: string) => tex;
     centreOfMass,
     pairResolution,
     hardestBoundPair,
+    createPairWatch,
   } from "@novascope/core/dynamics";
   /*
    * The renderer is named directly, never through the `viz` barrel — the barrel
@@ -740,7 +790,7 @@ const m = (tex: string) => tex;
     const scaleBar = root.querySelector<HTMLElement>("[data-scalebar]");
     const zoomInput = root.querySelector<HTMLInputElement>("[data-zoom]");
     /** Which evolution curve the shared plot canvas is showing. */
-    let plotTab: "radii" | "bound" | "mf" | "lagr" = "radii";
+    let plotTab: "radii" | "bound" | "mf" | "lagr" | "binary" = "radii";
     const scaleLabel = root.querySelector<HTMLElement>("[data-scalelabel]");
     const summary = $<HTMLElement>("[data-summary]");
 
@@ -968,7 +1018,7 @@ const m = (tex: string) => tex;
       alpha: numberField(1.5, 3, 2.3, 1),
       speed: numberField(0.25, 4, 1, 2),
       scheme: enumField(["fsi4", "logh", "hermite"] as const, "fsi4"),
-      tab: enumField(["radii", "bound", "mf", "lagr"] as const, "radii"),
+      tab: enumField(["radii", "bound", "mf", "lagr", "binary"] as const, "radii"),
       gravity: boolField(false),
     };
 
@@ -1840,9 +1890,98 @@ const m = (tex: string) => tex;
      * — "add a tab, copy the early return above" — will recur every time a tab is added, and
      * items on this page's own roadmap add more.
      */
+    /*
+     * THE BINARY'S ORBIT — a vs e, one dot per watch sample, coloured by segment.
+     *
+     * Its own renderer rather than `drawSeries`, because both axes are quantities: `drawSeries`
+     * puts time across, and a track through (a, e) is the whole point here — hardening is a
+     * LEFTWARD move, and that reads only if `a` is the x axis.
+     *
+     * NOTHING IS SMOOTHED, and that is a decision. `a` and `e` are instantaneous, from a relative
+     * energy the rest of the cluster perturbs and the softening modifies, so one steady orbit
+     * still draws a cloud — measured, a spans a factor of 1.7 to 2.9 within a single pair's own
+     * track. A fitted line through that would assert a Keplerian orbit the pair is not on.
+     */
+    const drawPairTrack = () => {
+      const { ctx, w, h } = fit(radiiCv);
+      ctx.clearRect(0, 0, w, h);
+      const ink = css("--ink-faint", "#8b8f9a");
+      const grid = css("--bg-hairline", "#2b2d38");
+      const rose = css("--spec-rose-bright", "#e58fb4");
+      const amber = css("--spec-amber", "#fbbf24");
+      if (pairTrack.length < 1) return;
+
+      /* a spans decades over a hardening binary's life, so the x axis is log. e does not — it is
+         bounded by construction — so it is pinned to 0..1 and stays comparable between runs. */
+      const as = pairTrack.map((p) => p.a).filter((v) => v > 0);
+      if (!as.length) return;
+      const lx0 = Math.log10(Math.min(...as));
+      const lx1 = Math.log10(Math.max(...as));
+      /* A fresh track is one dot, so the extent is a point; give it a decade to live in rather
+         than dividing by zero. */
+      const padX = lx1 - lx0 < 0.5 ? (0.5 - (lx1 - lx0)) / 2 : (lx1 - lx0) * 0.08;
+      const [xLo, xHi] = [lx0 - padX, lx1 + padX];
+      const X = (a: number) => AX.l + ((Math.log10(a) - xLo) / (xHi - xLo)) * (w - AX.l - AX.r);
+      const Y = (e: number) => h - AX.b - e * (h - AX.t - AX.b);
+
+      ctx.font = AXIS_FONT_LG;
+      ctx.strokeStyle = grid;
+      ctx.lineWidth = 1;
+      ctx.fillStyle = ink;
+      for (const e of [0, 0.25, 0.5, 0.75, 1]) {
+        const y = Y(e);
+        ctx.beginPath();
+        ctx.moveTo(AX.l, y);
+        ctx.lineTo(w - AX.r, y);
+        ctx.stroke();
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText(e.toFixed(2), AX.l - 8, y);
+      }
+      for (let n = Math.ceil(xLo); n <= Math.floor(xHi); n++) {
+        const x = X(10 ** n);
+        ctx.beginPath();
+        ctx.moveTo(x, AX.t);
+        ctx.lineTo(x, h - AX.b);
+        ctx.stroke();
+        drawPower(ctx, n, x, h - AX.b + 14, "center", ink, { base: AXIS_FONT_LG, sub: SUB_FONT_LG });
+        ctx.font = AXIS_FONT_LG;
+      }
+      ctx.strokeStyle = css("--border", "#2a2c31");
+      ctx.strokeRect(AX.l, AX.t, w - AX.l - AX.r, h - AX.t - AX.b);
+
+      /* Segment 1 is the pair as it formed; every later segment follows an exchange. Two
+         colours, not a ramp — the question is "is this still the same binary", which is
+         categorical. */
+      const first = pairTrack[0]!.seg;
+      for (const p of pairTrack) {
+        if (!(p.a > 0)) continue;
+        ctx.fillStyle = p.seg === first ? rose : amber;
+        ctx.globalAlpha = 0.55;
+        ctx.beginPath();
+        ctx.arc(X(p.a), Y(p.e), 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      /* The latest sample, solid and larger — without it a reader cannot tell which end of the
+         cloud is now, and "hardening moves it left" is unreadable. */
+      const last = pairTrack[pairTrack.length - 1]!;
+      if (last.a > 0) {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = last.seg === first ? rose : amber;
+        ctx.beginPath();
+        ctx.arc(X(last.a), Y(last.e), 4.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    };
+
     const drawTabPlot = () => {
       const rose = css("--spec-rose-bright", "#e58fb4");
       const teal = css("--spec-teal-bright", "#4fd6c4");
+      if (plotTab === "binary") {
+        drawPairTrack();
+        return;
+      }
       if (plotTab === "mf") {
         /*
          * BORN under, STILL BOUND over — a subset drawn on top of the set, so the exposed
@@ -2017,6 +2156,22 @@ const m = (tex: string) => tex;
       pairStats.hidden = true;
     }
 
+    /*
+     * The binary tab exists exactly while the binary does.
+     *
+     * If it is the ACTIVE tab when the pair goes, the page falls back rather than leaving a
+     * selected tab drawing nothing — a blank panel with a lit tab reads as a broken plot, and
+     * the reader has no way to know the binary was simply broken up.
+     */
+    const pairTabBtn = $<HTMLButtonElement>("[data-pair-tab]");
+    const syncPairTab = (): void => {
+      pairTabBtn.hidden = !pairConfirmed;
+      if (!pairConfirmed && plotTab === "binary") {
+        selectTab("radii");
+        syncUrl();
+      }
+    };
+
     function showAlert(title: string, body: string, canZoom: boolean): void {
       alertTitle.textContent = title;
       alertBody.textContent = body;
@@ -2056,13 +2211,62 @@ const m = (tex: string) => tex;
      * together is what distinguishes a bound pair from two stars passing.
      */
     const PAIR_PERSIST_TCROSS = 0.5;
+    /*
+     * Entering and leaving are DIFFERENT questions, and running both off the watch threshold is
+     * what made the binary flicker. The rules, and the runs that measured them, are in
+     * `core/dynamics/pairWatch` — restating them here is how the two would drift apart.
+     */
+    const PAIR_RELEASE_HARDNESS = 1;
     let pairFrame = 0;
     let pair: ReturnType<typeof pairResolution> = null;
-    /** Model time at which the CURRENT pair first met the threshold, and which pair that is. */
-    let pairSince = Infinity;
-    let pairKey = "";
-    /** Latched once the pair has persisted: what the banner and the slow-down both key on. */
+    /*
+     * THE STATE MACHINE IS `core/dynamics/pairWatch`, not this file.
+     *
+     * Enter, stay, release and exchange are four distinct physical claims, two of which were
+     * measured wrong here before they were extractable — and none of which could be tested at
+     * all while they lived in a `<script>` block. The module carries the rules and the
+     * measurements behind them; this file just reports what it says.
+     */
+    const pairWatch = createPairWatch({
+      watchSteps: PAIR_WATCH_STEPS,
+      persistTcross: PAIR_PERSIST_TCROSS,
+      releaseHardness: PAIR_RELEASE_HARDNESS,
+    });
+    /** Mirrors `pairWatch.confirmed`; read by the banner, the slow-down, the tab and the halt. */
     let pairConfirmed = false;
+    /**
+     * The confirmed pair's own indices, which OUTLIVE an exchange.
+     *
+     * An exchange swaps one companion and keeps the other — measured on three of four seeds,
+     * at t/t_cr 21.9, 18.7, and 19.8 and 21.8. Keyed on the raw `i:j` string that reads as a
+     * brand-new pair, so the persistence clock restarted and the binary vanished from the page
+     * for ~1 crossing time at the exact moment the most interesting thing happened to it.
+     *
+     * Sharing one star is a CONTINUATION of the same binary, so the clock is not restarted and
+     * the track below keeps going — with the exchange recorded rather than papered over.
+     */
+
+    /**
+     * The confirmed binary's orbit, sampled at the watch cadence — the `a` vs `e` tab's data.
+     *
+     * `seg` is what lets an exchange read as a jump rather than as a smear: the track changes
+     * colour where the companion changed, so a reader sees that the point moved because the
+     * BINARY changed, not because the orbit drifted there.
+     */
+    let pairTrack: { t: number; a: number; e: number; hard: number; seg: number }[] = [];
+    const MAX_PAIR_SAMPLES = 600;
+    /*
+     * The binary is over: clear everything keyed to it, in one place.
+     *
+     * Three call sites had grown their own partial versions of this, and the one that mattered
+     * — the adaptive-scheme branch — cleared the clock but not `pairMembers`, so a later pair
+     * sharing an index with a long-dead one would have counted as its continuation.
+     */
+    const releasePair = (): void => {
+      pairWatch.reset();
+      pairConfirmed = false;
+      pairTrack = [];
+    };
     /** Whether the frame is TRACKING the binary rather than the cluster. See sample(). */
     let followPair = false;
     let halted = false;
@@ -2152,12 +2356,9 @@ const m = (tex: string) => tex;
          still guards the run, and Hermite's own arm throws with its own message if the pair
          hardens past what it can resolve. */
       if (!Number.isFinite(pair.stepsPerOrbit)) {
-        pairKey = "";
-        pairSince = Infinity;
-        if (pairConfirmed) {
-          pairConfirmed = false;
-          syncPlay();
-        }
+        const wasOn = pairConfirmed;
+        releasePair();
+        if (wasOn) syncPlay();
         if (!halted) {
           hideAlert();
           hidePairStats();
@@ -2165,26 +2366,38 @@ const m = (tex: string) => tex;
         return;
       }
 
-      /* Identity, not just tightness: an exchange encounter swaps a companion — measured on
-         seed 2028 at t/t_cr = 15, where the 29.9 Msun star replaced the 10.0 — and that is a
-         NEW pair whose persistence starts over. */
-      const key = `${pair.i}:${pair.j}`;
-      if (pair.stepsPerOrbit < PAIR_WATCH_STEPS) {
-        if (key !== pairKey) {
-          pairKey = key;
-          pairSince = tSim;
-        }
-      } else {
-        pairKey = "";
-        pairSince = Infinity;
+      /* Enter, stay, release, exchange — all four in `pairWatch`, tested there. */
+      const watch = pairWatch.update(pair, tSim, run!.built.timeUnit);
+      pairConfirmed = watch.confirmed;
+      if (!watch.confirmed) pairTrack = [];
+      const persisted = pairConfirmed;
+      /* One sample per watch, which is every PAIR_EVERY frames — the same cadence the readouts
+         update at, so the track cannot claim resolution the numbers beside it do not have. */
+      if (pairConfirmed) {
+        pairTrack.push({
+          t: tSim,
+          a: pair.semiMajorAxis,
+          e: pair.eccentricity,
+          hard: pair.hardness,
+          seg: watch.segment,
+        });
+        /* HALVED, never shifted. `shift()` would drop the oldest samples, and the oldest
+           samples are the pair AT FORMATION — the wide, soft end of the track that makes the
+           hardening legible as a direction. Halving keeps the whole span and thins it. */
+        if (pairTrack.length > MAX_PAIR_SAMPLES)
+          pairTrack = pairTrack.filter((_, i) => i % 2 === 0);
       }
-      const persisted = tSim - pairSince >= PAIR_PERSIST_TCROSS * run!.built.timeUnit;
+      if (pairConfirmed && pair) {
+        setStat("legend-pair", `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} M☉`);
+        setStat("legend-pairnow", `a = ${pair.semiMajorAxis.toExponential(1)} pc · e = ${pair.eccentricity.toFixed(2)}`);
+      }
       /* The status line under the canvas reports the slow-down, and it is only rewritten by
          syncPlay — so a transition here has to poke it, or the line goes on saying "every star
          pulls on every other" while the clock is visibly crawling. */
-      const wasConfirmed = pairConfirmed;
-      pairConfirmed = persisted;
-      if (pairConfirmed !== wasConfirmed) syncPlay();
+      if (watch.changed) {
+        syncPlay();
+        syncPairTab();
+      }
 
       /*
        * `persisted` GATES THE HALT TOO, and it did not.
@@ -2399,15 +2612,16 @@ const m = (tex: string) => tex;
       halted = false;
       pair = null;
       pairFrame = 0;
-      pairSince = Infinity;
-      pairKey = "";
-      pairConfirmed = false;
+      /* `reset()` inside, so the segment counter goes back to zero too — a fresh run's binary
+         must draw in the first colour, not wherever the last run's exchanges left off. */
+      releasePair();
       /* A new run has no binary to follow, and leaving this set would frame the fresh cluster
          on a pair that no longer exists. */
       followPair = false;
       zoomPairBtn.textContent = "show me";
       hideAlert();
       hidePairStats();
+      syncPairTab(); // the fresh run has no binary, so the tab goes with the old one
       /* Read off the BUILD, and only here. `built.timeUnit` is `crossingTime(state)`
          of the initial configuration — the same quantity the monitor divides by for
          `tCross` — so the displayed unit and the clock counted in it come from one
@@ -2686,7 +2900,10 @@ const m = (tex: string) => tex;
     /* One path for a click and for a link. When the URL could select a tab the click handler
        could not, the two drifted immediately — this is the same reason `selectGravity` exists. */
     const selectTab = (tab: typeof plotTab) => {
-      plotTab = tab;
+      /* A link may name the binary tab, and a binary takes several crossing times to form —
+         so arriving on it before there is one falls back rather than showing an empty frame
+         with no way to tell whether it is broken or merely early. */
+      plotTab = tab === "binary" && !pairConfirmed ? "radii" : tab;
       {
         for (const o of root.querySelectorAll<HTMLButtonElement>("[data-plot-tab]")) {
           const on = o.dataset.plotTab === tab;
