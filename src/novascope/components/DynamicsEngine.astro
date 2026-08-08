@@ -2084,10 +2084,28 @@ const m = (tex: string) => tex;
     padding-block-start: var(--space-2xs);
     border-block-start: 1px solid var(--border);
   }
+  /*
+   * The column gap is what has to give, not the numbers.
+   *
+   * Measured at 1440 px with a run in progress: eight cells summed to 794 px of
+   * content plus 7 x 28 px of gap = 990, against exactly 990 px of available
+   * width — so the row sat ON the wrap boundary and `|dE/E|` dropped to a second
+   * line as soon as the values grew a digit (t past 10 Myr, t/t_cr past 10).
+   *
+   * The values are the content and they get WIDER as a run proceeds — Anna has
+   * had this at t = 821.2 Myr with t/t_cr = 1129.0, so four digits is the case to
+   * hold, not an extreme. Trimming a decimal buys one digit of a growth that
+   * continues; the gap is the only term that does not grow with the run.
+   *
+   * Measured at 1440 px against forced worst-case strings ("999.9 Myr",
+   * "9999.9", "99.99", "100%", "9.9e-11"): --space-m left it 14 px SHORT even
+   * after dropping to --space-s, and --space-2xs clears it. Verified by setting
+   * those strings in the live DOM, not by estimating character counts.
+   */
   .xpl-dyn__stats {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-3xs) var(--space-m);
+    gap: var(--space-3xs) var(--space-2xs);
     margin: 0;
     padding: var(--space-2xs) var(--space-s) 0;
   }
