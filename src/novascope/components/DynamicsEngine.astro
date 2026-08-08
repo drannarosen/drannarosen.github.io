@@ -58,8 +58,10 @@ const m = (tex: string) => tex;
             <Math tex={m("N")} />, <Math tex={m("r_h")} /> or
             <Math tex={m("\gamma")} /> redraws it.
             <br /><br />
-            Model time is not wall-clock time — the speed control changes how much of it passes
-            per frame.
+            Model time is not wall-clock time. It advances by a fixed number of integrator steps
+            per frame, so how fast it runs depends on how quickly this browser can take them —
+            and the clock slows on its own once a hard binary forms, so the pair can be watched
+            rather than raced past.
           </span>
         </span>
       </figcaption>
@@ -544,12 +546,6 @@ const m = (tex: string) => tex;
             could produce.
           </span>
         </div>
-        <label class="xpl-dyn__ctrl">
-          <span class="xpl-dyn__ctrl-val"
-            >speed <output data-speed-val>1.0</output><Math tex={m("\\times")} /></span
-          >
-          <input type="range" data-speed min="0.25" max="4" step="0.25" value="1" />
-        </label>
       </div>
 
       {/* Each label is its own note trigger — a "?" per metric would be seven icons
@@ -786,14 +782,12 @@ const m = (tex: string) => tex;
     const energyCv = $<HTMLCanvasElement>("[data-energy]");
     const nInput = $<HTMLInputElement>("[data-n]");
     const nVal = $<HTMLOutputElement>("[data-n-val]");
-    const speedInput = $<HTMLInputElement>("[data-speed]");
     const rhInput = $<HTMLInputElement>("[data-rh]");
     const rhVal = $<HTMLOutputElement>("[data-rh-val]");
     const alphaInput = $<HTMLInputElement>("[data-alpha]");
     const alphaVal = $<HTMLOutputElement>("[data-alpha-val]");
     const gammaInput = $<HTMLInputElement>("[data-gamma]");
     const gammaVal = $<HTMLOutputElement>("[data-gamma-val]");
-    const speedVal = $<HTMLOutputElement>("[data-speed-val]");
     const playBtn = $<HTMLButtonElement>("[data-play]");
     const clockT = $<HTMLElement>("[data-clock-t]");
     const clockTcr = $<HTMLElement>("[data-clock-tcr]");
@@ -1054,7 +1048,6 @@ const m = (tex: string) => tex;
       rh: numberField(0.3, 5, 0.65, 2),
       gamma: numberField(2.5, 6, 5, 1),
       alpha: numberField(1.5, 3, 2.3, 1),
-      speed: numberField(0.25, 4, 1, 2),
       scheme: enumField(["fsi4", "logh", "hermite"] as const, "fsi4"),
       tab: enumField(["radii", "bound", "mf", "lagr", "binary"] as const, "radii"),
       gravity: boolField(false),
@@ -1100,7 +1093,6 @@ const m = (tex: string) => tex;
         rh: Number(rhInput.value),
         gamma: Number(gammaInput.value),
         alpha: Number(alphaInput.value),
-        speed: Number(speedInput.value),
         scheme,
         tab: plotTab,
         gravity,
@@ -2381,10 +2373,12 @@ const m = (tex: string) => tex;
      *
      * `steps/orbit` was computed from the FRAME dt, and it is wrong there in two ways:
      *
-     *  - AT SPEED > 1 the frame dt is a multiple of maxStep, and every fixed-step scheme
-     *    SUBDIVIDES it internally (`nSub = ceil(dt / maxStep)` in fsi4.ts). At speed 4 the
-     *    real step is a quarter of the frame's, so the readout under-reported the resolution
-     *    fourfold and both thresholds below fired four times too early.
+     *  - THE FRAME dt IS NOT THE STEP. Every fixed-step scheme subdivides it internally
+     *    (`nSub = ceil(dt / maxStep)` in fsi4.ts), so a readout taken from the frame's dt
+     *    under-reports the resolution by that factor and every threshold keyed on it fires
+     *    early. This bit hardest under the old speed control, where the frame dt was a
+     *    multiple of maxStep; `?autostep` reaches the same place from the other direction by
+     *    shortening dt below it.
      *
      *  - THE ADAPTIVE SCHEMES DO NOT HAVE ONE FIXED STEP AT ALL. LogH's physical step floats
      *    as h_s/(-U) and shrinks exactly where a binary tightens — which is the entire reason
@@ -2552,7 +2546,7 @@ const m = (tex: string) => tex;
       if (!run || !playing) return;
       /* The guard only ever shortens, so this can fall mid-run but never climb back. */
       const dt =
-        (run.built.timeUnit / stepDivisor) * Number(speedInput.value) * (stepGuard?.scale ?? 1);
+        (run.built.timeUnit / stepDivisor) * (stepGuard?.scale ?? 1);
       /*
        * WRAPPED, because a throw here does not fail loudly — it fails INVISIBLY.
        *
@@ -2970,10 +2964,6 @@ const m = (tex: string) => tex;
       gammaVal.value = Number(gammaInput.value).toFixed(1);
     });
     gammaInput.addEventListener("change", rebuild);
-    speedInput.addEventListener("input", () => {
-      speedVal.value = Number(speedInput.value).toFixed(2);
-      syncUrl();
-    });
 
 
     /*
@@ -3103,8 +3093,6 @@ const m = (tex: string) => tex;
       gammaVal.value = st.gamma.toFixed(1);
       alphaInput.value = String(st.alpha);
       alphaVal.value = st.alpha.toFixed(1);
-      speedInput.value = String(st.speed);
-      speedVal.value = st.speed.toFixed(2);
       scheme = st.scheme;
       softeningFraction = st.eps;
       stepDivisor = st.steps;
