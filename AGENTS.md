@@ -59,16 +59,34 @@ fetch from the wrong host. See `docs/domain-migration.md`.
 
 Do NOT touch DNS or reconfigure the domain.
 
-**Pages serves the `gh-pages` branch, not an Actions artifact, and PUSHES ARE
-RATIONED.** GitHub bills Actions storage on bytes *created* per billing cycle,
-so every artifact-based deploy cost 12.6 MB permanently — 31 deploys in one
-cycle took the account to 90% of its 0.5 GB allowance. Shortening retention does
-not help (it was already one day) and deleting artifacts reclaims nothing.
+**Pages serves the `gh-pages` branch, not an Actions artifact.** See
+`docs/deployment.md` for the branch-deploy design and the switchover runbook —
+the switchover order matters, and reversing it 404s the live domain. Since
+`d72538e` the deploy pushes a branch and creates no artifact at all.
 
-So: **ask before every push, and no more than one a day.** Commit locally and
-batch them. The dev server is what gets reviewed, so nothing is lost by staying
-local. See `docs/deployment.md` for the branch-deploy design and the switchover
-runbook — the switchover order matters, and reversing it 404s the live domain.
+**Ask before every push.** That is Anna's standing preference and it holds. The
+dev server is what gets reviewed, so nothing is lost by committing locally and
+batching.
+
+**What does NOT hold is the reason this section used to give.** It said GitHub
+bills Actions storage "on bytes *created* per billing cycle", that deleting
+artifacts "reclaims nothing", and rationed pushes to one a day on that basis.
+Checked against GitHub's own docs and Anna's billing ledger, 2026-08-08:
+
+- Storage is billed in **GB-hours** — size x time ("Storing 3 GB for 10 days =
+  720 GB-Hours"), not bytes created. Deleting artifacts therefore *does* stop
+  future accrual; what it cannot do is erase what has already accrued this cycle.
+- **This repository is public, and its Actions usage is discounted to $0** —
+  minutes *and* storage. August: 157 minutes and 381 GB-hours, gross $1.07,
+  net **$0.00**. The only non-zero line on the whole personal account all year
+  was a PRIVATE repo.
+- So the 0.5 GB scare was never this repo's doing, and the one-push-a-day cap it
+  justified is removed. Organisations bill separately from personal accounts, so
+  an org running out cannot gate this repo either.
+
+The lesson is the one this file already teaches elsewhere: a number written down
+without being checked outlives the session that guessed it, and this one shaped
+how the repo was worked on for weeks.
 
 (This section previously described the migration as a future step and told
 agents not to perform it. It had already happened, which is the kind of stale
@@ -108,7 +126,18 @@ Before concluding anything about a layout:
    from an earlier call.
 2. Set the width explicitly with `resize_window` immediately before measuring.
    The `desktop` preset yields the pane's native size (~1041 px), which is not a
-   desktop width; pass 1440x900.
+   desktop width; **pass 1512x857 — Anna's actual viewport.**
+
+   This said 1440x900 until 2026-08-08, and that number escaped the harness and
+   became a design constraint: `/explore/dynamics` was narrowed to 64rem, and its
+   cluster canvas cropped twice, to fit a 900 px viewport nobody has. Worse, 857
+   is SHORTER than the fiction, so the layout was being tuned against the wrong
+   target in both directions. Measure against the real one.
+
+   And the pane renders SCREENSHOTS at its own scale, independently of
+   `innerWidth`. When an image looks wrong but the geometry reads right, suspect
+   the screenshot before the CSS — but say so, rather than trusting either
+   silently.
 3. If a rule seems not to apply, check `matchMedia(...).matches` at the measured
    width before suspecting the toolchain.
 
@@ -182,6 +211,15 @@ shape, and this applies to every turn, so it would be the skill that never fires
 - Never fabricate publications, students, grants, collaborators, or software
   claims. Use clearly-labeled provisional records where needed to exercise the
   content system.
+- **A simulated number is not reproducible until you have checked that it is.**
+  Anything an explorable computes from a chaotic run — an N-body trajectory, or
+  any figure keyed to a seed AND a late time — differs between browsers.
+  Measured 2026-08-08 on `/explore/dynamics`: identical initial conditions to 21
+  significant digits, and node and Chrome still diverge into different close
+  encounters by ~39,000 steps, so one run halts on its own trust limit and the
+  other never does. State the MECHANISM on the page, never a rate or a late-time
+  value a reader is meant to reproduce. Early-time quantities do agree and are
+  safe to quote.
 - **Never mention grant proposals** — in progress, submitted, or planned — in
   any published page, script comment, or committed doc. No funder names, no
   deadlines, no "after the X deadline". Timelines are stated without their
@@ -197,7 +235,7 @@ moment — read the skill, do not re-derive it here:
 - **site-claims** — honesty of every published claim (never invent a fact).
 - **site-integrity** — building safely: derive facts, gate drift, one source
   of truth per fact.
-- **site-verify** — shipping safely: verify in the browser at 1440px, and
+- **site-verify** — shipping safely: verify in the browser at 1512x857, and
   confirm the deploy went green, not just that the push succeeded.
 - **explore-authoring** — the "Lives & Deaths of Star Clusters" series: go
   through the `star()` contract, store only latent state, state the model rung
