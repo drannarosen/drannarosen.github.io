@@ -2430,7 +2430,22 @@ const m = (tex: string) => tex;
         showPairStats(pair); // the stop's own explanation — keep the figures on screen
         return;
       }
-      if (pair.stepsPerOrbit < PAIR_WATCH_STEPS && persisted) {
+      /*
+       * KEYED ON THE BINARY, NOT ON THE THRESHOLD — and this is the half of the flicker fix
+       * that was missed the first time.
+       *
+       * `pairWatch` was given a release rule that holds a confirmed pair across a
+       * steps-per-orbit excursion, because `a` oscillates and spo goes as a^3/2. But the
+       * BANNER kept its own `pair.stepsPerOrbit < PAIR_WATCH_STEPS` test, so it went on
+       * hiding and reappearing on exactly the excursions the watch had just been taught to
+       * ignore — measured, 29 crossings of the 400 mark in 12 crossing times on seed 2028.
+       * Anna saw it flickering; the confirmation underneath it was perfectly stable.
+       *
+       * `persisted` IS the question the banner asks ("is there a hard binary?"), so it is the
+       * only condition. The steps-per-orbit figure still moves inside the banner, which is a
+       * readout changing rather than a banner appearing.
+       */
+      if (persisted) {
         /*
          * ONE LINE OF NUMBERS. The first version put the whole explanation here and covered
          * about 40% of the cluster with text — over the one thing the panel exists to show.
