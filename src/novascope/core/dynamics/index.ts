@@ -51,6 +51,13 @@ export { createFsi4, supportsForceGradient } from "./fsi4.ts";
 export type { Hermite, HermiteOptions, JerkCapable } from "./hermite.ts";
 export { createHermite, supportsJerk, HERMITE_ETA } from "./hermite.ts";
 
+/* Logarithmic-Hamiltonian time transformation (Mikkola & Tanikawa 1999; Preto & Tremaine 1999).
+   Symplectic AND adaptive — the only scheme here that is both, because it adapts by transforming
+   time rather than by controlling the step: fixed h in fictitious time s, with dt/ds = 1/(-U).
+   Built for the hardening binary that `/explore/dynamics` measured a fixed step failing on. */
+export type { LogH, LogHOptions } from "./logh.ts";
+export { createLogH } from "./logh.ts";
+
 export type { SymmetricHermite, SymmetricHermiteOptions } from "./symmetric.ts";
 export {
   createSymmetricHermite,

@@ -248,14 +248,20 @@ describe("chooseIntegrator with Hermite available", () => {
     /* `symmetric` sits between fsi4 and hermite: it needs the same jerk kernel hermite does,
        and where both run it is the better of the two — hermite is carried as its asymmetric
        control. Order is a quality statement; the DEFAULT is still fsi4, asserted below. */
+    /* `logh` sits after fsi4: it needs no pairwise capability at all, only an AUTONOMOUS
+       potential, so it is available wherever the potential does not depend on t. */
     expect(availableSchemes(createDirectForce({ softening: KEPLER.softening, G }))).toEqual([
       "fsi4",
+      "logh",
       "symmetric",
       "hermite",
       "leapfrog",
     ]);
-    // meanField supplies neither capability: the leapfrog is its only option.
+    /* meanField supplies neither pairwise capability, but its potential IS autonomous — the
+       time dependence on that path comes from `gasExpulsion/` wrapping it, not from the model
+       itself — so logh is honestly available and the leapfrog is no longer its only option. */
     expect(availableSchemes(createMeanFieldForce(s.n, { G, rMin: 1e-3, rMax: 100 }))).toEqual([
+      "logh",
       "leapfrog",
     ]);
   });
