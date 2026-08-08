@@ -173,9 +173,33 @@ const m = (tex: string, display = false) =>
 
 <script>
   import { createClusterStore, toRenderModel, toHRModel, toIMFHistogram, localStorageAdapter } from "../state/index.ts";
-  import { defaultIdentity, sampleCluster, presets, effRhOverA, type ClusterIdentity } from "../core/cluster/index.ts";
+  import { sampleCluster, presets, effRhOverA, type ClusterIdentity } from "../core/cluster/index.ts";
+  /*
+   * THE CLUSTER IS AN ADDRESS. ADR 0012 committed to "(seed, params, t) — reproducible and
+   * URL-shareable"; `/explore/dynamics` was the first consumer of the codec and this is the
+   * second. The flat-to-nested mapping and every range live in `core/params/censusParams`, not
+   * here — it has arithmetic in it (r_h -> a, the environment derivations) and a mapping inside
+   * a `<script>` block cannot be tested in node.
+   *
+   * PRECEDENCE, which is the part that had to be got right: the URL is read BEFORE the store is
+   * built and is passed as `opts.identity`, which `createClusterStore` resolves ahead of
+   * anything restored from localStorage. A lecture link therefore opens as the sender's cluster
+   * and not as the recipient's last session.
+   *
+   * That ordering also documents a measured fact about today's behaviour: census ALREADY beat
+   * its own persistence, because it always passed an identity. Restoring a saved cluster has
+   * never worked on this page — the save is overwritten with the default on the next load. The
+   * VIEW does restore, which is why `view` is tri-state; see censusParams.
+   */
+  import { decode, encode } from "../core/params/urlState.ts";
+  import {
+    CENSUS_SCHEMA,
+    envAlpha,
+    identityFromState,
+    presetKeyFor,
+    stateFromIdentity,
+  } from "../core/params/censusParams.ts";
   import { star } from "../core/stellar/index.ts";
-  import { alpha3FromEnvironment } from "../core/imf/index.ts";
   import { mountCanvas, makeCamera, attachOrbit, renderClusterField, pickStar, renderHR, pickHRPoint, renderHistogram } from "../viz/index.ts";
 
   const root = document.querySelector<HTMLElement>("[data-census]");
@@ -205,13 +229,51 @@ const m = (tex: string, display = false) =>
     const summary = $<HTMLElement>("[data-summary]");
     const hint = $<HTMLElement>("[data-hint]");
 
+    /* Read first: everything below is built from the identity this resolves to. */
+    const urlState = decode(CENSUS_SCHEMA, location.search);
+    /* The environment inputs are not stored on the identity — alpha and the sampling mode are
+       all it keeps — so the page owns them, seeded from the link. */
+    let envOn = urlState.env;
+    let imfForm: "dNdM" | "perDex" = urlState.imf; // IMF plot form (ξ line vs per-dex hump)
+
     const store = createClusterStore({
       adapter: localStorageAdapter(),
       instance: "census",
-      identity: defaultIdentity({ sampling: { mode: "count", target: 1200 }, imf: { mMin: 0.1, mMax: 100, alphaHigh: 2.3 } }),
+      identity: identityFromState(urlState),
     });
 
-    const camera = makeCamera(store.getView().toggles.threeD ? "3D" : "2D");
+    /*
+     * "auto" means the URL is not asserting a view, so the reader's own restored 2-D/3-D stands.
+     * A two-valued field would decode absence as "2D" and silently overwrite it.
+     */
+    const camera = makeCamera(
+      urlState.view === "auto" ? (store.getView().toggles.threeD ? "3D" : "2D") : urlState.view,
+    );
+
+    /*
+     * `replaceState`, never `pushState`: dragging a slider must not fill the back button with a
+     * hundred entries. The address bar is the shareable artefact, not the history.
+     *
+     * Driven off `store.subscribe` so every identity change writes the URL by construction —
+     * presets, the reseed button and all six sliders go through `setIdentity`, and a new control
+     * added later is covered without anyone remembering to call this. The three page-local
+     * choices that are NOT on the identity (environment mode, the IMF form, 2-D/3-D) call it
+     * themselves; 2-D/3-D goes through `setView`, so it is covered too.
+     */
+    const syncUrl = () => {
+      const query = encode(
+        CENSUS_SCHEMA,
+        stateFromIdentity(store.getIdentity(), {
+          env: envOn,
+          feh: Number(feh.value),
+          mecl: Number(mecl.value),
+          view: camera.mode,
+          imf: imfForm,
+        }),
+      );
+      history.replaceState(null, "", query ? `?${query}` : location.pathname);
+    };
+    store.subscribe(syncUrl);
 
     let latent = sampleCluster(store.getIdentity());
     let rm = toRenderModel(latent, store.getView());
@@ -222,7 +284,6 @@ const m = (tex: string, display = false) =>
     // syncControls(), defined + called once all refs exist, below.
 
     let hoverId: number | null = null; // transient preview; pinned lives in the store
-    let imfForm: "dNdM" | "perDex" = "dNdM"; // IMF plot form (ξ line vs per-dex hump)
 
     const field = mountCanvas(fieldCanvas, (ctx, w, h) =>
       renderClusterField(ctx, rm, w, h, { camera, selectedId: store.getView().selectedId, hoverId }),
@@ -263,7 +324,12 @@ const m = (tex: string, display = false) =>
     function patchIdentity(patch: Partial<ClusterIdentity>) {
       store.setIdentity({ ...store.getIdentity(), ...patch });
       latent = sampleCluster(store.getIdentity());
-      setActivePreset(null); // a manual change → no preset highlighted
+      /* DERIVED, not remembered. This used to clear the highlight on any manual change, which
+         was right for a knob-turn and wrong for a shared link — a URL that IS the starburst
+         preset arrived with nothing lit. Comparing the live identity back against the preset
+         table means the highlight states a fact about the cluster rather than a memory of which
+         button was last pressed, and it clears itself the moment a slider moves off one. */
+      setActivePreset(presetKeyFor(store.getIdentity()));
       recompute();
     }
 
@@ -283,7 +349,9 @@ const m = (tex: string, display = false) =>
     // max is capped so the drawn population stays renderable (no OOM).
     const applyEnv = () => {
       const mEcl = 10 ** Number(mecl.value);
-      const a = Math.min(2.8, Math.max(1.1, alpha3FromEnvironment(Number(feh.value), mEcl)));
+      /* The clamp lives in `censusParams` with the schema, so the value a link decodes to and
+         the value this control derives cannot disagree. */
+      const a = envAlpha(Number(feh.value), Number(mecl.value));
       slope.value = a.toFixed(2);
       slopeVal.value = a.toFixed(2);
       patchIdentity({
@@ -295,6 +363,9 @@ const m = (tex: string, display = false) =>
       count.value = String(Math.min(Number(count.max), Math.log10(Math.max(1, latent.length))));
     };
     envmode.addEventListener("change", () => {
+      /* Set BEFORE the patch below: that patch notifies the store, which writes the URL, and
+         the URL's env branch decides whether alpha and N are written at all. */
+      envOn = envmode.checked;
       envctrls.hidden = !envmode.checked;
       slope.disabled = envmode.checked; // α is derived in env mode
       count.disabled = envmode.checked; // …and so is N (M_ecl sets the mass)
@@ -370,8 +441,20 @@ const m = (tex: string, display = false) =>
       const rhv = id.profile.scaleRadius * effRhOverA(g); // true half-mass radius at this γ
       rh.value = rhv.toFixed(1);
       rhVal.value = rhv.toFixed(1);
-      envmode.checked = false;
-      envctrls.hidden = true;
+      /* Reflects `envOn` rather than forcing it off. It hardcoded false, which was fine while
+         the only caller was a preset (presets are never environment clusters) and wrong the
+         moment a link could arrive with ?env — the controls would come up in count mode while
+         the identity behind them was mass-limited. */
+      envmode.checked = envOn;
+      envctrls.hidden = !envOn;
+      slope.disabled = envOn;
+      count.disabled = envOn;
+      if (envOn) {
+        fehVal.value = Number(feh.value).toFixed(1);
+        meclVal.value = Number(mecl.value).toFixed(1);
+        /* N is an OUTCOME of (M_ecl, α) here, so the readout shows the draw, not the slider. */
+        countVal.value = latent.length.toLocaleString();
+      }
     }
 
     // "Strange universe" presets — a jump to a whole named identity, sat below
@@ -381,15 +464,28 @@ const m = (tex: string, display = false) =>
       b.addEventListener("click", () => {
         const p = presets[b.dataset.presetBtn!];
         if (!p) return;
+        /* No preset is an environment cluster — each is a literal identity — so jumping to one
+           leaves the derived mode. Cleared before syncControls, which now reflects it. */
+        envOn = false;
         store.setIdentity(structuredClone(p));
         latent = sampleCluster(store.getIdentity());
         syncControls();
         recompute();
-        setActivePreset(b.dataset.presetBtn!);
+        setActivePreset(presetKeyFor(store.getIdentity()));
       }),
     );
 
+    /*
+     * The URL's environment inputs reach their controls here, before the first sync — the
+     * identity already carries the DERIVED alpha and mass (identityFromState did that), so this
+     * only has to restore the two inputs that produced it and let the readouts follow.
+     */
+    if (envOn) {
+      feh.value = String(urlState.feh);
+      mecl.value = String(urlState.mecl);
+    }
     syncControls();
+    setActivePreset(presetKeyFor(store.getIdentity()));
     $<HTMLButtonElement>("[data-reseed]").addEventListener("click", () => {
       patchIdentity({ seed: (store.getIdentity().seed * 1103515245 + 12345) >>> 0 });
     });
@@ -420,8 +516,13 @@ const m = (tex: string, display = false) =>
         imfBtns.forEach((x) => x.classList.toggle("is-active", x === b));
         yTitles.forEach((el) => (el.hidden = el.dataset.imfy !== imfForm));
         imfView.redraw();
+        syncUrl(); // page-local, so it is not covered by the store subscription
       }),
     );
+    /* The link may have chosen a form; reflect it on the buttons and the y-title. */
+    imfBtns.forEach((x) => x.classList.toggle("is-active", x.dataset.imfform === imfForm));
+    yTitles.forEach((el) => (el.hidden = el.dataset.imfy !== imfForm));
+    imfView.redraw();
 
     // Lens tiers: multi-select chips over ONE cluster. One on = guided focus; two
     // on = compare knob-groups side by side on the SAME population (nothing is

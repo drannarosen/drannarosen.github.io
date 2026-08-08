@@ -319,6 +319,84 @@ console.log("\n  the optical terms (multipliers of the instrument, not amplitude
   );
 }
 
+/* ── 6. THE CENSUS SCHEMA, and "a preset is a named URL" ── */
+/*
+ * THIS SECTION EXISTS BECAUSE THE FIRST VERSION OF THE SCHEMA WAS WRONG, and nothing caught it.
+ * `ClusterIdentity` is nested and the URL is flat, so the mapping is hand-written — which is
+ * exactly the shape site-integrity warns about: a hand-kept copy of a fact that drifts silently.
+ *
+ * Two fields were missing. `sampling.mode` could only say "count", and `imf.mMax` was not carried
+ * at all. The `starburst` preset is a 30,000 M☉ mass-limited draw up to 120 M☉, so its link
+ * reopened as 20,000 STARS totalling 25,076 M☉ with nothing above 100 — measured in the browser,
+ * and invisible from the code because every key round-tripped perfectly on its own terms.
+ *
+ * Round-tripping the PRESET TABLE is the gate that could not have missed it: a preset is the one
+ * kind of identity the page promises is reachable by URL, and adding a field to `ClusterIdentity`
+ * that a preset varies now fails the build until the schema carries it.
+ */
+console.log("\n  census — every preset survives its own URL:");
+{
+  const { presets } = await import("../src/novascope/core/cluster/params.ts");
+  const { effRhOverA } = await import("../src/novascope/core/cluster/profiles.ts");
+  const { CENSUS_SCHEMA, identityFromState, stateFromIdentity, presetKeyFor } = await import(
+    "../src/novascope/core/params/censusParams.ts"
+  );
+
+  const VIEW = { env: false, feh: 0, mecl: 4, view: "auto", imf: "dNdM" };
+  for (const [key, p] of Object.entries(presets)) {
+    const q = encode(CENSUS_SCHEMA, stateFromIdentity(p, VIEW));
+    const back = identityFromState(decode(CENSUS_SCHEMA, q));
+    const rh = (id) => id.profile.scaleRadius * effRhOverA(id.profile.gamma ?? 5);
+    const same =
+      back.seed === p.seed &&
+      back.sampling.mode === p.sampling.mode &&
+      Math.abs(back.sampling.target - p.sampling.target) < 0.5 &&
+      Math.abs(back.imf.alphaHigh - p.imf.alphaHigh) < 5e-3 &&
+      Math.abs(back.imf.mMax - p.imf.mMax) < 1e-9 &&
+      Math.abs(back.segregation - p.segregation) < 5e-3 &&
+      Math.abs(rh(back) - rh(p)) < 5e-3;
+    ok(same, `preset "${key}" round-trips through ?${q || "(empty)"}`);
+    if (!same)
+      console.log(
+        `        wanted ${p.sampling.mode}/${p.sampling.target} mMax=${p.imf.mMax} r_h=${rh(p).toFixed(3)}\n` +
+          `        got    ${back.sampling.mode}/${back.sampling.target} mMax=${back.imf.mMax} r_h=${rh(back).toFixed(3)}`,
+      );
+    /* And the highlight is DERIVED from the identity, so a link that IS a preset lights it. */
+    ok(presetKeyFor(back) === key, `…and reopens with the "${key}" chip lit`);
+  }
+
+  /* r_h is the carried quantity and `a` is derived from it AT THIS GAMMA — the property that
+     makes the concentration slider independent of the size slider. */
+  for (const gamma of [2.5, 3.7, 5, 6]) {
+    const s = { ...decode(CENSUS_SCHEMA, ""), rh: 2.4, gamma };
+    const id = identityFromState(s);
+    const rt = id.profile.scaleRadius * effRhOverA(gamma);
+    ok(Math.abs(rt - 2.4) < 1e-9, `r_h = 2.4 pc survives the a-round-trip at gamma = ${gamma}`);
+  }
+
+  /* Environment mode states INPUTS ONLY — writing the derived alpha would freeze today's
+     coefficients into every old link. */
+  const envState = { ...decode(CENSUS_SCHEMA, ""), env: true, feh: -1.5, mecl: 4.2 };
+  const envQ = encode(CENSUS_SCHEMA, stateFromIdentity(identityFromState(envState), {
+    env: true, feh: -1.5, mecl: 4.2, view: "auto", imf: "dNdM",
+  }));
+  ok(envQ.includes("env") && envQ.includes("feh=-1.5") && envQ.includes("mecl=4.2"),
+    `an environment link carries its inputs: ?${envQ}`);
+  ok(!envQ.includes("alpha=") && !/[?&]n=/.test(`?${envQ}`) && !envQ.includes("sm="),
+    "…and states neither the derived slope, the derived count, nor the implied sampling mode");
+  const envBack = identityFromState(decode(CENSUS_SCHEMA, envQ));
+  ok(envBack.sampling.mode === "mass" && Math.abs(envBack.sampling.target - 10 ** 4.2) < 1,
+    "…and decodes back to a mass-limited draw at M_ecl");
+
+  /* The view is TRI-STATE. A two-valued field would decode absence as "2D" and silently
+     overwrite a reader's own restored 3-D, which localStorage really does restore. */
+  ok(decode(CENSUS_SCHEMA, "").view === "auto", 'view defaults to "auto" — the URL asserts nothing');
+  ok(
+    decode(CENSUS_SCHEMA, "view=2D").view === "2D" && decode(CENSUS_SCHEMA, "view=3D").view === "3D",
+    "…and BOTH overrides are expressible, which a boolean could not do",
+  );
+}
+
 if (failures) {
   console.error(`\n✗ url-state — ${failures} failure(s)`);
   process.exit(1);
