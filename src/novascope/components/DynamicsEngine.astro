@@ -487,6 +487,28 @@ const m = (tex: string) => tex;
             Steepen it and the cluster becomes a crowd of low-mass stars with little to segregate.
           </span>
         </label>
+        <label class="xpl-dyn__ctrl xpl-dyn__ctrl--noted">
+          <span class="xpl-dyn__ctrl-val">time <output data-scrub-val>live</output></span>
+          <input type="range" data-scrub min="0" max="0" step="1" value="0" disabled
+            aria-label="Scrub back through the run" />
+          <button type="button" class="xpl-dyn__info" data-info="scrub" aria-expanded="false"
+            aria-label="About the timeline">?</button>
+          <span class="xpl-dyn__popover" data-popover="scrub" role="tooltip" hidden>
+            <b>Drag back through the run.</b> The cluster, the curves and the readouts all move to
+            the sample you land on, so the moment the binary formed can be looked at rather than
+            remembered.
+            <br /><br />
+            <b>It reads the record; it does not re-run the model.</b> Nothing is integrated
+            backwards — these are stored snapshots of states the run actually passed through, and
+            the live run is untouched underneath. Let go at the far right and you are back on it.
+            <br /><br />
+            <b>The record gets coarser as the run gets longer, and that is visible here.</b> The
+            history keeps a fixed number of samples: once it is full, pairs of samples are merged,
+            so the spacing between what you can reach doubles. Early in a run you can land on
+            almost any moment; a long way in, the nearest stored sample may be some way from the
+            one you wanted. The gap between ticks is the resolution you actually have.
+          </span>
+        </label>
         <div class="xpl-dyn__ctrl xpl-dyn__ctrl--noted">
           <span class="xpl-dyn__ctrl-val">integrator</span>
           <span class="xpl-dyn__modes" role="group" aria-label="Integrator">
@@ -917,6 +939,19 @@ const m = (tex: string) => tex;
     /* Halving threshold, not a cap on the run: see the decimation in sample().
        600 samples is already ~4x the horizontal pixels of the plot at 1440px. */
     const MAX_SAMPLES = 600;
+    /*
+     * A POSITION SNAPSHOT PER STORED SAMPLE, so the timeline moves the CLUSTER and not just the
+     * curves. Without it a "timeline" would scrub two plots while the picture above them stayed
+     * on the present — which reads as the run rewinding when it has not.
+     *
+     * Cost is bounded by the same MAX_SAMPLES the history is: 600 x N x 3 floats, which is
+     * 2.9 MB at N = 400 and 5.8 MB at the slider's maximum of 800. Float32 rather than Float64
+     * on purpose — this is display state, and the integrator's own Float64 positions are never
+     * touched by it.
+     */
+    let histPos: Float32Array[] = [];
+    /** Which stored sample the reader is looking at, or null when live. */
+    let scrubIndex: number | null = null;
     /* A cluster property, not a per-star one — a coeval cluster is chemically
        uniform (explore-authoring rule 2). Solar; the dynamics scenario carries no
        composition of its own, so stating it here is stating an assumption rather
@@ -1319,6 +1354,7 @@ const m = (tex: string) => tex;
           l50: l50!,
           l90: l90!,
         });
+        histPos.push(Float32Array.from(st.pos));
         lastStored = tSim;
         worstSinceStore = 0;
       }
@@ -1344,6 +1380,13 @@ const m = (tex: string) => tex;
           merged.push(b ? { ...a, e: mergeE(a.e, b.e) } : a);
         }
         hist = merged;
+        /* The SURVIVOR's snapshot, matching the merge above index for index — if these two ever
+           fell out of step the timeline would show one moment's cluster against another
+           moment's curves, which is the worst possible failure for a control whose whole job is
+           to line them up. */
+        const mergedPos: Float32Array[] = [];
+        for (let i = 0; i < histPos.length; i += 2) mergedPos.push(histPos[i]!);
+        histPos = mergedPos;
         const span = hist[hist.length - 1]!.t - hist[0]!.t;
         /* Measured from what survived, not doubled blindly, so the interval can
            never drift out of step with the array it is meant to describe. */
@@ -1668,13 +1711,23 @@ const m = (tex: string) => tex;
     }
 
     function positions(): Float32Array {
+      /* While scrubbing, the frame is drawn from the STORED snapshot. The integrator's own
+         state is never written to — nothing is run backwards, and letting go returns to the
+         live run because it was still there. */
+      const src = scrubIndex !== null ? histPos[scrubIndex] : null;
       const st = run!.built.state;
       const out = new Float32Array(renderOrder.length * 3);
       for (let k = 0; k < renderOrder.length; k++) {
         const i = renderOrder[k]!;
-        out[3 * k] = st.pos[3 * i]!;
-        out[3 * k + 1] = st.pos[3 * i + 1]!;
-        out[3 * k + 2] = st.pos[3 * i + 2]!;
+        if (src) {
+          out[3 * k] = src[3 * i]!;
+          out[3 * k + 1] = src[3 * i + 1]!;
+          out[3 * k + 2] = src[3 * i + 2]!;
+        } else {
+          out[3 * k] = st.pos[3 * i]!;
+          out[3 * k + 1] = st.pos[3 * i + 1]!;
+          out[3 * k + 2] = st.pos[3 * i + 2]!;
+        }
       }
       return out;
     }
@@ -1918,6 +1971,24 @@ const m = (tex: string) => tex;
         ctx.beginPath();
         ctx.moveTo(AX.l, Y(1));
         ctx.lineTo(w - AX.r, Y(1));
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      /*
+       * THE SCRUB CURSOR, on the time axis the tab shares with the timeline. Without it the
+       * cluster shows one moment and the curves show the whole run, and a reader has no way to
+       * see WHERE on them they are standing.
+       */
+      if (scrubIndex !== null && hist[scrubIndex]) {
+        const xs = X(hist[scrubIndex]!.t);
+        ctx.save();
+        ctx.strokeStyle = css("--spec-teal-bright", "#4fd6c4");
+        ctx.lineWidth = 1.25;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xs, AX.t);
+        ctx.lineTo(xs, h - AX.b);
         ctx.stroke();
         ctx.restore();
       }
@@ -2195,6 +2266,7 @@ const m = (tex: string) => tex;
     };
 
     const redraw = () => {
+      syncScrubRange();
       points?.setPositions(positions());
       points?.setAlpha(alphas());
       drawPairTrail();
@@ -2802,7 +2874,9 @@ const m = (tex: string) => tex;
       /* HALTED IS NOT PAUSED. The play handler returns early once `halted` is set, so
          "press run" pointed at a button that does nothing — the banner said the run had
          ended while the line under it invited you to resume. */
-      hint.textContent = halted
+      hint.textContent = scrubIndex !== null
+        ? "looking back — drag right for live, or press Escape"
+        : halted
         ? "stopped — reset or draw again"
         : playing
           ? pairConfirmed
@@ -2857,6 +2931,8 @@ const m = (tex: string) => tex;
       mfStale = true;
       setStat("legend-born", bornIMF ? String(run.built.state.n) : "—");
       hist = [];
+      histPos = [];
+      scrubIndex = null;
       mountField();
       hi0 = null;
       lo0 = null;
@@ -2891,6 +2967,9 @@ const m = (tex: string) => tex;
          integrator has said it cannot advance honestly, so the only way on is reset or a new
          draw. Saying that is better than a button that appears to work and does nothing. */
       if (halted) return;
+      /* Pressing run while looking back means "carry on from the live run", not "resume from
+         here" — nothing was rewound, so there is no here to resume from. */
+      if (scrubIndex !== null) setScrub(null);
       playing = !playing;
       syncPlay();
       playing ? start() : stop();
@@ -3271,6 +3350,75 @@ const m = (tex: string) => tex;
         seed += 1;
         rebuild();
       }
+    });
+
+    /* ── the timeline ──────────────────────────────────────────── */
+    const scrubInput = $<HTMLInputElement>("[data-scrub]");
+    const scrubVal = $<HTMLOutputElement>("[data-scrub-val]");
+
+    /*
+     * The slider's range IS the record, so it grows with the run and coarsens with it. Rebuilt
+     * on every draw rather than on a timer: the history halves itself without warning, and a
+     * slider still offering 600 positions into a 300-sample record would land the reader on
+     * samples that no longer exist.
+     */
+    const syncScrubRange = (): void => {
+      const max = Math.max(0, histPos.length - 1);
+      scrubInput.max = String(max);
+      scrubInput.disabled = max === 0;
+      if (scrubIndex === null) scrubInput.value = String(max);
+    };
+
+    const setScrub = (idx: number | null): void => {
+      scrubIndex = idx;
+      if (idx === null) {
+        scrubVal.value = "live";
+        /*
+         * RESTORE THE READOUTS FROM THE LIVE STATE, through `sample()` rather than by hand.
+         *
+         * Scrubbing overwrites the clock and the legends, and returning to live left them
+         * showing the moment that had been scrubbed to — measured: the clock read 0.3 Myr on a
+         * run that was at 1.2. The run itself was never wrong; the numbers describing it were.
+         *
+         * `sample()` is the one path that writes all of them, so calling it cannot leave one
+         * behind the way a hand-written restore would. It does not push a duplicate history
+         * sample: tSim has not moved, so the store interval is not due.
+         */
+        sample();
+      } else {
+        const p = hist[idx];
+        scrubVal.value = p ? `${p.t.toFixed(2)} Myr` : "—";
+        /* The readouts must follow, or the legend keeps describing the present while the
+           picture shows the past — the disagreement this control exists to remove. */
+        setStat("rhi", "—");
+        setStat("rlo", "—");
+        if (p) {
+          setStat("legend-bm", Number.isFinite(p.bm) ? `${(p.bm * 100).toFixed(0)}%` : "—");
+          setStat("legend-bn", Number.isFinite(p.bn) ? `${(p.bn * 100).toFixed(0)}%` : "—");
+          driftEl.textContent = Number.isFinite(p.e) ? p.e.toExponential(1) : "—";
+          clockT.textContent = `t = ${p.t.toFixed(1)} Myr`;
+          clockTcr.textContent = run ? `${(p.t / run.built.timeUnit).toFixed(1)} t_cr` : "";
+        }
+      }
+      syncPlay();
+      redraw();
+    };
+
+    scrubInput.addEventListener("input", () => {
+      const max = Number(scrubInput.max);
+      const idx = Number(scrubInput.value);
+      /* Scrubbing pauses. Letting the run continue underneath would move the record out from
+         under the slider while it is being dragged. */
+      if (playing) {
+        playing = false;
+        stop();
+      }
+      setScrub(idx >= max ? null : idx);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      /* Any other keydown handler will have returned by now if a control had focus. */
+      if (e.key === "Escape" && scrubIndex !== null) setScrub(null);
     });
 
     window.addEventListener("resize", redraw);
