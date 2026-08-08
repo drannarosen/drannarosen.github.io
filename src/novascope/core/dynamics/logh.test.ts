@@ -10,6 +10,7 @@ import { createLogH } from "./logh.ts";
 import { createFsi4 } from "./fsi4.ts";
 import { createDirectForce } from "./direct/index.ts";
 import { createState } from "./types.ts";
+import { kineticEnergy } from "./quantities.ts";
 import { KEPLER, KEPLER_PERIOD, keplerPair, keplerSeparation } from "./kepler.testutil.ts";
 
 const force = () => createDirectForce({ G: KEPLER.G, softening: KEPLER.softening });
@@ -133,6 +134,113 @@ describe("logh", () => {
     /* Asserted as a RATIO rather than an absolute, so the test says "the time transformation
        is doing its job" rather than pinning a number that a tolerance change would break. */
     expect(logPeak).toBeLessThan(fsiPeak);
+  });
+
+  /*
+   * ORDER, MEASURED ON THE LOCAL ERROR — and it has to be local, for two reasons that both
+   * bit while writing this.
+   *
+   * Kepler cannot test the order at all: LogH integrates its energy EXACTLY, so every step
+   * size reports 1e-15 and the "convergence study" is a study of round-off. And a global
+   * error study on a three-body system measures CHAOS — a different h means a different
+   * trajectory and different close encounters, so comparing |dE/E| across h compares two
+   * different solutions. That produced apparent ratios of 652x and 1668x, i.e. "order 10".
+   *
+   * One step against a converged reference over the same fictitious interval cannot diverge,
+   * so the slope is the scheme's. Local error ~ h^(p+1), so the halving ratio is 2^(p+1).
+   */
+  it("is second or fourth order in the fictitious step, as its `order` says", () => {
+    const threeBody = () => {
+      const s = createState(3);
+      s.mass[0] = 1;
+      s.mass[1] = 0.7;
+      s.mass[2] = 0.4;
+      s.pos[0] = -1;
+      s.pos[1] = 0.2;
+      s.pos[3] = 1.1;
+      s.pos[4] = -0.1;
+      s.pos[6] = 0.15;
+      s.pos[7] = 1.0;
+      s.vel[0] = 0.1;
+      s.vel[1] = -0.35;
+      s.vel[3] = -0.05;
+      s.vel[4] = 0.3;
+      s.vel[6] = -0.12;
+      s.vel[7] = 0.05;
+      return s;
+    };
+    const f = () => createDirectForce({ G: 1, softening: 1e-3 });
+    const advance = (order: 2 | 4, H: number, n: number) => {
+      const s = threeBody();
+      const lf = createLogH(s, f(), { order });
+      for (let i = 0; i < n; i++) lf.stepFictitious(H / n);
+      return { pos: Array.from(s.pos), t: lf.t };
+    };
+    const localError = (order: 2 | 4, H: number) => {
+      const one = advance(order, H, 1);
+      const ref = advance(order, H, 2048);
+      return Math.max(
+        ...one.pos.map((v, i) => Math.abs(v - ref.pos[i])),
+        Math.abs(one.t - ref.t),
+      );
+    };
+    for (const [order, expected] of [
+      [2, 2],
+      [4, 4],
+    ] as const) {
+      const coarse = localError(order, 0.1);
+      const fine = localError(order, 0.05);
+      const p = Math.log2(coarse / fine) - 1;
+      // Generous window: this must catch "the composition is broken", not police a decimal.
+      expect(p).toBeGreaterThan(expected - 0.5);
+      expect(p).toBeLessThan(expected + 0.7);
+    }
+  });
+
+  it("is time-reversible: run it backwards and the state returns", () => {
+    /* A symmetric composition of exact maps must undo itself. This is what breaks first if a
+       sub-map is not actually exact, or if the Yoshida weights are mis-ordered — both of which
+       still produce a plausible-looking orbit. */
+    const s = keplerPair();
+    const lf = createLogH(s, force(), { order: 4 });
+    const p0 = Array.from(s.pos);
+    const v0 = Array.from(s.vel);
+    for (let i = 0; i < 300; i++) lf.stepFictitious(0.02);
+    for (let i = 0; i < 300; i++) lf.stepFictitious(-0.02);
+    expect(Math.max(...s.pos.map((v, i) => Math.abs(v - p0[i])))).toBeLessThan(1e-12);
+    expect(Math.max(...s.vel.map((v, i) => Math.abs(v - v0[i])))).toBeLessThan(1e-12);
+    expect(Math.abs(lf.t)).toBeLessThan(1e-12);
+  });
+
+  it("holds the identity the whole derivation rests on: T + w = -U", () => {
+    /* w is set once to -E0 and never touched, so this is the statement that the trajectory
+       stays on the physical manifold Gamma = 0. If it drifted, `dt = h/(T+w)` in the drift and
+       `h/(-U)` in the kick would be dividing by two different numbers and the scheme would
+       silently stop being the method it claims to be. */
+    const s = keplerPair();
+    const f = force();
+    const lf = createLogH(s, f, { order: 4 });
+    const w = -(kineticEnergy(s) + f.potentialEnergy(s.pos, s.mass, 0));
+    let worst = 0;
+    for (let i = 0; i < 500; i++) {
+      lf.stepFictitious(0.02);
+      const lhs = kineticEnergy(s) + w;
+      const rhs = -f.potentialEnergy(s.pos, s.mass, lf.t);
+      worst = Math.max(worst, Math.abs(lhs - rhs) / Math.abs(rhs));
+    }
+    expect(worst).toBeLessThan(1e-12);
+  });
+
+  it("reports the WHOLE step in lastPhysicalStep, not a Yoshida sub-step", () => {
+    /* It used to be assigned inside `drift`, so it returned a half-drift scaled by a Yoshida
+       weight — and the middle weight is negative, so it could report a negative "step". It is
+       the diagnostic that answers "is this adapting?", so it has to mean what it says. */
+    const s = keplerPair();
+    const lf = createLogH(s, force(), { order: 4 });
+    const before = lf.t;
+    lf.stepFictitious(0.02);
+    expect(lf.lastPhysicalStep).toBeGreaterThan(0);
+    expect(lf.lastPhysicalStep).toBeCloseTo(lf.t - before, 15);
   });
 
   it("refuses a TIME-DEPENDENT potential rather than silently solving nothing", () => {

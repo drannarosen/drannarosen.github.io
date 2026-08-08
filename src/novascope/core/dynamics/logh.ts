@@ -68,12 +68,16 @@
  * that turns out to matter far more than it does on a pair. Measured, N = 400, seed 2028, to
  * t/t_cr = 18 at the shipped softening:
  *
- *   physical step 1.62e-4 .. 6.00e-4 Myr  ->  3.7x range
- *   (against 19x on an isolated pair, and a fixed step of 7.06e-4)
+ *   whole physical step 2.40e-4 .. 8.88e-4 Myr  ->  3.70x range
+ *   (against 19x on an isolated pair; the fixed schemes run at 7.06e-4, which this straddles)
  *
- * So it does adapt, and every step it takes is shorter than the fixed one — which is where the
- * accuracy comes from and why it costs ~11% — but 3.7x is nowhere near what one tight pair
- * needs.
+ * So it does adapt — shorter where the potential deepens, LONGER where it is shallow, which is
+ * what adapting means and is why it is only ~11% dearer than a fixed step rather than several
+ * times. But 3.7x is nowhere near what one tight pair needs.
+ *
+ * (An earlier version of this note claimed every step was SHORTER than the fixed one. That was
+ * an artefact of `lastPhysicalStep` reporting a Yoshida SUB-step rather than the step — see the
+ * note in `one()`. The ratio survived the fix; the absolute range did not.)
  *
  * THAT HAS A CONSEQUENCE WORTH STATING PLAINLY: LogH does NOT license reducing the softening.
  * The obvious hope is that a scheme which resolves close encounters would let eps shrink toward
@@ -266,7 +270,6 @@ export function createLogH(state: State, force: ForceModel, opts: LogHOptions = 
     const dt = h / denom;
     for (let i = 0; i < pos.length; i++) pos[i] += vel[i] * dt;
     t += dt;
-    lastPhysicalStep = dt;
     accValid = false;
   }
 
@@ -292,6 +295,17 @@ export function createLogH(state: State, force: ForceModel, opts: LogHOptions = 
   }
 
   function one(h: number): void {
+    /*
+     * `lastPhysicalStep` is measured ACROSS THE WHOLE STEP, not inside it.
+     *
+     * It used to be assigned in `drift`, which made it the last SUB-step: a half-drift scaled
+     * by a Yoshida weight. Those weights are 1.3512 and -1.7024, and the middle one is
+     * NEGATIVE — the composition genuinely runs backwards in the middle — so the reported
+     * "physical step" was a fraction of the real one and could even be negative. It is the
+     * diagnostic used to answer "is this thing actually adapting?", and it was answering about
+     * something else.
+     */
+    const before = t;
     if (order === 2) {
       leap(h);
     } else {
@@ -299,6 +313,7 @@ export function createLogH(state: State, force: ForceModel, opts: LogHOptions = 
       leap(YOSHIDA_W0 * h);
       leap(YOSHIDA_W1 * h);
     }
+    lastPhysicalStep = t - before;
     /* The Yoshida weights sum to 1, so the composition advances s by exactly h either way. */
     s += h;
   }
