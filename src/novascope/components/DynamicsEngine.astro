@@ -397,20 +397,20 @@ const m = (tex: string) => tex;
     <dl class="xpl-dyn__stats" data-summary aria-live="off">
         <div>
           <dt><button type="button" data-info="m-t" aria-expanded="false">t</button></dt>
-          <dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} /></dd>
+          <dd><span data-v="t">0.0</span> <Math tex={m("\\mathrm{Myr}")} />
           <span class="xpl-dyn__popover" data-popover="m-t" role="tooltip" hidden>
             Model time since the run began, in millions of years. Not wall-clock time — the
             speed control changes how much of it passes per frame.
-          </span>
+          </span></dd>
         </div>
         <div>
           <dt><button type="button" data-info="m-tcr" aria-expanded="false"><Math tex={m("t/t_\\mathrm{cr}")} /></button></dt>
-          <dd data-v="tcr">0.0</dd>
+          <dd data-v="tcr">0.0
           <span class="xpl-dyn__popover" data-popover="m-tcr" role="tooltip" hidden>
             The same time in <b>crossing times</b> — how long a typical star takes to cross the
             cluster. It is the clock a cluster actually keeps: relaxation and segregation happen
             on multiples of it, not on Myr. Blank without gravity, where it is undefined.
-          </span>
+          </span></dd>
         </div>
         {/* The unit the readout above is counted in. It was never shown, so
             "t/t_cr = 1129" sat beside "t = 821 Myr" with no way to get from one
@@ -418,7 +418,7 @@ const m = (tex: string) => tex;
             every one of N, r_h and gamma. */}
         <div>
           <dt><button type="button" data-info="m-tc0" aria-expanded="false"><Math tex={m("t_\\mathrm{cr}")} /></button></dt>
-          <dd><span data-v="tc0">—</span> <Math tex={m("\\mathrm{Myr}")} /></dd>
+          <dd><span data-v="tc0">—</span> <Math tex={m("\\mathrm{Myr}")} />
           <span class="xpl-dyn__popover" data-popover="m-tc0" role="tooltip" hidden>
             The crossing time of the cluster <b>as drawn</b>, in millions of years — the unit
             <Math tex={m("t/t_\\mathrm{cr}")} /> counts in. It is fixed at
@@ -431,52 +431,52 @@ const m = (tex: string) => tex;
             <Math tex={m("r_h")} /> or a lighter cluster gives a slower clock. Changing
             <Math tex={m("N")} />, <Math tex={m("r_h")} /> or
             <Math tex={m("\\gamma")} /> redraws it.
-          </span>
+          </span></dd>
         </div>
         <div>
           <dt><button type="button" data-info="m-rhi" aria-expanded="false"><Math tex={m("r_h")} /> hi</button></dt>
-          <dd><span data-v="rhi">—</span></dd>
+          <dd><span data-v="rhi">—</span>
           <span class="xpl-dyn__popover" data-popover="m-rhi" role="tooltip" hidden>
             Half-mass radius of the heaviest 10% of stars, in parsecs — the radius containing
             half of that group's mass. Measured about the bound cluster's centre and over its
             bound members only. This is the number that falls as the massive stars sink.
-          </span>
+          </span></dd>
         </div>
         <div>
           <dt><button type="button" data-info="m-rlo" aria-expanded="false"><Math tex={m("r_h")} /> lo</button></dt>
-          <dd><span data-v="rlo">—</span></dd>
+          <dd><span data-v="rlo">—</span>
           <span class="xpl-dyn__popover" data-popover="m-rlo" role="tooltip" hidden>
             The same quantity for the lightest half of the cluster. It rises as light stars are
             scattered outward — the other half of the segregation the plot shows.
-          </span>
+          </span></dd>
         </div>
         <div>
           <dt><button type="button" data-info="m-bm" aria-expanded="false">bound <Math tex={m("M")} /></button></dt>
-          <dd><span data-v="boundm">—</span>%</dd>
+          <dd><span data-v="boundm">—</span>%
           <span class="xpl-dyn__popover" data-popover="m-bm" role="tooltip" hidden>
             Share of the cluster's <b>mass</b> still gravitationally bound. The quantity the
             literature quotes, and the more flattering one: the heaviest stars carry most of the
             mass and are the last to leave.
-          </span>
+          </span></dd>
         </div>
         <div>
           <dt><button type="button" data-info="m-bn" aria-expanded="false">bound <Math tex={m("N")} /></button></dt>
-          <dd><span data-v="boundn">—</span>%</dd>
+          <dd><span data-v="boundn">—</span>%
           <span class="xpl-dyn__popover" data-popover="m-bn" role="tooltip" hidden>
             Share of the <b>stars</b> still bound. Compare it with bound
             <Math tex={m("M")} />: the gap is real, and it is why "most of the cluster is still
             here" can be true by mass while half the stars have gone.
-          </span>
+          </span></dd>
         </div>
         <div>
           <dt><button type="button" data-info="m-de" aria-expanded="false"><Math tex={m("|\\Delta E/E|")} /></button></dt>
-          <dd><span data-v="drift">—</span></dd>
+          <dd><span data-v="drift">—</span>
           <span class="xpl-dyn__popover" data-popover="m-de" role="tooltip" hidden>
             Fractional energy error of the integration — the same number the strip below plots.
             Blank with gravity off: there is no integrator running to make a claim about.
             It licenses the arithmetic, not the model: a small value means the equations were
             solved accurately, not that they still describe a star cluster.
-          </span>
+          </span></dd>
         </div>
       </dl>
 
@@ -494,7 +494,7 @@ const m = (tex: string) => tex;
       <dl class="xpl-dyn__stats xpl-dyn__stats--pair" data-pair-stats aria-live="off" hidden>
         <div class="xpl-dyn__pairlabel">
           <dt><button type="button" data-info="m-pair" aria-expanded="false">hard binary</button></dt>
-          <dd></dd>
+          <dd>
           <span class="xpl-dyn__popover" data-popover="m-pair" role="tooltip" hidden>
             The most bound pair in the cluster, once it has held together for half a crossing
             time — long enough to be a binary rather than two stars passing.
@@ -541,7 +541,7 @@ const m = (tex: string) => tex;
             a whole cluster. It is also why this one eventually outruns the timestep: nothing in
             the physics stops it tightening, so the only question is whether the arithmetic can
             keep up.
-          </span>
+          </span></dd>
         </div>
         <div>
           <dt><Math tex={m("m_1{+}m_2")} /></dt>
