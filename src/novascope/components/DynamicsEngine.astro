@@ -944,6 +944,8 @@ const m = (tex: string) => tex;
      * validated-range note on `stepsForSoftening`.
      */
     const STEP_DIVISOR = 2048;
+    /* The divisor actually in force. Set from the URL on load; never from a control. */
+    let stepDivisor = STEP_DIVISOR;
     const SUBSTEPS = 8;
     /*
      * SOFTENING, and why it is a tenth of the mean interparticle spacing.
@@ -1055,6 +1057,18 @@ const m = (tex: string) => tex;
        * by zero in the force model.
        */
       eps: numberField(0.001, 1, 0.1, 4),
+      /*
+       * STEPS PER CROSSING TIME — the control for the `eps` experiment above.
+       *
+       * eps and dt are COUPLED: lowering the softening makes encounters faster and needs a
+       * finer step. With only `eps` reachable, dropping it halts the run and there is no way to
+       * tell "this softening is unusable" from "this softening needs a finer step". This is the
+       * knob that separates them.
+       *
+       * Powers of two from 256 to 32768; 2048 is what fraction 0.1 was measured to need
+       * (1024 drifts 1.24e-3, 2048 holds at 4.38e-5). Values are clamped, not rejected.
+       */
+      steps: numberField(256, 32768, 2048, 0),
     };
 
     /* `replaceState`, never `pushState`: dragging a slider must not fill the back button with
@@ -1071,6 +1085,7 @@ const m = (tex: string) => tex;
         tab: plotTab,
         gravity,
         eps: softeningFraction,
+        steps: stepDivisor,
       });
       history.replaceState(null, "", query ? `?${query}` : location.pathname);
     };
@@ -1104,7 +1119,7 @@ const m = (tex: string) => tex;
         /* Hermite is the only one of the two that can size its own sub-steps; the
            flag is ignored by FSI4, which has no adaptive mode by construction. */
         adaptive: scheme === "hermite",
-        maxStep: built.timeUnit / STEP_DIVISOR,
+        maxStep: built.timeUnit / stepDivisor,
       });
       /* Mass split is fixed once per draw, so the two curves follow the SAME
          stars all run — a split recomputed each frame would track whichever
@@ -2362,7 +2377,7 @@ const m = (tex: string) => tex;
      * copy says LogH "fixes exactly that" — is the worst version of this bug.
      */
     function resolvedStep(frameDt: number): number | null {
-      const maxStep = run!.built.timeUnit / STEP_DIVISOR;
+      const maxStep = run!.built.timeUnit / stepDivisor;
       if (scheme === "logh") {
         const h = (run!.integrator as { lastPhysicalStep?: number }).lastPhysicalStep;
         return typeof h === "number" && h > 0 ? h : null;
@@ -2514,7 +2529,7 @@ const m = (tex: string) => tex;
     function frame() {
       raf = 0;
       if (!run || !playing) return;
-      const dt = (run.built.timeUnit / STEP_DIVISOR) * Number(speedInput.value);
+      const dt = (run.built.timeUnit / stepDivisor) * Number(speedInput.value);
       /*
        * WRAPPED, because a throw here does not fail loudly — it fails INVISIBLY.
        *
@@ -2685,11 +2700,23 @@ const m = (tex: string) => tex;
        */
       const epsNote = root.querySelector<HTMLElement>("[data-epsnote]");
       if (epsNote) {
-        const off = softeningFraction !== SOFTENING_FRACTION;
-        epsNote.hidden = !off;
-        epsNote.textContent = off
-          ? `ε = ${softeningFraction} r_h N^(−1/3) = ${run.built.softeningPc.toExponential(2)} pc — ` +
-            `NOT this page's ${SOFTENING_FRACTION}; the note below the figure describes the default`
+        /* Either override announces itself, and both name the DEFAULT they replaced — the
+           paragraph under the figure describes that default, and a reader has to be able to
+           tell it no longer describes what is on screen. */
+        const parts: string[] = [];
+        if (softeningFraction !== SOFTENING_FRACTION)
+          parts.push(
+            `ε = ${softeningFraction} r_h N^(−1/3) = ${run.built.softeningPc.toExponential(2)} pc ` +
+              `(default ${SOFTENING_FRACTION})`,
+          );
+        if (stepDivisor !== STEP_DIVISOR)
+          parts.push(
+            `dt = t_cr/${stepDivisor} = ${(run.built.timeUnit / stepDivisor).toExponential(2)} Myr ` +
+              `(default t_cr/${STEP_DIVISOR})`,
+          );
+        epsNote.hidden = parts.length === 0;
+        epsNote.textContent = parts.length
+          ? `${parts.join(" · ")} — not this page's settings; the note below the figure describes the defaults`
           : "";
       }
       /* Frozen here and nowhere else: "born" means the draw this run started from, so it is
@@ -3023,6 +3050,7 @@ const m = (tex: string) => tex;
       speedVal.value = st.speed.toFixed(2);
       scheme = st.scheme;
       softeningFraction = st.eps;
+      stepDivisor = st.steps;
       for (const o of root.querySelectorAll<HTMLButtonElement>("[data-scheme]")) {
         const on = o.dataset.scheme === scheme;
         o.classList.toggle("is-active", on);
