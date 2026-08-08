@@ -1377,6 +1377,19 @@ const m = (tex: string) => tex;
      * picture of nothing.
      */
     let renderOrder: number[] = [];
+    /*
+     * THE ALPHA EACH STAR WAS GIVEN BY `toRenderModel`, kept so the escaper fade can be a
+     * MULTIPLIER on it rather than a replacement. The selector floors alpha at 0.55 precisely
+     * so the faint majority never disappears; overwriting it here would undo that and make
+     * this page's cluster a different object from census's.
+     */
+    let baseAlpha = new Float32Array(0);
+    /*
+     * How far an UNBOUND star is faded. It is not zero, and that is the point: a star that has
+     * escaped has not stopped existing, it has stopped belonging — and watching them stream
+     * away is half of what the bound-fraction and mass-function tabs are counting.
+     */
+    const ESCAPER_ALPHA = 0.25;
     /** Half-width of the view [pc] — the scenario's own `viewPc`, FIXED. See sample(). */
     let frameR = 0;
 
@@ -1386,7 +1399,27 @@ const m = (tex: string) => tex;
     function renderModel() {
       const model = toRenderModel(latentStars(), { t: 0, selectedId: null, toggles: {} });
       renderOrder = model.stars.map((st) => st.id); // latentStars() sets id = state index
+      baseAlpha = Float32Array.from(model.stars, (st) => st.alpha);
       return model;
+    }
+
+    /**
+     * Per-instance alpha for this frame: the model's own value, dimmed where the star is no
+     * longer bound. In RENDER order, like `positions()` — `toRenderModel` sorts for painter's
+     * order, so the k-th instance is `renderOrder[k]`, not the k-th particle.
+     *
+     * `boundFlags` is null with gravity off, and then every star is drawn at full alpha —
+     * correct rather than convenient: without a potential being integrated there is no bound
+     * set to belong to, which is the same reason the bound readouts blank there.
+     */
+    function alphas(): Float32Array {
+      const out = new Float32Array(renderOrder.length);
+      for (let k = 0; k < renderOrder.length; k++) {
+        const i = renderOrder[k]!;
+        const base = baseAlpha[k] ?? 1;
+        out[k] = boundFlags && boundFlags[i] !== 1 ? base * ESCAPER_ALPHA : base;
+      }
+      return out;
     }
 
     function positions(): Float32Array {
@@ -1774,6 +1807,7 @@ const m = (tex: string) => tex;
 
     const redraw = () => {
       points?.setPositions(positions());
+      points?.setAlpha(alphas());
       drawPlots();
       updateScaleBar(); // zoom and resize both change it without a physics step
     };
@@ -2540,7 +2574,12 @@ const m = (tex: string) => tex;
    */
   .xpl-dyn {
     display: grid;
-    max-inline-size: 64rem;
+    /* 76rem, not 64. The 64 was chosen to bring the energy strip inside a 900 px viewport —
+       but 900 px was the TESTING convention from CLAUDE.md, not anyone's screen, and the
+       machine this is authored on reports 1512x857. Widening buys bigger viewscreens and puts
+       the four plot tabs back on one row; it does not fix the vertical squeeze, which is a
+       separate problem and needs a separate answer. */
+    max-inline-size: 76rem;
     margin-inline: auto;
   }
   /* Tighter than census's --space-m. This figure stacks four bands (cluster +

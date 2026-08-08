@@ -108,6 +108,17 @@ export interface ClusterPoints {
   setModel(model: RenderModel): void;
   /** Move the stars only: `count * 3` floats of xyz [pc]. The per-frame path. */
   setPositions(xyz: Float32Array): void;
+  /**
+   * Per-instance alpha, in the SAME order as `setPositions` — i.e. the model's order, not
+   * the caller's own indexing.
+   *
+   * Separate from `setModel` because alpha is the one channel that has a reason to change
+   * every frame while sizes and colours do not: `/explore/dynamics` fades a star once it is
+   * no longer bound, and rebuilding the whole model each frame to say so would repack every
+   * buffer to change one. `iAlpha` is already an instanced attribute, so this is the same
+   * cheap write `setPositions` makes.
+   */
+  setAlpha(alpha: Float32Array): void;
   /** True when honouring prefers-reduced-motion: no drift, no render loop. */
   readonly reducedMotion: boolean;
   readonly drifting: boolean;
@@ -514,6 +525,14 @@ export function createClusterPoints(
       const arr = buffers.pos.array as Float32Array;
       arr.set(xyz.subarray(0, Math.min(arr.length, xyz.length)));
       buffers.pos.needsUpdate = true;
+      dirty = true;
+      if (!raf) draw();
+    },
+    setAlpha(alpha) {
+      if (!buffers) return;
+      const arr = buffers.alpha.array as Float32Array;
+      arr.set(alpha.subarray(0, Math.min(arr.length, alpha.length)));
+      buffers.alpha.needsUpdate = true;
       dirty = true;
       if (!raf) draw();
     },
