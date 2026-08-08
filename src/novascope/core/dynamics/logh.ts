@@ -97,6 +97,37 @@
  * a different and much larger piece of machinery. State the limit wherever this is used rather
  * than letting someone discover it by lowering a softening slider.
  *
+ * ── AND IT IS WORSE THAN "UNDER-RESPONSIVE": IT CAN RESPOND BACKWARDS ──
+ *
+ * Traced on the same run — the step this scheme takes against the step the tightest pair needs
+ * (its own period over ~100):
+ *
+ *   t/t_cr    -U_total    LogH dt     pair a[pc]   pair P[Myr]   P/dt   dt needed
+ *        2       182.8    6.60e-4       7.91e-2       5.76e-1     873    5.76e-3
+ *       11       200.2    6.03e-4       4.23e-2       1.16e-1     192    1.16e-3
+ *       17       142.1    8.50e-4       1.93e-2       3.92e-2      46    3.92e-4
+ *       20       160.5    7.51e-4       2.63e-2       6.25e-2      83    6.25e-4
+ *
+ * -U_total spans 142..200 — a factor of 1.4 — across a run in which the pair tightens 4x. And
+ * the two are ANTI-CORRELATED at the moment that matters: the cluster expands and loses binding
+ * energy while its core binary tightens, so -U_total FALLS and this scheme LENGTHENS its step,
+ * to 8.50e-4 at t/t_cr = 17, exactly where the pair needed 3.92e-4.
+ *
+ * That is the honest statement of what g = 1/(-U) is: not a timescale estimator that happens to
+ * be coarse, but the one function of q for which the transformed Hamiltonian SEPARATES and an
+ * explicit symplectic map exists at all. A general dt = g(q) ds gives
+ * GAMMA = g(q) (T(p) + U(q) + w), a PRODUCT, which does not split into exact q-only and p-only
+ * maps. The logarithm turns it into a SUM. The physics of the resulting step is a by-product of
+ * that algebra, and for a FEW-body system it is also the right physics — -U is dominated by the
+ * close pair, which is why the Kepler numbers above are so good. For a few hundred stars it is
+ * not.
+ *
+ * The generalisation that fixes it is TTL (Mikkola & Aarseth 2002): carry the time-transformation
+ * function as an AUXILIARY DYNAMICAL VARIABLE rather than evaluating a function of q inside the
+ * split. The scheme then stays explicit for a freely chosen Omega — including one weighted toward
+ * close pairs — and LogH is the special case Omega = -U. That is the direction to go if this
+ * needs to serve a cluster rather than a few bodies.
+ *
  * AND IF SMALL SOFTENING IS THE GOAL, THIS IS THE WRONG SCHEME. Adaptive Hermite holds where
  * LogH collapses, because its Aarseth criterion is a LOCAL controller — it reads the tightest
  * pair's own acceleration and jerk — while this transformation can only see the global total.
