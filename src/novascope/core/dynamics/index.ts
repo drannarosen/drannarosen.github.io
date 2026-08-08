@@ -58,6 +58,14 @@ export { createHermite, supportsJerk, HERMITE_ETA } from "./hermite.ts";
 export type { LogH, LogHOptions } from "./logh.ts";
 export { createLogH } from "./logh.ts";
 
+/* Time-Transformed Leapfrog (Mikkola & Aarseth 2002): LogH's generalisation, with the time
+   transformation carried as an auxiliary variable so Omega is FREE rather than forced to be -U.
+   Correct and verified, and it LOSES to adaptive Hermite on a cost-fair comparison at every
+   softening tested — read the benchmark in the header before reaching for it. Deliberately not
+   offered by `chooseIntegrator`, so it cannot reach /explore/dynamics's toggle by accident. */
+export type { TTL, TTLOptions } from "./ttl.ts";
+export { createTTL } from "./ttl.ts";
+
 /* The tightest bound pair, and whether the step can still follow it. The diagnostic behind
    /explore/dynamics's binary banner — see the measurements in the module header. */
 export type { HardestPair, PairResolution } from "./binaries.ts";
