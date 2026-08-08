@@ -194,23 +194,34 @@ function buildTwoBody(p: ScenarioParams = {}): ScenarioBuild {
 /**
  * A Plummer cluster, uniformly softened — the original /dynamics-lab configuration.
  *
- * N IS CAPPED AT 512, which is `direct/index.ts`'s measured interactive ceiling and not a round
- * number: at N = 2048 a single leapfrog step already costs twice a frame budget.
+ * N IS CAPPED — see the note on the clamp below for the measured ceiling. This header used to
+ * assert "capped at 512" while the clamp said 800, which is the failure mode a comment has that
+ * a constant does not: it kept being right about the reasoning and wrong about the number.
  */
 function buildCluster(p: ScenarioParams = {}): ScenarioBuild {
   /*
-   * 800, raised from 512. The old cap was "the measured interactive ceiling" for
-   * ONE force evaluation per frame; /explore/dynamics now takes two (a halved
-   * step, for accuracy), which alone made 512 cost what 724 used to.
+   * 800 — and this is now a MEASURED ceiling rather than an extrapolated one.
    *
-   * Re-measured, direct N^2 with two steps plus a diagnostics pass, per frame:
-   *   N=200 0.87 ms | N=400 3.93 | N=512 6.32 | N=800 ~15 (extrapolated on N^2,
-   *   which the 400->512 ratio confirms: 1.61 measured against 1.64 predicted).
+   * The previous note put N=800 at "~15 ms, comfortably interactive". That was an
+   * N^2 extrapolation from a frame of TWO force evaluations. `/explore/dynamics`
+   * now takes EIGHT (SUBSTEPS = 8 at dt = t_cross/2048), so the real figure is
+   * four times worse. Measured in Chrome at 1440 px, gravity confirmed on, over a
+   * 3 s window — and cross-checked in node, which agrees within 15%:
    *
-   * ~15 ms is a 60 fps budget in node and comfortably interactive in a browser
-   * with rendering on top. Past ~1000 this needs a different force model —
-   * `meanField/` exists — at the cost of no longer resolving the two-body
-   * relaxation that mass segregation IS.
+   *   N=400  13.9 ms/frame   72 fps      (node 13.2)
+   *   N=800  50.5 ms/frame   20 fps      (node 58.0)
+   *
+   * So 800 is not comfortable; it is the edge. The cost is clean N^2 — node,
+   * bypassing this clamp: 1024 -> 92 ms (11 fps), 1536 -> 205 ms (5 fps),
+   * 2048 -> 370 ms (2.7 fps). A frame is N^2 x (9.65 x SUBSTEPS + 4.73) ns, the
+   * 9.65 being one accelerations() at 2.5 ns/pair plus one forceGradient() at
+   * 7.15 — FSI4's modified kick needs both, and the gradient cannot halve by
+   * Newton's third law because its summand is not antisymmetric in (i, j).
+   *
+   * Raising this past ~800 therefore needs a different force computation, not a
+   * bigger number: `meanField/` is O(N) but stops resolving the two-body
+   * relaxation that mass segregation IS, so for this page the answer would have
+   * to be the pair sum on the GPU.
    */
   const n = Math.round(clamp(p.n ?? 200, 20, 800));
   const fraction = clamp(p.softeningFraction ?? 0.5, 0, 1);

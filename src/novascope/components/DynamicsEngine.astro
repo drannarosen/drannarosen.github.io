@@ -287,6 +287,27 @@ const m = (tex: string) => tex;
             on multiples of it, not on Myr. Blank without gravity, where it is undefined.
           </span>
         </div>
+        {/* The unit the readout above is counted in. It was never shown, so
+            "t/t_cr = 1129" sat beside "t = 821 Myr" with no way to get from one
+            to the other — and t_cr is not a constant of the page, it moves with
+            every one of N, r_h and gamma. */}
+        <div>
+          <dt><button type="button" data-info="m-tc0" aria-expanded="false"><Math tex={m("t_\\mathrm{cr}")} /></button></dt>
+          <dd><span data-v="tc0">—</span> <Math tex={m("\\mathrm{Myr}")} /></dd>
+          <span class="xpl-dyn__popover" data-popover="m-tc0" role="tooltip" hidden>
+            The crossing time of the cluster <b>as drawn</b>, in millions of years — the unit
+            <Math tex={m("t/t_\\mathrm{cr}")} /> counts in. It is fixed at
+            <Math tex={m("t = 0")} /> and does not move as the run proceeds, so the crossing-time
+            clock stays a fixed ruler rather than one that stretches while you read it.
+            <br /><br />
+            It is set by the cluster you built: roughly
+            <Math tex={m("t_\\mathrm{cr} \\sim r_h / v")} /> with
+            <Math tex={m("v \\sim \\sqrt{GM/r_h}")} />, so a bigger
+            <Math tex={m("r_h")} /> or a lighter cluster gives a slower clock. Changing
+            <Math tex={m("N")} />, <Math tex={m("r_h")} /> or
+            <Math tex={m("\\gamma")} /> redraws it.
+          </span>
+        </div>
         <div>
           <dt><button type="button" data-info="m-rhi" aria-expanded="false"><Math tex={m("r_h")} /> hi</button></dt>
           <dd><span data-v="rhi">—</span></dd>
@@ -368,7 +389,16 @@ const m = (tex: string) => tex;
           </span>
         </span>
       </figcaption>
-      <canvas data-energy aria-label="Fractional energy error against time"></canvas>
+      {/* LABELLED, like the plot above it. The strip shipped with a bare canvas:
+          its y axis is decades of a dimensionless ratio and its x axis is Myr,
+          and neither was stated anywhere on the figure — a reader had to infer
+          both from the caption. Same KaTeX titles as the r_h plot, so the two
+          figures name their axes the same way. */}
+      <div class="xpl-dyn__plot xpl-dyn__plot--strip">
+        <span class="xpl-dyn__ytitle"><Math tex={m("|\\Delta E/E|")} /></span>
+        <canvas data-energy aria-label="Fractional energy error against time"></canvas>
+        <span class="xpl-dyn__xtitle"><Math tex={m("t\\;(\\mathrm{Myr})")} /></span>
+      </div>
     </figure>
   </div>
 
@@ -401,10 +431,11 @@ const m = (tex: string) => tex;
    */
   import { createClusterPoints, type ClusterPoints } from "@novascope/viz/clusterPoints";
   import { toRenderModel } from "@novascope/state";
-  /* Shared with the H–R diagram and the IMF histogram. AXIS_FONT is a LITERAL
-     font string on purpose — see the note in axis.ts; this page is the reason it
-     is there. */
-  import { AXIS_FONT, niceTicks, drawPower } from "@novascope/viz/axis";
+  /* The LARGE pair, not the one census's H–R diagram and IMF histogram use: these
+     two plots are full-width, where 14px reads small. See the note in axis.ts.
+     Both are LITERAL font strings on purpose — also documented there, and this
+     page is the reason that note exists. */
+  import { AXIS_FONT_LG, SUB_FONT_LG, niceTicks, drawPower } from "@novascope/viz/axis";
 
   const root = document.querySelector<HTMLElement>("[data-dyn]");
   if (root) {
@@ -543,12 +574,17 @@ const m = (tex: string) => tex;
       });
       /*
        * The scenario's OWN default scheme, not a faster one chosen here.
-       * Forcing leapfrog measured 1.3e-2 energy drift by ten crossing times —
-       * past the monitor's 1e-3 tolerance, so `healthy` latched false and the
-       * page's own "stop believing this" threshold had been crossed while the
-       * page went on presenting the result. fsi4 holds 6e-5..3.8e-4 over the
-       * same run with identical segregation. The scenario knows which schemes
-       * are honest for its configuration; overriding that was the bug.
+       * Forcing leapfrog measured 1.3e-2 energy drift by ten crossing times, so
+       * `healthy` latched false and the page's own "stop believing this"
+       * threshold had been crossed while the page went on presenting the result.
+       * The scenario knows which schemes are honest for its configuration;
+       * overriding that was the bug.
+       *
+       * Those figures were taken against the THEN tolerance of 1e-3 and the then
+       * softening; both have since moved (ENERGY_TOLERANCE is 1e-4, the softening
+       * fraction 0.1), so they are kept as the record of why this line exists
+       * rather than as current numbers. What FSI4 does now is measured below on
+       * SOFTENING_FRACTION.
        */
       const picked = chooseIntegrator(built.state, built.force, {
         prefer: scheme,
@@ -933,12 +969,20 @@ const m = (tex: string) => tex;
     }
 
     /*
-     * Plot margins, sized for AXIS_FONT (14px) rather than for the 9px these were
-     * cut for — which never rendered anyway, so the old 34/18 was reserving room
-     * for a label size that did not exist. Left has to clear "1.00"-width labels
-     * at 14px; bottom has to clear one line plus its gap.
+     * Plot margins, sized for AXIS_FONT_LG (16px) rather than for the 9px these
+     * were cut for — which never rendered anyway, so the old 34/18 was reserving
+     * room for a label size that did not exist.
+     *
+     * The left margin is DERIVED, not chosen. Measured in the browser at 1440 px:
+     * the rotated y-title's box ends 32 px in from the canvas's left edge, and the
+     * widest tick label is 40 px ("2.00" at 16 px is 39; drawPower's "10" plus a
+     * two-digit exponent is 40). Labels are right-aligned at `l - 8`, so clearing
+     * the title by 4 px needs l >= 32 + 4 + 40 + 8 = 84. At 68 the log ticks on the
+     * energy strip overlapped the title by 3 px.
+     *
+     * Bottom clears one line plus its gap.
      */
-    const AX = { l: 64, r: 14, t: 12, b: 32 };
+    const AX = { l: 84, r: 14, t: 12, b: 34 };
     /** Decades shown below a log axis's threshold — see the floor in drawSeries. */
     const LOG_DECADES = 5;
     /* How far above the data the limit may sit and still be drawn. Within a decade
@@ -1065,7 +1109,7 @@ const m = (tex: string) => tex;
       const X = (t: number) => AX.l + (t / tMax) * (w - AX.l - AX.r);
       const Y = (v: number) => h - AX.b - ((v - lo) / (hiV - lo)) * (h - AX.t - AX.b);
 
-      ctx.font = AXIS_FONT;
+      ctx.font = AXIS_FONT_LG;
       ctx.fillStyle = ink;
       ctx.strokeStyle = grid;
       ctx.lineWidth = 1;
@@ -1080,9 +1124,11 @@ const m = (tex: string) => tex;
         ctx.textBaseline = "middle";
         if (opts.logY) {
           /* 10^x with a raised exponent — the same helper the H–R diagram and the
-             IMF histogram label their decades with. */
-          drawPower(ctx, v, AX.l - 8, y, "right", ink);
-          ctx.font = AXIS_FONT;
+             IMF histogram label their decades with, but at THIS plot's font pair:
+             left at the default these decades would draw 14px beside the linear
+             plot's 16px. */
+          drawPower(ctx, v, AX.l - 8, y, "right", ink, { base: AXIS_FONT_LG, sub: SUB_FONT_LG });
+          ctx.font = AXIS_FONT_LG;
         } else {
           ctx.fillText(fmt(v), AX.l - 8, y);
         }
@@ -1295,6 +1341,12 @@ const m = (tex: string) => tex;
     const rebuild = () => {
       stop();
       run = build();
+      /* Read off the BUILD, and only here. `built.timeUnit` is `crossingTime(state)`
+         of the initial configuration — the same quantity the monitor divides by for
+         `tCross` — so the displayed unit and the clock counted in it come from one
+         number and cannot drift apart. It is a property of the draw, so it is set
+         on rebuild rather than sampled every frame. */
+      setStat("tc0", run.built.timeUnit.toFixed(3));
       hist = [];
       mountField();
       hi0 = null;
@@ -1826,11 +1878,25 @@ const m = (tex: string) => tex;
     flex: 1 1 auto;
     min-block-size: 0;
   }
+  /* The energy strip's wrapper. It only exists to carry the two axis titles, so
+     it must NOT bring the tall plot's `min-block-size: 14rem` with it — the strip
+     sizes itself from its canvas's 20:3 ratio and a floor would stretch it. */
+  .xpl-dyn__plot--strip {
+    flex: 0 0 auto;
+    min-block-size: 0;
+  }
+  .xpl-dyn__plot--strip > canvas {
+    flex: 0 0 auto;
+  }
+  /* --step--1, a step BELOW the tick labels' 16px rather than above it. The title
+     names the axis once; the tick values are read repeatedly and against the
+     curve, so they are the thing that has to be legible. This was --step-0, which
+     put the furniture above the numbers in the visual hierarchy. */
   .xpl-dyn__xtitle {
     display: block;
     text-align: center;
-    padding-block: 0.25rem 0.4rem;
-    font-size: var(--step-0);
+    padding-block: 0.2rem 0.35rem;
+    font-size: var(--step--1);
     color: var(--ink-soft);
   }
   .xpl-dyn__ytitle {
@@ -1844,7 +1910,7 @@ const m = (tex: string) => tex;
     transform: translate(-50%, -50%) rotate(-90deg);
     transform-origin: center;
     line-height: 1;
-    font-size: var(--step-0);
+    font-size: var(--step--1);
     color: var(--ink-soft);
     white-space: nowrap;
     pointer-events: none;
@@ -1919,11 +1985,21 @@ const m = (tex: string) => tex;
   /* Two knobs on one row, label and slider side by side rather than stacked —
      the stacked form with its `small` caption was four lines for two controls,
      and this panel now has to hold the frame as well. */
-  /* Four knobs, one row. At the console's full width each gets ~256 px, against
-     the ~90 px of slider travel they had inside the cluster column. */
+  /*
+   * NOT six equal columns. The integrator cell holds two pill buttons and a "?"
+   * rather than a slider, and it is the one cell whose content has a hard minimum:
+   * measured at 1440 px, six equal columns gave every cell 141 px while
+   * "FSI4 | Hermite | ?" needs about 145, so the toggles wrapped to a second line
+   * and the whole console grew a row.
+   *
+   * The four sliders give the width up, because they have it to give: r_h is the
+   * greediest at 94 steps of travel, and at 136 px that is still ~1.4 px a step.
+   * Slider travel degrades smoothly; a wrapped button row is a step change in the
+   * panel's height.
+   */
   .xpl-dyn__controls {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr)) 1.4fr 0.8fr;
     gap: var(--space-2xs) var(--space-m);
     padding-inline: var(--space-s);
   }

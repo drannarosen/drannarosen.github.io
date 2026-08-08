@@ -8,6 +8,22 @@ export const AXIS_FONT = "14px ui-monospace, SFMono-Regular, Menlo, monospace";
 export const SUB_FONT = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
 
 /*
+ * A LARGER PAIR, for plots that own the full width of a panel.
+ *
+ * Not a bump to AXIS_FONT: `hrDiagram` and `histogram` are small multiples inside
+ * census's narrow column, where 14px already reads large relative to the plot,
+ * while `/explore/dynamics` draws two full-width time series where the same 14px
+ * reads small. The apparent size is what a reader judges, so the px size is a
+ * call-site choice rather than one default that is wrong in one of the two places.
+ *
+ * Kept here rather than in the component so there is still exactly one file that
+ * decides what a canvas axis is allowed to be set to — see the note above on why
+ * these must be literal strings.
+ */
+export const AXIS_FONT_LG = "16px ui-monospace, SFMono-Regular, Menlo, monospace";
+export const SUB_FONT_LG = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+
+/*
  * THESE ARE LITERAL FONT STRINGS, AND THEY HAVE TO BE.
  *
  * `ctx.font` is parsed as the CSS font shorthand but resolved with no element and
@@ -46,7 +62,14 @@ export function niceTicks(lo: number, hi: number, want = 4): number[] {
   return out;
 }
 
-/** Draw "10^exp" anchored at (x, y). `align` positions the whole label. */
+/**
+ * Draw "10^exp" anchored at (x, y). `align` positions the whole label.
+ *
+ * `fonts` defaults to the standard pair, so census's two callers are unchanged.
+ * A caller drawing at AXIS_FONT_LG must pass the large pair, or its log ticks
+ * would come out at 14px beside 16px linear ones — a mismatch that is invisible
+ * in review because both are "the tick font" at the call site.
+ */
 export function drawPower(
   ctx: CanvasRenderingContext2D,
   exp: number,
@@ -54,19 +77,20 @@ export function drawPower(
   y: number,
   align: "center" | "right",
   color: string,
+  fonts: { base: string; sub: string } = { base: AXIS_FONT, sub: SUB_FONT },
 ): void {
   const expStr = Number.isInteger(exp) ? String(exp) : exp.toFixed(1);
-  ctx.font = AXIS_FONT;
+  ctx.font = fonts.base;
   const baseW = ctx.measureText("10").width;
-  ctx.font = SUB_FONT;
+  ctx.font = fonts.sub;
   const expW = ctx.measureText(expStr).width;
   const total = baseW + 1 + expW;
   const sx = align === "right" ? x - total : x - total / 2;
   ctx.fillStyle = color;
   ctx.textAlign = "left";
-  ctx.font = AXIS_FONT;
+  ctx.font = fonts.base;
   ctx.fillText("10", sx, y);
-  ctx.font = SUB_FONT;
+  ctx.font = fonts.sub;
   ctx.fillText(expStr, sx + baseW + 1, y - 5);
-  ctx.font = AXIS_FONT;
+  ctx.font = fonts.base;
 }
