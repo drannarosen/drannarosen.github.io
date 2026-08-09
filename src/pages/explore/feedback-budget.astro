@@ -41,19 +41,33 @@ import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
         Two questions, in the order the physics asks them. <strong>First:</strong> is the
         retained feedback momentum enough to lift the residual gas out of the cloud's
         potential? <strong>Then, if it is:</strong> do the stars stay bound once the gas —
-        most of the mass — is gone? Across these six environments the gas is always
-        expelled, and expelled <em>fast</em>, yet every cluster survives: they are born
-        dynamically cold, so removing the gas cannot unbind stars already this deeply
-        self-bound. The margin, and which channel does the clearing, is what changes with
-        the environment — switch between them above.
+        most of the mass — is gone? Across these six environments the gas always goes, but
+        not at the same speed: in five it clears in less than a stellar crossing time,
+        while the most massive and most tightly bound cloud takes longer than one, so its
+        stars have time to adjust as the gas leaves. Every cluster stays bound either way —
+        and that is not a verdict the budget decides. These clusters are born far below
+        virial equilibrium, so the stars' own self-gravity holds them whatever the gas
+        does. What the environment changes is the margin, and which channel does the
+        clearing.
       </p>
       <p>
-        The expanding shells implied by the time plot are analytic similarity solutions
-        (Weaver winds, Spitzer H II fronts), and the gas here balloons outward as the
-        budget clears it, revealing the bare cluster — a legible stand-in for the
-        anisotropic champagne flows and blister breakouts a full radiation-hydrodynamics
-        run resolves. That physics is what my research code models; this piece makes its
-        accounting visible.
+        The three channels also deposit momentum on different schedules. Winds and
+        radiation inject at a constant rate while the stars sit on the main sequence, so
+        they accumulate linearly; the H II curve is the Spitzer D-front solution
+        recomputed at each step, and although the front decelerates, the shell it sweeps
+        grows faster still, so photoionization accumulates faster than linearly. Winds
+        enter the ledger differently again: Weaver's similarity solution sets the ceiling
+        on what a hot bubble could deliver, and how much survives cooling is a calibrated
+        fraction — fixed here so the momentum boost matches what 3-D simulations of
+        wind-blown bubbles measure, rather than chosen to look reasonable. Two mass-loss
+        recipes are offered above, each with its own calibration; which channel leads
+        depends on that choice as well as on the environment.
+      </p>
+      <p>
+        The gas balloons outward as the budget clears it, revealing the bare cluster — a
+        legible stand-in for the anisotropic champagne flows and blister breakouts a full
+        radiation-hydrodynamics run resolves. That physics is what my research code
+        models; this piece makes its accounting visible.
       </p>
     </div>
   </div>

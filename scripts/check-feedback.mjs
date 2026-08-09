@@ -158,13 +158,25 @@ const synth = {
   mass: [40], teff: [40000], radius: [10], localDensity: [1e5],
   mCloud: 2e4, rCloudPc: 2.5, effGamma: 4.2, effAPc: 0.8, vEscCloud: 8.4,
   sfe: 0.2, tCrossMyr: 1.64, qVirialStarsOnly: 0.03,
+  // Uniform-density stand-in for the enclosed-gas profile: M(<r)/M = (r/rmax)^3.
+  gasMencFrac: Array.from({ length: 256 }, (_, i) => (i / 255) ** 3),
+  gasMencRMaxPc: 2.5,
 };
 const traj = momentumTrajectory(synth, 40);
 const staticTotal = computeLedger(synth).totalMomentum;
 check("trajectory ends at the static ledger total", traj.totalMomentum.at(-1), staticTotal, 1e-9);
-// Winds and radiation start at zero; H II starts at the initial Stromgren-sphere
-// shell momentum, a negligible seed (~1e-7 of the total), not exactly zero.
-check("trajectory starts negligibly small", traj.totalMomentum[0] / staticTotal < 1e-4, true, 0);
+// Winds and radiation start at zero; H II starts at the initial Stromgren
+// sphere's momentum. That seed used to be ~1e-7 of the total and this check
+// asserted "negligible" — but that was an artefact of the per-star model, whose
+// Stromgren radii were ~1e-5 pc because each star sat in a saturated
+// high-density cell. The merged region is ionized by S_total in the cloud MEAN
+// density, so it starts at ~0.5 pc and encloses real mass: measured 2-8% of the
+// window total. Non-negligible is the correct behaviour, so the property worth
+// gating is that it is a genuine head start and not a discontinuity.
+check("trajectory starts at the initial Stromgren sphere, not zero",
+  traj.totalMomentum[0] > 0, true, 0);
+check("and that head start is a minority of the window total",
+  traj.totalMomentum[0] / staticTotal < 0.25, true, 0);
 const mono = traj.totalMomentum.every((v, i, a) => i === 0 || v >= a[i - 1] - 1e-9);
 check("trajectory accumulates monotonically", mono, true, 0);
 check("cleared fraction is capped at 1", Math.max(...traj.clearedFraction) <= 1, true, 0);

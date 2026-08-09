@@ -188,6 +188,127 @@ export function hiiRegion(
   };
 }
 
+/**
+ * Enclosed gas mass [Msun] inside radius r, read from the realization's own
+ * tabulated M_gas(<r)/M_gas profile (`gas_menc.f32`, 1024 uniform samples out
+ * to `gas_menc_r_max_pc`). Linear interpolation; clamped to the total beyond
+ * the table.
+ *
+ * This is the SAME profile binding.ts integrates for E_bind and the evacuation
+ * animation reads, so the swept mass, the binding energy and the picture on
+ * screen cannot disagree about where the gas is.
+ */
+export function enclosedGasMass(
+  rPc: number,
+  mGasTotal: number,
+  mencFrac: ArrayLike<number>,
+  rMaxPc: number,
+): number {
+  const n = mencFrac.length;
+  if (n === 0 || !(rPc > 0)) return 0;
+  if (rPc >= rMaxPc) return mGasTotal;
+  const x = (rPc / rMaxPc) * (n - 1);
+  const i = Math.min(n - 2, Math.floor(x));
+  const f = x - i;
+  return mGasTotal * (mencFrac[i]! * (1 - f) + mencFrac[i + 1]! * f);
+}
+
+/**
+ * The cluster's H II region as ONE merged, cloud-centred region.
+ *
+ * WHY MERGED RATHER THAN SUMMED PER STAR. Ionizing photons from every massive
+ * star feed a common ionized volume; once the individual Stromgren spheres
+ * touch there are not N separate D-fronts but one front driven by S_total. The
+ * per-star sum also has no way to notice that the regions have run out of cloud
+ * to sweep — and it did not: summing them gave a swept mass 450-577x the entire
+ * residual gas reservoir of the cloud (measured 2026-08-09), out of a volume
+ * only 1-14% of it.
+ *
+ * WHY THE SWEPT MASS COMES FROM THE PROFILE, NOT rho x volume. The old form was
+ *
+ *     M_sh = (4/3) pi r^3 rho_local
+ *
+ * with rho_local the density in the STAR'S OWN GRID CELL — a point value
+ * applied uniformly across a sphere of radius 0.08-1.45 pc. It is also the most
+ * extreme value in the box: on the 128^3 export, 77% of stars share one
+ * saturated cell density of 7.3e6 Msun/pc^3 (n_H = 2.1e8 cm^-3), 2.4e4x the
+ * cloud mean. Using the enclosed-mass profile removes both problems at once,
+ * because M_gas(<r) is bounded by construction and is measured, not sampled.
+ *
+ * rho_local is still used for the STROMGREN radius, where it belongs: that
+ * radius is set by the gas immediately around the source.
+ */
+export interface MergedHiiRegion {
+  /** Initial Stromgren radius of the combined region [pc]. */
+  rStromgren: number;
+  /** Ionization-front radius at the evaluation time [pc]. */
+  radius: number;
+  /** Front speed at the evaluation time [km/s]. */
+  speed: number;
+  /** Swept neutral mass [Msun] — enclosed gas inside `radius`. */
+  shellMass: number;
+  /** Shell momentum [Msun km/s]. */
+  momentum: number;
+  /** Ionized-gas thermal energy [Msun (km/s)^2]. */
+  thermalEnergy: number;
+  /** True when the front has reached the cloud edge and swept all the gas. */
+  cloudFilling: boolean;
+}
+
+export function mergedHiiRegion(
+  sTotalPerS: number,
+  nHMean: number,
+  tMyr: number,
+  mGasTotal: number,
+  mencFrac: ArrayLike<number>,
+  rMencMaxPc: number,
+  rCloudPc: number,
+): MergedHiiRegion {
+  const empty: MergedHiiRegion = {
+    rStromgren: 0, radius: 0, speed: 0,
+    shellMass: 0, momentum: 0, thermalEnergy: 0, cloudFilling: false,
+  };
+  if (!(sTotalPerS > 0) || !(nHMean > 0)) return empty;
+
+  const rs = stromgrenRadius(sTotalPerS, nHMean);
+  if (!(rs > 0)) return empty;
+
+  // The front cannot run past the cloud: beyond r_cloud there is nothing left
+  // to ionize or to sweep, and letting it continue would credit momentum to gas
+  // that is not there (the same error bubble.ts avoids by capping eta at
+  // breakout).
+  //
+  // Once it fills the cloud the region FREEZES rather than stopping. Evaluating
+  // the speed at t instead of at t_fill would keep decelerating a shell that is
+  // no longer gaining mass, so its momentum would fall — and a delivered
+  // momentum that decreases with time is not physical, it is just the Spitzer
+  // solution being read outside its domain. Setting the speed to zero is worse
+  // still: it makes the channel's contribution vanish, which is what first
+  // showed up as a non-monotonic trajectory.
+  //
+  // t_fill inverts the Spitzer solution: r_cloud = R_S(1 + 7 c t/(4 R_S))^(4/7).
+  const c = C_II_KMS * KMS_TO_PC_MYR;
+  const rFree = dFrontRadius(rs, tMyr);
+  const cloudFilling = rFree >= rCloudPc;
+  const tFill = ((4 * rs) / (7 * c)) * ((rCloudPc / rs) ** (7 / 4) - 1);
+  const tEval = cloudFilling ? Math.max(0, tFill) : tMyr;
+  const radius = Math.min(rFree, rCloudPc);
+  const speed = dFrontSpeed(rs, tEval);
+
+  const shellMass = enclosedGasMass(radius, mGasTotal, mencFrac, rMencMaxPc);
+  const kT_over_mu = (K_B_CGS * T_II) / (MU * MH_G); // cm^2/s^2
+  return {
+    rStromgren: rs,
+    radius,
+    speed,
+    shellMass,
+    momentum: shellMass * speed,
+    // (3/2) N k T over the ionized gas, in Msun (km/s)^2 to match the ledger.
+    thermalEnergy: 1.5 * shellMass * (kT_over_mu / 1e10),
+    cloudFilling,
+  };
+}
+
 export interface HiiBudget {
   /** Summed shell momentum [Msun km/s]. */
   momentum: number;
@@ -200,12 +321,18 @@ export interface HiiBudget {
   /** Median region radius [pc] — the scale the renderer must resolve. */
   medianRadius: number;
   /**
-   * Ratio of median region radius to mean source separation. Above ~1 the
-   * regions merge into one cloud-filling H II region; well below, the cloud is
-   * riddled with separate trapped bubbles. This is the morphological form of
-   * the environment thesis.
+   * Ratio of median PER-STAR region radius to mean source separation. Above ~1
+   * the regions have merged, which is the regime the budget assumes; well
+   * below, the cloud is riddled with separate trapped bubbles and the merged
+   * treatment is an approximation. Reported so the assumption is visible.
    */
   overlap: number;
+  /** Radius of the merged ionization front [pc]. */
+  radius: number;
+  /** Gas mass swept by the merged front [Msun] — bounded by M_gas. */
+  shellMass: number;
+  /** True once the front fills the cloud and there is no more gas to sweep. */
+  cloudFilling: boolean;
 }
 
 /**
@@ -220,9 +347,15 @@ export function hiiBudget(
   rhoLocal: ArrayLike<number>,
   tMyr: number,
   cloudRadius: number,
+  mGasTotal: number,
+  mencFrac: ArrayLike<number>,
+  rMencMaxPc: number,
 ): HiiBudget {
-  let momentum = 0;
-  let energy = 0;
+  // ── per-star pass: DIAGNOSTICS ONLY ──────────────────────────────────────
+  // These no longer feed the budget. They are what tells a reader whether
+  // treating the region as merged is justified: `overlap` is the median region
+  // radius over the mean source separation, so above ~1 the individual spheres
+  // have run together and the merged treatment is the only correct one.
   let qTotal = 0;
   let nSources = 0;
   const radii: number[] = [];
@@ -233,20 +366,32 @@ export function hiiBudget(
     if (reg.radius <= 0) continue;
     nSources++;
     qTotal += qi;
-    momentum += reg.momentum;
-    energy += reg.thermalEnergy;
     radii.push(reg.radius);
   }
   radii.sort((a, b) => a - b);
   const medianRadius = radii.length ? radii[Math.floor(radii.length / 2)]! : 0;
   const sep = nSources > 0 ? cloudRadius / Math.cbrt(nSources) : Infinity;
+
+  // ── the budget: ONE merged region driven by the total ionizing rate ──────
+  // Mean gas density of the cloud sets the combined Stromgren radius; the swept
+  // mass then comes from the tabulated enclosed-gas profile, so it is bounded
+  // by the gas that actually exists.
+  const vCloud = (4 / 3) * Math.PI * cloudRadius ** 3;
+  const nHMean = vCloud > 0 ? numberDensity(mGasTotal / vCloud) : 0;
+  const merged = mergedHiiRegion(
+    qTotal, nHMean, tMyr, mGasTotal, mencFrac, rMencMaxPc, cloudRadius,
+  );
+
   return {
-    momentum,
-    energy,
+    momentum: merged.momentum,
+    energy: merged.thermalEnergy,
     qTotal,
     nSources,
     medianRadius,
-    overlap: sep > 0 ? medianRadius / sep : 0,
+    overlap: sep > 0 && isFinite(sep) ? medianRadius / sep : 0,
+    radius: merged.radius,
+    shellMass: merged.shellMass,
+    cloudFilling: merged.cloudFilling,
   };
 }
 

@@ -267,6 +267,14 @@ export interface LedgerInput {
   vEscCloud: number;
   /** Star-formation efficiency of the IC; sets the residual gas mass. */
   sfe: number;
+  /**
+   * Tabulated M_gas(<r)/M_gas on a uniform radial grid out to `gasMencRMaxPc`
+   * (the export's `gas_menc.f32`). The H II front's swept mass is read from
+   * this rather than from rho x volume, so it is bounded by the gas that
+   * actually exists — see mergedHiiRegion.
+   */
+  gasMencFrac: ArrayLike<number>;
+  gasMencRMaxPc: number;
   /** Stellar crossing time [Myr] (from the export) — sets the removal regime. */
   tCrossMyr: number;
   /** Post-expulsion virial ratio T/|W_stars| (from the export) — sets survival. */
@@ -400,7 +408,11 @@ export function computeLedger(input: LedgerInput): Ledger {
   };
 
   /* ── photoionization ───────────────────────────────────────────────── */
-  const hii = hiiBudget(q, input.localDensity, windowMyr, input.rCloudPc);
+  const mGasTotal = input.mCloud * (1 - input.sfe);
+  const hii = hiiBudget(
+    q, input.localDensity, windowMyr, input.rCloudPc,
+    mGasTotal, input.gasMencFrac, input.gasMencRMaxPc,
+  );
   const trapped = hiiTrapped(input.vEscCloud);
   const hiiOn = on.photoionization && !trapped;
   const photo: ChannelEntry = {

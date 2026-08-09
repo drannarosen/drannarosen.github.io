@@ -55,6 +55,8 @@ export function feedbackInputFromParts(
   stars: Float32Array,
   localDensity: Float32Array,
   opts: FeedbackOptions = {},
+  gasMencFrac: ArrayLike<number> = [0, 1],
+  gasMencRMaxPc: number = 1,
 ): LedgerInput {
   const n = meta.n_stars;
   const mass = new Float64Array(n);
@@ -76,6 +78,8 @@ export function feedbackInputFromParts(
     effAPc: meta.eff_a_pc!,
     vEscCloud: meta.env_v_esc_km_s!,
     sfe: meta.sfe_ic!,
+    gasMencFrac,
+    gasMencRMaxPc,
     tCrossMyr: meta.t_cross_myr!,
     qVirialStarsOnly: meta.q_virial_stars_only!,
     leakage: opts.leakage,
@@ -102,15 +106,19 @@ export async function loadFeedbackRealization(
   ]);
   const stars = new Float32Array(starBuf);
   const localDensity = new Float32Array(ldBuf);
-  const input = feedbackInputFromParts(meta, stars, localDensity, opts);
+  const gasMencFrac = new Float32Array(mencBuf);
+  const gasMencRMaxPc = meta.gas_menc_r_max_pc!;
+  const input = feedbackInputFromParts(
+    meta, stars, localDensity, opts, gasMencFrac, gasMencRMaxPc,
+  );
   return {
     name: name ?? "",
     meta,
     input,
     ledger: computeLedger(input),
     trajectory: momentumTrajectory(input, opts.nSteps ?? 60),
-    gasMencFrac: new Float32Array(mencBuf),
-    gasMencRMaxPc: meta.gas_menc_r_max_pc!,
+    gasMencFrac,
+    gasMencRMaxPc,
   };
 }
 

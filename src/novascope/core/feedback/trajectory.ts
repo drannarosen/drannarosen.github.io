@@ -110,7 +110,11 @@ export function momentumTrajectory(input: LedgerInput, nSteps = 60): MomentumTra
     const pWind = windEnd * frac;
     const pRad = radEnd * frac;
     const pHii = hiiOn
-      ? (1 - knobs.hiiLeak) * hiiBudget(q, input.localDensity, t, input.rCloudPc).momentum
+      ? (1 - knobs.hiiLeak) *
+        hiiBudget(
+          q, input.localDensity, t, input.rCloudPc,
+          input.mCloud * (1 - input.sfe), input.gasMencFrac, input.gasMencRMaxPc,
+        ).momentum
       : 0;
     const total = pWind + pHii + pRad;
     const ratio = gasNeeded > 0 ? total / gasNeeded : 0;
