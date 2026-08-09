@@ -17,10 +17,10 @@
  * different close encounters by ~39,000 steps. A pin on a simulated frame would fail for reasons
  * that have nothing to do with the renderer, which is the fastest way to get a gate deleted.
  *
- * So the model here is a FIXED LATTICE OF NUMBERS from a seeded LCG — no integrator, no `star()`,
- * no physics of any kind. Every quantity `clusterPoints` consumes (`x/y/z`, `color`, `sizePx`,
- * `alpha`) is dictated outright. What is being pinned is the mapping from those numbers to pixels,
- * which is exactly and only what the refactor touches.
+ * So the model is a real cluster CAPTURED ONCE and frozen as data — physically real, but inert, so
+ * no integrator and no `star()` call runs at check time. Every quantity `clusterPoints` consumes
+ * (`x/y/z`, `color`, `sizePx`, `alpha`) is read from the fixture outright. What is being pinned is
+ * the mapping from those numbers to pixels, which is exactly and only what the refactor touches.
  *
  * ── WHY `drawImage` AND NOT `readRenderTargetPixelsAsync` ──
  *
@@ -34,8 +34,9 @@
  *
  * ── MEASURED, so a future run can see drift rather than re-fit the bounds to it ──
  *
- * Apple M2 Max, system Chrome, 2026-08-09, 320x320, 400 stars, 40x40 grid, worst cell in 8-bit
- * display levels:
+ * Apple M2 Max, system Chrome, 2026-08-09, 320x320, 40x40 grid, worst cell in 8-bit display
+ * levels. NOTE these were taken on the earlier invented lattice; the frozen real cluster re-pins
+ * the absolute images but the cross-backend STRUCTURE below held:
  *
  *   within a backend, repeated        maxCell 0        (bit-identical)
  *   webgpu vs webgl2, SAME browser    base 0.073   alpha 0.063   trail 5.896
@@ -57,41 +58,53 @@
  */
 import { createClusterPoints } from "../clusterPoints.ts";
 import type { RenderModel, RenderStar } from "../../state/render.ts";
+import frozen from "./cluster-points-model.json" with { type: "json" };
 
 /** Canvas edge [px]. 320 keeps `320 * 16` byte rows aligned if this ever moves to a render target. */
 export const BASELINE_SIZE = 320;
 /** Mean-pool grid edge. 40 gives 8x8 px cells — fine enough that one star's change survives. */
 export const BASELINE_GRID = 40;
-const BASELINE_STARS = 400;
-const BASELINE_RADIUS_PC = 1.5;
+/** Framing radius. The frozen model's own `maxR`, so the cluster fills the frame as it does live. */
+const BASELINE_RADIUS_PC = frozen.maxR;
 
 /**
- * The model, from a seeded LCG.
+ * The model — a REAL cluster, frozen.
  *
- * `Math.random` is banned here for the obvious reason and `Date.now` for a less obvious one: a
- * baseline that varies by construction is not a baseline. The LCG constants are Numerical Recipes'
- * and carry no meaning beyond reproducibility.
+ * The first version of this generated its own lattice from a seeded LCG. It was deterministic,
+ * which was the only property it was designed for, and Anna spotted immediately that it looked
+ * nothing like the clusters on /explore/dynamics and /explore/census. Measured against
+ * `presets.default`, she was right about more than the look:
+ *
+ *                        real                     invented
+ *   colour (b-r) p50     -0.46  warm, red-heavy   -0.05  neutral (green was HARDCODED at 0.7)
+ *   sizePx p50 / p90      1.35 / 2.40  steep       2.71 / 4.53  most stars LARGE
+ *   alpha                 0.55-0.70    floored     0.30-1.00    uniform
+ *
+ * That is a defect in the PIN and not only in the picture. This renderer's law is a
+ * `sizePx`-driven halo over a core with alpha FLOORED so "the faint majority is always visible" —
+ * so a fixture whose stars are mostly large and mostly opaque never exercises the regime that law
+ * exists for, and a regression in the faint tail would have passed.
+ *
+ * `scripts/reference/gen-cluster-points-model.mjs` captured the real pipeline's output once. It is
+ * inert data now, so the renderer's baseline cannot move when the IMF sampler or `star()` changes
+ * — which is the property the invented lattice was reaching for, obtained without giving up being
+ * physically real.
  */
 export function baselineModel(): RenderModel {
-  let s = 12345;
-  const rnd = (): number => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
   const stars: RenderStar[] = [];
-  for (let i = 0; i < BASELINE_STARS; i++) {
-    const r = Math.cbrt(rnd()) * BASELINE_RADIUS_PC;
-    const th = rnd() * Math.PI * 2;
-    const ph = Math.acos(2 * rnd() - 1);
+  for (let i = 0; i < frozen.n; i++) {
     stars.push({
       id: i,
-      x: r * Math.sin(ph) * Math.cos(th),
-      y: r * Math.sin(ph) * Math.sin(th),
-      z: r * Math.cos(ph),
-      color: [0.6 + 0.4 * rnd(), 0.7, 0.9 - 0.3 * rnd()],
-      sizePx: 0.6 + 4.4 * rnd(),
-      alpha: 0.3 + 0.7 * rnd(),
-      isRemnant: false,
+      x: frozen.xyz[i * 3]!,
+      y: frozen.xyz[i * 3 + 1]!,
+      z: frozen.xyz[i * 3 + 2]!,
+      color: [frozen.rgb[i * 3]!, frozen.rgb[i * 3 + 1]!, frozen.rgb[i * 3 + 2]!],
+      sizePx: frozen.sizePx[i]!,
+      alpha: frozen.alpha[i]!,
+      isRemnant: frozen.remnant[i] === 1,
     });
   }
-  return { stars, maxR: BASELINE_RADIUS_PC };
+  return { stars, maxR: frozen.maxR };
 }
 
 /** A world-space polyline, so the trail material is pinned too and not merely the points. */
@@ -109,8 +122,8 @@ export function baselineTrail(): Float32Array {
 
 /** Per-instance alpha ramp — pins `setAlpha`, the path /explore/dynamics uses every frame. */
 export function baselineAlpha(): Float32Array {
-  const a = new Float32Array(BASELINE_STARS);
-  for (let i = 0; i < BASELINE_STARS; i++) a[i] = i % 3 === 0 ? 0.05 : 1;
+  const a = new Float32Array(frozen.n);
+  for (let i = 0; i < frozen.n; i++) a[i] = i % 3 === 0 ? 0.05 : 1;
   return a;
 }
 
