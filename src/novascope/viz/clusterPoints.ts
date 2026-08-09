@@ -48,7 +48,8 @@
  * every star gets the disc.
  */
 import * as THREE from "three";
-import { LineBasicNodeMaterial, MeshBasicNodeMaterial, WebGPURenderer } from "three/webgpu";
+import { LineBasicNodeMaterial, MeshBasicNodeMaterial } from "three/webgpu";
+import { createSceneHost } from "./sceneHost.ts";
 import {
   Fn,
   instancedBufferAttribute,
@@ -84,7 +85,6 @@ function isWebGPUBackend(b: unknown): b is { isWebGPUBackend: true } {
  * the 90th-percentile star sits at 92% of the way out and the sparse tail beyond
  * it renders toward the edges. Same number here so the two frame identically.
  */
-const FRAME_FILL = 0.92;
 
 export interface ClusterPointsOptions {
   /** Force the WebGL 2 backend. Development only — exercises the fallback. */
@@ -210,42 +210,25 @@ function packModel(model: RenderModel, dpr: number): {
     },
   };
 }
-
 export function createClusterPoints(
   canvas: HTMLCanvasElement,
   model: RenderModel,
   opts: ClusterPointsOptions = {},
 ): ClusterPoints {
-  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const reducedMotion = motionQuery.matches;
-
-  const renderer = new WebGPURenderer({
-    canvas,
-    antialias: true,
-    alpha: true,
-    forceWebGL: opts.forceWebGL ?? false,
-  });
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  renderer.setPixelRatio(dpr);
-
-  const scene = new THREE.Scene();
   /*
-   * ORTHOGRAPHIC, not perspective. `renderClusterField`'s 2-D mode is an
-   * orthographic projection scaled by `maxR`, and its 3-D mode adds only a mild
-   * depth CUE, not a vanishing point. A perspective camera would make a star's
-   * apparent size depend on its depth, which would fight the one thing this
-   * renderer is for: apparent size carries luminosity and nothing else.
+   * The renderer, scene, camera, framing and draw loop all belong to `sceneHost` now. This file is
+   * the STAR LAYER: geometry, materials, the size/alpha law and the trail, and nothing else.
+   *
+   * The split is what lets the gas volume share this scene — one camera, one depth buffer, so a
+   * star inside the cloud is occluded by the cloud rather than composited over it. It also means
+   * this file can no longer accidentally change how the view behaves, and the host can no longer
+   * change how a star looks, because it never sees one.
    */
-  let maxR = model.maxR || 1e-6;
-  /** User zoom, multiplied onto the physics-derived framing. >1 magnifies. */
-  let zoom = 1;
-  /** Where the frame is centred [pc] — the bound cluster, supplied by the caller. */
-  const centre = new THREE.Vector3(0, 0, 0);
-  const pivot = new THREE.Group();
-  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 1000);
-  camera.position.set(0, 0, 100);
-  camera.lookAt(0, 0, 0);
-  scene.add(pivot);
+  const host = createSceneHost(canvas, {
+    forceWebGL: opts.forceWebGL ?? false,
+    drifting: opts.drifting ?? false,
+    onReady: opts.onReady,
+  });
 
   let mesh: THREE.Mesh | null = null;
   let geometry: THREE.InstancedBufferGeometry | null = null;
@@ -258,8 +241,8 @@ export function createClusterPoints(
 
   function build(m: RenderModel): void {
     disposeMesh();
-    maxR = m.maxR || 1e-6;
-    const packed = packModel(m, dpr);
+    host.setFraming({ radiusPc: m.maxR || 1e-6 });
+    const packed = packModel(m, host.dpr);
     buffers = packed.buffers;
     count = packed.count;
 
@@ -351,11 +334,11 @@ export function createClusterPoints(
        the world origin sits on the cluster and `scene.rotation` orbits about it.
        Rotating the scene directly would swing a recoiled cluster around the
        coordinate origin instead — which by late times is somewhere off-frame. */
-    pivot.add(mesh);
+    host.pivot.add(mesh);
   }
 
   function disposeMesh(): void {
-    if (mesh) pivot.remove(mesh);
+    if (mesh) host.pivot.remove(mesh);
     geometry?.dispose();
     plane?.dispose();
     material?.dispose();
@@ -395,225 +378,56 @@ export function createClusterPoints(
        part that has not, and three culls on a bounding sphere it would have to be told about. */
     trailLine.frustumCulled = false;
     /* Under the PIVOT, so it shares the cluster-centred origin and the drag rotation. */
-    pivot.add(trailLine);
+    host.pivot.add(trailLine);
   }
-
-  let bufW = 0;
-  let bufH = 0;
-  let pxPerPc = 1;
-  /** Set when the framing (maxR, zoom, centre) changes, so syncSize re-projects. */
-  let reframe = false;
-
-  function syncSize(): void {
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    if (w === 0 || h === 0) return; // before layout; guessing mis-sizes every star
-    if (w === bufW && h === bufH && !reframe) return;
-    reframe = false;
-    bufW = w;
-    bufH = h;
-    renderer.setSize(w, h, false);
-    /*
-     * Frame on the SHORT edge, as `renderClusterField` does (`min(w, h)/2`), so a
-     * non-square panel crops nothing and the cluster keeps its aspect.
-     */
-    const half = maxR / FRAME_FILL / zoom;
-    const aspect = w / h;
-    const halfW = aspect >= 1 ? half * aspect : half;
-    const halfH = aspect >= 1 ? half : half / aspect;
-    camera.left = -halfW;
-    camera.right = halfW;
-    camera.top = halfH;
-    camera.bottom = -halfH;
-    camera.updateProjectionMatrix();
-    /* Pixels per parsec along the SHORT edge, which is the axis `half` bounds.
-       Published so a caller can draw a scale bar that stays true through zoom and
-       through the cluster's own expansion. */
-    pxPerPc = Math.min(w, h) / (2 * half);
-    dirty = true;
-  }
-
-  let disposed = false;
-  let drifting = (opts.drifting ?? false) && !reducedMotion;
-  let yaw = 0;
-  let dirty = true;
-  let frames = 0;
-  let raf = 0;
-  let onScreen = true;
-  let lastNow: number | null = null;
-  const DRIFT_PERIOD_SEC = 110;
-
-  /*
-   * A WebGPU device is acquired ASYNCHRONOUSLY, and `render()` before that throws
-   * "called before the backend is initialized".
-   *
-   * `initStarLab` solves this by being an async factory. This one stays
-   * SYNCHRONOUS and gates painting instead, which is what its callers need: an
-   * explorable rebuilds its cluster from a slider, a reset and a reseed, and an
-   * async mount means several builds can be in flight at once — the previous
-   * version of this page carried a mount-token guard for exactly that race. A
-   * sync factory that simply does not paint until the device is ready has no
-   * race to guard.
-   */
-  let ready = false;
-
-  function draw(): void {
-    if (!ready) return;
-    frames++;
-    renderer.render(scene, camera);
-  }
-
-  function tick(now: number): void {
-    raf = requestAnimationFrame(tick);
-    syncSize();
-    if (drifting && lastNow !== null) {
-      yaw += ((2 * Math.PI) / DRIFT_PERIOD_SEC) * ((now - lastNow) / 1000);
-      scene.rotation.y = yaw;
-      dirty = true;
-    }
-    lastNow = now;
-    if (!dirty) return;
-    dirty = false;
-    draw();
-  }
-
-  function play(): void {
-    if (raf || document.hidden || !onScreen) return;
-    lastNow = null;
-    raf = requestAnimationFrame(tick);
-  }
-  function stop(): void {
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0;
-  }
-
-  const io = new IntersectionObserver(
-    (e) => {
-      onScreen = e[0]?.isIntersecting ?? true;
-      if (onScreen) play();
-      else stop();
-    },
-    { threshold: 0 },
-  );
-  function onVisibility(): void {
-    if (document.hidden) stop();
-    else play();
-  }
-  function onResize(): void {
-    syncSize();
-  }
-
-  // ── drag to orbit, matching census's `attachOrbit` affordance ──
-  let dragging = false;
-  let lastX = 0;
-  let lastY = 0;
-  let pitch = 0;
-  const onDown = (e: PointerEvent): void => {
-    dragging = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    canvas.setPointerCapture(e.pointerId);
-  };
-  const onMove = (e: PointerEvent): void => {
-    if (!dragging) return;
-    yaw += (e.clientX - lastX) * 0.01;
-    pitch = Math.max(-1.45, Math.min(1.45, pitch + (e.clientY - lastY) * 0.01));
-    lastX = e.clientX;
-    lastY = e.clientY;
-    scene.rotation.y = yaw;
-    scene.rotation.x = pitch;
-    dirty = true;
-  };
-  const onUp = (e: PointerEvent): void => {
-    dragging = false;
-    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-  };
-  /* Wheel zooms about the frame centre, as census's `attachOrbit` does. Passive
-     false because a zoomable canvas that also scrolls the page is unusable. */
-  const onWheel = (e: WheelEvent): void => {
-    e.preventDefault();
-    zoom = Math.min(40, Math.max(0.15, zoom * Math.exp(-e.deltaY * 0.0015)));
-    reframe = true;
-    dirty = true;
-  };
-  canvas.addEventListener("wheel", onWheel, { passive: false });
-  canvas.addEventListener("pointerdown", onDown);
-  canvas.addEventListener("pointermove", onMove);
-  canvas.addEventListener("pointerup", onUp);
-  canvas.addEventListener("pointercancel", onUp);
 
   build(model);
-  io.observe(canvas);
-  window.addEventListener("resize", onResize, { passive: true });
-  document.addEventListener("visibilitychange", onVisibility);
-  /* Everything above is device-independent: the scene graph, the geometry and the
-     listeners all exist before the GPU does. Only painting waits. */
-  void renderer.init().then(() => {
-    if (disposed) return; // disposed while awaiting the device
-    ready = true;
-    syncSize();
-    dirty = true;
-    draw();
-    play();
-    opts.onReady?.();
-  });
+  /* AFTER the geometry exists, so the first painted frame is never an empty scene and `onReady`
+     cannot fire on one. See sceneHost's "START IS EXPLICIT". */
+  host.start();
 
   return {
     setModel(next) {
-      build(next);
-      reframe = true;
-      syncSize();
-      dirty = true;
-      if (!raf) draw(); // a rebuilt model must reach the screen even while paused
+      build(next);          // build() re-frames through the host, which sets `reframe`
+      host.redraw();        // redraw syncs size first, so the new framing is applied before paint
     },
     setPositions(xyz) {
       if (!buffers) return;
       const arr = buffers.pos.array as Float32Array;
       arr.set(xyz.subarray(0, Math.min(arr.length, xyz.length)));
       buffers.pos.needsUpdate = true;
-      dirty = true;
-      if (!raf) draw();
+      host.redraw();
     },
     setAlpha(alpha) {
       if (!buffers) return;
       const arr = buffers.alpha.array as Float32Array;
       arr.set(alpha.subarray(0, Math.min(arr.length, alpha.length)));
       buffers.alpha.needsUpdate = true;
-      dirty = true;
-      if (!raf) draw();
+      host.redraw();
     },
-    reducedMotion,
+    reducedMotion: host.reducedMotion,
     get drifting() {
-      return drifting;
+      return host.drifting;
     },
     setDrifting(on) {
-      drifting = on && !reducedMotion;
-      lastNow = null;
-      dirty = true;
+      host.setDrifting(on);
     },
     get frames() {
-      return frames;
+      return host.frames;
     },
     get backend() {
-      return isWebGPUBackend(renderer.backend) ? "webgpu" : "webgl2";
+      return host.backend;
     },
     get maxRPc() {
-      return maxR;
+      return host.maxRPc;
     },
     setFraming(next) {
-      if (next.centre) {
-        centre.set(next.centre[0] ?? 0, next.centre[1] ?? 0, next.centre[2] ?? 0);
-        pivot.position.copy(centre).multiplyScalar(-1);
-      }
-      if (next.radiusPc !== undefined && next.radiusPc > 0) maxR = next.radiusPc;
-      reframe = true;
-      dirty = true;
+      host.setFraming(next);
     },
     setTrail(xyz, colour) {
       if (!xyz || xyz.length < 6) {
         if (trailLine) trailLine.visible = false;
-        dirty = true;
-        if (!raf) draw();
+        host.redraw();
         return;
       }
       ensureTrail();
@@ -627,43 +441,29 @@ export function createClusterPoints(
       trailGeom!.setDrawRange(0, floats / 3);
       if (colour) trailMat!.color.setRGB(colour[0], colour[1], colour[2]);
       trailLine!.visible = true;
-      dirty = true;
-      if (!raf) draw();
+      host.redraw();
     },
     setZoom(z) {
-      zoom = Math.min(40, Math.max(0.15, z));
-      reframe = true;
-      dirty = true;
+      host.setZoom(z);
     },
     get zoom() {
-      return zoom;
+      return host.zoom;
     },
     get pxPerPc() {
-      return pxPerPc;
+      return host.pxPerPc;
     },
     redraw() {
-      dirty = true;
-      if (!raf) draw();
+      host.redraw();
     },
     dispose() {
-      disposed = true;
-      if (trailLine) pivot.remove(trailLine);
+      if (trailLine) host.pivot.remove(trailLine);
       trailGeom?.dispose();
       trailMat?.dispose();
       trailLine = null;
       trailGeom = null;
       trailMat = null;
-      stop();
-      io.disconnect();
-      window.removeEventListener("resize", onResize);
-      document.removeEventListener("visibilitychange", onVisibility);
-      canvas.removeEventListener("wheel", onWheel);
-      canvas.removeEventListener("pointerdown", onDown);
-      canvas.removeEventListener("pointermove", onMove);
-      canvas.removeEventListener("pointerup", onUp);
-      canvas.removeEventListener("pointercancel", onUp);
       disposeMesh();
-      void renderer.dispose();
+      host.dispose();
     },
   };
 }
