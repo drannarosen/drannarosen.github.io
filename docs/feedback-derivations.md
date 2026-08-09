@@ -524,3 +524,102 @@ the largest remaining un-modelled coupling in the wind channel.
 $\dot M_{\rm abl}$, $\rho_X$ and $c_X$ are not represented as state anywhere —
 the KM09 coupling uses only the closed-form result, not the balance that
 produced it.
+
+---
+
+## N. Terminal velocity, revisited
+
+$v_\infty = \kappa\,v_{\rm esc,eff}$ with $\kappa$ now **2.6 above the
+bi-stability jump, 1.3 below it** (Lamers, Snow & Lindholm 1995, via Vink sec 4)
+for *both* prescriptions, replacing Björklund's grid mean of 4.5.
+
+**Why substituting is legitimate for Björklund and would not be for Vink.**
+Vink's eqs (24)/(25) carry $-c\log_{10}[(v_\infty/v_{\rm esc})/2.0]$ as an
+**input term**, so $\dot M$ is evaluated *at* an assumed ratio and the two must
+travel together. Björklund's eq (7) contains no $v_\infty$ term — it is a
+function of $(L, M_{\rm eff}, T_{\rm eff}, Z)$ alone — so pairing it with an
+observationally calibrated speed leaves the fit intact.
+
+| | before | after | observed O stars |
+|---|---|---|---|
+| $\langle v_\infty\rangle$, Björklund | 5115–5180 km/s | **2956–2993** | ~1200–3500 |
+
+**The tension, stated rather than hidden.** Björklund's headline negative result
+is that there is **no bi-stability jump in mass loss** below ~20 kK. Using a
+jump-dependent $v_\infty$ alongside a single-branch $\dot M$ mixes a claim the
+paper rejects into a quantity the paper does not model. It is defensible — the
+velocity ratios are an observational result about wind *dynamics*, independent
+of whether $\dot M$ jumps — but it is our composition, not theirs. The $\dot M$
+branch is untouched.
+
+**Recalibration.** $\eta_{\max}\propto v_\infty(\rho_0/L_w)^{1/5}$ and
+$L_w\propto v_\infty^{2}$, so the ceiling falls:
+
+| | $\eta_{\max}$ before | after | $f_{\rm leak}$ |
+|---|---|---|---|
+| Björklund | 96.2–149.4 | **80.1–124.5** | 0.963 → **0.956** |
+| Vink | 30.4–71.0 | unchanged | 0.905 |
+
+The two prescriptions' leakage values converged (0.956 vs 0.905) once their wind
+*speeds* were equalised — what remains is the $\dot M$ difference alone.
+
+---
+
+## O. What $\psi$ is, and the 1-versus-3.2 question
+
+$$\psi \equiv \frac{L}{S\epsilon_0}$$
+
+KM09 sec 2: "the ratio of the star's bolometric power to its ionizing power,
+**counting only an energy $\epsilon_0$ per ionizing photon**." The last clause is
+the whole subtlety. $S\epsilon_0$ is not the power carried by ionizing photons —
+it is the ionizing photon *rate* times the 13.6 eV threshold. Real ionizing
+photons average appreciably more than threshold, so $\psi$ is not simply
+$L/L_{\rm ion}$.
+
+For a hot star roughly half the bolometric luminosity sits above the Lyman
+limit, and the mean photon energy there is ~20 eV, so
+$S\epsilon_0 \approx 0.5L\times(13.6/20) \approx 0.34L$ and $\psi\approx3$.
+That is what our clusters compute.
+
+**Where it enters: r_ch and nothing else.** No budget quantity depends on
+$\psi$ — the radiation momentum is $f_{\rm trap}(L/c)t$, which contains no
+$\psi$. It locates the pressure crossing, so it decides *whether radiation or
+gas pressure dominates*, not how much momentum is delivered.
+
+**The case for 3.2 (what we use).** It is the correct evaluation of KM09's own
+definition on our population, and it is consistent with their own inputs:
+Sternberg's class-V table gives $\psi = 2.56$ (O3), 3.90 (O7), 20.9 (B0.5).
+KM09's stated condition — luminosity dominated by massive stars — *holds* here:
+96.6% of `orion`'s bolometric light comes from its 16 ionizing stars, so the
+value is not being inflated by the low-mass majority. "$\psi\sim1$" is an
+order-of-magnitude remark, not a measurement.
+
+**The case for 1.** Every published $r_{\rm ch}$ relation is evaluated there —
+KM09's $9.2\times10^{-2}S_{49}$ pc and Lopez et al. (2014)'s
+$0.072\,S_{49}$ pc — so comparisons are only like-for-like at $\psi = 1$ *and*
+$f_{\rm trap} = 2$.
+
+**Reported, not switched.** `rChFiducialKM09` gives $r_{\rm ch}$ at that pair
+alongside the working value:
+
+| | $\psi$ | $r_{\rm ch}$ (ours) | $r_{\rm ch}$ at $\psi{=}1,f{=}2$ | Lopez eq (12) | $r_{\rm cloud}$ |
+|---|---|---|---|---|---|
+| diffuse | 6.51 | 0.15 | 0.06 | 0.05 | 3.0 |
+| orion | 3.18 | 3.05 | 4.83 | 3.77 | 2.5 |
+| compact | 3.47 | 10.12 | 13.31 | 10.40 | 2.0 |
+
+The fiducial column now tracks Lopez to within 28%, confirming the formula is
+applied correctly and the difference really is the parameter choice.
+
+**Substituting $\psi=1$ into the working $r_{\rm ch}$ was tried and rejected.**
+$\psi$ appears in $r_{\rm ch}$ but *not* in the pressure comparison, which uses
+the true $L$ and $S$. Overriding it made `radiationDominated` (from
+$r_{\rm ch}$) contradict `pressureRatioAtCloud` (from the pressures) — `orion`
+read "not radiation dominated" while its pressure ratio was 1.10. Those two
+fields are documented as equivalent by construction. A comparison number must
+not be allowed to break an invariant.
+
+**Unresolved.** Lopez measure 30 Doradus's transition at $\lesssim75$ pc against
+the 33 pc the $\psi=1$ formula predicts, implying an effective $\psi\approx1.5$
+— between the two. Our value is the correct arithmetic; whether $r_{\rm ch}$
+computed with it is the right *physical* transition radius is genuinely open.

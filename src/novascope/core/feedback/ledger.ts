@@ -106,6 +106,7 @@ export interface LeakageKnobs {
    * in docs/feedback-derivations.md §M and disagree by ~5x, deliberately.
    */
   porosityCoupling: PorosityCoupling;
+
 }
 
 /**
@@ -120,7 +121,7 @@ export interface LeakageKnobs {
  * IT DIFFERS BY PRESCRIPTION, and that is worth stating plainly rather than
  * hiding. f_leak ought to be a property of the cloud's mixing physics, not of
  * the wind recipe. But eta_max depends on the mechanical luminosity, and
- * Björklund's faster winds give a ceiling 2-3x Vink's (96-149 against 30-71),
+ * Björklund's higher Mdot gives a ceiling ~2.5x Vink's (80-125 against 30-71),
  * so reaching the SAME measured eta requires leaking away a larger share of a
  * larger number. Calibrating to a measurement means f_leak absorbs that
  * difference; the alternative — one f_leak for both — would put at most one
@@ -130,15 +131,19 @@ export interface LeakageKnobs {
  * and re-derived by check-feedback, which fails if either constant drifts from
  * what the data now implies or if any environment leaves the 3-8 bracket:
  *
- *   Björklund  f_leak 0.963  ->  eta 4.52-6.49  (geometric mean 5.42)
+ *   Björklund  f_leak 0.956  ->  eta 4.48-6.43  (geometric mean 5.37)
  *   Vink       f_leak 0.905  ->  eta 3.79-7.65  (geometric mean 5.39)
+ *
+ * The two moved closer once Björklund adopted Vink's v_inf/v_esc ratios: the
+ * ceiling depends on the wind speed, so equalizing the speeds equalizes most of
+ * the gap. What remains (0.956 vs 0.905) is the Mdot difference alone.
  *
  * The previous single default of 0.9 was, it turns out, a well-calibrated VINK
  * value — Vink's derived figure is 0.905 — carried unchanged onto Björklund,
  * where it gave eta 10.5-15.8, above the bracket.
  */
 export const WIND_LEAK_DEFAULT: Record<WindPrescription, number> = {
-  bjorklund: 0.963,
+  bjorklund: 0.956,
   vink: 0.905,
 };
 

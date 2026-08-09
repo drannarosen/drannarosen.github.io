@@ -254,11 +254,41 @@ function logMdotCool(logL5: number, logM30: number, teff: number, z: number): nu
  *
  * The paper already flags its own 3300 km/s as "not generally found in the
  * observational literature" (sec 5.1) and offers candidate causes. Ours sits
- * further out still. This is a rung mismatch — an evolved-track coefficient on
- * a ZAMS backend — recorded rather than corrected, because correcting it would
- * mean inventing a v_inf law the paper does not publish.
+ * further out still.
+ *
+ * NO LONGER USED FOR THE SHIPPED v_inf — see BJ_USES_VINK_VRATIO below. Kept
+ * exported because it is the paper's own number and a gate checks against it.
  */
-const BJ_VRATIO = 4.5;
+export const BJ_VRATIO_GRID_MEAN = 4.5;
+
+/*
+ * WHY THE BJÖRKLUND BRANCH TAKES VINK'S v_inf/v_esc RATIOS (2.6 / 1.3).
+ *
+ * Björklund publish a mass-loss recipe and nothing else — their abstract is
+ * explicit: "The resulting MASS-LOSS RATES are used to derive a simple scaling
+ * recipe with stellar parameters". There is no v_inf(M, R, L) law in the paper,
+ * only the grid mean above, and applying a population mean per star to ZAMS
+ * radii put our speeds 1.55x above their own mean (5115-5180 against 3300).
+ *
+ * SUBSTITUTING IS LEGITIMATE HERE AND WOULD NOT BE FOR VINK. Vink's eqs (24)
+ * and (25) carry v_inf/v_esc as an INPUT term, -c log10[(v_inf/v_esc)/2.0], so
+ * Mdot is evaluated AT an assumed ratio and the two must travel together.
+ * Björklund's eq (7) contains no v_inf term at all — it is a function of
+ * (L, M_eff, Teff, Z) only — so pairing it with a different, observationally
+ * calibrated terminal speed leaves the fit intact.
+ *
+ * The ratios are Lamers, Snow & Lindholm (1995) for Galactic stars, via Vink
+ * sec 4: ~2.6 above the bi-stability jump, dropping to ~1.3 below it.
+ *
+ * ONE TENSION, STATED RATHER THAN HIDDEN. Björklund's headline negative result
+ * is that there is NO bi-stability jump in MASS LOSS on the cool side of
+ * ~20 kK. Using a jump-dependent v_inf with a single-branch Mdot is therefore
+ * mixing a claim the paper rejects into a quantity the paper does not model.
+ * It is defensible — the velocity ratios are an observational result about
+ * wind dynamics, independent of whether Mdot jumps — but it is our composition,
+ * not theirs. The Mdot branch is untouched: Björklund stays single-branch.
+ */
+const BJ_USES_VINK_VRATIO = true;
 
 /** Björklund validity box (their sec 4). Outside it the recipe is not defined. */
 export const BJ_LOGL_MIN = 4.5;
@@ -347,10 +377,17 @@ export function starWind(
     if (!inRange) return { mdot: 0, vInf: 0, hot: false, outOfRange: true };
     const mEff = m * (1 - Math.min(gammaE(lSun, m, hydrogenX), 1));
     if (!(mEff > 0)) return { mdot: 0, vInf: 0, hot: false, outOfRange: true };
+    // Mdot stays SINGLE-BRANCH — Björklund find no bi-stability jump in mass
+    // loss and we must not add one. `hot` here selects only the v_inf ratio,
+    // which is Lamers et al. (1995) and observational.
+    const bjHot = teffK >= bistabilityTeff(lSun, mSun, z, hydrogenX);
+    const ratio = BJ_USES_VINK_VRATIO
+      ? (bjHot ? VRATIO_HOT : VRATIO_COOL)
+      : BJ_VRATIO_GRID_MEAN;
     return {
       mdot: 10 ** logMdotBjorklund(lSun, mEff, teffK, z),
-      vInf: BJ_VRATIO * vEsc,
-      hot: false,
+      vInf: ratio * vEsc,
+      hot: bjHot,
     };
   }
 

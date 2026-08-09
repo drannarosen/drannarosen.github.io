@@ -308,6 +308,25 @@ export function characteristicRadius(
 }
 
 /**
+ * KM09's fiducial psi. Their sec 2: "For massive stars and clusters whose
+ * luminosity comes mostly from massive stars, psi ~ 1."
+ *
+ * It is the value every published r_ch relation is evaluated at — KM09's own
+ * 9.2e-2 S_49 pc and Lopez et al. (2014) eq (12)'s 0.072 S_49 pc alike — which
+ * is the only reason to keep it: comparisons to those numbers are not
+ * like-for-like unless psi = 1 is used.
+ *
+ * IT IS NOT WHAT REAL STARS GIVE. Sternberg's own class-V table, which supplies
+ * our Q, yields psi = 2.56 (O3), 3.90 (O7), 20.9 (B0.5); the shipped clusters
+ * compute 3.18-6.51. KM09's condition holds here — 96.6% of `orion`'s
+ * bolometric light comes from its 16 ionizing stars — so the discrepancy is not
+ * that low-mass stars are inflating the numerator. "psi ~ 1" is an
+ * order-of-magnitude statement, and taking it as a value is a ~10x error in
+ * r_ch, which goes as psi^2.
+ */
+export const PSI_FIDUCIAL_KM09 = 1.0;
+
+/**
  * psi = L / (S eps_0): the ratio of bolometric to ionizing power, counting only
  * eps_0 per ionizing photon (KM09). Computable from the population, so it is not
  * a free parameter for us.
@@ -338,6 +357,23 @@ export interface RadiationBudget {
   /** Ionized-gas pressure at the cloud radius [dyn/cm^2]. */
   pHiiAtCloud: number;
   /**
+   * r_ch recomputed at KM09's fiducial psi = 1 AND their f_trap = 2 [pc].
+   *
+   * REPORTED, NEVER USED. Published r_ch relations — KM09's 9.2e-2 S_49 pc and
+   * Lopez et al. (2014) eq (12)'s 0.072 S_49 pc — are all evaluated at that
+   * pair, so this is the only number that compares to them like for like. Our
+   * working r_ch uses the population's real psi (3.2-6.5) and our own f_trap
+   * (~C_f), and r_ch goes as psi^2 f_trap^2, so the two differ by more than an
+   * order of magnitude and must not be confused.
+   *
+   * Substituting psi = 1 into the WORKING r_ch was tried and rejected: psi
+   * appears in r_ch but not in the pressure comparison, which uses the true L
+   * and S, so an overridden psi made `radiationDominated` contradict
+   * `pressureRatioAtCloud` — two fields documented as equivalent by
+   * construction. A comparison number cannot be allowed to break an invariant.
+   */
+  rChFiducialKM09: number;
+  /**
    * P_rad/P_HII at the cloud radius — the INSTANTANEOUS dominance criterion,
    * reported alongside the ledger's integrated-momentum comparison because the
    * two ask different questions and may disagree. Equivalent to
@@ -355,6 +391,8 @@ export function radiationBudget(
   cloudRadiusPc: number,
   fTrap: number = F_TRAP_FIDUCIAL,
 ): RadiationBudget {
+  // psi enters r_ch ONLY. The momentum f_trap L/c t does not contain it, so
+  // NOTHING in the budget depends on psi — it locates the pressure crossing.
   const psi = psiRatio(lTotalSun, sTotalPerS);
   const rCh = characteristicRadius(sTotalPerS, psi, fTrap);
   const cmp = pressureComparison(lTotalSun, sTotalPerS, cloudRadiusPc, fTrap);
@@ -363,6 +401,7 @@ export function radiationBudget(
     momentum: radiationMomentum(lTotalSun, tMyr, fTrap),
     psi,
     rCh,
+    rChFiducialKM09: characteristicRadius(sTotalPerS, PSI_FIDUCIAL_KM09, F_TRAP_FIDUCIAL, true),
     radiationDominated: rCh >= cloudRadiusPc,
     pRadAtCloud: cmp.pRad,
     pHiiAtCloud: cmp.pHii,

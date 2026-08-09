@@ -308,6 +308,31 @@ check(
  *     f_trap,w ~= 0.22/(1 - C_f) having dropped the 1.02, and f_w ~= 0.5, so
  *     f_w * eta must reproduce it to within that approximation.
  */
+/* 10b. psi, and the fiducial comparison.
+ *
+ *      psi enters r_ch and NOTHING else, so no budget quantity depends on it.
+ *      The fiducial number exists only to compare like-for-like against
+ *      published relations, which are all evaluated at psi = 1 AND f_trap = 2.
+ *      Gated at KM09's own coefficient so the comparison stays honest.
+ */
+console.log("feedback: psi and the fiducial r_ch comparison");
+const { psiRatio, PSI_FIDUCIAL_KM09, radiationBudget } = await import(
+  "../src/novascope/core/feedback/radiation.ts"
+);
+check("KM09 fiducial psi is 1", PSI_FIDUCIAL_KM09, 1, 0);
+{
+  // psi = L/(S eps_0). A star emitting exactly eps_0 per ionizing photon has psi = 1.
+  const EPS = 13.6 * 1.602176634e-12, LSUN = 3.828e33, S = 1e49;
+  check("psi = 1 when L = S eps_0 exactly", psiRatio((S * EPS) / LSUN, S), 1, 1e-12);
+  check("psi scales linearly with L", psiRatio((2 * S * EPS) / LSUN, S), 2, 1e-12);
+
+  // The fiducial r_ch must equal KM09's published evaluation for its S.
+  const rb = radiationBudget(1e6, S, 3, 2.5, 0.5);
+  check("rChFiducialKM09 reproduces KM09's 9.2e-2 S_49", rb.rChFiducialKM09, 9.2e-2, 5e-3);
+  // ...and must NOT equal the working r_ch, which uses our psi and f_trap.
+  check("fiducial r_ch differs from the working one", Math.abs(rb.rChFiducialKM09 - rb.rCh) > 1e-6, true, 0);
+}
+
 console.log("feedback: porosity coupling (KM09 porous bubble)");
 const { etaPorousKM09, ALPHA_P_TARGET: A_P } = await import("../src/novascope/core/feedback/bubble.ts");
 const F_W = 0.5; // KM09: wind momentum in units of L/c
