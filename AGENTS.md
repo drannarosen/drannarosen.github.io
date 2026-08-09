@@ -59,20 +59,18 @@ fetch from the wrong host. See `docs/domain-migration.md`.
 
 Do NOT touch DNS or reconfigure the domain.
 
-**A branch deploy is COMMITTED BUT NOT LIVE.** `d72538e` rewrites the workflow
-to force-push `dist/` to `gh-pages`, and it is unpushed; `origin/main`'s
-workflow still uses `upload-pages-artifact` and Pages is still set to the
-Actions source. So the live site is still served from an artifact. See
-`docs/deployment.md` for the design, the switchover runbook, and — read this
-first — why the reason for the change turned out to be wrong.
+**Pages serves the `gh-pages` branch.** Switched over 2026-08-09 and verified:
+the live page is byte-identical to the published tree, the branch is a single
+orphan commit, and the run creates no artifact. `main` is the SOURCE; `gh-pages`
+is BUILD OUTPUT, rewritten wholesale by every deploy — never edit it, never
+merge it into `main`. See `docs/deployment.md` for the design, what the
+switchover looked like, and — read this first — why the reason originally given
+for the change was wrong.
 
-The switchover ORDER matters: push first, then repoint Pages. Reversing it
-points Pages at a branch that does not exist yet and 404s the live domain.
-
-(This paragraph said "Pages serves the `gh-pages` branch" as settled fact while
-none of it had shipped. It is the same failure as the migration note that used
-to sit here describing a move that had already happened — a doc asserting a
-state of the world it had not checked.)
+(This paragraph has now been wrong in BOTH directions: it once described the
+change as shipped while nothing had, and before that described the domain
+migration as pending when it had already happened. If you are about to write a
+deployment fact here, check it against the live site in the same turn.)
 
 **The simulation data stays in this repository.** `public/data/gravoturb/` is
 17 MB and there was a plan to split it into its own repo; it is dropped, because

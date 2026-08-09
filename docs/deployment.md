@@ -65,9 +65,9 @@ cost. What it buys now is tidiness: no artifact churn, and a published tree you 
 What it costs is a manual Pages setting and the switchover order below, which can take the site
 down if reversed.
 
-The switchover has **not happened yet** — `d72538e` is committed and unpushed at the time of
-writing. Continuing is a choice, not a commitment already made, and reverting to the artifact
-route is cheaper now than it will be after the source is switched.
+**The switchover happened on 2026-08-09** and the runbook below is now a record of how, plus the
+rollback. It was carried out with the cost premise already known to be wrong, i.e. on the
+tidiness argument alone rather than on the one this file used to make.
 
 ## Where the simulation data lives — HERE, and it stays here
 
@@ -99,7 +99,10 @@ it sits under `public/` and ships on every deploy. Moving it out of `public/` is
 the export script's output path and to that check's assumptions, so it stays Anna's call rather
 than a silent cleanup.
 
-## Switching over — ORDER MATTERS
+## How the switchover went — ORDER MATTERS
+
+**Done 2026-08-09.** Kept because it is the order to repeat if Pages is ever re-pointed, and
+because the failure mode is a live 404 rather than something that shows up in a build.
 
 Doing these in the wrong order takes the site down.
 
@@ -121,6 +124,30 @@ Doing these in the wrong order takes the site down.
 
 Reversing 1 and 2 points Pages at a branch that does not exist yet, which is a
 404 on the live domain until the first publish lands.
+
+### What it actually looked like
+
+Verified on the day rather than assumed, because a green push is not a live site:
+
+- Deploy run `31287762554` — **success**, 3m02s, including the publish step.
+- **Zero artifacts created by the run**, which was the mechanical point of the change.
+- `gh-pages` at `a225db9` with **`parents=0`**: `force_orphan` is doing its job and the branch
+  is one commit, not a growing pile.
+- The published tree carries `CNAME` = `anna-rosen.com` and the `data/` directory.
+- **Between step 1 and step 2 the live site was correctly STALE, not broken** — still serving
+  the artifact build from 2026-08-08 07:30, every page 200. That is the behaviour step 1
+  predicts, and seeing it is what tells you the order was right.
+- After step 2: live `/explore/dynamics/` **byte-identical** to the `gh-pages` copy (168,751
+  bytes, `cmp` clean), `last-modified` 2026-08-09 01:23, certificate `CN=anna-rosen.com`, and
+  `http://` still 301s to `https://` — so *Enforce HTTPS* survived the source change.
+
+Two measurement traps hit while checking this, both of which briefly looked like a broken site:
+
+- `curl -sI https://anna-rosen.com/explore/dynamics` returns **162 bytes** — that is the 301 to
+  the trailing-slash URL, not a broken page. Follow redirects (`-L`) and use the trailing slash.
+- `echo "$var" | grep` **silently mangles** a 168 kB multi-line shell variable, reporting every
+  marker as absent on a page that contained all of them. Write the response to a file and grep
+  the file.
 
 ## Rolling back
 
