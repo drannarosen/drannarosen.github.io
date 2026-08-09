@@ -91,6 +91,18 @@ export interface VolumeLayerOptions {
    * This is the switch that makes the comparison meaningful — not a quality setting.
    */
   parityMode?: boolean;
+  /**
+   * Output a raw intermediate instead of the picture, as a grey level.
+   *
+   * Instrumentation at the boundaries, so a disagreement with the reference can be attributed
+   * instead of guessed at. Each answers one question with one number:
+   *
+   *   "sample"     what `texture3D` actually returns, before any windowing. A cube filled with
+   *                byte 200 must read back 200.
+   *   "pathLength" t1 - t0 for this ray. Axis-aligned through a unit box, it must be 1.0 -> 255.
+   *   "alpha"      the accumulated opacity, isolating the transfer from the colour ramp.
+   */
+  debug?: "sample" | "pathLength" | "alpha" | "s" | "ramp";
 }
 
 export interface VolumeLayer {
@@ -162,6 +174,8 @@ export function createVolumeLayer(data: VolumeData, opts: VolumeLayerOptions = {
   const pale = vec3(...RAMP_PALE);
   const warm = vec3(...RAMP_WARM);
 
+  const debugMode = opts.debug ?? null;
+
   material.colorNode = Fn(() => {
     const rd = uRayDir.normalize().toVar();
     /* Start outside the unit box and slab-test in, rather than marching from the back face
@@ -179,7 +193,15 @@ export function createVolumeLayer(data: VolumeData, opts: VolumeLayerOptions = {
     const acc = vec3(0).toVar();
     const alpha = float(0).toVar();
 
+    /* The raw sample, taken once at the ray's midpoint through the box — before windowing, gamma,
+       the ramp or any accumulation. If this disagrees with the byte that was uploaded, nothing
+       downstream can be trusted and nothing downstream is at fault. */
+    const probe = float(0).toVar();
+
     If(t1.greaterThan(max(t0, float(0))), () => {
+      const tm = t0.add(t1).mul(0.5);
+      const spm = ro.add(rd.mul(tm)).add(0.5);
+      probe.assign(texture3D(tex, vec3(0.5).add(spm.sub(0.5).div(uS))).r);
       const dt = t1.sub(t0).div(float(VOLUME_STEPS)).toVar();
       /* A hash of the fragment position, so neighbouring rays start at different offsets and the
          112 steps do not band. Zeroed in parity mode — see VolumeLayerOptions. */
@@ -215,6 +237,22 @@ export function createVolumeLayer(data: VolumeData, opts: VolumeLayerOptions = {
       });
     });
 
+    if (debugMode === "sample") return vec4(probe, probe, probe, 1);
+    if (debugMode === "s") {
+      const dd = probe.sub(uDilute).sub(uMassDilute);
+      const ss = clamp(dd.sub(uFloor).div(float(1).sub(uFloor)), 0, 1);
+      return vec4(ss, ss, ss, 1);
+    }
+    if (debugMode === "ramp") {
+      const dd = probe.sub(uDilute).sub(uMassDilute);
+      const ss = clamp(dd.sub(uFloor).div(float(1).sub(uFloor)), 0, 1);
+      return vec4(mix(mix(deep, pale, pow(ss, 0.7)), warm, smoothstep(0.72, 1, ss).mul(0.5)), 1);
+    }
+    if (debugMode === "pathLength") {
+      const len = max(t1.sub(max(t0, float(0))), float(0));
+      return vec4(len, len, len, 1);
+    }
+    if (debugMode === "alpha") return vec4(alpha, alpha, alpha, 1);
     return vec4(acc, alpha);
   })();
 

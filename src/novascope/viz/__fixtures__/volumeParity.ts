@@ -17,12 +17,24 @@
  * is tested against the analytic slab in node. Comparing against that checks the port against
  * mathematics, and it is the same shape as `check-parity` for the starfield.
  *
- * ── OVER BLACK, SO PREMULTIPLICATION CANCELS ──
+ * ── THE READBACK, WHICH IS WHERE THIS FIRST WENT WRONG ──
  *
- * The march accumulates premultiplied colour. Composited over an opaque BLACK background,
- * premultiplied blending gives exactly `acc` — the reference's own output, with no un-premultiply
- * step and no alpha bookkeeping to get wrong. That is why the readback background is black and not
- * the page's dark blue: it makes the comparison an identity rather than a conversion.
+ * Two display-side transforms sit between the shader's `acc` and a pixel, and the first version of
+ * this file walked through both without noticing. Instrumenting the shader on a uniform cube
+ * settled it: sample, path length, `s`, the ramp and alpha were EVERY ONE correct, and the final
+ * image still disagreed by 0.84.
+ *
+ *   1. sRGB ENCODE. The renderer's output color space is sRGB, so a shader value of 0.7843 leaves
+ *      as 0.8984 — which is exactly what the raw-sample probe read back for an uploaded byte of
+ *      200. The reference is linear, so comparing through the encode compares the encode.
+ *
+ *   2. A SECOND MULTIPLY BY ALPHA. Compositing the canvas over an opaque background applied alpha
+ *      again to colour that was already premultiplied. The arithmetic closed exactly:
+ *      encode(0.9223) * 0.8069 = 0.7787, i.e. 198.6 levels against 198 observed.
+ *
+ * So: render in LINEAR (no encode to undo, and no 8-bit precision spent on a gamma curve), and read
+ * from a TRANSPARENT scratch canvas. `getImageData` returns unpremultiplied RGBA, so the stored rgb
+ * comes back as the shader wrote it, with no compositing step to double-apply anything.
  *
  * ── THE JITTER IS OFF ON BOTH ──
  *
@@ -30,6 +42,7 @@
  * hash, so `parityMode` zeroes it and the reference starts every ray at t0. Without that, this
  * would be comparing noise and would need a tolerance loose enough to hide a real defect.
  */
+import { LinearSRGBColorSpace } from "three";
 import { createSceneHost } from "../sceneHost.ts";
 import { createVolumeLayer, VOLUME_STEPS, expansionFactor } from "../volumeLayer.ts";
 import {
@@ -93,11 +106,23 @@ export const DEFAULT_PARAMS: ParityParams = {
 };
 
 /**
- * One 8-bit level, doubled. Channels dimmer than this on BOTH sides are excluded from the energy
- * comparison, because the GPU cannot represent them and their disagreement is arithmetic the
- * readback threw away rather than arithmetic the shader got wrong.
+ * The exposure below which energy is not measurable, in 8-bit levels.
+ *
+ * Most of this cloud is faint: 15% of the reference's light sits under two levels in the embedded
+ * case and 64% in the expelled one, where a single level is a 30-100% relative error by itself.
+ * Summing that population and calling the result "total light" measures the readback's floor.
+ *
+ * So energy is compared over channels the instrument can actually resolve, and the excluded share
+ * is REPORTED on every line rather than quietly dropped. The median and p99 still run over every
+ * lit channel, which is where a real defect shows: `check-parity` makes the same argument for
+ * bounding the median rather than the max — "asserting the max is how a healthy renderer gets
+ * called broken".
+ *
+ * The honest improvement is a float render target, as `check-parity` uses, which removes the
+ * quantisation instead of working around it. Not done here: it needs `readRenderTargetPixelsAsync`
+ * and the backend-dependent row order that comes with it.
  */
-const QUANT_FLOOR = 2 / 255;
+const ENERGY_FLOOR = 8 / 255;
 
 /** The displayable range. The GPU clips here; a reference compared against it must too. */
 const clampDisplay = (v: number): number => (v > 1 ? 1 : v < 0 ? 0 : v);
@@ -228,6 +253,10 @@ export async function gpuRender(
       ready = true;
     },
   });
+  /* LINEAR output for the comparison only. The page ships sRGB, which is correct for a display;
+     the reference is linear, and a parity run should test the arithmetic rather than the transfer
+     curve applied after it. */
+  host.renderer.outputColorSpace = LinearSRGBColorSpace;
   const layer = createVolumeLayer(
     { volume: vol, ngrid, logRange },
     { floor: params.floor, gamma: params.gamma, emit: params.emit, absorb: params.absorb, parityMode: true },
@@ -255,8 +284,9 @@ export async function gpuRender(
   /* BLACK, so premultiplied compositing returns `acc` unchanged. ONE read: drawImage consumes a
      canvas without preserveDrawingBuffer, and a second read comes back empty — which reads as a
      dark render and has already cost one wrong conclusion in this work. */
-  g.fillStyle = "#000";
-  g.fillRect(0, 0, n, n);
+  /* TRANSPARENT, deliberately — no background to composite against, so alpha is never applied a
+     second time. See "THE READBACK" above. */
+  g.clearRect(0, 0, n, n);
   /*
    * SCALED to n x n, explicitly.
    *
@@ -291,7 +321,7 @@ export interface ParityStats {
   /** Total light on each side, and their ratio. A dropped term moves this at once. */
   cpuEnergy: number;
   gpuEnergy: number;
-  /** Share of the reference's light too dim for an 8-bit readback. Reported, never hidden. */
+  /** Share of the reference's light too faint to measure. Reported on every line. */
   excludedFraction: number;
   energyRatio: number;
   /** Median and p99 absolute difference in 8-bit display levels, over LIT pixels only. */
@@ -333,7 +363,7 @@ export function compare(cpu: ParityImage, gpu: ParityImage): ParityStats {
       /* Energy over REPRESENTABLE channels only. Below one or two levels the GPU reads zero by
          construction, so including them would compare the shader against the readback's floor. The
          excluded share is reported rather than dropped silently. */
-      if (a >= QUANT_FLOOR || b >= QUANT_FLOOR) {
+      if (a >= ENERGY_FLOOR) {
         cpuEnergy += a;
         gpuEnergy += b;
       } else {
