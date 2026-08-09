@@ -185,6 +185,11 @@ const m = (tex: string) => tex;
   import { loadScene, createEngine, attachInteraction } from "../viz/webgl/index.ts";
   import { loadFeedbackRealization, recomputeFeedback, type FeedbackRealization }
     from "../state/feedback";
+  import { decode, encode } from "../core/params/urlState.ts";
+  import {
+    FEEDBACK_SCHEMA, enabledFromState, envFromPath, leakageFromState,
+    pathFromEnv, prescriptionFromState,
+  } from "../core/params/feedbackParams.ts";
 
   /** Build-time KaTeX, cloned on demand. See the texlib note in the markup. */
   const texCache = new Map<string, string>();
@@ -230,6 +235,7 @@ const m = (tex: string) => tex;
 
     let engine: ReturnType<typeof createEngine> | null = null;
     let fb: FeedbackRealization | null = null;
+    let currentPath = "/data/gravoturb";
     let raf = 0;
     let playing = true;
     // The animation clock is this float, NOT the range input: a stepped
@@ -273,6 +279,12 @@ const m = (tex: string) => tex;
       (el.querySelector<HTMLButtonElement>("[data-presc].is-active")?.dataset.presc as
         "bjorklund" | "vink") ?? "bjorklund";
 
+    /* The address IS the state. Decoded once at mount to seed the controls, and
+       rewritten (replaceState, so the back button still leaves the page) on every
+       change. Only non-defaults are written, so a fresh load has a clean URL and a
+       shared link carries exactly what was changed. */
+    const urlState = decode(FEEDBACK_SCHEMA, location.search);
+
     const cfEl = el.querySelector<HTMLInputElement>("[data-cf]")!;
     const hiiEl = el.querySelector<HTMLInputElement>("[data-hii]")!;
     const coupling = (): "independent" | "simple" | "km09" =>
@@ -292,7 +304,33 @@ const m = (tex: string) => tex;
       return on;
     };
 
+    /** Push the live controls into the address bar. */
+    function writeUrl() {
+      const on = enabled();
+      const q = encode(FEEDBACK_SCHEMA, {
+        env: envFromPath(currentPath) as never,
+        presc: prescription() as never,
+        cf: +cfEl.value,
+        hii: +hiiEl.value,
+        coup: coupling() as never,
+        winds: on.winds,
+        photo: on.photoionization,
+        rad: on.radiation,
+      });
+      history.replaceState(null, "", q ? `${location.pathname}?${q}` : location.pathname);
+    }
+
+    /** Set a chip group's pressed state from a value, without firing its handler. */
+    const setGroup = (attr: string, value: string) => {
+      for (const b of el.querySelectorAll<HTMLButtonElement>(`[${attr}]`)) {
+        const on = b.getAttribute(attr) === value;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-pressed", String(on));
+      }
+    };
+
     async function select(path: string) {
+      currentPath = path;
       for (const b of picker.querySelectorAll<HTMLButtonElement>(".fbe__pill")) {
         const on = b.dataset.path === path;
         b.classList.toggle("is-active", on);
@@ -311,8 +349,13 @@ const m = (tex: string) => tex;
       renderBudget();
       applyScrub(+scrub.value);
       if (engine.reducedMotion) { setPlaying(false); play.disabled = true; }
+      // count(), NOT fmt(): fmt switches to exponential above 1e4 and rendered
+      // a 10,301-star population as "1.0e+4 stars".
       status.textContent =
-        `${fmt(budget.meta.n_stars as number, 0)} stars · budget is an accounting tool, not a hydro sim`;
+        `${count(budget.meta.n_stars as number)} stars · budget is an accounting tool, not a hydro sim`;
+      // The environment is part of the address too. This was missed once because
+      // the replacement that should have added it silently matched nothing.
+      writeUrl();
     }
 
     /**
@@ -405,6 +448,7 @@ const m = (tex: string) => tex;
       if (!fb) return;
       fb = recomputeFeedback(fb, { enabled: enabled(), prescription: prescription(), leakage: leakage() });
       renderBudget();
+      writeUrl();
     };
     cfEl.addEventListener("input", onKnob);
     hiiEl.addEventListener("input", onKnob);
@@ -427,6 +471,7 @@ const m = (tex: string) => tex;
         if (!fb) return;
         fb = recomputeFeedback(fb, { enabled: enabled(), prescription: prescription(), leakage: leakage() });
         renderBudget();
+        writeUrl();
       });
     frame?.addEventListener("present:next", () => { setPlaying(false); seek(animT + 0.04); });
     frame?.addEventListener("present:prev", () => { setPlaying(false); seek(animT - 0.04); });
@@ -445,7 +490,24 @@ const m = (tex: string) => tex;
     raf = requestAnimationFrame(tick);
     window.addEventListener("beforeunload", () => { cancelAnimationFrame(raf); engine?.cleanup(); });
 
-    await select("/data/gravoturb"); // default: the Orion-like fiducial
+    /* Seed every control from the address, THEN load. Doing it in this order
+       means the first budget is already the shared state — no flash of the
+       default followed by a recompute, and no URL rewritten to the default
+       before the reader's own link has been read. */
+    cfEl.value = String(urlState.cf);
+    hiiEl.value = String(urlState.hii);
+    setGroup("data-presc", urlState.presc);
+    setGroup("data-coup", urlState.coup);
+    for (const [attr, on] of [
+      ["winds", urlState.winds], ["photoionization", urlState.photo], ["radiation", urlState.rad],
+    ] as const) {
+      const c = el.querySelector<HTMLButtonElement>(`[data-ch="${attr}"]`);
+      if (c) { c.classList.toggle("is-active", on); c.setAttribute("aria-pressed", String(on)); }
+    }
+    el.querySelector<HTMLOutputElement>("[data-cf-out]")!.value = urlState.cf.toFixed(2);
+    el.querySelector<HTMLOutputElement>("[data-hii-out]")!.value = urlState.hii.toFixed(2);
+
+    await select(pathFromEnv(urlState.env));
   }
 
   // ── small DOM helpers ──

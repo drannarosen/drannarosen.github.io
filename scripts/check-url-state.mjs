@@ -397,8 +397,62 @@ console.log("\n  census — every preset survives its own URL:");
   );
 }
 
+/* ── feedback-budget ──────────────────────────────────────────────────────────
+ *
+ * The census section above exists because round-tripping each KEY passed while the
+ * PRESET TABLE did not — a schema that could only say "count" silently rewrote two
+ * presets. The feedback page has no preset table, so the equivalent whole-state
+ * object is the manifest: every realization must survive its own link, because the
+ * environment picker is the one control a talk would actually bookmark.
+ */
+console.log("\n  feedback — every shipped realization survives its own URL:");
+{
+  const { readFileSync } = await import("node:fs");
+  const {
+    FEEDBACK_SCHEMA, FEEDBACK_ENVIRONMENTS, envFromPath, pathFromEnv,
+    leakageFromState, prescriptionFromState,
+  } = await import("../src/novascope/core/params/feedbackParams.ts");
+  const { WIND_LEAK_DEFAULT } = await import("../src/novascope/core/feedback/ledger.ts");
+
+  /* DERIVED FROM THE MANIFEST, not restated: if a realization is added to the data
+     and not to the schema, this fails rather than silently dropping it from every
+     link. That is the same failure mode as the census preset table. */
+  const manifest = JSON.parse(readFileSync("public/data/gravoturb/manifest.json", "utf8"));
+  const shipped = manifest.realizations.map((r) => envFromPath(r.path));
+  for (const env of shipped) {
+    const known = FEEDBACK_ENVIRONMENTS.includes(env);
+    ok(known, `manifest realization "${env || "(root)"}" is in FEEDBACK_ENVIRONMENTS`);
+    if (!known) continue;
+    const q = env === "" ? "" : `env=${env}`;
+    const back = decode(FEEDBACK_SCHEMA, encode(FEEDBACK_SCHEMA, decode(FEEDBACK_SCHEMA, q)));
+    ok(back.env === env, `  round-trips through ?${q || "(empty)"}`);
+    ok(pathFromEnv(back.env) === r_path(manifest, env), `  resolves to its manifest path`);
+  }
+  function r_path(man, env) {
+    return man.realizations.find((r) => envFromPath(r.path) === env).path;
+  }
+
+  /* windLeak is an OUTPUT of presc. A key for it would freeze today's Lancaster
+     calibration into every old link. */
+  ok(!("windLeak" in FEEDBACK_SCHEMA), "no windLeak key — it is calibrated from presc");
+  ok(
+    WIND_LEAK_DEFAULT.bjorklund !== WIND_LEAK_DEFAULT.vink,
+    "...and the two prescriptions really do calibrate differently, so it would matter",
+  );
+  const vinkState = decode(FEEDBACK_SCHEMA, "presc=vink");
+  ok(
+    !("windLeak" in leakageFromState(vinkState)) && prescriptionFromState(vinkState) === "vink",
+    "a vink link carries the recipe and lets the calibration follow",
+  );
+}
+
+/* The exit check lives HERE, after every section — not mid-file.
+   It was above the feedback block for one commit, which meant those checks
+   printed FAIL and still exited 0: counted, reported, and completely
+   toothless. A gate that cannot fail is decoration. */
 if (failures) {
   console.error(`\n✗ url-state — ${failures} failure(s)`);
   process.exit(1);
 }
+
 console.log("\n✓ url-state ok");
