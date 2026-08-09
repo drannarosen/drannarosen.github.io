@@ -418,3 +418,109 @@ comes out confident and wrong.
 - Geometry is spherical throughout; the blister case exists but is unused.
 - The cloud potential is static — it does not respond as gas leaves.
 - Stage 2 is read from the export, so it responds to nothing on the page.
+
+---
+
+## M. Coupling the shell's porosity across channels
+
+$C_f$, $f_{\rm vent}$ and $f_{\rm leak,w}$ are not independent. They are three
+consequences of one physical structure — how full of holes the swept shell is —
+and KM09 use **the same $C_f$** for the radiation term and for the hot wind gas.
+
+The shipped defaults were mutually inconsistent:
+
+| knob | value | asserts |
+|---|---|---|
+| $C_f$ | 0.5 | half the sky is holes |
+| $f_{\rm vent}$ | 0 | **no hot gas escapes** |
+
+i.e. half the sky open to photons and sealed to the wind. Two couplings are
+implemented, selectable, with `independent` retained as the historical baseline.
+
+### M.1 Simple coupling — `simple`
+
+The fraction of solid angle that is holes is the fraction of the hot gas that
+escapes rather than pushing:
+
+$$f_{\rm vent} = 1 - C_f \qquad\Rightarrow\qquad p_w = \eta\,C_f\,\dot p_w\,t$$
+
+$\eta$ still comes from the Weaver ceiling with the Lancaster calibration. At
+$C_f = 0.5$ this simply halves the delivered wind momentum.
+
+**Assumption:** that escaping hot gas carries away its momentum share *pro rata*
+with solid angle, and that venting does not change the boost itself. Neither is
+derived; it is the minimal way to stop the two knobs contradicting each other.
+
+### M.2 KM09 coupling — `km09`
+
+KM09 solve the porous bubble properly. Ablation off the shell's inner face
+(Canto & Raga 1991, jet-limited), their eq (26):
+
+$$\dot M_{\rm abl} = 4\pi r_{\rm II}^{2}C_f\left(0.09\,\rho_{\rm II}\frac{c_{\rm II}^{2}}{2c_X}\right)$$
+
+With pressure balance $\rho_{\rm II}c_{\rm II}^{2} = \rho_Xc_X^{2}$ and
+$L_w = \dot M_wv_w^{2}/2$, steady state ($\dot M_X = \dot E_X = 0$, adiabatic
+work negligible because $C_f\dot r_{\rm II}\ll(1-C_f)c_X$) reduces eqs (24)–(25)
+to their eqs (27)–(28):
+
+$$\dot M_w = 4\pi r_{\rm II}^{2}\rho_Xc_X\left[(1-C_f)-0.045C_f\right]$$
+$$\dot M_wv_w^{2} = 20\pi r_{\rm II}^{2}\rho_Xc_X^{3}(1-C_f)$$
+
+Eliminating $c_X$ gives their eq (29):
+
+$$\rho_Xc_X^{2} = \frac{\dot M_wv_w/(4\pi r_{\rm II}^{2})}{\left[5(1-C_f)(1-1.045C_f)\right]^{1/2}}$$
+
+The force on the shell is $4\pi r_{\rm II}^{2}\rho_Xc_X^{2}$ and the injected
+rate is $\dot p_w = \dot M_wv_w$, so — using their own simplification
+$(1-C_f)(1-1.045C_f)\simeq(1-1.02C_f)^{2}$ —
+
+$$\boxed{\ \eta_{\rm KM09} = \max\!\left[1,\ \frac{1}{\sqrt5\,(1-1.02C_f)}\right]\ }$$
+
+The boost depends on **nothing but the covering fraction**. The floor at 1 is
+KM09's own: "values of $f_{\rm trap,w}$ less than $f_w$ are not realistic,
+because the wind force is always present". The divergence at
+$C_f\to1/1.02$ is also theirs and also not real — it comes from neglecting
+adiabatic losses and shell accumulation once the holes close.
+
+### M.3 The deviation — and it is large
+
+| $C_f$ | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 |
+|---|---|---|---|---|---|---|
+| $\eta_{\rm KM09}$ | 1.00 | 1.00 | 1.15 | 1.56 | 2.43 | 5.45 |
+
+**At KM09's own stated realistic value $C_f\lesssim1/2$, their analysis gives
+$\eta = 1$ — no boost at all, a purely momentum-driven bubble.** Our
+Lancaster-calibrated value is $\eta = 4.5$–6.5.
+
+Inverting: reproducing Lancaster's $\alpha_p = 5.375$ through KM09's expression
+needs $C_f = 0.899$ — a shell KM09 explicitly reject, "implausible given the
+turbulent, clumpy nature of the ISM".
+
+**So two published sources disagree by a factor ~5 about the same quantity**,
+and this engine cannot satisfy both. They are not measuring quite the same
+thing:
+
+- KM09 is a **semi-analytic steady-state balance** in which mass and energy
+  escape through holes. Its loss channel is *bulk escape*.
+- Lancaster+2025 is **3D RMHD** in which the loss channel is *turbulent mixing*
+  at the interface, and they find the photoionized region at that interface
+  suppresses Ly$\alpha$ cooling, raising $\alpha_p$. Their with-LyC values are
+  2× their own no-LyC ones (4.66/6.20 against 2.55/4.09), which is the size of
+  the effect KM09 do not model at all.
+
+Neither is wrong. The default stays on the Lancaster calibration because this
+engine *has* an H II channel, so the irradiated case is the relevant one — but
+the KM09 coupling is selectable precisely so the disagreement is visible rather
+than hidden inside a default.
+
+### M.4 What neither coupling models
+
+$f_{\rm leak,w}$ (cooling) is still not derived from $C_f$, though it should
+depend on it: Lancaster's mechanism is mixing at the interface, whose *area*
+grows with porosity. We have no published $f_{\rm leak,w}(C_f)$ to use, so the
+two remain separate knobs and the calibration absorbs the difference. This is
+the largest remaining un-modelled coupling in the wind channel.
+
+$\dot M_{\rm abl}$, $\rho_X$ and $c_X$ are not represented as state anywhere —
+the KM09 coupling uses only the closed-form result, not the balance that
+produced it.
