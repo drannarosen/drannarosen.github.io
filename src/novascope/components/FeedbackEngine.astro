@@ -355,7 +355,10 @@ const m = (tex: string) => tex;
       // count(), NOT fmt(): fmt switches to exponential above 1e4 and rendered
       // a 10,301-star population as "1.0e+4 stars".
       status.textContent =
-        `${count(budget.meta.n_stars as number)} stars · budget is an accounting tool, not a hydro sim`;
+        /* engine.starCount, NOT meta.n_stars: the export counts objects down to 0.010 Msun, so
+           44% of `n_stars` are below the hydrogen-burning limit and calling them stars on a
+           published page is a claim the data does not support. See viz/cloudScene. */
+        `${count(engine?.starCount ?? (budget.meta.n_stars as number))} stars · budget is an accounting tool, not a hydro sim`;
       // The environment is part of the address too. This was missed once because
       // the replacement that should have added it silently matched nothing.
       writeUrl();

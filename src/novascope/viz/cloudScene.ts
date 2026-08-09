@@ -25,6 +25,8 @@
  * computes.
  */
 import { toRenderModel, type RenderModel } from "../state/render.ts";
+import { M_HYDROGEN_BURNING_MSUN } from "../core/constants/index.ts";
+import type { LatentStar } from "../core/cluster/params.ts";
 import { createVolumeLayer, type VolumeLayer } from "./volumeLayer.ts";
 import { createClusterPoints, type ClusterPoints } from "./clusterPoints.ts";
 
@@ -65,6 +67,8 @@ export interface CloudSceneOptions {
 }
 
 export interface CloudScene {
+  /** How many objects are actually stars — what the page should count. See starsToRenderModel. */
+  readonly starCount: number;
   /** [0,1] scrubs the homologous gas expulsion. */
   setExpel(v: number): void;
   /** [0,1] gas mass remaining, at fixed radial shape. A different mode from expel. */
@@ -83,16 +87,40 @@ export interface CloudScene {
  */
 export function starsToRenderModel(stars: Float32Array): RenderModel {
   const n = Math.floor(stars.length / 6);
-  const latent = new Array(n);
+  const latent: LatentStar[] = [];
   for (let i = 0; i < n; i++) {
-    latent[i] = {
+    /*
+     * SUB-STELLAR OBJECTS ARE NOT DRAWN, and this is a data problem showing through.
+     *
+     * The export samples the IMF down to 0.010 Msun — an order of magnitude under the
+     * hydrogen-burning limit — so 44% of its objects are brown dwarfs (measured across all six
+     * realizations, 2026-08-09; filed for re-export). They carry ~4% of the mass and none of the
+     * feedback.
+     *
+     * Drawing them is not merely wasteful, it distorts everything else: `toRenderModel` normalizes
+     * apparent size across the population's log L, so a floor ten times too low compresses the real
+     * stars toward the minimum. Measured before this filter: 5,187 of 10,301 objects pinned at
+     * 0.6 px with the median alpha exactly on its 0.55 floor, against 5 of 1,200 on
+     * /explore/census. The cluster rendered as a field of specks because half of it was not stars.
+     *
+     * This is a stopgap over a defect in the data, and it is deliberately narrow: it changes what
+     * is DRAWN and COUNTED, never what the budget integrates. The ledger keeps summing the export
+     * as shipped.
+     */
+    if (stars[i * 6 + 3]! < M_HYDROGEN_BURNING_MSUN) continue;
+    latent.push({
       id: i,
       mass: stars[i * 6 + 3]!,
       Z: CLOUD_Z,
       x: stars[i * 6]!,
       y: stars[i * 6 + 1]!,
       z: stars[i * 6 + 2]!,
-    };
+      /* Velocities are in the export but this page never integrates, so they are zero here rather
+         than plumbed through to be ignored. */
+      vx: 0,
+      vy: 0,
+      vz: 0,
+    });
   }
   return toRenderModel(latent, { t: 0, selectedId: null, toggles: {} });
 }
@@ -153,6 +181,7 @@ export function createCloudScene(
   canvas.dataset.engine = `three.js volume + points (${stars.backend})`;
 
   return {
+    starCount: model.stars.length,
     setExpel(v) {
       volume.setExpel(v);
       stars.redraw();

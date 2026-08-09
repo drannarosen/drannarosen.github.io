@@ -82,6 +82,20 @@ export const T_SUN_K = (L_SUN_ERG_S / (4 * Math.PI * R_SUN_CM ** 2 * SIGMA_SB_CG
 /* ── Astronomical distances ── */
 
 /** Parsec [cm]. IAU 2015 B2 exact definition: 648000/pi au, with au = 1.495978707e13 cm. */
+/**
+ * The hydrogen-burning minimum mass [Msun] — the star / brown-dwarf boundary.
+ *
+ * Not an IAU nominal value like the rest of this file: it is a THEORETICAL threshold, the mass
+ * below which a contracting object never reaches core temperatures sufficient for sustained
+ * hydrogen fusion. It depends weakly on composition, and 0.08 is the standard round figure for
+ * solar abundance rather than a defined constant.
+ *
+ * It lives here because it is physical and because something had to arbitrate: the gravoturb
+ * exports sample down to 0.010 Msun, so 44% of their "stars" are below this line — measured
+ * 2026-08-09 across all six realizations. Whether an object is a star is not a rendering opinion.
+ */
+export const M_HYDROGEN_BURNING_MSUN = 0.08;
+
 export const PC_CM = (648000 / Math.PI) * 1.495978707e13;
 
 /** Astronomical unit [cm]. IAU 2012 B2 exact definition. */
