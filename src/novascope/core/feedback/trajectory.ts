@@ -25,7 +25,7 @@
 import { computeLedger, type LedgerInput } from "./ledger.ts";
 import { hiiBudget } from "./photoionization.ts";
 import { ionizingRate } from "./sources.ts";
-import { DEFAULT_LEAKAGE } from "./ledger.ts";
+import { resolveLeakage } from "./ledger.ts";
 
 export interface MomentumTrajectory {
   /** Sample times [Myr], from 0 to the pre-SN window. */
@@ -42,8 +42,26 @@ export interface MomentumTrajectory {
   windowMyr: number;
   /** Stellar crossing time [Myr] — reference line for the removal regime. */
   tCrossMyr: number;
-  /** First time the gas threshold is reached [Myr]; Infinity if never. */
+  /**
+   * First time the gas threshold is reached [Myr]; Infinity if never.
+   *
+   * THE one t_remove. Interpolated from the sampled accumulation curve, so it
+   * accounts for photoionization's non-linear growth (p ~ t^{9/7}) rather than
+   * assuming the total accrues at a constant rate — see the note on
+   * GasExpulsion in ledger.ts for the two-values bug this replaced.
+   */
   tRemoveMyr: number;
+  /**
+   * Removal speed relative to a stellar crossing time. Impulsive removal
+   * (t_remove < t_cross) is the hardest case for survival; adiabatic removal
+   * (t_remove > t_cross) lets the stars re-adjust as the gas leaves. Reported
+   * because it sets how MANY stars are shed, though not the bound/unbound line
+   * — that is the energy criterion in GasExpulsion.
+   *
+   * Lives here rather than on the ledger because it is a comparison between two
+   * TIMES, and this is the module that has them both.
+   */
+  removalRegime: "impulsive" | "adiabatic";
   /** Momentum needed to expel the gas [Msun km/s]. */
   gasMomentumNeeded: number;
 }
@@ -58,7 +76,9 @@ export function momentumTrajectory(input: LedgerInput, nSteps = 60): MomentumTra
   const steps = Math.max(2, Math.floor(nSteps));
   const ledger = computeLedger(input);
   const windowMyr = ledger.windowMyr;
-  const knobs = { ...DEFAULT_LEAKAGE, ...(input.leakage ?? {}) };
+  // Same resolution the ledger uses, so a Vink run cannot silently keep
+  // Björklund's calibrated windLeak here.
+  const knobs = resolveLeakage(input);
   const on = { winds: true, photoionization: true, radiation: true, ...(input.enabled ?? {}) };
 
   // Linear channels: scale their window-end value by t/window.
@@ -122,6 +142,9 @@ export function momentumTrajectory(input: LedgerInput, nSteps = 60): MomentumTra
     windowMyr,
     tCrossMyr: input.tCrossMyr,
     tRemoveMyr,
+    // Infinity < t_cross is false, so gas that never clears reads "adiabatic" —
+    // correct by default: an unbounded removal time is the slow limit.
+    removalRegime: tRemoveMyr < input.tCrossMyr ? "impulsive" : "adiabatic",
     gasMomentumNeeded: gasNeeded,
   };
 }

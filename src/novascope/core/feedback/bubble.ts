@@ -32,6 +32,88 @@
 /** Weaver+1977 eq (21) coefficient (with conduction; eq 5 gives 0.88). */
 export const WEAVER_A = 0.76;
 
+/* ── the calibration target for eta ───────────────────────────────────────
+ * Lancaster, Kim, Kim, Ostriker & Bryan (2025), ApJ — "The Coevolution of
+ * Stellar Wind-blown Bubbles and Photoionized Gas. II. 3D RMHD Simulations and
+ * Tests of Semianalytic Models", sec 4.2 and Fig. 3, read from the paper PDF.
+ *
+ * Their "momentum enhancement factor" alpha_p is defined by their eq (4),
+ * p(t) = alpha_p p_w,MD(t) — shell momentum over the momentum-driven
+ * (injected) momentum. That is EXACTLY this module's eta, so their measured
+ * values calibrate ours directly.
+ *
+ * Fig. 3 caption, time- and resolution-averaged over their simulations:
+ *
+ *   with LyC radiation      alpha_p = 4.66 (HWR), 6.20 (MWR)
+ *   without LyC radiation   alpha_p = 2.55 (HW),  4.09 (MW)
+ *   reference lines drawn at alpha_p = 3 and 8
+ *
+ * WE USE THE WITH-LyC PAIR, and the paper says why it is the right one: the
+ * photoionized region sits at the bubble interface, so the wind no longer
+ * touches neutral gas and cools less efficiently through Lyman-alpha. This
+ * engine has a photoionization channel, so the irradiated case is ours.
+ *
+ * This REPLACES a paraphrase. The header used to reason from Lancaster et al.
+ * (2021)'s "momentum 10-10^2 below Weaver" to "eta ~ 1-7" — a mapping performed
+ * against Vink-era eta_max values, which silently stopped describing the code
+ * when the default prescription became Björklund. A directly measured alpha_p
+ * cannot drift that way.
+ */
+export const LANCASTER_ALPHA_P_LYC: readonly [number, number] = [4.66, 6.20];
+export const LANCASTER_ALPHA_P_NO_LYC: readonly [number, number] = [2.55, 4.09];
+/** The paper's own reference lines — the band a calibrated eta must sit in. */
+export const LANCASTER_ALPHA_P_BRACKET: readonly [number, number] = [3, 8];
+/** Geometric midpoint of the two with-LyC averages: the single target value. */
+export const ALPHA_P_TARGET = Math.sqrt(
+  LANCASTER_ALPHA_P_LYC[0] * LANCASTER_ALPHA_P_LYC[1],
+);
+
+/**
+ * The leakage fraction f_leak that places eta at `targetEta`, given a bubble
+ * ceiling `etaMax`. Inverts the ledger's interpolation
+ * eta = 1 + (eta_max - 1)(1 - f_leak).
+ */
+export function windLeakForEta(etaMax: number, targetEta: number): number {
+  if (!(etaMax > 1)) return 0;
+  return 1 - (targetEta - 1) / (etaMax - 1);
+}
+
+/** eta at a given leakage — the forward direction, for gates and callers. */
+export function etaAtLeak(etaMax: number, fLeak: number): number {
+  return 1 + (etaMax - 1) * (1 - fLeak);
+}
+
+/**
+ * Calibrate one f_leak against a SPREAD of environment ceilings.
+ *
+ * eta_max varies environment to environment (it depends on ambient density and
+ * mechanical luminosity), so no single f_leak puts every environment at the
+ * target. Centering on the median overshoots the extremes — measured on the
+ * shipped set it pushed `diffuse` under Vink to eta = 11.6, outside the paper's
+ * 3-8 bracket. Centering the resulting RANGE geometrically keeps the whole set
+ * inside it, which is the property that actually matters.
+ */
+export function calibrateWindLeak(
+  etaMaxValues: readonly number[],
+  targetEta: number = ALPHA_P_TARGET,
+): number {
+  const lo = Math.min(...etaMaxValues);
+  const hi = Math.max(...etaMaxValues);
+  if (!(lo > 1)) return 0;
+  // Bisect on x = 1 - f_leak rather than solving the quadratic by hand: the
+  // algebra is easy to get subtly wrong and this cannot be.
+  const g = (x: number) =>
+    Math.sqrt((1 + (lo - 1) * x) * (1 + (hi - 1) * x)) - targetEta;
+  let a = 0;
+  let b = 1;
+  for (let i = 0; i < 200; i++) {
+    const m = (a + b) / 2;
+    if (g(m) > 0) b = m;
+    else a = m;
+  }
+  return 1 - (a + b) / 2;
+}
+
 /* CGS conversions — IAU 2015 nominal solar mass; parsec; Julian year. */
 const MSUN_G = 1.989e33;
 const PC_CM = 3.086e18;
@@ -76,13 +158,26 @@ export interface BubbleCeiling {
  * 30-71). The ceiling that means anything for a BUDGET is the momentum
  * delivered to the cloud, so it is capped at breakout.
  *
- * Sanity: breakout occurs at only 2-4% of the pre-SN window, i.e. in the purely
- * adiabatic limit winds alone would disrupt every one of these clouds within
- * ~0.1 Myr. Real embedded clusters survive far longer, which is independent
- * evidence that f_leak sits near the leaky end — the same conclusion Lancaster,
- * Ostriker, Kim & Kim (2021) reach from mixing at a fractal interface, and their
- * "momentum 10-10^2 below Weaver" maps this eta_max of 30-71 onto eta ~ 1-7,
- * the momentum-driven floor.
+ * Sanity: in the purely adiabatic limit winds alone would disrupt every one of
+ * these clouds inside a small fraction of the pre-SN window. Real embedded
+ * clusters survive far longer, which is independent evidence that f_leak sits
+ * near the leaky end — the conclusion Lancaster et al. reach from mixing at the
+ * bubble interface.
+ *
+ * MEASURED ON THE SHIPPED SET, 2026-08-09 — and the numbers depend on the wind
+ * prescription, which is why the previous version of this paragraph went stale:
+ *
+ *   prescription   eta_max      breakout (% of window)
+ *   Björklund      96.2-149.4   4.0-4.7
+ *   Vink           30.4-71.0    2.3-3.9
+ *
+ * The old text stated 30-71 and 2-4% as if they were properties of the module.
+ * They are Vink's, and the default had become Björklund. Any figure here is a
+ * measurement of one configuration and must name it.
+ *
+ * f_leak is then CALIBRATED rather than chosen — see `calibrateWindLeak` and
+ * WIND_LEAK_DEFAULT in ledger.ts — so that eta lands on Lancaster's measured
+ * alpha_p instead of on a value picked to look reasonable.
  *
  * @param lWindErgS  total wind mechanical luminosity sum(1/2 Mdot v_inf^2) [erg/s]
  * @param pDotCgs    total wind momentum injection rate sum(Mdot v_inf) [g cm/s^2]

@@ -8,11 +8,17 @@
  * momentum-vs-time plot.
  *
  * Two deliberately SEPARATE axes: the scrub is expulsion PROGRESS (embedded →
- * cleared) driving the outward gas render (setExpel), because the gas physically
- * clears in the first ~10% of the window and time would make a blink-and-miss
- * animation. The real-time story -- how fast, which channel leads -- lives in
- * the plot, with t_remove marked. The bars and verdict are the accounting the
- * spectacle exists to make legible.
+ * cleared) driving the outward gas render (setExpel), because the gas clears
+ * early in the window and time would make a blink-and-miss animation. (How
+ * early is environment- and prescription-dependent — measured 2026-08-09 under
+ * the Björklund default, t_remove runs from 6.2% of the window for `diffuse`
+ * through ~14% for the Orion-like set to 54% for `compact`. This comment said
+ * "~10%" as though it were a property of the engine; it was the Orion-like case
+ * alone, and `compact` misses it by a factor of five.)
+ *
+ * The real-time story -- how fast, which channel leads -- lives in the plot,
+ * with t_remove marked. The bars and verdict are the accounting the spectacle
+ * exists to make legible.
  *
  * Data flow: viz/loadScene + createEngine render the cloud; state/feedback runs
  * the Layer-0 budget. The two share the browser-cached fetches but nothing else,
@@ -53,11 +59,34 @@ import RatioBar from "./RatioBar.astro";
         <button type="button" class="fbe__chip is-active" data-ch="radiation" aria-pressed="true">radiation</button>
       </div>
 
+      {/* Why a channel is inert in THIS environment. The core computes a reason
+          string per channel; without somewhere to put it the reader sees a lit
+          chip contributing zero and no explanation. */}
+      <p class="fbe__chnote" data-chnote hidden></p>
+
+      {/* Mass-loss prescription. Both are calibrated (see WIND_LEAK_DEFAULT):
+          switching recipes switches f_leak with it, so the comparison is
+          between two CALIBRATED wind models rather than between one model and
+          the same model with the wrong leakage. */}
+      <div class="fbe__channels" role="group" aria-label="Mass-loss prescription">
+        {/* NOT "winds" — that label sits directly under a channels row that
+            already has a chip by that name, and the two mean different things
+            (a channel to switch off vs which recipe drives it). */}
+        <span class="fbe__channels-lead">wind recipe</span>
+        <button type="button" class="fbe__chip is-active" data-presc="bjorklund" aria-pressed="true">Björklund 2023</button>
+        <button type="button" class="fbe__chip" data-presc="vink" aria-pressed="false">Vink 2001</button>
+      </div>
+
       <p class="fbe__status" data-status aria-live="polite">Loading cluster…</p>
     </div>
   </PresentFrame>
 
   <div class="fbe__panel">
+    {/* The prose under the figure describes the DEFAULTS. When the reader moves
+        off them the numbers here stop matching that prose, so the panel says so
+        rather than letting the two silently disagree. */}
+    <p class="fbe__nondefault" data-nondefault hidden></p>
+
     <div class="fbe__verdict" data-verdict>
       <p class="fbe__stage fbe__stage--1" data-stage1>—</p>
       <p class="fbe__stage fbe__stage--2" data-stage2>—</p>
@@ -115,6 +144,9 @@ import RatioBar from "./RatioBar.astro";
   }
   const fmt = (x: number, d = 1) =>
     x >= 1e4 ? x.toExponential(1) : x.toLocaleString("en-US", { maximumFractionDigits: d });
+  /** Exact integer with thousands separators — for COUNTS, which must not
+   *  become "1.0e+4" the way fmt's exponential branch renders them. */
+  const count = (n: number) => Math.round(n).toLocaleString("en-US");
 
   async function mount(el: HTMLElement) {
     const canvas = el.querySelector<HTMLCanvasElement>("[data-cluster]")!;
@@ -165,6 +197,10 @@ import RatioBar from "./RatioBar.astro";
       picker.appendChild(b);
     }
 
+    const prescription = (): "bjorklund" | "vink" =>
+      (el.querySelector<HTMLButtonElement>("[data-presc].is-active")?.dataset.presc as
+        "bjorklund" | "vink") ?? "bjorklund";
+
     const enabled = (): Record<Ch, boolean> => {
       const on = {} as Record<Ch, boolean>;
       for (const c of el.querySelectorAll<HTMLButtonElement>("[data-ch]"))
@@ -182,7 +218,7 @@ import RatioBar from "./RatioBar.astro";
       const name = path === "/data/gravoturb" ? undefined : path.split("/").pop();
       const [scene, budget] = await Promise.all([
         loadScene(path),
-        loadFeedbackRealization(name, { enabled: enabled() }),
+        loadFeedbackRealization(name, { enabled: enabled(), prescription: prescription() }),
       ]);
       engine?.cleanup();
       engine = createEngine(canvas, scene, { emphasizeHot: true, starGlow: 1 });
@@ -195,17 +231,38 @@ import RatioBar from "./RatioBar.astro";
         `${fmt(budget.meta.n_stars as number, 0)} stars · budget is an accounting tool, not a hydro sim`;
     }
 
+    /**
+     * Announce a non-default wind recipe.
+     *
+     * Björklund is the default; the prose under the figure is written against
+     * it. Vink is not a "wrong" setting — it is a second calibrated model, and
+     * switching it changes which channel leads in every environment — so the
+     * badge states what changed rather than warning.
+     */
+    function renderNonDefault(el: HTMLElement) {
+      const p = el.querySelector<HTMLElement>("[data-nondefault]")!;
+      const off = prescription() !== "bjorklund";
+      p.textContent = off
+        ? "Wind recipe: Vink (2001), not the Björklund (2023) default the notes below describe. Its own calibrated leakage is applied."
+        : "";
+      p.hidden = !off;
+    }
+
     // ── the budget readouts (bars, verdict, plot, numbers) ──
     function renderBudget() {
       if (!fb) return;
       const L = fb.ledger, g = L.gasExpulsion;
       setBar(el, "momentum", g.gasMomentumRatio);
       setBar(el, "energy", L.energyRatio);
-      // stage 1
+      // stage 1. The regime comes from the TRAJECTORY, which interpolates the
+      // real accumulation curve — the ledger no longer carries a second,
+      // linear-approximation t_remove for this line to disagree with.
       const s1 = el.querySelector<HTMLElement>("[data-stage1]")!;
       s1.textContent = g.gasExpelled
-        ? `Gas expelled — momentum ${g.gasMomentumRatio.toFixed(1)}× the threshold, ${g.removalRegime} removal`
+        ? `Gas expelled — momentum ${g.gasMomentumRatio.toFixed(1)}× the threshold, ${fb.trajectory.removalRegime} removal`
         : `Gas retained — only ${(g.gasMomentumRatio * 100).toFixed(0)}% of the momentum needed; cluster stays embedded`;
+      renderChannelStates(el, fb);
+      renderNonDefault(el);
       // stage 2
       const s2 = el.querySelector<HTMLElement>("[data-stage2]")!;
       s2.textContent = g.gasExpelled
@@ -217,8 +274,9 @@ import RatioBar from "./RatioBar.astro";
     }
 
     // The scrub is EXPULSION PROGRESS (0 = embedded, 1 = cleared), not time --
-    // the gas clears in the first ~11% of the pre-SN window, so time is a poor
-    // scrub axis (the animation would finish in a blink). setExpel balloons the
+    // the gas clears well before the pre-SN window closes, so time is a poor
+    // scrub axis (the animation would finish in a blink). The exact fraction
+    // varies by environment; see the header. setExpel balloons the
     // gas OUTWARD (homologous stand-in) so the cluster emerges. The real-time
     // story -- how FAST this happens -- lives in the components plot, with
     // t_remove marked. Two honest axes, deliberately decoupled.
@@ -230,6 +288,20 @@ import RatioBar from "./RatioBar.astro";
     }
 
     // ── controls ──
+    // Prescription switch. Recomputes from the already-loaded arrays — no
+    // refetch — so the two recipes are compared on identical stars.
+    for (const b of el.querySelectorAll<HTMLButtonElement>("[data-presc]"))
+      b.addEventListener("click", () => {
+        for (const o of el.querySelectorAll<HTMLButtonElement>("[data-presc]")) {
+          const on = o === b;
+          o.classList.toggle("is-active", on);
+          o.setAttribute("aria-pressed", String(on));
+        }
+        if (!fb) return;
+        fb = recomputeFeedback(fb, { enabled: enabled(), prescription: prescription() });
+        renderBudget();
+      });
+
     scrub.addEventListener("input", () => { setPlaying(false); animT = +scrub.value; applyScrub(animT); });
     for (const c of el.querySelectorAll<HTMLButtonElement>("[data-ch]"))
       c.addEventListener("click", () => {
@@ -237,7 +309,7 @@ import RatioBar from "./RatioBar.astro";
         c.classList.toggle("is-active", on);
         c.setAttribute("aria-pressed", String(on));
         if (!fb) return;
-        fb = recomputeFeedback(fb, { enabled: enabled() });
+        fb = recomputeFeedback(fb, { enabled: enabled(), prescription: prescription() });
         renderBudget();
       });
     frame?.addEventListener("present:next", () => { setPlaying(false); seek(animT + 0.04); });
@@ -270,14 +342,58 @@ import RatioBar from "./RatioBar.astro";
     bar.querySelector<HTMLElement>("[data-ratiobar-value]")!.textContent = `${ratio.toFixed(2)}×`;
   }
 
+  /**
+   * Reflect each channel's PHYSICAL availability onto its chip.
+   *
+   * A channel can be switched off by the reader, or it can be unable to act in
+   * this environment at all — `compact`'s H II region is trapped, because the
+   * cloud escape speed (20.3 km/s) exceeds the ~10 km/s sound speed of
+   * photoionized gas. Those are different states and looked identical: the chip
+   * stayed lit and the channel contributed exactly zero, while ledger.ts's
+   * `disabledReason` explaining why went unrendered.
+   */
+  function renderChannelStates(el: HTMLElement, fb: FeedbackRealization) {
+    const note = el.querySelector<HTMLElement>("[data-chnote]")!;
+    const reasons: string[] = [];
+    for (const c of el.querySelectorAll<HTMLButtonElement>("[data-ch]")) {
+      const entry = fb.ledger.channels.find((x) => x.name === c.dataset.ch);
+      const inert = Boolean(entry?.disabled);
+      c.classList.toggle("is-inert", inert);
+      c.disabled = inert;
+      // The chip is no longer a control when the physics has taken it away, so
+      // it stops claiming to be pressable rather than merely looking greyed.
+      //
+      // DERIVED every render, never set once on the way in: setting it only
+      // when inert left the chip announcing aria-pressed="false" after
+      // switching back to an environment where the channel works, so it looked
+      // pressed and read unpressed. `is-active` is the reader's switch; `inert`
+      // is the physics; the announced state is the AND of them.
+      c.setAttribute("aria-pressed", String(!inert && c.classList.contains("is-active")));
+      c.title = inert ? (entry?.disabledReason ?? "") : "";
+      if (inert && entry?.disabledReason) reasons.push(entry.disabledReason);
+    }
+    note.textContent = reasons.join(" · ");
+    note.hidden = reasons.length === 0;
+  }
+
   function renderNums(el: HTMLElement, fb: FeedbackRealization) {
     const L = fb.ledger, m = fb.meta;
+    const wb = L.diagnostics.windBudget;
     const rows: [string, string][] = [
       ["window", `${L.windowMyr.toFixed(2)} Myr`],
       ["Σ", `${(m.env_sigma_msun_pc2 as number).toFixed(0)} M⊙/pc²`],
       ["ψ", L.diagnostics.radiation.psi.toFixed(2)],
       ["r_ch", `${L.diagnostics.radiation.rCh.toFixed(2)} pc`],
       ["M_gas", `${fmt(L.gasExpulsion.mGas)} M⊙`],
+      // How much of the population the wind recipe actually covers. winds.ts
+      // computes this "so a caller can report how much of the population a
+      // recipe actually covers instead of silently summing over a subset" — and
+      // no caller did. It is not a footnote: Björklund's box stops at 80 M⊙,
+      // above which these clusters keep their most massive stars, so the
+      // denominator is the honest context for the wind bar.
+      // Counts use toLocaleString, NOT fmt: fmt switches to exponential above
+      // 1e4, which rendered a population of 10,301 stars as "1.0e+4".
+      ["wind sources", `${count(wb.nDriving)} of ${count(wb.nDriving + wb.nOutOfRange)} stars`],
     ];
     el.querySelector<HTMLElement>("[data-nums]")!.innerHTML = rows
       .map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
@@ -361,6 +477,28 @@ import RatioBar from "./RatioBar.astro";
   }
   .fbe__pill:hover, .fbe__chip:hover, .fbe__action:hover { color: var(--xpl-ink); border-color: var(--xpl-teal); }
   .fbe__pill.is-active, .fbe__chip.is-active { color: #0a0b0e; background: var(--xpl-teal); border-color: var(--xpl-teal); }
+
+  /* Physically inert in this environment — distinct from switched off by the
+     reader. Struck through rather than merely dimmed, so the two states cannot
+     be confused at a glance, and :hover does not offer it as pressable. */
+  .fbe__chip.is-inert,
+  .fbe__chip.is-inert.is-active {
+    color: var(--xpl-dim);
+    background: transparent;
+    border-color: var(--xpl-border);
+    border-style: dashed;
+    text-decoration: line-through;
+    cursor: not-allowed;
+    opacity: 0.75;
+  }
+  .fbe__chip.is-inert:hover { color: var(--xpl-dim); border-color: var(--xpl-border); }
+  .fbe__chnote {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--spec-amber, #e8a33d);
+    line-height: 1.45;
+    margin: 0;
+  }
   .fbe__action { color: var(--xpl-ink); white-space: nowrap; }
   .fbe__action.is-active { border-color: var(--xpl-teal); }
   .fbe__action:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -382,6 +520,16 @@ import RatioBar from "./RatioBar.astro";
     border: 1px solid var(--xpl-border);
     border-radius: var(--radius, 10px);
     background: radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--xpl-panel) 92%, black), #0a0b0e);
+  }
+
+  .fbe__nondefault {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    line-height: 1.45;
+    color: var(--spec-amber, #e8a33d);
+    border-inline-start: 2px solid currentColor;
+    padding-inline-start: 0.6em;
   }
 
   /* verdict is the hero: the answer, in plain language, first */

@@ -84,12 +84,45 @@ export interface LeakageKnobs {
   fTrap: number | null;
 }
 
+/**
+ * Wind leakage default, DERIVED per prescription — not chosen.
+ *
+ * f_leak is calibrated so the resulting momentum boost eta lands on the
+ * alpha_p that Lancaster, Kim, Kim, Ostriker & Bryan (2025) MEASURE in 3D RMHD
+ * simulations with ionizing radiation (their Fig. 3: 4.66 and 6.20, bracketed
+ * by reference lines at 3 and 8). See bubble.ts for the source and for why the
+ * with-LyC pair is the right one for an engine that has an H II channel.
+ *
+ * IT DIFFERS BY PRESCRIPTION, and that is worth stating plainly rather than
+ * hiding. f_leak ought to be a property of the cloud's mixing physics, not of
+ * the wind recipe. But eta_max depends on the mechanical luminosity, and
+ * Björklund's faster winds give a ceiling 2-3x Vink's (96-149 against 30-71),
+ * so reaching the SAME measured eta requires leaking away a larger share of a
+ * larger number. Calibrating to a measurement means f_leak absorbs that
+ * difference; the alternative — one f_leak for both — would put at most one
+ * prescription on the measured value.
+ *
+ * Derived by `calibrateWindLeak` over the shipped realizations' eta_max spread,
+ * and re-derived by check-feedback, which fails if either constant drifts from
+ * what the data now implies or if any environment leaves the 3-8 bracket:
+ *
+ *   Björklund  f_leak 0.963  ->  eta 4.52-6.49  (geometric mean 5.42)
+ *   Vink       f_leak 0.905  ->  eta 3.79-7.65  (geometric mean 5.39)
+ *
+ * The previous single default of 0.9 was, it turns out, a well-calibrated VINK
+ * value — Vink's derived figure is 0.905 — carried unchanged onto Björklund,
+ * where it gave eta 10.5-15.8, above the bracket.
+ */
+export const WIND_LEAK_DEFAULT: Record<WindPrescription, number> = {
+  bjorklund: 0.963,
+  vink: 0.905,
+};
+
 export const DEFAULT_LEAKAGE: LeakageKnobs = {
-  // Lancaster, Ostriker, Kim & Kim (2021) find mixing at a fractal interface
-  // radiates away most of the wind energy, leaving real bubbles momentum-driven
-  // rather than energy-driven. So the default sits near the leaky end rather
-  // than at a neutral 0.5, and it is a sourced default, not a chosen one.
-  windLeak: 0.9,
+  // Overridden per prescription from WIND_LEAK_DEFAULT in computeLedger; this
+  // entry is the Björklund default so a caller using DEFAULT_LEAKAGE directly
+  // still gets a calibrated value rather than a placeholder.
+  windLeak: WIND_LEAK_DEFAULT.bjorklund,
   // No sourced value yet — 0 is the deliberately CONSERVATIVE default (nothing
   // escapes), so the shipped budget never claims more disruption-suppression
   // than it can defend. Raising it is an explicit act by the reader.
@@ -144,15 +177,24 @@ export interface GasExpulsion {
   gasMomentumRatio: number;
   /** Stage 1 verdict: is the gas expelled within the pre-SN window? */
   gasExpelled: boolean;
-  /** Rough time to accumulate the threshold momentum [Myr]. */
-  tRemoveMyr: number;
-  /**
-   * Removal speed relative to a stellar crossing time. Impulsive removal
-   * (t_remove < t_cross) is the hardest case for survival; adiabatic removal
-   * (t_remove > t_cross) lets the stars re-adjust as the gas leaves. Reported
-   * because it sets how MANY stars are shed, though not the bound/unbound line.
+  /*
+   * NO t_remove OR removalRegime HERE — they live on MomentumTrajectory.
+   *
+   * This is a static, single-time budget; "when is the threshold crossed" is a
+   * time-series question, and the honest answer needs the actual accumulation
+   * curve. It used to be estimated here as window / ratio, which assumes
+   * momentum accrues LINEARLY — true of winds and radiation, false of
+   * photoionization, whose D-front decelerates (p ~ t^{9/7}).
+   *
+   * So the same quantity had two values and the page showed both: the verdict
+   * line printed this one's "impulsive/adiabatic", while the plot drew the
+   * trajectory's t_remove marker. Measured 2026-08-09 across the six shipped
+   * realizations, they disagreed by up to 31% (diffuse 0.225 vs 0.294 Myr;
+   * agreeing only for `compact`, where H II is trapped and the accumulation
+   * really is linear). The regime LABEL happened to match everywhere, but
+   * `compact` sits 3% from the boundary, so that was luck rather than
+   * robustness.
    */
-  removalRegime: "impulsive" | "adiabatic";
   /** Post-expulsion virial ratio T/|W_stars| (from the export). */
   qVirialPost: number;
   /** Stage 2 verdict: are the stars still bound after the gas is gone? */
@@ -240,20 +282,12 @@ export function gasExpulsionVerdict(
   mCloud: number,
   sfe: number,
   vEsc: number,
-  windowMyr: number,
-  tCrossMyr: number,
   qVirialStarsOnly: number,
 ): GasExpulsion {
   const mGas = mCloud * (1 - sfe);
   const gasMomentumNeeded = mGas * vEsc;
   const gasMomentumRatio = gasMomentumNeeded > 0 ? totalMomentum / gasMomentumNeeded : 0;
   const gasExpelled = gasMomentumRatio >= 1;
-  // Momentum accumulates ~linearly (rate x time), so the threshold is reached at
-  // t ~ window / ratio; if the ratio never reaches 1 the gas is not cleared
-  // within the window, and the removal timescale is unbounded.
-  const tRemoveMyr =
-    gasMomentumRatio >= 1 ? windowMyr / gasMomentumRatio : Infinity;
-  const removalRegime = tRemoveMyr < tCrossMyr ? "impulsive" : "adiabatic";
   // Stage 2: energy criterion, bound iff the post-expulsion virial ratio < 1.
   const qVirialPost = qVirialStarsOnly;
   const clusterSurvives = qVirialPost < 1;
@@ -264,16 +298,40 @@ export function gasExpulsionVerdict(
     gasMomentumNeeded,
     gasMomentumRatio,
     gasExpelled,
-    tRemoveMyr,
-    removalRegime,
     qVirialPost,
     clusterSurvives,
     survivalLabel,
   };
 }
 
+/** The prescription actually in force; one definition of the fallback. */
+export function resolvePrescription(input: Pick<LedgerInput, "prescription">): WindPrescription {
+  return input.prescription ?? "bjorklund";
+}
+
+/**
+ * The leakage knobs actually in force: defaults, then the prescription's own
+ * calibrated windLeak, then any explicit caller override.
+ *
+ * Exported so the ledger and the trajectory resolve them THE SAME WAY. They
+ * each spread DEFAULT_LEAKAGE independently before, which was fine only while
+ * the default was one number for every prescription — the moment windLeak
+ * became prescription-dependent, the trajectory would have kept applying
+ * Björklund's value to a Vink run.
+ */
+export function resolveLeakage(
+  input: Pick<LedgerInput, "prescription" | "leakage">,
+): LeakageKnobs {
+  return {
+    ...DEFAULT_LEAKAGE,
+    windLeak: WIND_LEAK_DEFAULT[resolvePrescription(input)],
+    ...(input.leakage ?? {}),
+  };
+}
+
 export function computeLedger(input: LedgerInput): Ledger {
-  const knobs = { ...DEFAULT_LEAKAGE, ...(input.leakage ?? {}) };
+  const prescription = resolvePrescription(input);
+  const knobs = resolveLeakage(input);
   const on = { winds: true, photoionization: true, radiation: true, ...(input.enabled ?? {}) };
 
   const n = input.mass.length;
@@ -293,7 +351,7 @@ export function computeLedger(input: LedgerInput): Ledger {
   const windowMyr = preSNWindowMyr(input.mass);
 
   /* ── winds ─────────────────────────────────────────────────────────── */
-  const wb = windBudget(input.mass, input.teff, input.radius, lum, undefined, input.prescription ?? "bjorklund");
+  const wb = windBudget(input.mass, input.teff, input.radius, lum, undefined, prescription);
   // Use windBudget's own eDot and pDot rather than reconstructing them from a
   // mean terminal velocity: L_w is sum(1/2 mdot_i v_i^2), and rebuilding it as
   // 1/2 sum(mdot) <v>^2 UNDERSTATES it, since <v^2> >= <v>^2 whenever the wind
@@ -384,8 +442,6 @@ export function computeLedger(input: LedgerInput): Ledger {
     input.mCloud,
     input.sfe,
     binding.vEsc,
-    windowMyr,
-    input.tCrossMyr,
     input.qVirialStarsOnly,
   );
 

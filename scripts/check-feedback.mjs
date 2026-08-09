@@ -100,7 +100,7 @@ if (fOurs >= F_TRAP_FIDUCIAL) {
 console.log("feedback: two-stage gas-expulsion verdict");
 const { gasExpulsionVerdict } = await import("../src/novascope/core/feedback/ledger.ts");
 // M_cloud=2e4, SFE=0.2 -> M_gas=1.6e4; v_esc=8.4 -> threshold=1.344e5 Msun km/s
-const gv = (p, q) => gasExpulsionVerdict(p, 2e4, 0.2, 8.4, 0.3, 1.64, q);
+const gv = (p, q) => gasExpulsionVerdict(p, 2e4, 0.2, 8.4, q);
 check("threshold uses M_gas = M_cloud(1-SFE)", gv(1e5, 0.02).gasMomentumNeeded, 1.6e4 * 8.4, 1e-9);
 check("gas expelled when p exceeds M_gas v_esc", gv(2e5, 0.02).gasExpelled, true, 0);
 check("gas retained when p below threshold", gv(5e4, 0.02).gasExpelled, false, 0);
@@ -178,6 +178,74 @@ for (const [presc, own, other] of [
 // And the anchors themselves are the published ones, stated rather than derived.
 check("Vink Z_sun is 0.02 (classic solar)", Z_SUN_VINK, 0.02, 0);
 check("Björklund Z_sun is 0.014 (their sec 3.1)", Z_SUN_BJORKLUND, 0.014, 0);
+
+/* 9. The wind-leak calibration, RE-DERIVED from the shipped data.
+ *
+ *    WIND_LEAK_DEFAULT is not a chosen number: it is whatever puts the momentum
+ *    boost eta on the alpha_p Lancaster+2025 measure (Fig. 3, with LyC: 4.66
+ *    and 6.20, reference lines at 3 and 8). So this does not restate the
+ *    constants — it recomputes them from each realization's own eta_max and
+ *    fails if the shipped value has drifted from what the data now implies.
+ *
+ *    That is the property a restated expectation cannot protect: eta_max moves
+ *    whenever the wind physics or the export changes, and a hand-kept f_leak
+ *    would keep passing while silently drifting off the measurement. This is
+ *    exactly how the previous default went stale — 0.9 was a well-calibrated
+ *    VINK value that stayed put when the default became Björklund.
+ */
+console.log("feedback: wind-leak calibration against Lancaster+2025 alpha_p");
+const { readFileSync } = await import("node:fs");
+const { join } = await import("node:path");
+const {
+  calibrateWindLeak, etaAtLeak, ALPHA_P_TARGET, LANCASTER_ALPHA_P_BRACKET,
+} = await import("../src/novascope/core/feedback/bubble.ts");
+const { WIND_LEAK_DEFAULT } = await import("../src/novascope/core/feedback/ledger.ts");
+const { feedbackInputFromParts } = await import("../src/novascope/state/feedback.ts");
+
+const DATA = "public/data/gravoturb";
+const manifest = JSON.parse(readFileSync(join(DATA, "manifest.json"), "utf8"));
+const readF32 = (p) => {
+  const b = readFileSync(p);
+  return new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4);
+};
+
+for (const prescription of ["bjorklund", "vink"]) {
+  const etaMaxes = [];
+  for (const r of manifest.realizations) {
+    const dir = r.path === "/data/gravoturb" ? DATA : join(DATA, r.name);
+    const meta = JSON.parse(readFileSync(join(dir, "meta.json"), "utf8"));
+    const input = feedbackInputFromParts(
+      meta, readF32(join(dir, "stars.f32")), readF32(join(dir, "local_density.f32")), {},
+    );
+    input.prescription = prescription;
+    etaMaxes.push(computeLedger(input).diagnostics.etaMaxWind);
+  }
+
+  const derived = calibrateWindLeak(etaMaxes, ALPHA_P_TARGET);
+  const shipped = WIND_LEAK_DEFAULT[prescription];
+  // Shipped to 3 decimals, so agreement to 5e-4 is exact-as-rounded. A wider
+  // tolerance here would let real drift through as "close enough".
+  check(`${prescription}: WIND_LEAK_DEFAULT matches the derivation`, shipped, derived, 5e-4 / derived);
+
+  // And the consequence the calibration exists for: every environment's eta
+  // lands inside the paper's own reference bracket.
+  const [lo, hi] = LANCASTER_ALPHA_P_BRACKET;
+  const etas = etaMaxes.map((em) => etaAtLeak(em, shipped));
+  const worst = etas.find((e) => e < lo || e > hi);
+  if (worst !== undefined) {
+    failures++;
+    console.error(
+      `  FAIL ${prescription}: eta ${worst.toFixed(2)} falls outside Lancaster's ${lo}-${hi} bracket.\n` +
+      `       Re-derive WIND_LEAK_DEFAULT.${prescription} with calibrateWindLeak(), or say on the\n` +
+      `       page why this configuration sits outside the measured range.`,
+    );
+  } else {
+    console.log(
+      `  ok   ${prescription}: eta ${Math.min(...etas).toFixed(2)}-${Math.max(...etas).toFixed(2)} ` +
+      `inside ${lo}-${hi} (f_leak ${shipped})`,
+    );
+  }
+}
 
 if (failures) {
   console.error(`\nfeedback: ${failures} check(s) failed`);
