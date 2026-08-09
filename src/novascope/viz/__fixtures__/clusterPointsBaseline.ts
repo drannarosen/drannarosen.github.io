@@ -30,19 +30,24 @@
  * Compositing the canvas through a 2-D context avoids that, and it happens to sidestep
  * `starfield/parity.ts`'s TRAP 1 as well: the row-order disagreement between the backends is a
  * property of `readRenderTargetPixelsAsync`, whereas a canvas presents in display orientation on
- * both. Measured 2026-08-09 — webgpu against webgl2 needed no flip and agreed to 3.3e-6.
+ * both. Measured 2026-08-09 — webgpu against webgl2 needed no flip.
  *
  * ── MEASURED, so a future run can see drift rather than re-fit the bounds to it ──
  *
- * Apple M2 Max, Chrome, 2026-08-09, 320x320, 400 stars, base case:
+ * Apple M2 Max, system Chrome, 2026-08-09, 320x320, 400 stars, 40x40 grid, worst cell in 8-bit
+ * display levels:
  *
- *   webgpu vs webgpu   sumRatio 1.000000   maxCell 0        rms 0
- *   webgpu vs webgl2   sumRatio 1.0000033  maxCell 0.0175   rms 0.0025   (grid peak 196.3)
+ *   within a backend, repeated        maxCell 0        (bit-identical)
+ *   webgpu vs webgl2, SAME browser    base 0.073   alpha 0.063   trail 5.896
+ *   webgl2 hardware vs SwiftShader    base 1.526   alpha 1.750   trail 8.719
  *
- * The within-backend result is BIT-IDENTICAL, which is what makes a tight bound defensible. It is
- * deliberately not asserted as exact equality: a driver or GPU change may perturb the last bits
- * without anything being wrong, and a bound that only holds on the author's laptop is worse than
- * no bound.
+ * The within-backend result is BIT-IDENTICAL, which is what makes a tight bound defensible.
+ *
+ * The ordering of the last two rows is the finding: CHANGING THE RASTERISER MOVES THE IMAGE MORE
+ * THAN CHANGING THE BACKEND DOES. Only the trail is genuinely backend-sensitive — line
+ * rasterisation is where WGSL and GLSL diverge most. So the baseline is stored per backend AND
+ * the rasteriser is part of the pin; `check-cluster-points.mjs` refuses to compare against a
+ * different one rather than reporting a difference it cannot attribute.
  *
  * ── A HIDDEN TAB IS FINE HERE, WHICH IS NOT GENERALLY TRUE ──
  *
