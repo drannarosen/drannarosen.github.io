@@ -112,7 +112,7 @@ export function momentumTrajectory(input: LedgerInput, nSteps = 60): MomentumTra
     const pHii = hiiOn
       ? (1 - knobs.hiiLeak) *
         hiiBudget(
-          q, input.localDensity, t, input.rCloudPc,
+          q, t, input.rCloudPc,
           input.mCloud * (1 - input.sfe), input.gasMencFrac, input.gasMencRMaxPc,
         ).momentum
       : 0;

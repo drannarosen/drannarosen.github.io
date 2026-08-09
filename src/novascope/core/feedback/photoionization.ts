@@ -339,30 +339,49 @@ export interface HiiBudget {
  * Population H II budget at age `tMyr`.
  *
  * @param q           per-star ionizing rate [s^-1] (0 for non-ionizing stars)
- * @param rhoLocal    per-star local gas density [Msun/pc^3]
  * @param cloudRadius cloud radius [pc], for the source-separation estimate
+ *
+ * NOTE: takes no per-star density. The budget is driven by S_total in the mean
+ * gas density, and the swept mass comes from the enclosed-gas profile, so
+ * `local_density.f32` is no longer read anywhere in the feedback path. It was a
+ * dead argument carrying a saturated array into a calculation that ignored it,
+ * which is an invitation to "use" it again. (The file is still shipped and is
+ * still the coupling key for mass segregation.)
  */
 export function hiiBudget(
   q: ArrayLike<number>,
-  rhoLocal: ArrayLike<number>,
   tMyr: number,
   cloudRadius: number,
   mGasTotal: number,
   mencFrac: ArrayLike<number>,
   rMencMaxPc: number,
 ): HiiBudget {
+  // Mean gas density of the cloud. Sets the merged Stromgren radius below, and
+  // the per-star diagnostic above it.
+  const vCloud = (4 / 3) * Math.PI * cloudRadius ** 3;
+  const rhoMean = vCloud > 0 ? mGasTotal / vCloud : 0;
+  const nHMean = numberDensity(rhoMean);
+
   // ── per-star pass: DIAGNOSTICS ONLY ──────────────────────────────────────
-  // These no longer feed the budget. They are what tells a reader whether
-  // treating the region as merged is justified: `overlap` is the median region
-  // radius over the mean source separation, so above ~1 the individual spheres
-  // have run together and the merged treatment is the only correct one.
+  // These no longer feed the budget. `overlap` is the median per-star region
+  // radius over the mean source separation: above ~1 the individual spheres
+  // have run together, which is the regime the merged budget assumes.
+  //
+  // EVALUATED AT THE MEAN DENSITY, NOT rho_local. Using each star's own cell
+  // made this diagnostic report the export's saturation artefact rather than
+  // the physics — 77% of stars share one cell at 2.4e4x the cloud mean, which
+  // shrinks R_S ~ n^(-2/3) and gave overlap 0.18-0.61, i.e. "the regions never
+  // merge". At the mean density the same stars give overlap 4.2-5.4, and every
+  // source in `orion` and `diffuse` has an unconstrained front larger than the
+  // whole cloud. A diagnostic whose job is to test the merged assumption must
+  // not be computed from the quantity that assumption exists to route around.
   let qTotal = 0;
   let nSources = 0;
   const radii: number[] = [];
   for (let i = 0; i < q.length; i++) {
     const qi = q[i]!;
     if (!(qi > 0)) continue;
-    const reg = hiiRegion(qi, rhoLocal[i]!, tMyr);
+    const reg = hiiRegion(qi, rhoMean, tMyr);
     if (reg.radius <= 0) continue;
     nSources++;
     qTotal += qi;
@@ -373,11 +392,8 @@ export function hiiBudget(
   const sep = nSources > 0 ? cloudRadius / Math.cbrt(nSources) : Infinity;
 
   // ── the budget: ONE merged region driven by the total ionizing rate ──────
-  // Mean gas density of the cloud sets the combined Stromgren radius; the swept
-  // mass then comes from the tabulated enclosed-gas profile, so it is bounded
-  // by the gas that actually exists.
-  const vCloud = (4 / 3) * Math.PI * cloudRadius ** 3;
-  const nHMean = vCloud > 0 ? numberDensity(mGasTotal / vCloud) : 0;
+  // The swept mass comes from the tabulated enclosed-gas profile, so it is
+  // bounded by the gas that actually exists.
   const merged = mergedHiiRegion(
     qTotal, nHMean, tMyr, mGasTotal, mencFrac, rMencMaxPc, cloudRadius,
   );

@@ -258,7 +258,6 @@ export interface LedgerInput {
   mass: ArrayLike<number>;
   teff: ArrayLike<number>;
   radius: ArrayLike<number>;
-  localDensity: ArrayLike<number>;
   /** Cloud properties from meta.json. */
   mCloud: number;
   rCloudPc: number;
@@ -410,7 +409,7 @@ export function computeLedger(input: LedgerInput): Ledger {
   /* ── photoionization ───────────────────────────────────────────────── */
   const mGasTotal = input.mCloud * (1 - input.sfe);
   const hii = hiiBudget(
-    q, input.localDensity, windowMyr, input.rCloudPc,
+    q, windowMyr, input.rCloudPc,
     mGasTotal, input.gasMencFrac, input.gasMencRMaxPc,
   );
   const trapped = hiiTrapped(input.vEscCloud);

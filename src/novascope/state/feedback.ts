@@ -53,7 +53,6 @@ export interface FeedbackOptions {
 export function feedbackInputFromParts(
   meta: Record<string, number>,
   stars: Float32Array,
-  localDensity: Float32Array,
   opts: FeedbackOptions = {},
   gasMencFrac: ArrayLike<number> = [0, 1],
   gasMencRMaxPc: number = 1,
@@ -71,7 +70,6 @@ export function feedbackInputFromParts(
     mass,
     teff,
     radius,
-    localDensity,
     mCloud: meta.env_m_cloud_actual_msun!,
     rCloudPc: meta.env_radius_pc!,
     effGamma: meta.eff_gamma!,
@@ -98,18 +96,16 @@ export async function loadFeedbackRealization(
   opts: FeedbackOptions = {},
 ): Promise<FeedbackRealization> {
   const base = name ? `/data/gravoturb/${name}` : "/data/gravoturb";
-  const [meta, starBuf, ldBuf, mencBuf] = await Promise.all([
+  const [meta, starBuf, mencBuf] = await Promise.all([
     fetch(`${base}/meta.json`).then((r) => r.json() as Promise<Record<string, number>>),
     fetch(`${base}/stars.f32`).then((r) => r.arrayBuffer()),
-    fetch(`${base}/local_density.f32`).then((r) => r.arrayBuffer()),
     fetch(`${base}/gas_menc.f32`).then((r) => r.arrayBuffer()),
   ]);
   const stars = new Float32Array(starBuf);
-  const localDensity = new Float32Array(ldBuf);
   const gasMencFrac = new Float32Array(mencBuf);
   const gasMencRMaxPc = meta.gas_menc_r_max_pc!;
   const input = feedbackInputFromParts(
-    meta, stars, localDensity, opts, gasMencFrac, gasMencRMaxPc,
+    meta, stars, opts, gasMencFrac, gasMencRMaxPc,
   );
   return {
     name: name ?? "",

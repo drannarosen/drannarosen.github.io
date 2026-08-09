@@ -155,7 +155,7 @@ console.log("feedback: momentum trajectory");
 const { momentumTrajectory } = await import("../src/novascope/core/feedback/trajectory.ts");
 const { computeLedger } = await import("../src/novascope/core/feedback/ledger.ts");
 const synth = {
-  mass: [40], teff: [40000], radius: [10], localDensity: [1e5],
+  mass: [40], teff: [40000], radius: [10],
   mCloud: 2e4, rCloudPc: 2.5, effGamma: 4.2, effAPc: 0.8, vEscCloud: 8.4,
   sfe: 0.2, tCrossMyr: 1.64, qVirialStarsOnly: 0.03,
   // Uniform-density stand-in for the enclosed-gas profile: M(<r)/M = (r/rmax)^3.
@@ -323,7 +323,7 @@ for (const prescription of ["bjorklund", "vink"]) {
     const dir = r.path === "/data/gravoturb" ? DATA : join(DATA, r.name);
     const meta = JSON.parse(readFileSync(join(dir, "meta.json"), "utf8"));
     const input = feedbackInputFromParts(
-      meta, readF32(join(dir, "stars.f32")), readF32(join(dir, "local_density.f32")), {},
+      meta, readF32(join(dir, "stars.f32")), {},
     );
     input.prescription = prescription;
     etaMaxes.push(computeLedger(input).diagnostics.etaMaxWind);
