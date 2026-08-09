@@ -54,10 +54,47 @@ const K_B = K_B_CGS; // exact by SI definition — see @novascope/core/constants
 export const F_TRAP_FIDUCIAL = 2.0;
 
 /**
- * Direct-absorption floor: every photon deposits its momentum once before
- * escaping. The `1` of KM09 eq (22).
+ * Direct-absorption term at FULL COVERING: every photon deposits its momentum
+ * once before escaping. The `1` of KM09 eq (22).
+ *
+ * It is not a floor. KM09 sec 2, verbatim: "A value f_trap = 1 corresponds to
+ * every photon emitted by the stars being absorbed once in the shell and
+ * depositing its momentum there" — an assumption that the shell subtends the
+ * whole sky, not a lower bound. They are equally explicit about the other end:
+ * "If f_trap = 0, then the shell is optically thin and all stellar photons
+ * escape without depositing any momentum."
+ *
+ * So the direct term scales with the COVERING FRACTION, and f_trap below 1 is
+ * a physical state, not an error. See `coveringFraction` below.
  */
 export const F_TRAP_DIRECT = 1.0;
+
+/**
+ * Shell covering fraction C_f — the fraction of the sky the shell subtends as
+ * seen from the cluster, hence the fraction of the direct radiation that is
+ * intercepted at all.
+ *
+ * KM09 sec 4: "H ii region covers a fraction C_f of the sky as seen from the
+ * driving cluster; for blister case clearly C_f <= 1/2, while for the embedded
+ * case C_f could take any value between 0 and 1."
+ *
+ * That the remainder is simply lost is their own statement, in the energy
+ * balance of eq (35): L = (1 - C_f)L + 3 pi r^2 (1 - C_f) P_IR, where the first
+ * right-hand term is "the rate at which this beamed radiation field escapes the
+ * shell without interacting". Radiation that never interacts deposits no
+ * momentum, so the direct term is C_f, not 1.
+ *
+ * DEFAULT 0.5, and it is theirs rather than chosen: "for realistic values of
+ * C_f <~ 1/2, the ratio of the force provided by trapped IR to that provided by
+ * the direct radiation field is f_trap,IR <~ 1". It is also the ceiling for a
+ * blister geometry, so 0.5 is simultaneously KM09's realistic embedded value
+ * and the most a blister region could reach.
+ *
+ * The shell is porous for a reason, not by assumption: KM09 note that even
+ * starting from a uniform ISM with no winds, the trapped radiation field alone
+ * drives a Rayleigh-Taylor instability that punches holes.
+ */
+export const COVERING_FRACTION_DEFAULT = 0.5;
 
 /**
  * Lyman-alpha trapping contribution. KM09 sec 3.3 find the pressure of trapped
@@ -132,19 +169,40 @@ export function trapIR(sigmaShellCgs: number, teffShellK: number): number {
 
 /**
  * The trapping factor appropriate to OUR ledger: KM09 eq (22) with the wind
- * term omitted, because winds are their own channel here.
+ * term omitted (winds are their own channel here) and the direct term carrying
+ * the covering fraction:
  *
- *   f_trap = 1 + f_trap,IR + f_trap,Lyalpha
+ *   f_trap = C_f + f_trap,IR + f_trap,Lyalpha
  *
- * For every environment in the shipped set this evaluates to ~1: the shells sit
- * at T_eff,sh = 11-45 K and Sigma_sh = 0.003-0.4 g/cm^2, far below the
- * Sigma_sh >~ 1, T_eff,sh > 60 K regime where KM09 note trapping becomes
- * significant. That is a RESULT, not an assumption — it is computed per
- * environment and will rise on its own for a more compact, more luminous one.
+ * THE DIRECT TERM IS C_f, NOT 1. Writing 1 asserts that the shell intercepts
+ * every photon the cluster emits, which is KM09's full-covering case and their
+ * upper bound — see `COVERING_FRACTION_DEFAULT`. At the default C_f = 0.5 this
+ * evaluates BELOW unity for every shipped environment, which is a physical
+ * state and not a floor being violated: half the direct radiation escapes
+ * through holes without ever touching the shell.
+ *
+ * f_trap,IR stays ~0 across the shipped set: the shells sit at
+ * T_eff,sh = 11-45 K and Sigma_sh = 0.003-0.4 g/cm^2, far below the
+ * Sigma_sh >~ 1, T_eff,sh > 60 K regime where KM09 note trapping matters. That
+ * is a RESULT, computed per environment, and it will rise on its own for a more
+ * compact, more luminous one.
+ *
+ * Deliberately NOT eq (37), f_trap,IR = (4/3)C_f/(1-C_f), even though that is
+ * KM09's own porous-shell expression and would give 1.33 at C_f = 0.5. Its
+ * stated precondition is a shell optically thick to IR on average
+ * (Sigma_shell >> Sigma_ph); ours are not — trapIR returning ~0 IS that
+ * measurement. Applying the leaky-but-thick formula to an optically thin shell
+ * would manufacture trapping the shell cannot do.
  */
-export function fTrapKM09(lSun: number, rPc: number, sigmaShellCgs: number): number {
+export function fTrapKM09(
+  lSun: number,
+  rPc: number,
+  sigmaShellCgs: number,
+  coveringFraction: number = COVERING_FRACTION_DEFAULT,
+): number {
+  const cf = Math.min(1, Math.max(0, coveringFraction));
   const teff = shellEffectiveTemperature(lSun, rPc);
-  return F_TRAP_DIRECT + trapIR(sigmaShellCgs, teff) + F_TRAP_LYA;
+  return cf * F_TRAP_DIRECT + trapIR(sigmaShellCgs, teff) + F_TRAP_LYA;
 }
 
 /**

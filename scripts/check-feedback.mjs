@@ -89,11 +89,46 @@ check("T_eff,sh ~ r^-1/2", shellEffectiveTemperature(1e6, 1) / shellEffectiveTem
  *    f_trap,w and winds are a separate channel here. A future edit that
  *    "restores" 2 would silently double-count the wind bubble. */
 const fOurs = fTrapKM09(28.55e6, 2, 0.396); // the shipped `compact` environment
-check("f_trap for compact is ~1, not the fiducial 2", fOurs, 1, 0.05);
 if (fOurs >= F_TRAP_FIDUCIAL) {
   failures++;
   console.error(`  FAIL f_trap reached the wind-inclusive fiducial (${fOurs}) — winds would be double-counted`);
 }
+
+/* 5b. f_trap BELOW 1 is a physical state, not a floor being breached.
+ *
+ *     KM09 sec 2: f_trap = 1 is "every photon emitted by the stars being
+ *     absorbed once in the shell", i.e. FULL covering; f_trap = 0 is the
+ *     optically thin shell where "all stellar photons escape without
+ *     depositing any momentum". The direct term therefore carries C_f, and
+ *     their eq (35) makes the loss explicit — (1-C_f)L "escapes the shell
+ *     without interacting".
+ *
+ *     Gated because the old code hardcoded the direct term to 1, which silently
+ *     asserted a fully-covered shell in every environment and put a floor under
+ *     the radiation channel that the physics does not have. */
+const { COVERING_FRACTION_DEFAULT } = await import("../src/novascope/core/feedback/radiation.ts");
+check("shipped f_trap is below 1 (partially covered shell)", fOurs < 1, true, 0);
+check("f_trap tracks C_f when IR trapping is negligible", fOurs, COVERING_FRACTION_DEFAULT, 0.02);
+// C_f = 0 removes the DIRECT term exactly, leaving only the IR term — which is
+// eq (34), the non-porous expression, and carries no C_f of its own. So the
+// residual is trapIR, not zero. (An earlier version of this check asserted
+// exactly 0 and failed against correct code: the direct term had gone, but
+// f_trap,IR = 0.002 remained. Assert the isolated behaviour, not a round
+// number.) The residual is separately required to be negligible here, which is
+// what makes "f_trap ~ C_f" true for the shipped environments.
+{
+  const teffSh = shellEffectiveTemperature(28.55e6, 2);
+  const irOnly = trapIR(0.396, teffSh);
+  check("C_f = 0 removes the direct term exactly", fTrapKM09(28.55e6, 2, 0.396, 0), irOnly, 1e-12);
+  check("and the IR residual is negligible for these shells", irOnly < 0.01, true, 0);
+}
+check("C_f = 1 recovers the full-covering direct term",
+  fTrapKM09(28.55e6, 2, 0.396, 1), 1, 0.02);
+check("f_trap increases with C_f",
+  fTrapKM09(28.55e6, 2, 0.396, 0.8) > fTrapKM09(28.55e6, 2, 0.396, 0.3), true, 0);
+// KM09's realistic value is also the blister ceiling, so the default must not exceed it.
+check("default C_f <= 1/2 (KM09 'realistic values of C_f <~ 1/2')",
+  COVERING_FRACTION_DEFAULT <= 0.5, true, 0);
 
 /* 6. Two-stage gas-expulsion verdict. Stage 1 measures against the GAS mass, not
  *    the whole cloud; stage 2 is the first-principles energy criterion q<1. */

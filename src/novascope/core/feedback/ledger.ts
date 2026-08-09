@@ -12,7 +12,12 @@
 import { windBudget, type WindBudget, type WindPrescription } from "./winds.ts";
 import { bubbleCeiling } from "./bubble.ts";
 import { hiiBudget, hiiTrapped, type HiiBudget } from "./photoionization.ts";
-import { radiationBudget, type RadiationBudget, fTrapKM09 } from "./radiation.ts";
+import {
+  radiationBudget,
+  type RadiationBudget,
+  fTrapKM09,
+  COVERING_FRACTION_DEFAULT,
+} from "./radiation.ts";
 import { cloudBinding, type CloudBinding } from "./binding.ts";
 import { starLuminosity, ionizingRate, preSNWindowMyr } from "./sources.ts";
 
@@ -80,8 +85,17 @@ export interface LeakageKnobs {
   /**
    * Radiation trapping factor; null = compute it from KM09 eq (22), omitting
    * their wind term because winds are a separate channel here.
+   *
+   * May legitimately be BELOW 1: that is the partially-covered shell, where
+   * some of the direct radiation escapes without interacting (KM09 eq 35).
    */
   fTrap: number | null;
+  /**
+   * Shell covering fraction C_f [0,1] — the share of the direct radiation the
+   * shell intercepts at all. Drives f_trap's direct term; see
+   * COVERING_FRACTION_DEFAULT in radiation.ts for the sourcing.
+   */
+  coveringFraction: number;
 }
 
 /**
@@ -129,9 +143,11 @@ export const DEFAULT_LEAKAGE: LeakageKnobs = {
   windVent: 0.0,
   hiiLeak: 0.5,
   // Sentinel: compute f_trap per environment from KM09 eq (22) as
-  // 1 + f_trap,IR + f_trap,Lyalpha. NOT their fiducial 2 — that includes
+  // C_f + f_trap,IR + f_trap,Lyalpha. NOT their fiducial 2 — that includes
   // f_trap,w, and our wind channel already carries it.
   fTrap: null,
+  // KM09's own realistic value, and the ceiling for a blister geometry.
+  coveringFraction: COVERING_FRACTION_DEFAULT,
 };
 
 export interface ChannelEntry {
@@ -407,7 +423,7 @@ export function computeLedger(input: LedgerInput): Ledger {
   // yields is an over-estimate of an already-upper-limit expression.
   const rShellCm = input.rCloudPc * PC_CM;
   const sigmaShellCgs = (input.mCloud * MSUN_G) / (4 * Math.PI * rShellCm ** 2);
-  const fTrap = knobs.fTrap ?? fTrapKM09(lTotal, input.rCloudPc, sigmaShellCgs);
+  const fTrap = knobs.fTrap ?? fTrapKM09(lTotal, input.rCloudPc, sigmaShellCgs, knobs.coveringFraction);
   const rad = radiationBudget(lTotal, sTotal, windowMyr, input.rCloudPc, fTrap);
   const radiation: ChannelEntry = {
     name: "radiation",
