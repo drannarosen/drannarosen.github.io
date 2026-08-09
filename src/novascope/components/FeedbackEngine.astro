@@ -26,9 +26,37 @@
  */
 import PresentFrame from "../../components/explore/PresentFrame.astro";
 import RatioBar from "./RatioBar.astro";
+import Math from "../../components/Math.astro";
+const m = (tex: string) => tex;
 ---
 
 <div class="fbe" data-fbe>
+  {/*
+    TYPESET ONCE AT BUILD, CLONED BY THE SCRIPT — the same arrangement
+    DynamicsEngine uses, and for the same reason. The verdict line, the ratio
+    readouts and the stat list are assembled in JS, so they cannot use `<Math>`
+    inline the way static copy can. Unicode (M⊙, Σ, ψ, ×) is not the same
+    typography as the rest of the page and breaks as soon as a symbol needs an
+    exponent outside the superscript block; importing KaTeX into the client
+    would ship ~270 kB to typeset a handful of glyphs.
+
+    So they are rendered here, hidden, at build time, and `tex()` copies the
+    HTML. Zero bundle cost, and identical KaTeX to the rest of the site by
+    construction.
+  */}
+  <div class="fbe__texlib" hidden aria-hidden="true">
+    <span data-tex="times"><Math tex={m("\\times")} /></span>
+    <span data-tex="msun"><Math tex={m("M_\\odot")} /></span>
+    <span data-tex="sigma"><Math tex={m("\\Sigma")} /></span>
+    <span data-tex="sigmaunit"><Math tex={m("M_\\odot\\,\\mathrm{pc}^{-2}")} /></span>
+    <span data-tex="psi"><Math tex={m("\\psi")} /></span>
+    <span data-tex="rch"><Math tex={m("r_\\mathrm{ch}")} /></span>
+    <span data-tex="mgas"><Math tex={m("M_\\mathrm{gas}")} /></span>
+    <span data-tex="pc"><Math tex={m("\\mathrm{pc}")} /></span>
+    <span data-tex="cf"><Math tex={m("C_f")} /></span>
+    <span data-tex="approx"><Math tex={m("\\approx")} /></span>
+    <span data-tex="arrow"><Math tex={m("\\rightarrow")} /></span>
+  </div>
   <PresentFrame
     label="A star cluster and its feedback budget"
     hint="drag to rotate · scroll to zoom · ←/→ scrubs time · space plays · F fullscreen"
@@ -47,7 +75,7 @@ import RatioBar from "./RatioBar.astro";
         <span class="fbe__scrub-head">
           <span class="fbe__scrub-name">Expulsion</span>
           <span class="fbe__cleared" data-cleared>embedded</span>
-          <span class="fbe__endpts">embedded → cleared</span>
+          <span class="fbe__endpts">embedded <Math tex={m("\\rightarrow")} /> cleared</span>
         </span>
         <input type="range" min="0" max="1" step="0.005" value="0" autocomplete="off" data-scrub />
       </label>
@@ -86,7 +114,7 @@ import RatioBar from "./RatioBar.astro";
       <div class="fbe__knobs">
         <label class="fbe__knob">
           <span class="fbe__knob-head">
-            <span>shell covering <em>C<sub>f</sub></em></span>
+            <span>shell covering <Math tex={m("C_f")} /></span>
             <output data-cf-out>0.50</output>
           </span>
           <input type="range" min="0" max="1" step="0.01" value="0.5" autocomplete="off" data-cf />
@@ -105,7 +133,7 @@ import RatioBar from "./RatioBar.astro";
 
       <div class="fbe__channels" role="group" aria-label="How shell porosity couples to the wind">
         <span class="fbe__channels-lead">coupling</span>
-        <button type="button" class="fbe__chip is-active" data-coup="simple" aria-pressed="true">f_vent = 1−C_f</button>
+        <button type="button" class="fbe__chip is-active" data-coup="simple" aria-pressed="true"><Math tex={m("f_\\mathrm{vent} = 1 - C_f")} /></button>
         <button type="button" class="fbe__chip" data-coup="km09" aria-pressed="false">KM09 porous</button>
         <button type="button" class="fbe__chip" data-coup="independent" aria-pressed="false">uncoupled</button>
       </div>
@@ -157,6 +185,17 @@ import RatioBar from "./RatioBar.astro";
   import { loadScene, createEngine, attachInteraction } from "../viz/webgl/index.ts";
   import { loadFeedbackRealization, recomputeFeedback, type FeedbackRealization }
     from "../state/feedback";
+
+  /** Build-time KaTeX, cloned on demand. See the texlib note in the markup. */
+  const texCache = new Map<string, string>();
+  function tex(name: string): string {
+    const hit = texCache.get(name);
+    if (hit !== undefined) return hit;
+    const el = document.querySelector<HTMLElement>(`[data-tex="${name}"]`);
+    const html = el ? el.innerHTML : "";
+    texCache.set(name, html);
+    return html;
+  }
 
   const root = document.querySelector<HTMLElement>("[data-fbe]");
   if (root) void mount(root);
@@ -290,14 +329,14 @@ import RatioBar from "./RatioBar.astro";
       if (prescription() !== "bjorklund")
         parts.push("wind recipe Vink (2001), with its own calibrated leakage");
       if (Math.abs(+cfEl.value - 0.5) > 1e-9)
-        parts.push(`covering fraction C_f = ${(+cfEl.value).toFixed(2)} (default 0.50)`);
+        parts.push(`covering fraction ${tex("cf")} = ${(+cfEl.value).toFixed(2)} (default 0.50)`);
       if (Math.abs(+hiiEl.value - 0.5) > 1e-9)
         parts.push(`H II leakage ${(+hiiEl.value).toFixed(2)} (default 0.50)`);
       if (coupling() !== "simple")
         parts.push(coupling() === "km09"
-          ? "KM09 porous coupling, which returns no wind boost below C_f ≈ 0.56"
+          ? `KM09 porous coupling, which returns no wind boost below ${tex("cf")} ${tex("approx")} 0.56`
           : "wind uncoupled from C_f");
-      p.textContent = parts.length
+      p.innerHTML = parts.length
         ? `Not the defaults the notes below describe — ${parts.join("; ")}.`
         : "";
       p.hidden = parts.length === 0;
@@ -313,8 +352,10 @@ import RatioBar from "./RatioBar.astro";
       // real accumulation curve — the ledger no longer carries a second,
       // linear-approximation t_remove for this line to disagree with.
       const s1 = el.querySelector<HTMLElement>("[data-stage1]")!;
-      s1.textContent = g.gasExpelled
-        ? `Gas expelled — momentum ${g.gasMomentumRatio.toFixed(1)}× the threshold, ${fb.trajectory.removalRegime} removal`
+      // innerHTML, not textContent: these carry typeset symbols. Everything
+      // interpolated is this file's own formatted number — never reader input.
+      s1.innerHTML = g.gasExpelled
+        ? `Gas expelled — momentum ${g.gasMomentumRatio.toFixed(1)}${tex("times")} the threshold, ${fb.trajectory.removalRegime} removal`
         : `Gas retained — only ${(g.gasMomentumRatio * 100).toFixed(0)}% of the momentum needed; cluster stays embedded`;
       renderChannelStates(el, fb);
       renderNonDefault(el);
@@ -414,7 +455,8 @@ import RatioBar from "./RatioBar.astro";
     bar.dataset.state = ratioState(ratio);
     bar.querySelector<HTMLElement>("[data-ratiobar-fill]")!.style.inlineSize =
       `${(ratioFill(ratio) * 100).toFixed(1)}%`;
-    bar.querySelector<HTMLElement>("[data-ratiobar-value]")!.textContent = `${ratio.toFixed(2)}×`;
+    bar.querySelector<HTMLElement>("[data-ratiobar-value]")!.innerHTML =
+      `${ratio.toFixed(2)}${tex("times")}`;
   }
 
   /**
@@ -456,10 +498,10 @@ import RatioBar from "./RatioBar.astro";
     const wb = L.diagnostics.windBudget;
     const rows: [string, string][] = [
       ["window", `${L.windowMyr.toFixed(2)} Myr`],
-      ["Σ", `${(m.env_sigma_msun_pc2 as number).toFixed(0)} M⊙/pc²`],
-      ["ψ", L.diagnostics.radiation.psi.toFixed(2)],
-      ["r_ch", `${L.diagnostics.radiation.rCh.toFixed(2)} pc`],
-      ["M_gas", `${fmt(L.gasExpulsion.mGas)} M⊙`],
+      [tex("sigma"), `${(m.env_sigma_msun_pc2 as number).toFixed(0)} ${tex("sigmaunit")}`],
+      [tex("psi"), L.diagnostics.radiation.psi.toFixed(2)],
+      [tex("rch"), `${L.diagnostics.radiation.rCh.toFixed(2)} ${tex("pc")}`],
+      [tex("mgas"), `${fmt(L.gasExpulsion.mGas)} ${tex("msun")}`],
       // How much of the population the wind recipe actually covers. winds.ts
       // computes this "so a caller can report how much of the population a
       // recipe actually covers instead of silently summing over a subset" — and
