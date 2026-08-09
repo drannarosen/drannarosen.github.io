@@ -68,6 +68,21 @@ sys.path.insert(0, str(GRAVOTURB_VALIDATION))
 import jax  # noqa: E402
 import jax.numpy as jnp  # noqa: E402
 import feasibility_figure as ff  # noqa: E402
+from progenax.imf.smooth import Maschberger  # noqa: E402
+
+# ── THE IMF IS THIS SCRIPT'S OWN, NOT THE FIGURE SCRIPT'S ────────────────────────────────────────
+#
+# `feasibility_figure` sets `IMF = Maschberger()`, which defaults to m_min = 0.01 Msun. That is an
+# order of magnitude below the hydrogen-burning limit, so 44% of every exported catalogue was brown
+# dwarfs — measured across all six shipped realizations on 2026-08-09, with a median object mass of
+# 0.099 Msun. They carried ~4% of the stellar mass and none of the feedback, but they were counted
+# as stars on a published page and they wrecked the cluster rendering: `toRenderModel` normalizes
+# apparent size across the population's log L, so a floor ten times too low pinned half the real
+# stars at the minimum size.
+#
+# Inheriting a validation figure's IMF was the underlying mistake. A figure can sample brown dwarfs
+# if it likes; an export that feeds a stellar-feedback budget cannot.
+IMF = Maschberger(m_min=0.08, m_max=300.0)  # m_min = the hydrogen-burning limit
 from progenax.profiles.eff import EFFProfile  # noqa: E402
 from progenax.stellar import zams_effective_temperature, zams_radius  # noqa: E402
 
@@ -121,7 +136,10 @@ class Realization:
     m_cloud: float = 2.0e4  # target cloud mass [Msun] (gas + stars at sfe)
     radius: float = 2.5  # cloud truncation radius r_t [pc]
     alpha_vir: float = 1.0  # virial parameter that SETS the Mach number
-    mean_imf_mass: float = 0.3883  # <m> [Msun], measured from the shipped IMF draw
+    # <m> [Msun] for the IMF below, measured over 2e5 draws. It rose from 0.3883 when m_min
+    # moved from 0.01 to 0.08 (see IMF), and since N = SFE * M_cloud / <m> that takes orion from
+    # 10301 stars to ~6340. Re-measure this whenever the IMF bounds change; it is not a free knob.
+    mean_imf_mass: float = 0.6312
     # cloud turbulence + kinematics (mach is derived; see .mach)
     b: float = 0.5  # turbulence forcing (0.5 = natural mix)
     alpha: float = 1.8  # density-PDF/power-spectrum knob
@@ -451,7 +469,7 @@ def build_one(r: Realization) -> dict:
     )
     velocity = ff.VelocitySpec(beta_v=r.beta_v, mode="physical", c_s=r.c_s_km_s)
     composition = ff.CompositionSpec(lambda_corr=r.lambda_corr)
-    masses = ff.IMF.sample(jax.random.PRNGKey(r.imf_seed), r.n_stars)
+    masses = IMF.sample(jax.random.PRNGKey(r.imf_seed), r.n_stars)
     ic = ff.build_cluster_ic(
         masses,
         cloud=cloud,
@@ -496,6 +514,13 @@ def build_one(r: Realization) -> dict:
         "eff_r_t_pc": r.eff_rt,
         "lambda_corr": composition.lambda_corr,
         "n_stars": int(st["stars"].shape[0]),
+        # RECORDED, because its absence is why the 0.01 floor went unnoticed for so long: nothing
+        # downstream could check the population it was being handed.
+        "imf_kind": "maschberger",
+        "imf_m_min": float(IMF.m_min),
+        "imf_m_max": float(IMF.m_max),
+        "imf_alpha": float(IMF.alpha),
+        "imf_mean_mass": float(r.mean_imf_mass),
         "star_fields": ["x", "y", "z", "mass", "teff", "radius"],
         "star_units": ["pc", "pc", "pc", "Msun", "K", "Rsun"],
         "velocity_fields": ["vx", "vy", "vz"],
