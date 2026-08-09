@@ -56,7 +56,8 @@
     "gen:dynamics-ref": "node --experimental-strip-types scripts/reference/gen-dynamics-ref.mjs",
     "check:extinction": "node --experimental-strip-types scripts/check-extinction.mjs",
     "check:data": "node scripts/check-data.mjs",
-    "check:volume-mass": "node scripts/check-volume-mass.mjs"
+    "check:volume-mass": "node scripts/check-volume-mass.mjs",
+    "check:volume-parity": "node scripts/check-volume-parity.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.2.1",
