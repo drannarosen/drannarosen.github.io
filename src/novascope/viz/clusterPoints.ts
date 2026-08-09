@@ -74,9 +74,6 @@ const HALO_RADII = 3.2;
  * — deliberately restated rather than shared, because it is a TypeScript
  * narrowing detail, not a fact about the renderer that could drift.
  */
-function isWebGPUBackend(b: unknown): b is { isWebGPUBackend: true } {
-  return typeof b === "object" && b !== null && "isWebGPUBackend" in b;
-}
 
 /**
  * How much of the half-frame the p90 radius fills.
@@ -154,6 +151,17 @@ export interface ClusterPoints {
   setTrail(xyz: Float32Array | null, colour?: readonly [number, number, number]): void;
   /** User zoom about the frame centre; >1 magnifies. Clamped to [0.15, 40]. */
   setZoom(z: number): void;
+  /**
+   * Add another Layer-2 renderer's geometry to this scene.
+   *
+   * The seam the volumetric port needs: the gas mesh joins the SAME pivot the stars hang off, so
+   * both share one camera, one framing and one depth buffer. That is what makes a star inside the
+   * cloud occluded by the cloud rather than composited over it.
+   *
+   * The caller keeps ownership — `dispose()` here does not dispose what it did not create.
+   */
+  attach(object: THREE.Object3D): void;
+  detach(object: THREE.Object3D): void;
   readonly zoom: number;
   /**
    * Device pixels per parsec along the short edge, AFTER zoom.
@@ -445,6 +453,14 @@ export function createClusterPoints(
     },
     setZoom(z) {
       host.setZoom(z);
+    },
+    attach(object) {
+      host.pivot.add(object);
+      host.redraw();
+    },
+    detach(object) {
+      host.pivot.remove(object);
+      host.redraw();
     },
     get zoom() {
       return host.zoom;

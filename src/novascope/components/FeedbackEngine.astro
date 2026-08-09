@@ -20,7 +20,7 @@
  * with t_remove marked. The bars and verdict are the accounting the spectacle
  * exists to make legible.
  *
- * Data flow: viz/loadScene + createEngine render the cloud; state/feedback runs
+ * Data flow: viz/loadScene + createCloudScene render the cloud; state/feedback runs
  * the Layer-0 budget. The two share the browser-cached fetches but nothing else,
  * keeping the import boundary intact.
  */
@@ -182,7 +182,8 @@ const m = (tex: string) => tex;
 </div>
 
 <script>
-  import { loadScene, createEngine, attachInteraction } from "../viz/webgl/index.ts";
+  import { loadScene } from "../viz/webgl/scene.ts";
+  import { createCloudScene } from "../viz/cloudScene.ts";
   import { loadFeedbackRealization, recomputeFeedback, type FeedbackRealization }
     from "../state/feedback";
   import { decode, encode } from "../core/params/urlState.ts";
@@ -233,7 +234,7 @@ const m = (tex: string) => tex;
     const clearedOut = el.querySelector<HTMLElement>("[data-cleared]")!;
     const frame = el.querySelector<HTMLElement>("[data-present]");
 
-    let engine: ReturnType<typeof createEngine> | null = null;
+    let engine: ReturnType<typeof createCloudScene> | null = null;
     let fb: FeedbackRealization | null = null;
     let currentPath = "/data/gravoturb";
     let raf = 0;
@@ -343,8 +344,10 @@ const m = (tex: string) => tex;
         loadFeedbackRealization(name, { enabled: enabled(), prescription: prescription(), leakage: leakage() }),
       ]);
       engine?.cleanup();
-      engine = createEngine(canvas, scene, { emphasizeHot: true, starGlow: 1 });
-      attachInteraction(canvas, engine);
+      /* One three.js scene for the gas AND the stars — see viz/cloudScene. Drag-to-orbit and
+         wheel-zoom come from the shared host, so there is no separate interaction layer to
+         attach. */
+      engine = createCloudScene(canvas, scene);
       fb = budget;
       renderBudget();
       applyScrub(+scrub.value);

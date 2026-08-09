@@ -259,7 +259,7 @@ export async function gpuRender(
   host.renderer.outputColorSpace = LinearSRGBColorSpace;
   const layer = createVolumeLayer(
     { volume: vol, ngrid, logRange },
-    { floor: params.floor, gamma: params.gamma, emit: params.emit, absorb: params.absorb, parityMode: true },
+    { floor: params.floor, gamma: params.gamma, emit: params.emit, absorb: params.absorb, parityMode: true, displayEncoded: false },
   );
   layer.mesh.scale.setScalar(boxPc);
   host.pivot.add(layer.mesh);

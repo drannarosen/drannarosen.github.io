@@ -11,6 +11,14 @@ export interface Scene {
   ngrid: number;
   stars: Float32Array; // n*6: x,y,z,mass,teff,radius (pc, Msun, K, Rsun)
   box: number; // pc
+  /**
+   * The cloud's truncation radius [pc] — where the EFF profile ends and the box is empty.
+   *
+   * The frame belongs on THIS, not on the box. Every realization ships a box 2.4x the truncation
+   * radius (measured: eff_r_t_pc / box_pc = 0.417 for all six), so framing on box/2 spends a fifth
+   * of the frame's width on vacuum and shrinks the cluster inside it for nothing.
+   */
+  cloudRadiusPc: number;
   /** Normalized position (0..1) of rho_0 in the texture's log range = default floor. */
   densityFloor: number;
   logRange: number; // logMax - logMin (dex), for the expansion's 1/S^3 dilution
@@ -56,6 +64,10 @@ export function sceneFromParts(
     ngrid: meta.volume_ngrid,
     stars,
     box: meta.box_pc,
+    /* `eff_r_t_pc` is the EFF truncation the exporter actually applied; `env_radius_pc` matches it
+       in every shipped realization and stands in if a future export drops the first. Falling back
+       to the measured 0.417 ratio keeps an older export renderable rather than framed at zero. */
+    cloudRadiusPc: meta.eff_r_t_pc ?? meta.env_radius_pc ?? meta.box_pc * 0.417,
     densityFloor: floorMedian,
     logRange: hi - lo,
     floorMedian,

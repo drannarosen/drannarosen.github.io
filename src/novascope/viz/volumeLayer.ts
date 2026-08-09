@@ -103,6 +103,23 @@ export interface VolumeLayerOptions {
    *   "alpha"      the accumulated opacity, isolating the transfer from the colour ramp.
    */
   debug?: "sample" | "pathLength" | "alpha" | "s" | "ramp";
+  /**
+   * Pre-linearise the composite so the renderer's sRGB encode returns the AUTHORED colour.
+   *
+   * The shipped WebGL 2 engine wrote raw values to an untagged canvas — no colour management at
+   * all — and the cloud's exposure and ramp were tuned against exactly that. three's renderer
+   * encodes linear to sRGB on output, which lifts midtones hard (0.3 becomes 0.58) and turns the
+   * teal filaments into a pale haze. Measured on the page: the port looked washed out beside a
+   * picture nobody had asked to change.
+   *
+   * Decoding here and letting the renderer re-encode reproduces the authored image exactly. It is
+   * a compatibility transform, not a look: the alternative was making the shared host linear, which
+   * `clusterPoints` has never been and which would silently restyle /explore/dynamics.
+   *
+   * Set FALSE where the renderer is already linear — the parity harness does, since decoding
+   * without a matching encode would compare a transform rather than the arithmetic.
+   */
+  displayEncoded?: boolean;
 }
 
 export interface VolumeLayer {
@@ -253,7 +270,12 @@ export function createVolumeLayer(data: VolumeData, opts: VolumeLayerOptions = {
       return vec4(len, len, len, 1);
     }
     if (debugMode === "alpha") return vec4(alpha, alpha, alpha, 1);
-    return vec4(acc, alpha);
+    if (opts.displayEncoded === false) return vec4(acc, alpha);
+    /* sRGB -> linear on the composite. See `displayEncoded`. */
+    const lin = acc
+      .lessThanEqual(vec3(0.04045))
+      .select(acc.div(12.92), pow(acc.add(0.055).div(1.055).max(0), 2.4));
+    return vec4(lin, alpha);
   })();
 
   const geometry = new THREE.BoxGeometry(1, 1, 1);
