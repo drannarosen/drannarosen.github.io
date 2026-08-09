@@ -59,10 +59,25 @@ fetch from the wrong host. See `docs/domain-migration.md`.
 
 Do NOT touch DNS or reconfigure the domain.
 
-**Pages serves the `gh-pages` branch, not an Actions artifact.** See
-`docs/deployment.md` for the branch-deploy design and the switchover runbook —
-the switchover order matters, and reversing it 404s the live domain. Since
-`d72538e` the deploy pushes a branch and creates no artifact at all.
+**A branch deploy is COMMITTED BUT NOT LIVE.** `d72538e` rewrites the workflow
+to force-push `dist/` to `gh-pages`, and it is unpushed; `origin/main`'s
+workflow still uses `upload-pages-artifact` and Pages is still set to the
+Actions source. So the live site is still served from an artifact. See
+`docs/deployment.md` for the design, the switchover runbook, and — read this
+first — why the reason for the change turned out to be wrong.
+
+The switchover ORDER matters: push first, then repoint Pages. Reversing it
+points Pages at a branch that does not exist yet and 404s the live domain.
+
+(This paragraph said "Pages serves the `gh-pages` branch" as settled fact while
+none of it had shipped. It is the same failure as the migration note that used
+to sit here describing a move that had already happened — a doc asserting a
+state of the world it had not checked.)
+
+**The simulation data stays in this repository.** `public/data/gravoturb/` is
+17 MB and there was a plan to split it into its own repo; it is dropped, because
+the cost that motivated it was a misreading of GitHub's billing. See "Where the
+simulation data lives" in `docs/deployment.md`.
 
 **Ask before every push.** That is Anna's standing preference and it holds. The
 dev server is what gets reviewed, so nothing is lost by committing locally and
