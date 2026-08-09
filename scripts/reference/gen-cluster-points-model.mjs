@@ -32,16 +32,37 @@
  */
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { presets, sampleCluster } from "../../src/novascope/core/cluster/index.ts";
+import { scenario } from "../../src/novascope/core/dynamics/index.ts";
 import { toRenderModel } from "../../src/novascope/state/index.ts";
 
-/* The default preset at t = 3 Myr: old enough that the massive stars have moved off the ZAMS and
-   the colour spread is real, young enough that the population is still the one dynamics shows. */
-const IDENTITY = "default";
-const T_MYR = 3;
+/*
+ * DYNAMICS' OWN CONFIGURATION, not census's.
+ *
+ * The pin protects /explore/dynamics, so it draws the cluster that page draws: the `cluster`
+ * scenario at its shipped URL defaults (seed 2026, n 400, r_h 0.65 pc, gamma 5, alpha 2.3) with
+ * SOFTENING_FRACTION 0.1 and CLUSTER_Z 0.02, exactly as DynamicsEngine builds it.
+ *
+ * t = 0, and that is not a shortcut. DynamicsEngine calls `toRenderModel` at t = 0 too, in its
+ * words because "at this rung a star MOVES but does not evolve, so asking toRenderModel for an
+ * age would claim evolution the backend cannot compute". It also means the capture reads the
+ * scenario's INITIAL CONDITIONS — deterministic from the seed — and never integrates, so none of
+ * the cross-engine divergence that rules out pinning a simulated frame can reach it.
+ */
+const DEFAULTS = { seed: 2026, n: 400, rHalfPc: 0.65, gamma: 5, alphaHigh: 2.3 };
+const SOFTENING_FRACTION = 0.1;
+const CLUSTER_Z = 0.02;
+const T_MYR = 0;
 
-const latent = sampleCluster(presets[IDENTITY]);
-const model = toRenderModel(latent, { t: T_MYR });
+const built = scenario("cluster").build({ ...DEFAULTS, softeningFraction: SOFTENING_FRACTION });
+const st = built.state;
+const latent = Array.from({ length: st.n }, (_, i) => ({
+  id: i,
+  mass: st.mass[i],
+  Z: CLUSTER_Z,
+  x: st.pos[3 * i], y: st.pos[3 * i + 1], z: st.pos[3 * i + 2],
+  vx: st.vel[3 * i], vy: st.vel[3 * i + 1], vz: st.vel[3 * i + 2],
+}));
+const model = toRenderModel(latent, { t: T_MYR, selectedId: null, toggles: {} });
 
 /* 6 decimals. The renderer quantises to 8-bit long before this matters, and full float64 text
    would triple the file for digits nothing can see. */
@@ -53,8 +74,11 @@ const payload = {
     "baseline does not move when the physics does. Regenerate with " +
     "`node --experimental-strip-types scripts/reference/gen-cluster-points-model.mjs` only when " +
     "the pinned input should genuinely change, and re-pin the images in the same commit.",
-  source: `toRenderModel(sampleCluster(presets.${IDENTITY}), { t: ${T_MYR} })`,
-  generatedFrom: { preset: IDENTITY, tMyr: T_MYR, seed: presets[IDENTITY].seed },
+  source: `toRenderModel(scenario("cluster").build(defaults).state, { t: ${T_MYR} })`,
+  generatedFrom: { ...DEFAULTS, softeningFraction: SOFTENING_FRACTION, Z: CLUSTER_Z, tMyr: T_MYR },
+  /* The scenario's own DERIVED view half-width, so the pin frames the cluster as the page does
+     rather than as `maxR`'s 90th-percentile radius would. */
+  viewPc: r6(built.viewPc),
   maxR: r6(model.maxR),
   /* Flat arrays, not objects: 1200 stars as records is mostly repeated key text. */
   n: model.stars.length,

@@ -64,8 +64,13 @@ import frozen from "./cluster-points-model.json" with { type: "json" };
 export const BASELINE_SIZE = 320;
 /** Mean-pool grid edge. 40 gives 8x8 px cells — fine enough that one star's change survives. */
 export const BASELINE_GRID = 40;
-/** Framing radius. The frozen model's own `maxR`, so the cluster fills the frame as it does live. */
-const BASELINE_RADIUS_PC = frozen.maxR;
+/**
+ * Framing radius — the SCENARIO's `viewPc`, which is what /explore/dynamics frames on
+ * ("the scenario's own `viewPc`, FIXED"), and not the model's `maxR`. They differ: 2.60 pc
+ * against 1.35 pc, so framing on `maxR` would pin a view twice as tight as the page's and would
+ * push the outer cluster off the edge of the very frame meant to protect it.
+ */
+const BASELINE_RADIUS_PC = frozen.viewPc;
 
 /**
  * The model — a REAL cluster, frozen.
