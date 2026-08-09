@@ -115,6 +115,18 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
         claim about.
       </p>
       <p>
+        <strong>So what would a real code do instead of stopping?</strong> Shorten the step. That
+        is not something this scheme can do as a habit — its well-behaved error comes
+        <em>from</em> the step being fixed, so a step that changed at every one of them would
+        trade a visible, bounded error for an invisible, creeping one. But changing it a handful
+        of times is a different object: the error takes a single jump at the change and then sits
+        flat again. Add <a href="/explore/dynamics?autostep&amp;gravity"><code>?autostep</code></a>
+        to the address and the run shortens its step as the error climbs instead of ending, at
+        roughly half the model time per second of wall clock. It costs the halt, which is why it
+        is not the default — the line above is the honest thing to show first. The note under the
+        cluster says when the step moved.
+      </p>
+      <p>
         <strong>Run the same cluster twice and you may not get the same ending.</strong> That is
         not a flaw in the model; it is the thing the model is about. The error is not spread
         evenly over the run — it is delivered in single close passages between stars, and a close
