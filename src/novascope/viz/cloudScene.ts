@@ -142,6 +142,16 @@ export function createCloudScene(
    */
   stars.setFraming({ centre: [0, 0, 0], radiusPc: data.cloudRadiusPc });
 
+  /*
+   * Advertise the stack on the canvas, as DynamicsEngine does with `data-engine`.
+   *
+   * "Am I looking at the new renderer or a cached old one?" cost a round of confusion that no
+   * amount of curling the dev server could settle from the outside. One attribute answers it in
+   * the element inspector, and it reports the backend actually obtained rather than the one
+   * requested.
+   */
+  canvas.dataset.engine = `three.js volume + points (${stars.backend})`;
+
   return {
     setExpel(v) {
       volume.setExpel(v);
