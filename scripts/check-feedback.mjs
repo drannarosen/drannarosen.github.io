@@ -193,6 +193,67 @@ check("Björklund Z_sun is 0.014 (their sec 3.1)", Z_SUN_BJORKLUND, 0.014, 0);
  *    exactly how the previous default went stale — 0.9 was a well-calibrated
  *    VINK value that stayed put when the default became Björklund.
  */
+/* 10. The mass-weighted escape speed.
+ *
+ *     beta = <v_esc>_mass / sqrt(2GM/r_t) is what the gas actually has to
+ *     overcome; the surface value understated it by 38%. The properties gated
+ *     are the ones a wrong potential integral would break first, rather than
+ *     the number itself — which is derived, so restating it proves nothing.
+ */
+console.log("feedback: mass-weighted escape speed");
+const { effEscapeCoefficient, cloudBinding } = await import(
+  "../src/novascope/core/feedback/binding.ts"
+);
+
+// 1. beta > 1 always: the interior of any bound profile is deeper than its edge.
+for (const [gamma, rtOverA] of [[4.2, 3.125], [3.2, 3.125], [3.0, 2.0], [5.0, 10]]) {
+  const beta = effEscapeCoefficient(gamma, rtOverA);
+  check(`beta > 1 for gamma=${gamma}, r_t/a=${rtOverA}`, beta > 1, true, 0);
+}
+
+// 2. A STEEPER profile is more centrally concentrated, so more of its mass sits
+//    deep and beta rises. This is the direction a sign error would invert.
+check(
+  "beta increases with gamma (steeper => more mass deep)",
+  effEscapeCoefficient(4.2, 3.125) > effEscapeCoefficient(3.2, 3.125),
+  true, 0,
+);
+
+// 3. ANALYTIC LIMIT. As r_t/a -> 0 only the flat EFF core is retained, so the
+//    cloud becomes a UNIFORM sphere, for which the potential is known exactly:
+//
+//      Phi(r)   = -(GM/2r_t)(3 - r^2/r_t^2)
+//      v_esc(r) = sqrt(GM/r_t) sqrt(3 - r^2/r_t^2)
+//      beta     = int_0^1 3x^2 sqrt(3 - x^2) dx / sqrt(2)
+//               = (27/8)[theta - sin(4 theta)/4] / sqrt(2),  theta = asin(1/sqrt3)
+//               = 1.09378...
+//
+//    Note this is NOT 1. A uniform sphere's centre is deeper than its edge by
+//    sqrt(3/2), and the mass average lands 9.4% above the surface value. An
+//    earlier version of this check asserted beta -> 1 and failed against
+//    correct code — the expectation was wrong, not the integral. Checking
+//    against the closed form instead validates the potential integral itself.
+{
+  const theta = Math.asin(1 / Math.sqrt(3));
+  const betaUniform = ((27 / 8) * (theta - Math.sin(4 * theta) / 4)) / Math.SQRT2;
+  check("beta -> uniform-sphere analytic value as r_t/a -> 0",
+    effEscapeCoefficient(4.2, 0.02), betaUniform, 2e-3);
+}
+
+// 4. beta must not depend on the grid: halving the resolution moves it < 0.1%.
+check(
+  "beta is converged in nGrid",
+  effEscapeCoefficient(4.2, 3.125, 2048), effEscapeCoefficient(4.2, 3.125, 8192), 1e-3,
+);
+
+// 5. And the binding record uses it: the momentum threshold is M<v_esc>, not Mv_esc(r_t).
+{
+  const b = cloudBinding(20406.04, 2.5, 4.2, 0.8);
+  check("momentum threshold uses the mass-weighted speed", b.momentum, 20406.04 * b.vEscMassWeighted, 1e-12);
+  check("vEscMassWeighted = beta * vEsc", b.vEscMassWeighted, b.beta * b.vEsc, 1e-12);
+  check("surface vEsc is still reported separately", b.vEsc < b.vEscMassWeighted, true, 0);
+}
+
 console.log("feedback: wind-leak calibration against Lancaster+2025 alpha_p");
 const { readFileSync } = await import("node:fs");
 const { join } = await import("node:path");

@@ -277,6 +277,12 @@ const GAMMA_RANGE: [number, number] = [3.2, 4.2];
  * momentum (after leakage and venting), the same quantity the momentum bar
  * shows.
  */
+/**
+ * @param vEsc the MASS-WEIGHTED escape speed (binding.vEscMassWeighted), not
+ *             the surface value. The gas is spread through the profile, so
+ *             charging it sqrt(2GM/r_t) understates the cost of lifting it —
+ *             measured 38% low for the natal gamma = 4.2 realizations.
+ */
 export function gasExpulsionVerdict(
   totalMomentum: number,
   mCloud: number,
@@ -441,7 +447,7 @@ export function computeLedger(input: LedgerInput): Ledger {
     totalMomentum,
     input.mCloud,
     input.sfe,
-    binding.vEsc,
+    binding.vEscMassWeighted,
     input.qVirialStarsOnly,
   );
 
