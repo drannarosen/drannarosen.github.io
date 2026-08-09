@@ -78,7 +78,8 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
         Run it with gravity <strong>off</strong> and the two separate anyway, because the heavy
         and light groups simply start at different radii and with different speeds. How far
         they separate is an accident of the draw rather than a result: measured across eight
-        consecutive draws, the gap after eight crossing times ran from −22% to +40%, and in
+        consecutive draws, the gap after eight crossing times ran from
+        <Math tex="-22\%" /> to <Math tex="+40\%" />, and in
         three of the eight it was the <em>heavy</em> group that spread faster. What gravity does
         is different in kind rather than in size: the heavy curve drops <em>below</em> 1 while
         the light one climbs away. That crossing is the segregation; the offset is not.
@@ -86,7 +87,7 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
       <p>
         Watch the energy strip along the bottom while gravity is on. It plots the fractional
         energy error against the tolerance the run is checked at, and for the first several
-        crossing times it sits around 10<sup>−9</sup> — the integrator is barely working.
+        crossing times it sits around <Math tex="10^{-9}" /> — the integrator is barely working.
         Then it climbs, in <em>steps</em>. Each step is not a generic "close encounter": it is
         one specific thing, and the panel above will tell you when it happens.
       </p>
@@ -148,14 +149,16 @@ import DynamicsEngine from "../../novascope/components/DynamicsEngine.astro";
         <strong>What this model does and does not know.</strong> The integrator is a symplectic
         scheme of the same family my <code>gravax</code> code uses, run here on a few hundred
         stars so it keeps up with a browser; gravity is softened at small separations
-        (ε = 0.1 r<sub>h</sub> N<sup>−1/3</sup>, about 0.009 pc at N = 400), so very close
+        (<Math tex="\varepsilon = 0.1\,r_h N^{-1/3}" />, about 0.009 pc at
+        <Math tex="N = 400" />), so very close
         encounters are smoothed rather than resolved.
       </p>
       <p class="dyn-page__limits">
         The stars <em>move</em> but they do not <em>age</em>: masses, temperatures and
         luminosities are ZAMS values held fixed for the whole run. That is a limit on the
         dynamics and not only on the picture. The most massive star is a different star in every
-        draw — measured across eight consecutive draws it ran from 16 to 47 M<sub>☉</sub> — and
+        draw — measured across eight consecutive draws it ran from 16 to
+        47 <Math tex="M_\odot" /> — and
         even the lightest of those would leave the main sequence within about 12 Myr, the
         heaviest within about 4, returning most of its mass. This run keeps integrating them at
         their birth masses throughout. Past a few

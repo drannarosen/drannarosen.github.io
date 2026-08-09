@@ -34,6 +34,28 @@ const m = (tex: string) => tex;
 ---
 
 <div class="xpl-dyn" data-dyn>
+  {/*
+    TYPESET ONCE AT BUILD, CLONED BY THE SCRIPT.
+
+    Several readouts are assembled in JS — the banner, the binary legend, the override badge —
+    so they cannot use `<Math>` inline the way static copy does. The alternatives were both
+    bad: Unicode (M☉, ε, N^(−1/3)) is not the same typography as the rest of the page and
+    breaks the moment an exponent is not in the superscript block, and importing KaTeX into the
+    client bundle would ship ~270 kB to typeset eight symbols on a page already carrying WebGPU.
+
+    So the symbols are rendered here, at build time, hidden, and the script copies their HTML.
+    Zero bundle cost, and the maths is the same KaTeX as everywhere else by construction.
+  */}
+  <div class="xpl-dyn__texlib" hidden aria-hidden="true">
+    <span data-tex="msun"><Math tex={m("M_\\odot")} /></span>
+    <span data-tex="eps"><Math tex={m("\\varepsilon")} /></span>
+    <span data-tex="epslaw"><Math tex={m("r_h N^{-1/3}")} /></span>
+    <span data-tex="dt"><Math tex={m("\\Delta t")} /></span>
+    <span data-tex="tcr"><Math tex={m("t_\\mathrm{cr}")} /></span>
+    <span data-tex="a"><Math tex={m("a")} /></span>
+    <span data-tex="ecc"><Math tex={m("e")} /></span>
+    <span data-tex="pc"><Math tex={m("\\mathrm{pc}")} /></span>
+  </div>
   <div class="xpl-dyn__grid">
     <figure class="xpl-dyn__panel xpl-dyn__panel--field">
       <figcaption>
@@ -311,8 +333,8 @@ const m = (tex: string) => tex;
               <b>A gap on its own is not the evidence.</b> With gravity off the curves separate
               anyway, because the two groups begin at different radii and with different speeds —
               and by how much is an accident of the draw. Measured across eight consecutive draws,
-              the gap after eight crossing times ran from −22% to +40%, with the heavy group
-              spreading faster in three of them. What gravity does is
+              the gap after eight crossing times ran from <Math tex={m("-22\\%")} /> to
+              <Math tex={m("+40\\%")} />, with the heavy group spreading faster in three of them. What gravity does is
               different in kind: the heavy curve drops <em>below</em> 1 while the light one climbs.
               Left running, the heavy curve settles well below half its starting radius while the
               light one keeps climbing. How far, and how fast, is not a fixed number: the heaviest
@@ -566,9 +588,11 @@ const m = (tex: string) => tex;
             anywhere in it (Mikkola &amp; Tanikawa 1999; Preto &amp; Tremaine 1999).
             <br /><br />
             On a two-body orbit it is spectacular: measured over twenty orbits at eccentricity
-            0.99, FSI4's peak error is 1.7×10<sup>2</sup> — the orbit is destroyed — against
-            4.2×10<sup>−11</sup> for LogH at the same step count. On <em>this</em> cluster it is
-            merely better, 4× to 24× depending on the draw, because the transformation is global:
+            0.99, FSI4's peak error is <Math tex={m("1.7\\times10^{2}")} /> — the orbit is
+            destroyed — against <Math tex={m("4.2\\times10^{-11}")} /> for LogH at the same step
+            count. On <em>this</em> cluster it is merely better,
+            <Math tex={m("4\\times")} /> to <Math tex={m("24\\times")} /> depending on the
+            draw, because the transformation is global:
             one binary is diluted among four hundred stars. Resolving that properly needs per-pair
             regularisation, which the research codes do and a browser does not.
             <br /><br />
@@ -586,14 +610,16 @@ const m = (tex: string) => tex;
                 <tr><th></th><th>adapts?</th><th>2</th><th>10</th><th>15</th><th>20</th></tr>
               </thead>
               <tbody>
-                <tr><td>FSI4</td><td>no</td><td>1.3e−6</td><td>1.1e−5</td><td>3.0e−4</td><td>3.0e−4</td></tr>
-                <tr><td>LogH</td><td>by transformation</td><td>2.6e−6</td><td>3.5e−5</td><td>6.1e−5</td><td>6.1e−5</td></tr>
-                <tr><td>Hermite</td><td>by criterion</td><td>5.7e−8</td><td>2.8e−6</td><td>1.6e−5</td><td>3.5e−5</td></tr>
+                <tr><td>FSI4</td><td>no</td><td><Math tex={m("1.3\\times10^{-6}")} /></td><td><Math tex={m("1.1\\times10^{-5}")} /></td><td><Math tex={m("3.0\\times10^{-4}")} /></td><td><Math tex={m("3.0\\times10^{-4}")} /></td></tr>
+                <tr><td>LogH</td><td>by transformation</td><td><Math tex={m("2.6\\times10^{-6}")} /></td><td><Math tex={m("3.5\\times10^{-5}")} /></td><td><Math tex={m("6.1\\times10^{-5}")} /></td><td><Math tex={m("6.1\\times10^{-5}")} /></td></tr>
+                <tr><td>Hermite</td><td>by criterion</td><td><Math tex={m("5.7\\times10^{-8}")} /></td><td><Math tex={m("2.8\\times10^{-6}")} /></td><td><Math tex={m("1.6\\times10^{-5}")} /></td><td><Math tex={m("3.5\\times10^{-5}")} /></td></tr>
               </tbody>
             </table>
             Read the last two columns rather than the first: <b>the two symplectic schemes stop
-            getting worse</b> — 3.0e−4 and 6.1e−5, unchanged from fifteen crossing times to
-            twenty — while Hermite is still climbing, 1.6e−5 to 3.5e−5. That is "bounded" and
+            getting worse</b> — <Math tex={m("3.0\\times10^{-4}")} /> and
+            <Math tex={m("6.1\\times10^{-5}")} />, unchanged from fifteen crossing times to
+            twenty — while Hermite is still climbing, <Math tex={m("1.6\\times10^{-5}")} /> to
+            <Math tex={m("3.5\\times10^{-5}")} />. That is "bounded" and
             "secular" showing up as numbers rather than as adjectives.
             <br /><br />
             Which means <em>Hermite is the most accurate here and the least trustworthy to
@@ -948,6 +974,27 @@ const m = (tex: string) => tex;
     const setStat = (key: string, v: string) => {
       const el = root.querySelector<HTMLElement>(`[data-v="${key}"]`);
       if (el) el.textContent = v;
+    };
+    /*
+     * A typeset symbol's HTML, from the build-time library above.
+     *
+     * Cached because these are read on the frame path — the binary legend rewrites every eighth
+     * frame — and a querySelector per symbol per write is work for nothing.
+     */
+    const texCache = new Map<string, string>();
+    const tex = (name: string): string => {
+      const hit = texCache.get(name);
+      if (hit !== undefined) return hit;
+      const el = root.querySelector<HTMLElement>(`[data-tex="${name}"]`);
+      const html = el ? el.innerHTML : "";
+      texCache.set(name, html);
+      return html;
+    };
+    /* Same as setStat, for a readout that carries typeset symbols. The interpolated values are
+       this file's own formatted numbers, never anything a reader supplies. */
+    const setStatHTML = (key: string, html: string) => {
+      const el = root.querySelector<HTMLElement>(`[data-v="${key}"]`);
+      if (el) el.innerHTML = html;
     };
 
     /* ── state ─────────────────────────────────────────────────── */
@@ -1549,9 +1596,9 @@ const m = (tex: string) => tex;
        */
       if (s && !run.monitor.healthy && !halted) {
         const why = pairConfirmed && pair
-          ? ` The ${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} M☉ binary below is ` +
-            `almost certainly why: at ${pair.stepsPerOrbit.toFixed(0)} steps per orbit its ` +
-            `periapsis is no longer resolved.`
+          ? ` The ${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} ${tex("msun")} binary ` +
+            `below is almost certainly why: at ${pair.stepsPerOrbit.toFixed(0)} steps per orbit ` +
+            `its periapsis is no longer resolved.`
           : "";
         /*
          * THE PEAK, NOT THE LATEST SAMPLE — and this only became wrong when the monitor
@@ -2384,7 +2431,9 @@ const m = (tex: string) => tex;
 
     function showAlert(title: string, body: string, canZoom: boolean): void {
       alertTitle.textContent = title;
-      alertBody.textContent = body;
+      /* The bodies carry typeset symbols from the library above, so this is innerHTML — the
+         content is this file's own strings, never a reader's. */
+      alertBody.innerHTML = body;
       zoomPairBtn.hidden = !canZoom || !pair;
       alertEl.hidden = false;
     }
@@ -2621,8 +2670,15 @@ const m = (tex: string) => tex;
           pairTrack = pairTrack.filter((_, i) => i % 2 === 0);
       }
       if (pairConfirmed && pair) {
-        setStat("legend-pair", `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} M☉`);
-        setStat("legend-pairnow", `a = ${pair.semiMajorAxis.toExponential(1)} pc · e = ${pair.eccentricity.toFixed(2)}`);
+        setStatHTML(
+          "legend-pair",
+          `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} ${tex("msun")}`,
+        );
+        setStatHTML(
+          "legend-pairnow",
+          `${tex("a")} = ${pair.semiMajorAxis.toExponential(1)} ${tex("pc")} · ` +
+            `${tex("ecc")} = ${pair.eccentricity.toFixed(2)}`,
+        );
       }
       /* The status line under the canvas reports the slow-down, and it is only rewritten by
          syncPlay — so a transition here has to poke it, or the line goes on saying "every star
@@ -2654,8 +2710,8 @@ const m = (tex: string) => tex;
            reader is owed the reason on the spot rather than in a paragraph below the fold. */
         halt(
           "Stopped — binary unresolvable",
-          `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} M☉ at ` +
-            `a = ${pair.semiMajorAxis.toExponential(1)} pc is down to ` +
+          `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} ${tex("msun")} at ` +
+            `${tex("a")} = ${pair.semiMajorAxis.toExponential(1)} ${tex("pc")} is down to ` +
             `${pair.stepsPerOrbit.toFixed(0)} steps/orbit. Below this the arithmetic no longer ` +
             `describes the orbit, so the run stops rather than showing you a cluster it has ` +
             `stopped solving. Reset or draw again.`,
@@ -2697,7 +2753,7 @@ const m = (tex: string) => tex;
          */
         showAlert(
           "Hard binary",
-          `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} M☉ · ` +
+          `${pair.masses[0].toFixed(0)}+${pair.masses[1].toFixed(0)} ${tex("msun")} · ` +
             `${pair.stepsPerOrbit.toFixed(0)} steps/orbit`,
           true,
         );
@@ -2870,13 +2926,14 @@ const m = (tex: string) => tex;
       const parts: string[] = [];
       if (softeningFraction !== SOFTENING_FRACTION)
         parts.push(
-          `ε = ${softeningFraction} r_h N^(−1/3) = ${run.built.softeningPc.toExponential(2)} pc ` +
-            `(default ${SOFTENING_FRACTION})`,
+          `${tex("eps")} = ${softeningFraction} ${tex("epslaw")} = ` +
+            `${run.built.softeningPc.toExponential(2)} ${tex("pc")} (default ${SOFTENING_FRACTION})`,
         );
       if (stepDivisor !== STEP_DIVISOR)
         parts.push(
-          `dt = t_cr/${stepDivisor} = ${(run.built.timeUnit / stepDivisor).toExponential(2)} Myr ` +
-            `(default t_cr/${STEP_DIVISOR})`,
+          `${tex("dt")} = ${tex("tcr")}/${stepDivisor} = ` +
+            `${(run.built.timeUnit / stepDivisor).toExponential(2)} Myr ` +
+            `(default ${tex("tcr")}/${STEP_DIVISOR})`,
         );
       if (stepGuard) {
         parts.push(
@@ -2889,7 +2946,7 @@ const m = (tex: string) => tex;
         );
       }
       el.hidden = parts.length === 0;
-      el.textContent = parts.length
+      el.innerHTML = parts.length
         ? `${parts.join(" · ")} — not this page's defaults; the note below the figure describes those`
         : "";
     };
