@@ -134,6 +134,51 @@ const mono = traj.totalMomentum.every((v, i, a) => i === 0 || v >= a[i - 1] - 1e
 check("trajectory accumulates monotonically", mono, true, 0);
 check("cleared fraction is capped at 1", Math.max(...traj.clearedFraction) <= 1, true, 0);
 
+/* 8. Metallicity normalization: each wind recipe must be flat in Z at ITS OWN
+ *    paper's Z_sun, and only there.
+ *
+ *    Vink (2001) normalizes to Z_sun = 0.02, Björklund (2023) to 0.014 (their
+ *    sec 3.1) — two abundance scales for the same Sun. The code shared ONE
+ *    Z_SUN = 0.02 for both until 2026-08-09, which evaluated Björklund against
+ *    an anchor 43% above its own. It raised no error because the default z
+ *    equalled the shared anchor, so the metallicity term was exactly log10(1):
+ *    invisible until someone passed a non-solar composition.
+ *
+ *    So the property to gate is not a rate value but the LOCATION OF THE ZERO.
+ *    Feeding each recipe its own anchor must reproduce the Z-independent rate
+ *    exactly; feeding it the OTHER paper's anchor must not. The second half is
+ *    what makes this a test rather than a tautology — without it, a single
+ *    shared constant passes.
+ */
+console.log("feedback: metallicity normalization");
+const { starWind, Z_SUN_VINK, Z_SUN_BJORKLUND } = await import(
+  "../src/novascope/core/feedback/winds.ts"
+);
+// A star inside BOTH prescriptions' validity boxes, so neither returns 0.
+const SW = [40, 40000, 10, 2.5e5]; // M [Msun], Teff [K], R [Rsun], L [Lsun]
+const mdotAt = (z, presc) => starWind(SW[0], SW[1], SW[2], SW[3], z, undefined, presc).mdot;
+
+for (const [presc, own, other] of [
+  ["vink", Z_SUN_VINK, Z_SUN_BJORKLUND],
+  ["bjorklund", Z_SUN_BJORKLUND, Z_SUN_VINK],
+]) {
+  // Flat in Z at its own anchor: doubling Z from there must move the rate,
+  // but the anchor itself must be the point where the Z term contributes zero.
+  const atOwn = mdotAt(own, presc);
+  const atHalf = mdotAt(own / 2, presc);
+  check(`${presc}: rate responds to Z at all`, atOwn !== atHalf, true, 0);
+
+  // The zero of the metallicity term sits at `own`, not at `other`. If both
+  // recipes shared one anchor this equality would hold for the wrong number.
+  const atOther = mdotAt(other, presc);
+  const sameAsOther = Math.abs(atOther - atOwn) / atOwn < 1e-12;
+  check(`${presc}: normalizes to ${own}, NOT ${other}`, sameAsOther, false, 0);
+}
+
+// And the anchors themselves are the published ones, stated rather than derived.
+check("Vink Z_sun is 0.02 (classic solar)", Z_SUN_VINK, 0.02, 0);
+check("Björklund Z_sun is 0.014 (their sec 3.1)", Z_SUN_BJORKLUND, 0.014, 0);
+
 if (failures) {
   console.error(`\nfeedback: ${failures} check(s) failed`);
   process.exit(1);

@@ -21,8 +21,51 @@ import { clampMass } from "./sources.ts";
 /* ── composition ──────────────────────────────────────────────────────────
  * The realizations are solar-metallicity by construction (progenax gravoturb),
  * and the export carries no per-star Z or surface hydrogen fraction, so both
- * are taken as solar here and stated rather than silently assumed. */
-const Z_SUN = 0.02;
+ * are taken as solar here and stated rather than silently assumed.
+ *
+ * EVERY RATE FUNCTION OWNS THE Z_sun ITS OWN PAPER NORMALIZES TO, AND TAKES AN
+ * ABSOLUTE Z. Both metallicity terms are log10(Z/Z_sun) — Vink eqs (24)/(25)
+ * and Björklund eq (7) alike — but Z_sun is NOT the same number in the two
+ * papers, because they are written on different solar abundance scales:
+ *
+ *   Vink et al. (2001)       Z_sun = 0.02    classic ("old") solar — the same
+ *                                            scale Tout et al. (1996) is
+ *                                            normalized to, see core/stellar's
+ *                                            Z_REF, and the scale this site's
+ *                                            stellar layer works on throughout
+ *   Björklund et al. (2023)  Z_sun = 0.014   their sec 3.1, verbatim: "Each
+ *                                            model is calculated with a solar
+ *                                            metallicity of Z_sun = 0.014"
+ *
+ * The anchor is therefore part of the published equation, not a caller's
+ * choice: it is applied INSIDE each rate function and is not a parameter.
+ * There is no argument a caller could get wrong, and no way for the two
+ * recipes to share one.
+ *
+ * A single shared Z_SUN divided BOTH recipes by 0.02, silently evaluating
+ * Björklund against an anchor 43% above its own. It produced no visible error
+ * only because the default z equalled the shared anchor, so the term was
+ * exactly log10(1) = 0 — a bug that fires the moment anyone passes a non-solar
+ * composition. startrax hit the same class from the other direction (dividing
+ * Björklund by jaxstro's 0.0134 until 2026-08-03); see its registry note on
+ * bjorklund2023hotmassloss.
+ *
+ * `Z_ABS` is the realizations' metal mass fraction as an ABSOLUTE value. Anna
+ * confirmed (2026-08-09) that 0.02 is the classic/old solar number, and it is
+ * carried as an absolute abundance rather than as a "solar" label. So on
+ * Björklund's 0.014 scale these stars are 1.43x solar and eq (7)'s metallicity
+ * term fires (+0.134 dex, +31.3% in Mdot over the `orion` realization's
+ * driving stars); under Vink the ratio is exactly 1 and the term vanishes.
+ *
+ * The constants are exported so a gate can assert each recipe is flat in Z at
+ * its OWN anchor — the property that would break first if either drifted.
+ */
+/** Vink's normalization: classic ("old") solar. Applied inside the Vink branch. */
+export const Z_SUN_VINK = 0.02;
+/** Björklund's normalization, their sec 3.1. Applied inside eq (7). */
+export const Z_SUN_BJORKLUND = 0.014;
+/** Absolute metal mass fraction of the shipped realizations (classic solar). */
+export const Z_ABS = 0.02;
 /** Surface hydrogen mass fraction; solar-composition ZAMS. Sets sigma_e. */
 const X_H = 0.7;
 
@@ -87,15 +130,21 @@ const RHO_CG = 3.2;
 const TJUMP_C0 = 61.2;
 const TJUMP_CRHO = 2.59;
 
-/** Bi-stability jump temperature [K] — Vink eqs (11) -> (23) -> (15). */
+/**
+ * Bi-stability jump temperature [K] — Vink eqs (11) -> (23) -> (15).
+ *
+ * Vink's own relation, so it normalizes to Vink's Z_SUN_VINK internally.
+ *
+ * @param z ABSOLUTE metal mass fraction (not a ratio)
+ */
 export function bistabilityTeff(
   lSun: number,
   mSun: number,
-  z: number = Z_SUN,
+  z: number = Z_ABS,
   hydrogenX: number = X_H,
 ): number {
   const g = gammaE(lSun, mSun, hydrogenX);
-  const logRho = RHO_C0 + RHO_CZ * Math.log10(z / Z_SUN) + RHO_CG * g; // eq (23)
+  const logRho = RHO_C0 + RHO_CZ * Math.log10(z / Z_SUN_VINK) + RHO_CG * g; // eq (23)
   return 1e3 * (TJUMP_C0 + TJUMP_CRHO * logRho); // eq (15), kK -> K
 }
 
@@ -115,8 +164,11 @@ const VPIVOT = 2.0;
  */
 export const VINK_TEFF_MIN = 12500;
 
-/** Vink eq (24), hot side. log10 Mdot [Msun/yr]. */
-function logMdotHot(logL5: number, logM30: number, teff: number, logZ: number): number {
+/**
+ * Vink eq (24), hot side. log10 Mdot [Msun/yr].
+ * Normalizes to Vink's own Z_SUN_VINK; `z` is an ABSOLUTE metal mass fraction.
+ */
+function logMdotHot(logL5: number, logM30: number, teff: number, z: number): number {
   const lt = Math.log10(teff / 40000);
   return (
     -6.697 +
@@ -125,19 +177,22 @@ function logMdotHot(logL5: number, logM30: number, teff: number, logZ: number): 
     1.226 * Math.log10(VRATIO_HOT / VPIVOT) +
     0.933 * lt -
     10.92 * lt * lt +
-    0.85 * logZ
+    0.85 * Math.log10(z / Z_SUN_VINK)
   );
 }
 
-/** Vink eq (25), cool side. log10 Mdot [Msun/yr]. */
-function logMdotCool(logL5: number, logM30: number, teff: number, logZ: number): number {
+/**
+ * Vink eq (25), cool side. log10 Mdot [Msun/yr].
+ * Normalizes to Vink's own Z_SUN_VINK; `z` is an ABSOLUTE metal mass fraction.
+ */
+function logMdotCool(logL5: number, logM30: number, teff: number, z: number): number {
   return (
     -6.688 +
     2.210 * logL5 -
     1.339 * logM30 -
     1.601 * Math.log10(VRATIO_COOL / VPIVOT) +
     1.07 * Math.log10(teff / 20000) +
-    0.85 * logZ
+    0.85 * Math.log10(z / Z_SUN_VINK)
   );
 }
 
@@ -227,7 +282,18 @@ export interface Wind {
   outOfRange?: boolean;
 }
 
-/** Björklund eq (7). log10 Mdot [Msun/yr]. Single branch — no bi-stability. */
+/**
+ * Björklund eq (7). log10 Mdot [Msun/yr]. Single branch — no bi-stability.
+ *
+ * The metallicity exponent q(Teff) = 0.75 - 1.87 log10(Teff/45000) is NOT a
+ * constant: the paper found q correlates with log Teff rather than log L and
+ * re-derived the fit on that basis, so q grows toward cooler stars (~1.41 at
+ * 20 kK against 0.75 at 45 kK). An error in the metallicity RATIO is therefore
+ * amplified at low Teff — which is the reason this recipe must normalize to its
+ * OWN Z_SUN_BJORKLUND (0.014) and never to a shared or caller-supplied anchor.
+ *
+ * @param z ABSOLUTE metal mass fraction (not a ratio)
+ */
 function logMdotBjorklund(
   lSun: number,
   mEff: number,
@@ -240,7 +306,7 @@ function logMdotBjorklund(
     2.39 * Math.log10(lSun / 1e6) -
     1.48 * Math.log10(mEff / 45) +
     2.12 * lt +
-    (0.75 - 1.87 * lt) * Math.log10(z / Z_SUN)
+    (0.75 - 1.87 * lt) * Math.log10(z / Z_SUN_BJORKLUND)
   );
 }
 
@@ -252,13 +318,18 @@ function logMdotBjorklund(
  * extrapolating, and marks `outOfRange` when a star is dropped, so a caller can
  * report how much of the population a recipe actually covers instead of
  * silently summing over a subset.
+ *
+ * @param z ABSOLUTE metal mass fraction (not a ratio); defaults to the
+ *          realizations' Z_ABS = 0.02. Each branch normalizes it to ITS OWN
+ *          paper's Z_sun internally — see the composition note at the top of
+ *          this file — so there is no anchor for a caller to get wrong.
  */
 export function starWind(
   mSun: number,
   teffK: number,
   rSun: number,
   lSun: number,
-  z: number = Z_SUN,
+  z: number = Z_ABS,
   hydrogenX: number = X_H,
   prescription: WindPrescription = "bjorklund",
 ): Wind {
@@ -289,10 +360,9 @@ export function starWind(
   const hot = teffK >= bistabilityTeff(lSun, mSun, z, hydrogenX);
   const logL5 = Math.log10(lSun / 1e5);
   const logM30 = Math.log10(clampMass(mSun) / 30);
-  const logZ = Math.log10(z / Z_SUN);
   const logMdot = hot
-    ? logMdotHot(logL5, logM30, teffK, logZ)
-    : logMdotCool(logL5, logM30, teffK, logZ);
+    ? logMdotHot(logL5, logM30, teffK, z)
+    : logMdotCool(logL5, logM30, teffK, z);
   return {
     mdot: 10 ** logMdot,
     vInf: (hot ? VRATIO_HOT : VRATIO_COOL) * vEsc,
@@ -316,12 +386,16 @@ export interface WindBudget {
   nOutOfRange: number;
 }
 
+/**
+ * @param z ABSOLUTE metal mass fraction; defaults to the realizations' Z_ABS.
+ *          Each recipe normalizes it to its own paper's Z_sun internally.
+ */
 export function windBudget(
   mass: ArrayLike<number>,
   teff: ArrayLike<number>,
   radius: ArrayLike<number>,
   lum: ArrayLike<number>,
-  z: number = Z_SUN,
+  z: number = Z_ABS,
   prescription: WindPrescription = "bjorklund",
 ): WindBudget {
   let mdot = 0;
