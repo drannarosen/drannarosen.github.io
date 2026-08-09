@@ -77,6 +77,39 @@ import RatioBar from "./RatioBar.astro";
         <button type="button" class="fbe__chip" data-presc="vink" aria-pressed="false">Vink 2001</button>
       </div>
 
+      {/* The two genuinely uncertain parameters, exposed rather than defended.
+          C_f is KM09's covering fraction and drives BOTH the radiation direct
+          term and (through the coupling) the wind venting — one control,
+          because they are one physical structure. f_leak,II is the only knob in
+          the ledger with no citation behind it, which is precisely why a reader
+          should be able to move it. */}
+      <div class="fbe__knobs">
+        <label class="fbe__knob">
+          <span class="fbe__knob-head">
+            <span>shell covering <em>C<sub>f</sub></em></span>
+            <output data-cf-out>0.50</output>
+          </span>
+          <input type="range" min="0" max="1" step="0.01" value="0.5" autocomplete="off" data-cf />
+          <span class="fbe__knob-foot">porous ← → sealed</span>
+        </label>
+
+        <label class="fbe__knob">
+          <span class="fbe__knob-head">
+            <span>H II leakage</span>
+            <output data-hii-out>0.50</output>
+          </span>
+          <input type="range" min="0" max="1" step="0.01" value="0.5" autocomplete="off" data-hii />
+          <span class="fbe__knob-foot">confined ← → champagne flow</span>
+        </label>
+      </div>
+
+      <div class="fbe__channels" role="group" aria-label="How shell porosity couples to the wind">
+        <span class="fbe__channels-lead">coupling</span>
+        <button type="button" class="fbe__chip is-active" data-coup="simple" aria-pressed="true">f_vent = 1−C_f</button>
+        <button type="button" class="fbe__chip" data-coup="km09" aria-pressed="false">KM09 porous</button>
+        <button type="button" class="fbe__chip" data-coup="independent" aria-pressed="false">uncoupled</button>
+      </div>
+
       <p class="fbe__status" data-status aria-live="polite">Loading cluster…</p>
     </div>
   </PresentFrame>
@@ -201,6 +234,18 @@ import RatioBar from "./RatioBar.astro";
       (el.querySelector<HTMLButtonElement>("[data-presc].is-active")?.dataset.presc as
         "bjorklund" | "vink") ?? "bjorklund";
 
+    const cfEl = el.querySelector<HTMLInputElement>("[data-cf]")!;
+    const hiiEl = el.querySelector<HTMLInputElement>("[data-hii]")!;
+    const coupling = (): "independent" | "simple" | "km09" =>
+      (el.querySelector<HTMLButtonElement>("[data-coup].is-active")?.dataset.coup as
+        "independent" | "simple" | "km09") ?? "simple";
+    /** Every knob the ledger takes, read straight from the controls. */
+    const leakage = () => ({
+      coveringFraction: +cfEl.value,
+      hiiLeak: +hiiEl.value,
+      porosityCoupling: coupling(),
+    });
+
     const enabled = (): Record<Ch, boolean> => {
       const on = {} as Record<Ch, boolean>;
       for (const c of el.querySelectorAll<HTMLButtonElement>("[data-ch]"))
@@ -218,7 +263,7 @@ import RatioBar from "./RatioBar.astro";
       const name = path === "/data/gravoturb" ? undefined : path.split("/").pop();
       const [scene, budget] = await Promise.all([
         loadScene(path),
-        loadFeedbackRealization(name, { enabled: enabled(), prescription: prescription() }),
+        loadFeedbackRealization(name, { enabled: enabled(), prescription: prescription(), leakage: leakage() }),
       ]);
       engine?.cleanup();
       engine = createEngine(canvas, scene, { emphasizeHot: true, starGlow: 1 });
@@ -241,11 +286,21 @@ import RatioBar from "./RatioBar.astro";
      */
     function renderNonDefault(el: HTMLElement) {
       const p = el.querySelector<HTMLElement>("[data-nondefault]")!;
-      const off = prescription() !== "bjorklund";
-      p.textContent = off
-        ? "Wind recipe: Vink (2001), not the Björklund (2023) default the notes below describe. Its own calibrated leakage is applied."
+      const parts: string[] = [];
+      if (prescription() !== "bjorklund")
+        parts.push("wind recipe Vink (2001), with its own calibrated leakage");
+      if (Math.abs(+cfEl.value - 0.5) > 1e-9)
+        parts.push(`covering fraction C_f = ${(+cfEl.value).toFixed(2)} (default 0.50)`);
+      if (Math.abs(+hiiEl.value - 0.5) > 1e-9)
+        parts.push(`H II leakage ${(+hiiEl.value).toFixed(2)} (default 0.50)`);
+      if (coupling() !== "simple")
+        parts.push(coupling() === "km09"
+          ? "KM09 porous coupling, which returns no wind boost below C_f ≈ 0.56"
+          : "wind uncoupled from C_f");
+      p.textContent = parts.length
+        ? `Not the defaults the notes below describe — ${parts.join("; ")}.`
         : "";
-      p.hidden = !off;
+      p.hidden = parts.length === 0;
     }
 
     // ── the budget readouts (bars, verdict, plot, numbers) ──
@@ -298,8 +353,28 @@ import RatioBar from "./RatioBar.astro";
           o.setAttribute("aria-pressed", String(on));
         }
         if (!fb) return;
-        fb = recomputeFeedback(fb, { enabled: enabled(), prescription: prescription() });
+        fb = recomputeFeedback(fb, { enabled: enabled(), prescription: prescription(), leakage: leakage() });
         renderBudget();
+      });
+
+    // Knobs recompute from the loaded arrays; no refetch, so dragging is cheap.
+    const onKnob = () => {
+      el.querySelector<HTMLOutputElement>("[data-cf-out]")!.value = (+cfEl.value).toFixed(2);
+      el.querySelector<HTMLOutputElement>("[data-hii-out]")!.value = (+hiiEl.value).toFixed(2);
+      if (!fb) return;
+      fb = recomputeFeedback(fb, { enabled: enabled(), prescription: prescription(), leakage: leakage() });
+      renderBudget();
+    };
+    cfEl.addEventListener("input", onKnob);
+    hiiEl.addEventListener("input", onKnob);
+    for (const b of el.querySelectorAll<HTMLButtonElement>("[data-coup]"))
+      b.addEventListener("click", () => {
+        for (const o of el.querySelectorAll<HTMLButtonElement>("[data-coup]")) {
+          const on = o === b;
+          o.classList.toggle("is-active", on);
+          o.setAttribute("aria-pressed", String(on));
+        }
+        onKnob();
       });
 
     scrub.addEventListener("input", () => { setPlaying(false); animT = +scrub.value; applyScrub(animT); });
@@ -309,7 +384,7 @@ import RatioBar from "./RatioBar.astro";
         c.classList.toggle("is-active", on);
         c.setAttribute("aria-pressed", String(on));
         if (!fb) return;
-        fb = recomputeFeedback(fb, { enabled: enabled(), prescription: prescription() });
+        fb = recomputeFeedback(fb, { enabled: enabled(), prescription: prescription(), leakage: leakage() });
         renderBudget();
       });
     frame?.addEventListener("present:next", () => { setPlaying(false); seek(animT + 0.04); });
@@ -521,6 +596,21 @@ import RatioBar from "./RatioBar.astro";
     border-radius: var(--radius, 10px);
     background: radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--xpl-panel) 92%, black), #0a0b0e);
   }
+
+  .fbe__knobs { display: grid; gap: 0.7rem; }
+  @media (min-width: 34rem) { .fbe__knobs { grid-template-columns: 1fr 1fr; gap: 0.7rem 1.2rem; } }
+  .fbe__knob { display: grid; gap: 0.25rem; }
+  .fbe__knob-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 0.6em;
+    font-family: var(--font-mono); font-size: var(--step--2); color: var(--xpl-dim);
+  }
+  .fbe__knob-head output { color: var(--xpl-teal); font-variant-numeric: tabular-nums; }
+  .fbe__knob-head em { font-style: normal; color: var(--xpl-ink); }
+  .fbe__knob input[type="range"] { inline-size: 100%; accent-color: var(--xpl-teal); }
+  .fbe__knob-foot {
+    font-family: var(--font-mono); font-size: var(--step--3, 0.68rem);
+    color: var(--ink-faint); opacity: 0.85;
+  } /* type-scale-exempt: slider end-label */
 
   .fbe__nondefault {
     margin: 0;

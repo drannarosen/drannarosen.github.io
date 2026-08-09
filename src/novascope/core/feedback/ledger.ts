@@ -163,9 +163,22 @@ export const DEFAULT_LEAKAGE: LeakageKnobs = {
   fTrap: null,
   // KM09's own realistic value, and the ceiling for a blister geometry.
   coveringFraction: COVERING_FRACTION_DEFAULT,
-  // Historical default. The couplings are opt-in because switching one changes
-  // the wind channel by factors of a few, which is a physics decision.
-  porosityCoupling: "independent",
+  /*
+   * `simple` by default: f_vent = 1 - C_f.
+   *
+   * NOT `independent`, which lets C_f = 0.5 (half the sky is holes) sit beside
+   * f_vent = 0 (no hot gas escapes those holes) — a state with no physical
+   * referent. NOT `km09` either, defensible as its derivation is: it returns
+   * eta = 1 at KM09's own realistic C_f <= 1/2, contradicting the alpha_p that
+   * Lancaster+2025 MEASURE (4.66-6.20) and that this engine's f_leak is
+   * calibrated against. Adopting it would mean choosing a semi-analytic
+   * steady-state estimate over a 3D RMHD measurement in the very regime the
+   * measurement covers.
+   *
+   * `simple` is the minimum that makes the knobs mutually consistent without
+   * taking sides on that disagreement. Both alternatives stay selectable.
+   */
+  porosityCoupling: "simple",
 };
 
 export interface ChannelEntry {

@@ -41,27 +41,39 @@ import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
         Two questions, in the order the physics asks them. <strong>First:</strong> is the
         retained feedback momentum enough to lift the residual gas out of the cloud's
         potential? <strong>Then, if it is:</strong> do the stars stay bound once the gas —
-        most of the mass — is gone? Across these six environments the gas always goes, but
-        not at the same speed: in five it clears in less than a stellar crossing time,
-        while the most massive and most tightly bound cloud takes longer than one, so its
-        stars have time to adjust as the gas leaves. Every cluster stays bound either way —
-        and that is not a verdict the budget decides. These clusters are born far below
-        virial equilibrium, so the stars' own self-gravity holds them whatever the gas
-        does. What the environment changes is the margin, and which channel does the
-        clearing.
+        most of the mass — is gone? Five of these six environments clear their gas. The
+        most massive and most tightly bound cloud does not: the cost of lifting the gas
+        grows with cloud mass faster than the cluster's output grows with its stars, and
+        that cloud's escape speed also exceeds the sound speed of photoionized gas, so its
+        H II region is trapped and one channel switches off entirely. Every cluster stays
+        bound either way — and that is not a verdict the budget decides. These clusters
+        are born far below virial equilibrium, so the stars' own self-gravity holds them
+        whatever the gas does.
       </p>
       <p>
-        The three channels also deposit momentum on different schedules. Winds and
-        radiation inject at a constant rate while the stars sit on the main sequence, so
-        they accumulate linearly; the H II curve is the Spitzer D-front solution
-        recomputed at each step, and although the front decelerates, the shell it sweeps
-        grows faster still, so photoionization accumulates faster than linearly. Winds
-        enter the ledger differently again: Weaver's similarity solution sets the ceiling
-        on what a hot bubble could deliver, and how much survives cooling is a calibrated
-        fraction — fixed here so the momentum boost matches what 3-D simulations of
-        wind-blown bubbles measure, rather than chosen to look reasonable. Two mass-loss
-        recipes are offered above, each with its own calibration; which channel leads
-        depends on that choice as well as on the environment.
+        The three channels deposit momentum on different schedules. Winds and radiation
+        inject at a constant rate while the stars sit on the main sequence, so they
+        accumulate linearly; the H II curve is the Spitzer solution for an
+        ionization front recomputed at each step, and although the front decelerates, the
+        shell it sweeps grows faster still, so photoionization accumulates faster than
+        linearly until it runs out of cloud. Winds enter differently again: Weaver's
+        similarity solution sets the ceiling on what a hot bubble could deliver, and how
+        much survives cooling is calibrated so the momentum boost matches what
+        three-dimensional simulations of wind-blown bubbles measure, rather than chosen
+        to look reasonable.
+      </p>
+      <p>
+        The controls above expose the two quantities this accounting is least sure of.
+        <strong>Shell covering</strong> is one slider rather than two because it is one
+        physical structure: the same holes that let starlight escape without ever
+        touching the gas also let the hot shocked wind vent out of them. How strongly
+        those are tied together is itself unsettled — the two published treatments offered
+        here disagree about the wind boost by roughly a factor of five, and switching
+        between them is the honest way to see that rather than hide it inside a default.
+        <strong>H II leakage</strong> has no measurement behind it at all; it is a placed
+        number, which is exactly why it should be something you can move. Both wind
+        recipes are calibrated independently, so switching recipe switches its leakage
+        with it.
       </p>
       <p>
         The gas balloons outward as the budget clears it, revealing the bare cluster — a
