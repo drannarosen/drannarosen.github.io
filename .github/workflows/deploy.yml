@@ -58,20 +58,23 @@ jobs:
 
       # ── PUBLISH BY PUSHING A BRANCH, NOT BY UPLOADING AN ARTIFACT ──
       #
-      # This used `actions/upload-pages-artifact` + `actions/deploy-pages`, and
-      # that is what put the account at 90% of its Actions storage.
+      # This used `actions/upload-pages-artifact` + `actions/deploy-pages`.
       #
-      # GitHub bills Actions storage on BYTES CREATED PER BILLING CYCLE, not on a
-      # snapshot — so short retention does not help and deleting artifacts
-      # afterwards reclaims nothing. Each deploy uploaded the whole `dist`, which
-      # is 28 MB (19 MB of it `data/gravoturb`, which never changes) and 12.6 MB
-      # compressed. Measured on 2026-08-08: 31 deploys in one cycle = 390 MB
-      # against a 0.5 GB allowance, i.e. this repo could afford about forty
-      # deploys a month.
+      # THE ORIGINAL REASON GIVEN HERE WAS WRONG, and it is corrected rather than
+      # deleted because it drove real decisions. This comment claimed GitHub bills
+      # Actions storage on BYTES CREATED PER BILLING CYCLE. It does not: storage is
+      # billed in GB-HOURS, size x time, so deleting artifacts DOES stop future
+      # accrual. And this repository is PUBLIC, so its Actions usage — minutes and
+      # storage alike — is discounted to $0. Checked against GitHub's own docs and
+      # the billing ledger on 2026-08-08; see docs/deployment.md.
       #
-      # A branch deploy stores nothing in Actions. Git already deduplicates by
-      # content, so the 19 MB of unchanged binaries is transferred and stored
-      # ONCE rather than on every push.
+      # So the change is NOT a cost saving, because there was no cost. What a
+      # branch deploy still buys is churn: each artifact upload re-sent the whole
+      # `dist` — 28 MB, 19 MB of it `data/gravoturb`, which never changes — while
+      # git deduplicates by content and transfers those unchanged binaries once.
+      #
+      # That is a real but modest benefit, and docs/deployment.md states plainly
+      # that continuing with it is a choice rather than a settled requirement.
       #
       # `force_orphan` is what keeps that true. Without it the branch would
       # accumulate a commit per deploy and the repository would grow without
