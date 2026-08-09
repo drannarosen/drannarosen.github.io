@@ -144,15 +144,24 @@ export function createCloudScene(
   stars.attach(volume.mesh);
 
   /*
-   * Frame on the CLOUD's truncation radius.
+   * FRAME ON THE CLUSTER, as census does — not on the cloud.
    *
-   * Not on the stars: `maxR` is a 90th-percentile radius of a concentrated cluster, and framing
-   * there would crop away the gas this page is about. Not on the box either — it is 2.4x the
-   * truncation radius in every realization, so half of it is vacuum, and framing on box/2 leaves
-   * the cluster a small blob in an empty square. Census frames on its cluster and looks better for
-   * it; this is the same instinct applied to the object this page is actually about.
+   * This framed on `cloudRadiusPc` (2.5 pc) while the cluster's own `maxR` is 0.85 pc, so the
+   * cluster was drawn across 12% of the area census's rule gives it and read as a sparse knot in
+   * an empty square. Measured 2026-08-09, and it cost three wrong diagnoses first — the same model
+   * through `renderClusterField` and through `clusterPoints` produced 5,038 and 5,701 lit pixels,
+   * a ratio of 1.13, which exonerated the renderer entirely and left only the frame.
+   *
+   * `FRAME_CLOUD_HEADROOM` widens it enough that the gas is still obviously a cloud the cluster
+   * sits INSIDE rather than a backdrop cropped to its edges. The gas extends past the frame, which
+   * is correct: the cloud is genuinely larger than the cluster, and showing all of it is what made
+   * the cluster illegible.
    */
-  stars.setFraming({ centre: [0, 0, 0], radiusPc: data.cloudRadiusPc });
+  const FRAME_CLOUD_HEADROOM = 1.7;
+  stars.setFraming({
+    centre: [0, 0, 0],
+    radiusPc: Math.min(model.maxR * FRAME_CLOUD_HEADROOM, data.cloudRadiusPc),
+  });
 
   /*
    * Advertise the stack on the canvas, as DynamicsEngine does with `data-engine`.
