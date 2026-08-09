@@ -10,7 +10,7 @@
  * cloud is the tension the tool exists to show.
  */
 import { windBudget, type WindBudget, type WindPrescription } from "./winds.ts";
-import { bubbleCeiling } from "./bubble.ts";
+import { bubbleCeiling, etaPorousKM09, type PorosityCoupling } from "./bubble.ts";
 import { hiiBudget, hiiTrapped, type HiiBudget } from "./photoionization.ts";
 import {
   radiationBudget,
@@ -94,8 +94,18 @@ export interface LeakageKnobs {
    * Shell covering fraction C_f [0,1] — the share of the direct radiation the
    * shell intercepts at all. Drives f_trap's direct term; see
    * COVERING_FRACTION_DEFAULT in radiation.ts for the sourcing.
+   *
+   * With a coupling other than `independent` it ALSO governs the wind channel:
+   * the same holes that let photons out let the hot shocked gas out. See
+   * PorosityCoupling in bubble.ts.
    */
   coveringFraction: number;
+  /**
+   * How C_f is propagated to the wind channel. Default `independent` preserves
+   * the historical behaviour; `simple` and `km09` are the two couplings derived
+   * in docs/feedback-derivations.md §M and disagree by ~5x, deliberately.
+   */
+  porosityCoupling: PorosityCoupling;
 }
 
 /**
@@ -148,6 +158,9 @@ export const DEFAULT_LEAKAGE: LeakageKnobs = {
   fTrap: null,
   // KM09's own realistic value, and the ceiling for a blister geometry.
   coveringFraction: COVERING_FRACTION_DEFAULT,
+  // Historical default. The couplings are opt-in because switching one changes
+  // the wind channel by factors of a few, which is a physics decision.
+  porosityCoupling: "independent",
 };
 
 export interface ChannelEntry {
@@ -394,7 +407,20 @@ export function computeLedger(input: LedgerInput): Ledger {
     input.rCloudPc,
     windowMyr,
   );
-  const windEta = 1 + (ceiling.etaMax - 1) * (1 - knobs.windLeak);
+  /* ── porosity coupling ────────────────────────────────────────────────
+   * `independent`: Weaver ceiling interpolated by f_leak, f_vent as given.
+   * `simple`:      same eta, but the holes vent the hot gas: f_vent = 1 - C_f.
+   * `km09`:        eta is REPLACED by the porous-bubble solution, which already
+   *                contains the leakage, so f_vent is not applied again on top.
+   * See docs/feedback-derivations.md §M. */
+  const coupling = knobs.porosityCoupling;
+  const cf = Math.min(1, Math.max(0, knobs.coveringFraction));
+  const windEta =
+    coupling === "km09"
+      ? etaPorousKM09(cf)
+      : 1 + (ceiling.etaMax - 1) * (1 - knobs.windLeak);
+  const windVent =
+    coupling === "simple" ? 1 - cf : coupling === "km09" ? 0 : knobs.windVent;
   // Injected over the window. The rates are already in ledger units per year,
   // so this needs no CGS round-trip.
   const windPInj = wb.pDot * windowMyr * 1e6;
@@ -402,7 +428,7 @@ export function computeLedger(input: LedgerInput): Ledger {
   const winds: ChannelEntry = {
     name: "winds",
     energy: on.winds ? (1 - knobs.windLeak) * windEInj : 0,
-    momentum: on.winds ? windEta * (1 - knobs.windVent) * windPInj : 0,
+    momentum: on.winds ? windEta * (1 - windVent) * windPInj : 0,
     eta: windEta,
   };
 

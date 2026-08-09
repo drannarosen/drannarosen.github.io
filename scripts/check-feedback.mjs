@@ -301,6 +301,39 @@ check(
   check("surface vEsc is still reported separately", b.vEsc < b.vEscMassWeighted, true, 0);
 }
 
+/* 11. Porosity coupling — KM09 eqs (26)-(30).
+ *
+ *     Cross-checked against the number KM09 state in prose rather than against
+ *     our own rearrangement, which would be tautological. They write
+ *     f_trap,w ~= 0.22/(1 - C_f) having dropped the 1.02, and f_w ~= 0.5, so
+ *     f_w * eta must reproduce it to within that approximation.
+ */
+console.log("feedback: porosity coupling (KM09 porous bubble)");
+const { etaPorousKM09, ALPHA_P_TARGET: A_P } = await import("../src/novascope/core/feedback/bubble.ts");
+const F_W = 0.5; // KM09: wind momentum in units of L/c
+
+// Tolerance 12% because the residual IS the 1.02 they dropped: at C_f = 0.8,
+// (1 - 1.02*0.8)/(1 - 0.8) = 0.92, so the two forms differ by ~9% BY
+// CONSTRUCTION. A tighter bound here would be asserting that KM09's own
+// approximation is exact.
+check("KM09 prose value f_trap,w ~ 0.22/(1-C_f) at C_f=0.8",
+  F_W / (Math.sqrt(5) * (1 - 1.02 * 0.8)), 0.22 / (1 - 0.8), 0.12);
+
+// The floor is KM09's own: the wind force is always present.
+check("eta = 1 at KM09's realistic C_f <= 1/2", etaPorousKM09(0.5), 1, 0);
+check("eta = 1 at C_f = 0 (fully porous)", etaPorousKM09(0), 1, 0);
+check("eta rises above the floor once C_f > ~0.56",
+  etaPorousKM09(0.8) > etaPorousKM09(0.6) && etaPorousKM09(0.6) > 1, true, 0);
+// Their divergence, which they say is not real.
+// NOT check(): |Inf - Inf| is NaN, so a relative comparison silently fails
+// against a correct value. Assert the predicate instead.
+check("eta diverges past C_f = 1/1.02", !isFinite(etaPorousKM09(0.99)), true, 0);
+
+// The disagreement this encodes, asserted so it cannot be quietly tuned away.
+const cfForLancaster = (1 - 1 / (Math.sqrt(5) * A_P)) / 1.02;
+check("matching Lancaster through KM09 needs C_f ~ 0.9 (which KM09 reject)",
+  cfForLancaster, 0.899, 5e-3);
+
 console.log("feedback: wind-leak calibration against Lancaster+2025 alpha_p");
 const { readFileSync } = await import("node:fs");
 const { join } = await import("node:path");

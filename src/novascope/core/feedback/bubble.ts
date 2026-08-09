@@ -78,6 +78,67 @@ export function windLeakForEta(etaMax: number, targetEta: number): number {
   return 1 - (targetEta - 1) / (etaMax - 1);
 }
 
+/**
+ * How the shell's porosity is coupled across channels.
+ *
+ * `C_f`, `f_vent` and `f_leak` are three consequences of ONE structure — how
+ * full of holes the swept shell is — and KM09 use the same `C_f` for the
+ * radiation term and for the hot wind gas (their eqs 24-25, where the hot fluid
+ * "escapes through holes"). Treating them as independent let the shipped
+ * defaults contradict each other: C_f = 0.5 says half the sky is holes while
+ * f_vent = 0 says no hot gas escapes.
+ *
+ *  - `independent` — the historical behaviour. C_f drives radiation only,
+ *    f_vent stays whatever the caller set. Kept so the change is measurable.
+ *  - `simple`      — f_vent = 1 - C_f. Solid angle that is holes is the share
+ *    of hot gas that escapes rather than pushing. Not derived; the minimal way
+ *    to stop the two knobs disagreeing.
+ *  - `km09`        — the porous bubble solved properly, `etaPorousKM09` below.
+ *
+ * See docs/feedback-derivations.md §M for both derivations and for why they
+ * disagree with each other by a factor of ~5.
+ */
+export type PorosityCoupling = "independent" | "simple" | "km09";
+
+/**
+ * Momentum boost of a POROUS wind bubble — Krumholz & Matzner (2009) eqs
+ * (26)-(30), reduced to its closed form.
+ *
+ * Their balance: the wind injects mass and energy into the hot interior; both
+ * escape through the holes at rate proportional to (1 - C_f); ionized gas
+ * ablates off the shell's inner face at a rate proportional to C_f (their eq
+ * 26, after Canto & Raga 1991). In steady state with pressure balance
+ * rho_II c_II^2 = rho_X c_X^2, eqs (27)-(28) eliminate c_X to give eq (29),
+ *
+ *   rho_X c_X^2 = [Mdot_w v_w / (4 pi r^2)] / [5(1-C_f)(1-1.045 C_f)]^(1/2)
+ *
+ * The force on the shell is 4 pi r^2 rho_X c_X^2 and the injected rate is
+ * Mdot_w v_w, so with KM09's own simplification
+ * (1-C_f)(1-1.045C_f) ~ (1-1.02C_f)^2 the boost depends on NOTHING but the
+ * covering fraction.
+ *
+ * BOTH LIMITS ARE KM09'S OWN, and both are stated by them to be artefacts:
+ *  - the floor at 1, because "values of f_trap,w less than f_w are not
+ *    realistic, because the wind force is always present";
+ *  - the divergence as C_f -> 1/1.02, which "is not real, as our neglect of
+ *    adiabatic losses and of accumulation within the shell are incorrect when
+ *    the holes close up".
+ *
+ * NOTE THE DISAGREEMENT THIS ENCODES. At KM09's own realistic C_f <= 1/2 this
+ * returns exactly 1 — a purely momentum-driven bubble, no boost — against the
+ * 4.5-6.5 that Lancaster+2025's measured alpha_p calibrates. Reproducing
+ * Lancaster here needs C_f = 0.899, which KM09 call implausible. The two are
+ * losing energy by different mechanisms (bulk escape vs turbulent mixing with
+ * Lyman-alpha suppression); this function is selectable so the gap is visible
+ * rather than buried in a default.
+ */
+export function etaPorousKM09(coveringFraction: number): number {
+  const cf = Math.min(1, Math.max(0, coveringFraction));
+  const denom = Math.sqrt(5) * (1 - 1.02 * cf);
+  if (!(denom > 0)) return Infinity; // C_f past 1/1.02 — KM09's unreal divergence
+  return Math.max(1, 1 / denom);
+}
+
 /** eta at a given leakage — the forward direction, for gates and callers. */
 export function etaAtLeak(etaMax: number, fLeak: number): number {
   return 1 + (etaMax - 1) * (1 - fLeak);
