@@ -39,7 +39,34 @@ const m = (tex: string) => tex;
       <figcaption>
         The cluster
         <span class="xpl-dyn__legend">
-          <span>drag to orbit · scroll to zoom</span>
+          {/* A PROPERTY OF THE DRAW, on the frame that counts in it. It sat inside the clock's
+              own note behind a "?", which put the unit the whole page keeps time in somewhere
+              nobody looks — and made that note a thousand characters long. Here it costs no
+              height, because the caption row already exists. */}
+          <span class="xpl-dyn__key"
+            ><Math tex={m("t_\\mathrm{cr}")} /> = <b data-v="tc0">—</b> Myr</span
+          >
+          <button type="button" class="xpl-dyn__info" data-info="tcr" aria-expanded="false"
+            aria-label="About the crossing time">?</button>
+          <span class="xpl-dyn__popover" data-popover="tcr" role="tooltip" hidden>
+            <b>The crossing time</b> — how long a typical star takes to cross the cluster, and the
+            unit a cluster actually keeps time in: relaxation and segregation happen on multiples
+            of it rather than on Myr.
+            <br /><br />
+            It is not a control. It follows from the cluster you built, roughly
+            <Math tex={m("t_\\mathrm{cr} \\sim r_h / v")} /> with
+            <Math tex={m("v \\sim \\sqrt{GM/r_h}")} />, so a bigger <Math tex={m("r_h")} /> or a
+            lighter cluster gives a slower clock — and changing <Math tex={m("N")} />,
+            <Math tex={m("r_h")} /> or <Math tex={m("\\gamma")} /> redraws it.
+            <br /><br />
+            Fixed at <Math tex={m("t = 0")} /> and never recomputed, so the crossing-time clock
+            stays a ruler rather than one that stretches while you read it.
+          </span>
+          {/* "scroll to zoom" dropped: the HUD carries a zoom slider and a scale bar now, so the
+              caption was spending a third of its width on the one affordance that is already
+              visible — and with t_cr added it wrapped to three lines. Dragging has no such
+              control, so that half stays. */}
+          <span>drag to orbit</span>
           <button type="button" class="xpl-dyn__info" data-info="clock" aria-expanded="false"
             aria-label="About the clock">?</button>
           <span class="xpl-dyn__popover" data-popover="clock" role="tooltip" hidden>
@@ -49,19 +76,18 @@ const m = (tex: string) => tex;
             happen on multiples of it rather than on Myr. It is blank without gravity, where it
             is undefined.
             <br /><br />
-            This draw's crossing time is <b><span data-v="tc0">—</span> Myr</b>, fixed at
-            <Math tex={m("t = 0")} /> so the crossing-time clock stays a ruler rather than one
-            that stretches while you read it. It is set by the cluster you built: roughly
-            <Math tex={m("t_\mathrm{cr} \sim r_h / v")} /> with
-            <Math tex={m("v \sim \sqrt{GM/r_h}")} />, so a bigger
-            <Math tex={m("r_h")} /> or a lighter cluster gives a slower clock. Changing
-            <Math tex={m("N")} />, <Math tex={m("r_h")} /> or
-            <Math tex={m("\gamma")} /> redraws it.
+            The value of <Math tex={m("t_\\mathrm{cr}")} /> for this draw is in the caption
+            above, with its own note — it is a property of the cluster you built, not of the
+            clock.
             <br /><br />
             Model time is not wall-clock time. It advances by a fixed number of integrator steps
             per frame, so how fast it runs depends on how quickly this browser can take them —
             and the clock slows on its own once a hard binary forms, so the pair can be watched
             rather than raced past.
+            <br /><br />
+            <b>Keys.</b> <kbd>space</kbd> runs and pauses, <kbd>R</kbd> restarts the same draw,
+            <kbd>N</kbd> draws a new one. They stand down while a slider or a button has focus,
+            so the controls keep their own keys.
           </span>
         </span>
       </figcaption>
@@ -104,7 +130,12 @@ const m = (tex: string) => tex;
               t/t_cr is undefined. */}
           <span class="xpl-dyn__clock" data-clock aria-live="off">
             <span data-clock-t>t = 0.0 Myr</span>
-            <span class="xpl-dyn__clock-sub" data-clock-tcr></span>
+            {/* KaTeX for the SYMBOL, rendered at build time, with JS filling only the number —
+                census's pattern. It read literally "0.0 t_cr" on the one readout the page asks a
+                reader to think in. */}
+            <span class="xpl-dyn__clock-sub" data-clock-tcr hidden
+              ><output data-v="tcr-now">—</output> <Math tex={m("t/t_\\mathrm{cr}")} /></span
+            >
           </span>
         </div>
         <div class="xpl-dyn__hud xpl-dyn__hud--bottom">
@@ -1397,7 +1428,11 @@ const m = (tex: string) => tex;
          when there is no gravity: it is undefined there, and a dash inside a running clock
          reads as a broken readout rather than an absent quantity. */
       clockT.textContent = `t = ${tSim.toFixed(1)} Myr`;
-      clockTcr.textContent = s ? `${s.tCross.toFixed(1)} t_cr` : "";
+      /* The symbol is typeset in the markup; only the number is written here, so the readout
+         cannot lose its units to a string edit. Hidden rather than emptied without gravity —
+         t/t_cr is undefined there, and a bare "—" inside a running clock reads as broken. */
+      clockTcr.hidden = !s;
+      if (s) setStat("tcr-now", s.tCross.toFixed(1));
       setStat("rhi", `${hi.toFixed(2)} pc`);
       setStat("rlo", `${lo.toFixed(2)} pc`);
       /*
@@ -3397,7 +3432,10 @@ const m = (tex: string) => tex;
           setStat("legend-bn", Number.isFinite(p.bn) ? `${(p.bn * 100).toFixed(0)}%` : "—");
           driftEl.textContent = Number.isFinite(p.e) ? p.e.toExponential(1) : "—";
           clockT.textContent = `t = ${p.t.toFixed(1)} Myr`;
-          clockTcr.textContent = run ? `${(p.t / run.built.timeUnit).toFixed(1)} t_cr` : "";
+          /* Same split as the live path: the symbol is typeset, only the number is written.
+             Setting textContent here would have wiped the KaTeX out of the chip for good. */
+          clockTcr.hidden = !run;
+          if (run) setStat("tcr-now", (p.t / run.built.timeUnit).toFixed(1));
         }
       }
       syncPlay();
@@ -4203,7 +4241,12 @@ const m = (tex: string) => tex;
      scheme. Speed gives up the width; it is a 16-step slider and the least travel-hungry. */
   .xpl-dyn__controls {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) 1.9fr 0.7fr;
+    /* Four sliders, the timeline, then the integrator — WIDTHS FOLLOW THE DOM ORDER, which is
+       the thing to check when a cell is added. Inserting the timeline before the integrator put
+       the integrator in the narrow column, its three buttons wrapped to three rows, and every
+       cell in the grid stretched to match: the console went 79 px to 135 and the whole figure
+       grew 77 px for a control that had not changed. */
+    grid-template-columns: repeat(4, minmax(0, 1fr)) 0.9fr 1.9fr;
     gap: var(--space-2xs) var(--space-m);
     padding-inline: var(--space-s);
   }
