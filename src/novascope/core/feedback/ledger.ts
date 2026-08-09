@@ -213,7 +213,7 @@ export interface LedgerInput {
   tCrossMyr: number;
   /** Post-expulsion virial ratio T/|W_stars| (from the export) — sets survival. */
   qVirialStarsOnly: number;
-  /** Mass-loss prescription; Björklund (2022) by default, Vink (2001) optional. */
+  /** Mass-loss prescription; Björklund (2023) by default, Vink (2001) optional. */
   prescription?: WindPrescription;
   /** Which channels are switched on. */
   enabled?: { winds?: boolean; photoionization?: boolean; radiation?: boolean };

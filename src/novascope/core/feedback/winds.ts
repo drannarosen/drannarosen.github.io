@@ -141,11 +141,16 @@ function logMdotCool(logL5: number, logM30: number, teff: number, logZ: number):
   );
 }
 
-/* ── Björklund et al. (2022) ──────────────────────────────────────────────
- * Björklund, Sundqvist, Singh, Puls & Najarro (2022), A&A,
+/* ── Björklund et al. (2023) ──────────────────────────────────────────────
+ * Björklund, Sundqvist, Singh, Puls & Najarro (2023), A&A 676, A109,
  * DOI 10.1051/0004-6361/202141948, arXiv:2203.08218 — eq (7), read from the
  * paper PDF. Dynamically-consistent models solving the steady-state
  * equation-of-motion with NLTE radiative transfer in the co-moving frame.
+ *
+ * Cited as "(2022)" here until 2026-08-09: that is the arXiv preprint year, and
+ * the published record is 2023, A&A 676, A109 (the paper's own masthead). Same
+ * DOI throughout, so the reference always resolved — which is exactly why the
+ * wrong year survived.
  *
  *   log Mdot = -5.52 + 2.39 log(L/1e6 Lsun)
  *                    - 1.48 log(M_eff/45 Msun)
@@ -165,7 +170,40 @@ function logMdotCool(logL5: number, logM30: number, teff: number, logZ: number):
  *    ~1.7x and the mechanical luminosity is nearly unchanged.
  * The authors flag their own terminal speeds as high relative to observation.
  */
-const BJ_VRATIO = 4.5; // v_inf / v_esc,eff, grid mean
+/*
+ * v_inf / v_esc,eff — Björklund et al. (2023) sec 5.1, rendered PDF p. 9,
+ * verbatim: "Across the grid, we have mean values of about 3300 km s^-1 and
+ * v_inf/v_esc,eff ~ 4.5". Verified against the brain-library PDF, sha256
+ * f59d24a2…906657 — the same copy startrax's registry audit is pinned to.
+ *
+ * It is the ratio against the EDDINGTON-REDUCED escape speed, which is why it
+ * multiplies `effectiveEscapeSpeed` and not the plain sqrt(2GM/R); the paper
+ * gives v_inf/v_esc ~ 4 for the unreduced one, and pairing 4.5 with the plain
+ * speed would silently evaluate a different relation.
+ *
+ * TWO CAVEATS THAT TRAVEL WITH IT, both the paper's own.
+ *
+ * 1. It is a GRID MEAN, not a law. Björklund publish no v_inf(M, R, L) fit, so
+ *    applying 4.5 per star is an extrapolation from a population mean — it
+ *    carries the M-R dependence through v_esc,eff, which is the right scaling
+ *    (CAK ties v_inf to the effective escape speed), but it is our composition
+ *    and not their result.
+ *
+ * 2. That composition lands ABOVE their own grid. Their grid is built from MESA
+ *    evolutionary tracks spanning the main sequence (sec 3.1); our stars are
+ *    ZAMS Tout points, hence more compact. Measured over the shipped
+ *    realizations: mean v_esc,eff = 1137-1151 km/s against the 733 km/s their
+ *    3300/4.5 implies, so mean v_inf = 5115-5180 km/s — 1.55x their grid mean.
+ *    Momentum scales with v and wind ENERGY with v^2, so the energy channel
+ *    carries ~2.4x of this.
+ *
+ * The paper already flags its own 3300 km/s as "not generally found in the
+ * observational literature" (sec 5.1) and offers candidate causes. Ours sits
+ * further out still. This is a rung mismatch — an evolved-track coefficient on
+ * a ZAMS backend — recorded rather than corrected, because correcting it would
+ * mean inventing a v_inf law the paper does not publish.
+ */
+const BJ_VRATIO = 4.5;
 
 /** Björklund validity box (their sec 4). Outside it the recipe is not defined. */
 export const BJ_LOGL_MIN = 4.5;
