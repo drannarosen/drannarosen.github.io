@@ -82,7 +82,14 @@ from progenax.imf.smooth import Maschberger  # noqa: E402
 #
 # Inheriting a validation figure's IMF was the underlying mistake. A figure can sample brown dwarfs
 # if it likes; an export that feeds a stellar-feedback budget cannot.
-IMF = Maschberger(m_min=0.08, m_max=300.0)  # m_min = the hydrogen-burning limit
+# Bounds agreed with Anna and mirrored in src/novascope/core/imf/maschberger.ts
+# (IMF_M_MIN_MSUN / IMF_M_MAX_MSUN), so the export and the site sample the SAME population:
+#   m_min = 0.08  the hydrogen-burning limit
+#   m_max = 150   Maschberger (2013) Table 1's own fiducial m_u, rather than progenax's wider
+#                 300 (which admits very massive stars) or the 100 the site used to carry. The
+#                 limits "are only needed for the normalization" (Table 1 caption), so this is a
+#                 convention choice — and it is the paper's own convention.
+IMF = Maschberger(m_min=0.08, m_max=150.0)
 from progenax.profiles.eff import EFFProfile  # noqa: E402
 from progenax.stellar import zams_effective_temperature, zams_radius  # noqa: E402
 
@@ -136,10 +143,14 @@ class Realization:
     m_cloud: float = 2.0e4  # target cloud mass [Msun] (gas + stars at sfe)
     radius: float = 2.5  # cloud truncation radius r_t [pc]
     alpha_vir: float = 1.0  # virial parameter that SETS the Mach number
-    # <m> [Msun] for the IMF below, measured over 2e5 draws. It rose from 0.3883 when m_min
-    # moved from 0.01 to 0.08 (see IMF), and since N = SFE * M_cloud / <m> that takes orion from
-    # 10301 stars to ~6340. Re-measure this whenever the IMF bounds change; it is not a free knob.
-    mean_imf_mass: float = 0.6312
+    # <m> [Msun] for the IMF above. COUPLED to its bounds, and re-measured over 4e5 draws rather
+    # than left alone — N = SFE * M_cloud / <m>, so a stale value gives the right masses with the
+    # wrong star count:
+    #   0.01 / 300 -> 0.3686   what the shipped catalogues were drawn from
+    #   0.08 / 300 -> 0.6302
+    #   0.08 / 150 -> 0.6100   <- this
+    # That takes orion from 10301 stars to ~6557. Not a free knob: re-measure on any bounds change.
+    mean_imf_mass: float = 0.6100
     # cloud turbulence + kinematics (mach is derived; see .mach)
     b: float = 0.5  # turbulence forcing (0.5 = natural mix)
     alpha: float = 1.8  # density-PDF/power-spectrum knob

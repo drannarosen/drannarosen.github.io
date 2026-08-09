@@ -21,7 +21,7 @@
 export type { Segment } from "./kroupa.ts";
 export { buildKroupaSegments, sampleKroupaMass, kroupaMassFraction } from "./kroupa.ts";
 export type { MaschbergerParams } from "./maschberger.ts";
-export {
+export { IMF_M_MIN_MSUN, IMF_M_MAX_MSUN,
   MASCHBERGER_MU,
   MASCHBERGER_BETA,
   maschbergerMass,

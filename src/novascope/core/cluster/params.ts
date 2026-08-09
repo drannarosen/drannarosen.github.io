@@ -9,6 +9,8 @@
  */
 
 /** Bump when the identity shape changes; deserialize() migrates older payloads. */
+import { IMF_M_MIN_MSUN, IMF_M_MAX_MSUN } from "../imf/index.ts";
+
 export const CLUSTER_SCHEMA_VERSION = 1;
 
 /**
@@ -93,7 +95,9 @@ export function defaultIdentity(over: ClusterIdentityOverrides = {}): ClusterIde
      */
     seed: over.seed ?? 20260718,
     sampling: { mode: "count", target: 1200, ...over.sampling },
-    imf: { kind: "maschberger", mMin: 0.1, mMax: 100, alphaHigh: 2.3, ...over.imf },
+    /* Bounds from core/imf, not literals: the export and the site must sample the same
+       population, and two copies of a number are two numbers that can drift. */
+    imf: { kind: "maschberger", mMin: IMF_M_MIN_MSUN, mMax: IMF_M_MAX_MSUN, alphaHigh: 2.3, ...over.imf },
     Z: over.Z ?? 0.02,
     profile: { kind: "eff", scaleRadius: 1, gamma: 5, ...over.profile },
     segregation: over.segregation ?? 0,

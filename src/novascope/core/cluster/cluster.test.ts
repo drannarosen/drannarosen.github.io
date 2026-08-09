@@ -6,6 +6,7 @@
  * goes into shareable URLs. Making the law explicit is what makes the identity honest, and the
  * last case here is what makes it more than a label.
  */
+import { IMF_M_MIN_MSUN, IMF_M_MAX_MSUN } from "../imf/index.ts";
 import { describe, expect, it } from "vitest";
 import { defaultIdentity, sampleCluster, serializeIdentity, deserializeIdentity } from "./index.ts";
 import { maschbergerMass, buildKroupaSegments, sampleKroupaMass } from "../imf/index.ts";
@@ -20,7 +21,15 @@ describe("defaultIdentity merges one level deep, as its docstring says", () => {
    */
   it("takes a partial nested object and fills the rest from defaults", () => {
     const id = defaultIdentity({ imf: { alphaHigh: 1.8 } });
-    expect(id.imf).toEqual({ kind: "maschberger", mMin: 0.1, mMax: 100, alphaHigh: 1.8 });
+    /* Bounds from core/imf, not literals. This test is about MERGING one level deep; pinning the
+       numbers here made it fail when the IMF's range legitimately moved to the hydrogen-burning
+       limit, which is a third copy of a value that should have exactly one home. */
+    expect(id.imf).toEqual({
+      kind: "maschberger",
+      mMin: IMF_M_MIN_MSUN,
+      mMax: IMF_M_MAX_MSUN,
+      alphaHigh: 1.8,
+    });
   });
 
   it("does the same for sampling, profile and kinematics", () => {

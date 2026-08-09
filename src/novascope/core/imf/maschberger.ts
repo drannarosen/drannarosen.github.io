@@ -4,6 +4,7 @@
  * novascope's default law, and the one `check-imf` pins to a progenax fixture. Split out of one
  * `imf.ts`; the code below is unchanged from that file.
  */
+import { M_HYDROGEN_BURNING_MSUN } from "../constants/index.ts";
 
 /* ── Maschberger (2013) IMF ───────────────────────────────────────────
  * A single smooth formula bridging the low-mass turnover and the high-mass
@@ -18,6 +19,33 @@
  *
  * Source: Maschberger, T. (2013), MNRAS 429, 1725, Eq. (5); Table 1 canonical
  * single-star parameters μ = 0.2 M☉, β = 1.4. */
+/**
+ * THE MASS RANGE, in one place — the site's and the data export's.
+ *
+ * Two IMF implementations is defensible: this one and progenax's sit either side of a language
+ * boundary, and `check-imf` pins the shape against a progenax fixture so the port cannot drift.
+ * Two sets of BOUNDS is not, and that is what actually broke.
+ *
+ * The gravoturb export inherited `Maschberger()` from a validation figure and sampled from
+ * 0.01 M☉, while `params.ts` said 0.1 and this file said nothing. Nobody could see the
+ * disagreement because no gate covered the bounds and `meta.json` did not record them — measured
+ * 2026-08-09, 44% of every shipped catalogue was sub-stellar and a 131 M☉ star sat in a
+ * catalogue whose consumer could not have drawn one.
+ *
+ * Agreed with Anna: the floor is the hydrogen-burning limit, and the ceiling is Maschberger's own
+ * fiducial rather than progenax's wider convention. Both are citable numbers rather than taste.
+ */
+export const IMF_M_MIN_MSUN = M_HYDROGEN_BURNING_MSUN;
+/**
+ * Maschberger (2013) Table 1's fiducial upper limit, m_u = 150 M☉.
+ *
+ * The limits "are only needed for the normalization" (Table 1 caption), so this is a convention
+ * choice and not a change to the IMF's shape — but it is the paper's own convention, which is why
+ * it wins over progenax's 300 (chosen there to admit very massive stars) and over the 100 that
+ * `params.ts` used to carry.
+ */
+export const IMF_M_MAX_MSUN = 150;
+
 export const MASCHBERGER_MU = 0.2; // scale parameter [M☉] (Maschberger 2013 Table 1)
 export const MASCHBERGER_BETA = 1.4; // low-mass turnover (Maschberger 2013 Table 1)
 
