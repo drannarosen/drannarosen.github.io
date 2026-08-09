@@ -49,12 +49,33 @@ calibration back in play for no gain.
 depth, which is what makes correct star/gas interleaving possible at all. The current fullscreen
 raymarch cannot participate in a depth test.
 
-**3. The camera is forced to reproduce `VOLUME_CAMERA` exactly.** `camera.ts` already exists to
-stop the volume and star passes disagreeing, with `camera.test.ts` asserting the two are exact
-inverses; `glslFloat` only formats, so TSL imports the identical constants. But a three.js
-`PerspectiveCamera` brings its own projection, and if it is allowed to define the framing then the
-old and new renderers produce different images and **parity becomes untestable by construction**.
-`camera.test.ts` gains a third party that must agree.
+**3. The shared projection is ORTHOGRAPHIC, and the volume moves to meet the stars.**
+
+*Revised 2026-08-09 while reading the seam for step 2; the original decision here was to force a
+three.js `PerspectiveCamera` to reproduce `VOLUME_CAMERA` exactly. That is not possible, and the
+conflict was missed when this was written.*
+
+The two renderers were built on opposite camera choices, each for a stated reason:
+
+- `clusterPoints` uses an `OrthographicCamera` **by design** — "a perspective camera would make a
+  star's apparent size depend on its depth, which would fight the one thing this renderer is for:
+  apparent size carries luminosity and nothing else."
+- the volume raymarch is **perspective** — `ro = (0,0,eyeZ)`, `rd = normalize(vec3(uv*FOV*uZoom,
+  -FOCAL))`, rays diverging from an eye point.
+
+One scene with real depth interleaving needs one projection, so one of them has to move. Making the
+stars perspective would break the diagram law and is rejected outright. So the **volume becomes
+orthographic**: parallel rays into the box.
+
+That is a genuine improvement rather than a concession. An orthographic projection of a density
+cube is a legitimate scientific rendering, and it means a length on screen denotes the same
+physical length everywhere in the frame — which a figure about where feedback acts should want.
+It does visibly change `/explore/feedback-budget`: the cloud loses its perspective depth cue.
+Agreed with Anna before any code moved.
+
+`camera.ts` keeps its role — the three numbers in one place, `camera.test.ts` asserting the ray
+march and the closed form invert each other — but `fovScale`/`focal` now parameterise a parallel
+projection, and the test gains the three.js camera as a third party that must agree.
 
 **4. `viz/webgl` does not retire on day one.** It stays as the parity reference until the new path
 matches it, then goes. The milestone of stage 1 is not "the port compiles", it is "the port
