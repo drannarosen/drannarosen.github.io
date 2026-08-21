@@ -71,7 +71,7 @@ import type { StarField } from "./prepare.ts";
  * silence. Prose is a second home for a fact, and it drifts like any other.
  *
  * The one number worth stating, because the gate checks it and it is what bounds the method, is
- * the SPREAD IN MAGNITUDES: 0.47. Against an 8 magnitude stretch that is about 6% of the dynamic
+ * the SPREAD IN MAGNITUDES: 0.42. Against an 8 magnitude stretch that is about 5% of the dynamic
  * range, which is why one constant is enough here and a per-frame histogram pass is not worth its
  * cost.
  *
@@ -80,6 +80,18 @@ import type { StarField } from "./prepare.ts";
  * light in each quad, so the analytic mean falls and the ratio to the true white point rises. The
  * fixture was regenerated deliberately, with the digest confirming the ONLY input that changed was
  * that exponent.
+ *
+ * It moved again, 35.16 -> 32.96, when the IMF floor became the hydrogen-burning limit. The
+ * population is the other input this measures over, and a lower floor adds faint stars that lift
+ * the analytic mean relative to the true white point. The SPREAD narrowed with it, 0.47 -> 0.42
+ * mag, which is the outcome that matters: this stand-in tracks the rendered frame slightly better
+ * over the new population, not worse.
+ *
+ * That change is also the one the staleness digest could NOT see. `calibrationFingerprint` covers
+ * the optics and the run list and says nothing about the population, so the fixture went on
+ * certifying a calibration measured over a different set of stars — the failure its own comment
+ * describes for the run list, recurring one input over. What caught it was the direct comparison
+ * against the recorded values, not the guard written to catch it.
  *
  * WHERE THE SPREAD COMES FROM, because it bounds what this can ever do: most of it is FIELD OF
  * VIEW. The analytic mean counts a star's total light and divides by the pixel count, so it does
@@ -94,7 +106,7 @@ import type { StarField } from "./prepare.ts";
  * constant absorbs any stable systematic, and what has to be gated is the stability, not
  * the value.
  */
-export const WHITE_FROM_ANALYTIC_MEAN = 35.16;
+export const WHITE_FROM_ANALYTIC_MEAN = 32.96;
 
 /*
  * `WHITE_FROM_ANALYTIC_MEAN_SPREAD` USED TO LIVE HERE and is gone.
