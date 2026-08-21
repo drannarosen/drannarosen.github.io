@@ -952,9 +952,27 @@ ok(badRadius === 0, "every sampled star has a positive radius");
 const again2 = clusterStarTable({ sampling: { mode: "count", target: 4000 } });
 ok(table.every((v, i) => v === again2[i]), "the cluster producer is deterministic in its seed");
 
-// And the whole pipeline must survive it: a real population, all visible.
+/*
+ * And the whole pipeline must survive it: a real population, mostly visible.
+ *
+ * THE BOUND IS ANTI-VACUITY, not a claim that the display hides nothing. What it
+ * catches is a black or near-black frame — a pipeline that silently drops the
+ * population — and its sibling above ("the DEFAULT softening leaves the field
+ * visible") guards the same property from the other side.
+ *
+ * It was 0.9, chosen when the IMF floor was 0.1 Msun. The floor moved to the
+ * hydrogen-burning limit (0.08) and this measured 82.1%: 438 of 4000 stars now
+ * sample below the old floor, and the faintest of them genuinely cannot show
+ * beside a 94 Msun star at bare defaults. Requiring >90% would assert that a
+ * population reaching 0.08 Msun renders essentially in full, which is not true
+ * and should not be — the lab's own shipped configuration reports 10000 of
+ * 10000 because it sets a depth and a softening; this call sets neither.
+ *
+ * So 0.8 is the same guard restated against the population that now exists,
+ * with the measurement it was set from written down beside it.
+ */
 const real = prepareStarField(table, { band: "V" });
-ok(real.stats.visible > nStars * 0.9, "the sampled cluster renders visible, not black");
+ok(real.stats.visible > nStars * 0.8, "the sampled cluster renders visible, not black");
 
 /* ── the CPU REFERENCE, and the profile the shader mirrors ──
  *
