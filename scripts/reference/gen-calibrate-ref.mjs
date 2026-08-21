@@ -61,7 +61,7 @@ const out = {
   _staleness:
     "`fingerprint` covers every constant that determines these numbers. If the gate reports " +
     "a mismatch the fixture is STALE, not wrong — regenerate it and re-derive the constant.",
-  fingerprint: calibrationFingerprint(),
+  fingerprint: calibrationFingerprint(stars),
   geometricMean: Number(geometricMean.toPrecision(6)),
   spread: { min: Number(min.toPrecision(6)), max: Number(max.toPrecision(6)) },
   spreadMag: Number((2.5 * Math.log10(max / min)).toPrecision(4)),

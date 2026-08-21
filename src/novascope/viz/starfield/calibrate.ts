@@ -52,7 +52,7 @@ import {
   type DiffractionParams,
 } from "../../core/optics/index.ts";
 import { transferFloor } from "../../core/imaging/transfers.ts";
-import type { StarField } from "./prepare.ts";
+import { STAR_STRIDE, type StarField } from "./prepare.ts";
 
 /**
  * Ratio between the pixel intensity that should map to display white (the 99.5th
@@ -87,11 +87,13 @@ import type { StarField } from "./prepare.ts";
  * mag, which is the outcome that matters: this stand-in tracks the rendered frame slightly better
  * over the new population, not worse.
  *
- * That change is also the one the staleness digest could NOT see. `calibrationFingerprint` covers
- * the optics and the run list and says nothing about the population, so the fixture went on
+ * That change was also the one the staleness digest could not see. `calibrationFingerprint` covered
+ * the optics and the run list and said nothing about the population, so the fixture went on
  * certifying a calibration measured over a different set of stars — the failure its own comment
  * describes for the run list, recurring one input over. What caught it was the direct comparison
- * against the recorded values, not the guard written to catch it.
+ * against the recorded values, not the guard written to catch it. The digest now takes the star
+ * table and hashes it, so the next such change stops at the fingerprint with an instruction
+ * instead of at eighteen value mismatches.
  *
  * WHERE THE SPREAD COMES FROM, because it bounds what this can ever do: most of it is FIELD OF
  * VIEW. The analytic mean counts a star's total light and divides by the pixel count, so it does
@@ -252,7 +254,24 @@ export const CALIBRATION_RUNS: CalibrationRun[] = [
  * plain readable string rather than a hash — when it does mismatch, the diff says WHICH
  * constant moved, and that is most of the diagnosis.
  */
-export function calibrationFingerprint(): string {
+/**
+ * FNV-1a over the table's RAW BITS, not its values.
+ *
+ * A Uint32 view of the same buffer, so what is hashed is the IEEE-754 pattern the sampler
+ * produced. Hashing the numbers instead would mean coercing each float to an integer and
+ * discarding most of it — two different populations agreeing to 32 bits per star is exactly the
+ * collision this must not have.
+ */
+function populationDigest(stars: Float32Array): string {
+  const bits = new Uint32Array(stars.buffer, stars.byteOffset, stars.length);
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < bits.length; i++) {
+    h = Math.imul(h ^ bits[i]!, 16777619) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+export function calibrationFingerprint(stars: Float32Array): string {
   const a = DEFAULT_AUREOLE;
   const d = DEFAULT_DIFFRACTION;
   return [
@@ -266,6 +285,22 @@ export function calibrationFingerprint(): string {
      * calibration measured over a different set. A short digest of the ids and options catches that.
      */
     `runs=${CALIBRATION_RUNS.map((r) => `${r.id}:${JSON.stringify(r.prepare)}:${r.depthMag}`).join("|").length}x${CALIBRATION_RUNS.length}`,
+    /*
+     * THE POPULATION, which this did not cover and had to.
+     *
+     * These numbers are measured over a set of stars, and when the IMF floor moved to the
+     * hydrogen-burning limit every recorded white point changed while this digest matched
+     * exactly — the fixture went on certifying a calibration measured over a different set of
+     * stars, which is the failure the `runs=` term above was added to stop, one input over. The
+     * generator's own header already claimed the fingerprint covered "the population"; it did not.
+     *
+     * The TABLE ITSELF, not the identity that produced it. Digesting `defaultIdentity()` would
+     * catch the bounds moving but not a change inside the sampler — a corrected quantile, a fixed
+     * seed stream, a different profile — which changes the stars without changing any parameter
+     * naming them. Both callers already hold the exact table, so this costs one pass over 60,000
+     * floats (measured: 1 ms) and no extra work at all.
+     */
+    `population=${populationDigest(stars)}x${stars.length / STAR_STRIDE}`,
   ].join(" ");
 }
 

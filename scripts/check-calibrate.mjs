@@ -67,8 +67,9 @@ const fixture = JSON.parse(
  * moved. Change the aureole amplitude, the Moffat beta, the PSF width or the quad cap and
  * every recorded white point is wrong while a value-only gate keeps passing. So this is
  * checked first, and reported as an instruction rather than a puzzle. */
+const stars = clusterStarTable({ sampling: { mode: "count", target: 10_000 } });
 {
-  const now = calibrationFingerprint();
+  const now = calibrationFingerprint(stars);
   ok(
     fixture.fingerprint === now,
     fixture.fingerprint === now
@@ -82,7 +83,6 @@ const fixture = JSON.parse(
 }
 
 /* ── THE CLAIM: the analytic mean tracks the recorded white point everywhere ── */
-const stars = clusterStarTable({ sampling: { mode: "count", target: 10_000 } });
 const ratios = [];
 for (const run of CALIBRATION_RUNS) {
   const recorded = fixture.runs.find((r) => r.id === run.id);
