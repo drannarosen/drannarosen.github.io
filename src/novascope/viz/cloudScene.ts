@@ -164,12 +164,24 @@ export function createCloudScene(
   });
 
   /*
-   * Advertise the stack on the canvas, as DynamicsEngine does with `data-engine`.
+   * Advertise the stack on the canvas, OVERWRITING the `data-engine` three.js writes itself.
    *
    * "Am I looking at the new renderer or a cached old one?" cost a round of confusion that no
    * amount of curling the dev server could settle from the outside. One attribute answers it in
    * the element inspector, and it reports the backend actually obtained rather than the one
    * requested.
+   *
+   * Which is the point of overwriting rather than adding an attribute of our own. three.js sets
+   * `data-engine="three.js r<REVISION>"` on every canvas it takes a context on
+   * (`WebGLRenderer`'s `_createContext`), and that string is a VERSION STAMP, not a backend
+   * report — it says "webgpu" for a `WebGPURenderer` that fell back to WebGL 2. Reading it as
+   * evidence of the backend cost a session: it was taken as proof that our own backend sniff was
+   * broken, when the sniff was right and the label was never about the backend at all. Anything
+   * on a canvas of ours that says which backend ran has to be written by us, from
+   * `renderer.backend`, or it is three.js's label wearing our meaning.
+   *
+   * This said "as DynamicsEngine does with `data-engine`". DynamicsEngine does not — three.js
+   * does, on that page as on this one.
    */
   canvas.dataset.engine = `three.js volume + points (${stars.backend})`;
 

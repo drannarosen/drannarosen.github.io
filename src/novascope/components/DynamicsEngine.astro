@@ -3900,6 +3900,38 @@ const m = (tex: string) => tex;
   .xpl-dyn__stage {
     position: relative;
   }
+  /*
+   * THE GPU FAILED, SAID OUT LOUD.
+   *
+   * `sceneHost` sets `data-gpu-error` on its canvas when the device will not start or is lost. It
+   * cannot present that itself — it owns a canvas, not a page — so the message lives here, where
+   * the markup does.
+   *
+   * On the STAGE and not the canvas, because a `<canvas>` is a replaced element and generates no
+   * pseudo-elements; `::after` on it would never render. The text is static rather than
+   * `attr(data-gpu-error)` for the same reason the attribute carries a stage name and not a
+   * driver string: "GPUDevice was destroyed" is for the console, not for a reader.
+   *
+   * Every other way this panel can go blank has already been mistaken for a physics bug once. A
+   * dead device should never join them.
+   */
+  .xpl-dyn__stage:has(canvas[data-gpu-error])::after {
+    content: "This view needs a working GPU, and this browser's stopped. Reloading the page usually brings it back.";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    padding: var(--space-m);
+    text-align: center;
+    text-wrap: balance;
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    background: var(--bg-void);
+    /* UNDER the HUD (z-index 2), not over it. The transport drives the PLOTS as well as this
+       canvas, so covering `run` would take the two figures down with the cluster and turn a dead
+       view into a dead page. It covers the canvas, which has nothing left to show. */
+    z-index: 1;
+  }
   .xpl-dyn__hud {
     position: absolute;
     inset-inline: var(--space-2xs);

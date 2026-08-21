@@ -79,6 +79,19 @@ export interface SceneHostOptions {
    * by whatever the real scale turns out to be (measured: "200 pc" on a 0.65 pc cluster).
    */
   onReady?: () => void;
+  /**
+   * The GPU could not start, or stopped. The host cannot present this itself — it owns a canvas,
+   * not a page — so it reports through three channels and lets the caller choose: this callback,
+   * `data-gpu-error` on its own canvas (styleable, inspectable, assertable by a gate), and
+   * `console.error`.
+   *
+   * It exists because every way this host can fail looks identical from outside: a blank panel
+   * with healthy counters. A rejected `init()` left `ready` false and `draw()` returning early
+   * forever, with nothing but an unhandled rejection to say so; a lost device leaves three's own
+   * handler logging to a console nobody has open. On a page whose claim IS the picture, silence is
+   * the one unacceptable failure mode.
+   */
+  onError?: (info: { stage: "init" | "device-lost"; message: string }) => void;
 }
 
 export interface SceneHost {
@@ -144,6 +157,33 @@ export function createSceneHost(canvas: HTMLCanvasElement, opts: SceneHostOption
     });
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   renderer.setPixelRatio(dpr);
+
+  /** Report a GPU failure everywhere at once, and stop pretending to paint. */
+  function fail(stage: "init" | "device-lost", message: string): void {
+    canvas.dataset.gpuError = stage;
+    console.error(`sceneHost: ${stage} — ${message}`);
+    stop();
+    opts.onError?.({ stage, message });
+  }
+
+  /*
+   * WRAP three's handler, never replace it.
+   *
+   * `renderer.onDeviceLost` is a plain assignable property whose default logs the loss AND sets
+   * the internal `_isDeviceLost`, which is what makes three stop issuing work to a dead device.
+   * Assigning over it would take that with it — a silent correctness change bought for a log line.
+   *
+   * three already listens on both paths for us: `device.lost` on WebGPU, `webglcontextlost` on the
+   * WebGL 2 fallback. Both arrive here, so this host needs no listener of its own.
+   */
+  const threeOnDeviceLost = renderer.onDeviceLost.bind(renderer);
+  /* `info` is typed by the assignment target. three declares its shape but does not export the
+     name, so annotating it here would mean re-describing a type it already owns. */
+  renderer.onDeviceLost = (info) => {
+    threeOnDeviceLost(info);
+    const why = info.reason ? `${info.message} (${info.reason})` : info.message;
+    fail("device-lost", `${info.api} device lost: ${why || "unknown reason"}`);
+  };
 
   const scene = new THREE.Scene();
   let maxR = 1e-6;
@@ -379,15 +419,25 @@ export function createSceneHost(canvas: HTMLCanvasElement, opts: SceneHostOption
       document.addEventListener("visibilitychange", onVisibility);
       /* Everything before this is device-independent: the scene graph, the geometry and the
          listeners all exist before the GPU does. Only painting waits. */
-      void renderer.init().then(() => {
-        if (disposed) return; // disposed while awaiting the device
-        ready = true;
-        syncSize();
-        dirty = true;
-        draw();
-        play();
-        opts.onReady?.();
-      });
+      void renderer
+        .init()
+        .then(() => {
+          if (disposed) return; // disposed while awaiting the device
+          ready = true;
+          syncSize();
+          dirty = true;
+          draw();
+          play();
+          opts.onReady?.();
+        })
+        .catch((e: unknown) => {
+          /* Without this the rejection is unhandled, `ready` stays false, and `draw()` returns
+             early for the rest of the page's life — a blank panel whose frame counter, buffers
+             and camera all read healthy. That is indistinguishable from the renderer working on
+             an empty scene, and it is the shape of failure this file has already produced once. */
+          if (disposed) return;
+          fail("init", e instanceof Error ? e.message : String(e));
+        });
     },
     dispose() {
       disposed = true;
@@ -402,7 +452,10 @@ export function createSceneHost(canvas: HTMLCanvasElement, opts: SceneHostOption
       canvas.removeEventListener("pointercancel", onUp);
       /* Only what this host created. A shared renderer outlives any one layer, and disposing a
          caller's device here would take the gas down with the stars. */
-      if (ownsRenderer) void renderer.dispose();
+      /* `.catch` for the same reason `init` has one: this returns a promise, and a teardown that
+         rejects during a page unload would otherwise surface as an unhandled rejection with no
+         owner. Nothing to report to the caller here — the host is already gone. */
+      if (ownsRenderer) void Promise.resolve(renderer.dispose()).catch(() => {});
     },
   };
 }
