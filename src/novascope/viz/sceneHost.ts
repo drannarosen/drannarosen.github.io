@@ -90,7 +90,15 @@ export interface SceneHost {
   /** Capped device pixel ratio. A layer authoring sizes in CSS px must scale by this. */
   readonly dpr: number;
   readonly backend: "webgpu" | "webgl2";
-  /** True when honouring prefers-reduced-motion: no drift, no render loop. */
+  /**
+   * True when honouring prefers-reduced-motion. It suppresses the idle DRIFT, and nothing else.
+   *
+   * This said "no drift, no render loop", which was never what the code did — `play()` gates on
+   * `raf`, `document.hidden` and `onScreen`, and has never consulted this. Stopping the loop would
+   * also be wrong for an explorable: the motion here is the physics, started by the reader pressing
+   * run and stopped by a visible pause control, which is what the preference asks for. What it must
+   * not do is move the CAMERA on its own, and that is exactly what this suppresses.
+   */
   readonly reducedMotion: boolean;
   readonly drifting: boolean;
   /** Frames actually presented — the only reliable way to confirm a pause. */
