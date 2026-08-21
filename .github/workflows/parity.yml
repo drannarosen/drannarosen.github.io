@@ -36,6 +36,10 @@ on:
       - "src/novascope/viz/starfield/**"
       - "src/novascope/viz/webgl/**"
       - "src/novascope/viz/volumeLayer.ts"
+      - "src/novascope/viz/sceneHost.ts"
+      - "src/novascope/viz/clusterPoints.ts"
+      - "src/novascope/viz/__fixtures__/clusterPointsLive.ts"
+      - "scripts/check-cluster-live.mjs"
       - "src/novascope/viz/__fixtures__/volumeParity.ts"
       - "src/novascope/core/imaging/**"
       - "src/novascope/core/optics/**"
@@ -50,6 +54,10 @@ on:
       - "src/novascope/viz/starfield/**"
       - "src/novascope/viz/webgl/**"
       - "src/novascope/viz/volumeLayer.ts"
+      - "src/novascope/viz/sceneHost.ts"
+      - "src/novascope/viz/clusterPoints.ts"
+      - "src/novascope/viz/__fixtures__/clusterPointsLive.ts"
+      - "scripts/check-cluster-live.mjs"
       - "src/novascope/viz/__fixtures__/volumeParity.ts"
       - "src/novascope/core/imaging/**"
       - "src/novascope/core/optics/**"
@@ -118,6 +126,12 @@ jobs:
       - name: Check the volume raymarch against its reference
         if: always()
         run: pnpm check:volume-parity
+
+      # The star panel must keep its picture while the render loop drives it. This one CAN run
+      # here, unlike the pixel pin below, because "not blank" holds on any rasteriser.
+      - name: Check the cluster panel still draws while running
+        if: always()
+        run: pnpm check:cluster-live
 
       # ── WHY `check:cluster-points` IS NOT HERE ──
       #
