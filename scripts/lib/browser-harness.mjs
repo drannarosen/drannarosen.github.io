@@ -167,7 +167,30 @@ export async function withBrowserPage(fn, opts = {}) {
       }
     });
     log(`  WebGPU adapter: ${webgpuAdapter ?? "none — the WebGPU path cannot run here"}`);
-    return { result: await fn(page), pageErrors, webgpuAdapter };
+    /*
+     * ONE RETRY, for the dev server pulling the page out from under the probe.
+     *
+     * These gates reuse a running dev server, which is the right default — it means the gate sees
+     * what is on disk. It also means Vite may push an HMR update for a file edited moments ago,
+     * and a full reload destroys the execution context mid-`evaluate`. Playwright reports that as
+     * "Execution context was destroyed", which reads like a crash in the gate and is not.
+     *
+     * It is not rare: running a gate straight after editing the module it exercises hits it almost
+     * every time, and it cost six runs while `check-cluster-live` was being written. Retrying once
+     * on a fresh navigation costs nothing when the run was fine and turns the common case into a
+     * pass. A SECOND failure is left to propagate — if the page keeps reloading, that is a real
+     * problem and the gate should say so rather than loop.
+     */
+    let value;
+    try {
+      value = await fn(page);
+    } catch (e) {
+      if (!/Execution context was destroyed/i.test(String(e))) throw e;
+      log("  the page reloaded mid-run (dev-server HMR after a recent edit) — retrying once");
+      await page.goto(origin, { waitUntil: "domcontentloaded" });
+      value = await fn(page);
+    }
+    return { result: value, pageErrors, webgpuAdapter };
   } finally {
     await browser.close();
     stopServer();
