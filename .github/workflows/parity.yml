@@ -13,12 +13,21 @@ name: GPU gates
 #
 # ── WHAT THIS DOES AND DOES NOT PROVE ON A CI RUNNER ──
 #
-# GitHub's ubuntu runners have no GPU. Chromium may therefore fall back to `WebGPURenderer`'s own
-# WebGL 2 backend, in which case TSL is compiled to GLSL rather than WGSL. That is still a real
+# GitHub's ubuntu runners have no GPU. The browser may therefore fall back to `WebGPURenderer`'s
+# own WebGL 2 backend, in which case TSL is compiled to GLSL rather than WGSL. That is still a real
 # test — it exercises the graph, the CPU mirror, the profile and the transfers — but it is NOT the
-# WGSL codegen path that ~95% of real visitors take. The gate PRINTS which backend it obtained on
-# every run, and refuses to pass on a vacuous comparison, so the coverage is legible rather than
-# assumed. Measured locally on WebGPU (Apple M2 Max): median pixel error 0.09-0.28%.
+# WGSL codegen path that ~95% of real visitors take. Measured locally on WebGPU (Apple M2 Max):
+# median pixel error 0.09-0.28%.
+#
+# Which half ran is now DECIDED BY THE ADAPTER, not left to the reader. `browser-harness` asks the
+# browser for a WebGPU device once and hands the answer to the gates: with a device present, a run
+# that fell back to WebGL 2 FAILS, because it would be covering one backend while reporting on two;
+# with no device, the WebGL 2 result is the honest one and the gate says so in as many words.
+#
+# That distinction is the whole point. Printing the backend was not enough — `check-parity` used to
+# record only that SOME backend was obtained, so a run covering half of what it claimed looked
+# exactly like a run covering all of it, which is this workflow's founding failure (ADR 0015's
+# condition met by someone remembering) wearing a green tick.
 
 on:
   push:
@@ -26,20 +35,28 @@ on:
     paths:
       - "src/novascope/viz/starfield/**"
       - "src/novascope/viz/webgl/**"
+      - "src/novascope/viz/volumeLayer.ts"
+      - "src/novascope/viz/__fixtures__/volumeParity.ts"
       - "src/novascope/core/imaging/**"
       - "src/novascope/core/optics/**"
+      - "src/novascope/core/transfer/**"
       - "scripts/check-parity.mjs"
       - "scripts/check-webgl-camera.mjs"
+      - "scripts/check-volume-parity.mjs"
       - "scripts/lib/browser-harness.mjs"
       - ".github/workflows/parity.yml"
   pull_request:
     paths:
       - "src/novascope/viz/starfield/**"
       - "src/novascope/viz/webgl/**"
+      - "src/novascope/viz/volumeLayer.ts"
+      - "src/novascope/viz/__fixtures__/volumeParity.ts"
       - "src/novascope/core/imaging/**"
       - "src/novascope/core/optics/**"
+      - "src/novascope/core/transfer/**"
       - "scripts/check-parity.mjs"
       - "scripts/check-webgl-camera.mjs"
+      - "scripts/check-volume-parity.mjs"
       - "scripts/lib/browser-harness.mjs"
   # The physics can also drift without those paths changing — a constant moves, a fit is
   # retuned — so it runs weekly regardless, and can be kicked off by hand.
@@ -70,9 +87,17 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # --with-deps installs the system libraries headless Chromium needs on a bare runner.
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
+      # --with-deps installs the system libraries a headless browser needs on a bare runner.
+      #
+      # BOTH, because they are not interchangeable. `browser-harness` prefers the system Chrome
+      # (Playwright's `channel: "chrome"`) since bundled Chromium has no WebGPU adapter at all,
+      # and falls back to bundled Chromium when no Chrome is installed. Installing only chromium
+      # therefore pins every CI run to the WebGL 2 half of a gate whose whole purpose is that both
+      # halves are exercised. Installing chrome does not GUARANTEE an adapter appears on a
+      # GPU-less runner — the gates now assert on the adapter they actually find, and say which —
+      # but installing only chromium guarantees one never can.
+      - name: Install browsers
+        run: pnpm exec playwright install --with-deps chromium chrome
 
       # The gate starts its own dev server if none is running, and stops it afterwards.
       # It exits non-zero when the browser cannot launch — it does NOT skip, because a parity
@@ -86,3 +111,24 @@ jobs:
       - name: Check the webgl camera registration
         if: always()
         run: pnpm check:webgl-camera
+
+      # The TSL volume raymarch against its TypeScript reference. Same reasoning as above for
+      # `if: always()`, and it belongs here rather than in `pnpm build` for the same reason the
+      # whole workflow does.
+      - name: Check the volume raymarch against its reference
+        if: always()
+        run: pnpm check:volume-parity
+
+      # ── WHY `check:cluster-points` IS NOT HERE ──
+      #
+      # It pins the star renderer as an IMAGE, and a pixel baseline is only meaningful against the
+      # rasteriser that produced it — the fixture records one, currently
+      # "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)". No GitHub runner
+      # can match that, so the gate would fail on every run for a reason that is not a regression.
+      # That is the gate behaving correctly: it refuses to compare across rasterisers rather than
+      # reporting a difference it cannot attribute.
+      #
+      # It is not skipped-and-forgotten either. It runs locally on the machine that owns the pin,
+      # where `pnpm check:cluster-points` now finds the system Chrome by itself. Putting it on CI
+      # needs a per-rasteriser baseline first, which is a change to the fixture's contract and not
+      # a line in this file.
