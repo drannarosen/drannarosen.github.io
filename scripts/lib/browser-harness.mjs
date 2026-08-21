@@ -1,11 +1,13 @@
 /*
  * browser-harness.mjs — the shared plumbing for gates that need a real browser.
  *
- * Two gates run code in Chromium against the Astro dev server: `check-parity` (the GPU shader
- * against its CPU reference) and `check-webgl-camera` (the raymarcher and the star pass agreeing
- * about where the camera is). Both need the same three things — a dev server, a browser, and a
- * page on the right origin — and the second was about to grow its own copy of all of it, which is
- * the duplication this codebase keeps having to design against.
+ * Four gates run code in a browser against the Astro dev server: `check-parity` (the GPU shader
+ * against its CPU reference), `check-webgl-camera` (the raymarcher and the star pass agreeing
+ * about where the camera is), `check-cluster-points` (the star renderer against a pinned image)
+ * and `check-volume-parity` (the volume raymarch against its TypeScript reference). All need the
+ * same three things — a dev server, a browser, and a page on the right origin — and the second was
+ * about to grow its own copy of all of it, which is the duplication this codebase keeps having to
+ * design against.
  *
  * WHY A DEV SERVER AND NOT `dist/`. The modules these gates drive are dev-only by design:
  * `parity.ts` is never imported, so the production build tree-shakes it away, and both need Vite
@@ -68,33 +70,104 @@ export async function withBrowserPage(fn, opts = {}) {
     if (startedByUs) spawnSync("pnpm", ["exec", "astro", "dev", "stop"], { stdio: "ignore" });
   };
 
+  /*
+   * WHICH BROWSER, AND WHY IT DECIDES WHAT THESE GATES CAN SEE
+   *
+   * Playwright's BUNDLED Chromium has no WebGPU adapter and falls back to a SwiftShader SOFTWARE
+   * rasteriser. System Chrome has a real device. Measured on this machine, against the dev server
+   * (a secure origin — `about:blank` is not, and reports WebGPU as universally absent):
+   *
+   *   bundled chromium      adapter NULL          ANGLE (Google, Vulkan/SwiftShader)
+   *   channel "chrome"      adapter apple/metal-3 ANGLE (Apple, Metal Renderer: Apple M2 Max)
+   *   PW_CHROME=<path>      adapter apple/metal-3 ANGLE (Apple, Metal Renderer: Apple M2 Max)
+   *
+   * So the browser is not an implementation detail here. It selects the BACKEND (`check-parity`
+   * and `check-volume-parity` cover one path instead of two without it) and the RASTERISER
+   * (`check-cluster-points` pins an image, and changing the rasteriser moves that image further
+   * than changing the backend does — see its header).
+   *
+   * System Chrome is therefore the DEFAULT, discovered through Playwright's own `channel`, which
+   * works on macOS, Windows and Linux without this file keeping a list of paths. `PW_CHROME` still
+   * wins when set, for a browser Playwright's registry does not know about.
+   *
+   * This used to describe `PW_CHROME` as an escape hatch for offline or locked-down machines that
+   * cannot fetch a binary. That was wrong, and it was the copy four gates read: it reads as an
+   * optional convenience when it is the difference between a gate covering both backends on real
+   * hardware and covering one on software. `check-cluster-points` had the measured truth in its own
+   * header the whole time, which is how the two came to disagree.
+   */
   let browser;
+  let browserLabel;
+  const launchOpts = { headless: true, ...(opts.args ? { args: opts.args } : {}) };
   try {
-    browser = await chromium.launch({
-      headless: true,
-      /*
-       * PW_CHROME is the escape hatch for a machine where `npx playwright install` cannot fetch a
-       * binary — locked down, offline, or air-gapped. Pointing at an existing Chrome works because
-       * these gates need a GPU-capable browser, not a specific build.
-       */
-      ...(process.env.PW_CHROME ? { executablePath: process.env.PW_CHROME } : {}),
-      ...(opts.args ? { args: opts.args } : {}),
-    });
+    if (process.env.PW_CHROME) {
+      browser = await chromium.launch({ ...launchOpts, executablePath: process.env.PW_CHROME });
+      browserLabel = `system Chrome via PW_CHROME (${process.env.PW_CHROME})`;
+    } else {
+      try {
+        browser = await chromium.launch({ ...launchOpts, channel: "chrome" });
+        browserLabel = "system Chrome (Playwright channel 'chrome')";
+      } catch {
+        /* Not fatal — a software run is still a run, and CI does exactly this today. But it is
+           never silent: a gate reporting coverage it does not have is the thing this file's header
+           refuses to allow, and the operator cannot infer it from a passing line. */
+        browser = await chromium.launch(launchOpts);
+        browserLabel = "Playwright's bundled Chromium — SOFTWARE, no WebGPU adapter";
+        console.warn(
+          `  NOTE: no system Chrome found — running Playwright's bundled Chromium, which has NO\n` +
+            `  WebGPU adapter and rasterises in software (SwiftShader). A gate that pins an image\n` +
+            `  will fail against a hardware pin; a gate that only reports its backend will cover\n` +
+            `  one path and still pass.\n` +
+            `  Fix with 'pnpm exec playwright install chrome', or set PW_CHROME to a browser binary.`,
+        );
+      }
+    }
   } catch (e) {
     stopServer();
     throw new Error(
-      `could not launch Chromium: ${String(e).split("\n")[0]}\n` +
-        `  Install it with 'npx playwright install chromium', or set PW_CHROME to a browser binary.\n` +
+      `could not launch a browser: ${String(e).split("\n")[0]}\n` +
+        `  Install one with 'pnpm exec playwright install chrome' (hardware WebGPU and rasteriser)\n` +
+        `  or 'pnpm exec playwright install chromium' (software), or set PW_CHROME to a binary.\n` +
         `  This gate does NOT skip when the browser is missing — see this file's header.`,
     );
   }
+  log(`  browser: ${browserLabel}`);
 
   const pageErrors = [];
   try {
     const page = await browser.newPage();
     page.on("pageerror", (e) => pageErrors.push(String(e)));
     await page.goto(origin, { waitUntil: "domcontentloaded" });
-    return { result: await fn(page), pageErrors };
+    /*
+     * IS THERE A WEBGPU DEVICE, measured once and handed to the gates.
+     *
+     * A gate that merely REPORTS its backend passes whether or not the WebGPU path ran, which is
+     * how `check-parity` and `check-volume-parity` could cover one of two paths and still go green
+     * — the exact failure `parity.ts` records costing months. The fix is not to demand WebGPU
+     * unconditionally: a GPU-less runner has no adapter and its WebGL 2 run is the honest result,
+     * and ~5% of real visitors take that path too.
+     *
+     * So the discriminator is the ADAPTER, not the browser. With one present, a run that fell back
+     * to WebGL 2 is hiding a backend and the gate should say so; with none, there is nothing to
+     * hide. Asking the browser is the only way to tell the two apart — `channel: "chrome"` can
+     * succeed on a machine that still has no device.
+     *
+     * Measured on the dev server, which is a secure context. `about:blank` is not, and reports
+     * `navigator.gpu` as undefined for reasons that have nothing to do with the hardware.
+     */
+    const webgpuAdapter = await page.evaluate(async () => {
+      if (!navigator.gpu) return null;
+      try {
+        const a = await navigator.gpu.requestAdapter();
+        if (!a) return null;
+        const i = a.info ?? {};
+        return [i.vendor, i.architecture].filter(Boolean).join("/") || "adapter";
+      } catch {
+        return null;
+      }
+    });
+    log(`  WebGPU adapter: ${webgpuAdapter ?? "none — the WebGPU path cannot run here"}`);
+    return { result: await fn(page), pageErrors, webgpuAdapter };
   } finally {
     await browser.close();
     stopServer();

@@ -39,14 +39,17 @@
  *   bundled headless + unsafe-webgpu adapter google / swiftshader   (software)
  *   system Chrome headless           adapter apple  / metal-3       (hardware)
  *
- * So the WebGPU half is captured and checked with:
+ * `browser-harness` therefore reaches for the system Chrome BY DEFAULT, through Playwright's own
+ * `channel`, so a plain `pnpm check:cluster-points` captures the WebGPU half with no environment
+ * variable to remember. `PW_CHROME=<path>` still overrides it for a browser that channel lookup
+ * does not know about.
  *
- *   PW_CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" pnpm check:cluster-points
- *
- * A run WITHOUT it takes WebGL 2 for both passes AND falls back to a software rasteriser, so it
- * fails the rasteriser check below rather than half-passing. `check-parity` has the same
- * dependency on PW_CHROME and does not mention it: a default run there exercises one backend and
- * says so in a line that is easy to skim past.
+ * That default is new, and the paragraph here used to say the opposite — that a run without
+ * PW_CHROME "takes WebGL 2 for both passes AND falls back to a software rasteriser, so it fails
+ * the rasteriser check rather than half-passing". True when written, and true still on a machine
+ * with no system Chrome, where the harness now says so on stderr instead of leaving the failure to
+ * be decoded. What made it worth changing is that it failed by DEFAULT on a developer machine that
+ * had Chrome sitting right there, and a gate that always fails locally is a gate nobody runs.
  *
  * (A caution about probing this: `about:blank` is not a secure context, so `navigator.gpu` is
  * undefined there for reasons that have nothing to do with the browser or the flags. A probe that

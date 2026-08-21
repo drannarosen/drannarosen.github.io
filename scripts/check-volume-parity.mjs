@@ -23,12 +23,12 @@
  * ── BOTH BACKENDS ──
  *
  * TSL compiles to WGSL and to GLSL. Running one path and reporting on two is the failure
- * check-parity records (a 94.8% median error hidden for months). WebGPU needs a real adapter:
+ * check-parity records (a 94.8% median error hidden for months). WebGPU needs a real adapter, and
+ * `browser-harness` now reaches for the system Chrome by default to get one, so a plain
+ * `pnpm check:volume-parity` exercises both backends. `PW_CHROME=<path>` overrides the lookup.
  *
- *   PW_CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" pnpm check:volume-parity
- *
- * Without it Playwright's bundled Chromium has no adapter and both passes take WebGL 2 — reported,
- * not hidden.
+ * Where no system Chrome exists, Playwright's bundled Chromium has no adapter and both passes take
+ * WebGL 2. That is reported, not hidden — by the harness on stderr, and by the backend line below.
  *
  * ── THIS GATE CURRENTLY FAILS, AND THAT IS THE POINT ──
  *
@@ -94,7 +94,7 @@ const LIMITS = {
 const r = makeReporter("volume parity (the TSL raymarch against its TypeScript reference)");
 const { ok, log } = r;
 
-const { result, pageErrors } = await withBrowserPage(
+const { result, pageErrors, webgpuAdapter } = await withBrowserPage(
   async (page) =>
     page.evaluate(async () => {
       const [{ loadScene }, P] = await Promise.all([
@@ -168,7 +168,21 @@ for (const run of result.runs) {
   ok(s.p99Levels <= LIMITS.p99, `${tag}: p99 ${s.p99Levels.toFixed(3)} levels <= ${LIMITS.p99}`);
 }
 log(`  backends exercised: ${[...seen].join(", ")}`);
-if (!seen.has("webgpu")) log("  NOTE: no WebGPU adapter — set PW_CHROME. Coverage is one path.");
+/*
+ * ASSERTED, not noted. This was a `log()` saying coverage was one path, which is a sentence in a
+ * passing run — the same shape as the reported-but-unrequired backend that let `check-parity` go
+ * green on half its coverage. The adapter, measured once by the harness, is what separates an
+ * honest WebGL-2-only run on a GPU-less machine from a silent fallback on a machine that had a
+ * device all along.
+ */
+if (webgpuAdapter) {
+  ok(seen.has("webgpu"),
+    `the WebGPU path ran (adapter ${webgpuAdapter}) — with a device present, WebGL 2 alone would ` +
+    `be one backend reported as two`);
+} else {
+  log("  WebGPU NOT exercised — no adapter here, so the WebGL 2 result is the honest one.");
+  log("  Cover both with 'pnpm exec playwright install chrome', or set PW_CHROME.");
+}
 
 r.finish("volume parity ok — the GPU and the TypeScript reference agree",
   "  The reference is tested against the analytic slab in volume.test.ts, so a failure here is\n" +

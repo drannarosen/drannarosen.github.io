@@ -128,15 +128,19 @@ const LIMITS = {
 const r = makeReporter("parity (the GPU shader against the CPU reference)");
 const { ok, log } = r;
 
-const { pageErrors } = await withBrowserPage(async (page) => {
+const { result, pageErrors, webgpuAdapter } = await withBrowserPage(async (page) => {
   /*
-   * The backend is REPORTED, not asserted to be WebGPU. Both are legitimate — TSL compiles to WGSL
-   * and to GLSL, and `WebGPURenderer` falls back to its own WebGL 2 backend where WebGPU is
-   * unavailable (a CI runner with no GPU, ~5% of real visitors). What must never happen is passing
-   * without knowing which one ran, so the name is printed and a vacuous comparison is refused
-   * below.
+   * Both backends are legitimate — TSL compiles to WGSL and to GLSL, and `WebGPURenderer` falls
+   * back to its own WebGL 2 backend where WebGPU is unavailable (a CI runner with no GPU, ~5% of
+   * real visitors). So the backend is named on every case rather than asserted case by case.
+   *
+   * What it is NOT any more is merely reported. This recorded `backendSeen = res.backend` and
+   * asserted only that it was non-null, so a run where every case fell back to WebGL 2 passed
+   * looking exactly like a run that covered both — which is this gate's own founding failure
+   * (a 94.8% median error hidden for months because one path was never exercised) reappearing in
+   * the gate written to catch it. Collect the SET, and require WebGPU only where a device exists.
    */
-  let backendSeen = null;
+  const backendsSeen = new Set();
 
   for (const c of CASES) {
     let res;
@@ -149,7 +153,7 @@ const { pageErrors } = await withBrowserPage(async (page) => {
       ok(false, `${c.name}: the harness threw — ${String(e).slice(0, 200)}`);
       continue;
     }
-    backendSeen = res.backend;
+    backendsSeen.add(res.backend);
 
     log(`\n  ${c.name} [${res.backend}] — ${c.why}`);
     ok(
@@ -189,9 +193,26 @@ const { pageErrors } = await withBrowserPage(async (page) => {
     }
   }
 
-  ok(backendSeen !== null, `a GPU backend was obtained (${backendSeen ?? "none"})`);
-  return null;
+  ok(backendsSeen.size > 0, `a GPU backend was obtained (${[...backendsSeen].join(", ") || "none"})`);
+  return backendsSeen;
 }, { log });
+
+/*
+ * The adapter decides whether a WebGL 2 result is honest or a hidden fallback. `withBrowserPage`
+ * measured it; this gate only has to act on it, so the two cannot disagree about what "WebGPU was
+ * available" means.
+ */
+const backendsSeen = result ?? new Set();
+if (webgpuAdapter) {
+  ok(
+    backendsSeen.has("webgpu"),
+    `the WebGPU path ran (adapter ${webgpuAdapter}) — with a device present, a WebGL 2 run would ` +
+      `be covering one backend and reporting on two`,
+  );
+} else {
+  log(`\n  WebGPU NOT exercised — no adapter on this machine. Coverage is the WebGL 2 path only.`);
+  log(`  Install a browser with a device ('pnpm exec playwright install chrome') to cover both.`);
+}
 
 ok(pageErrors.length === 0, `no page errors${pageErrors.length ? `: ${pageErrors[0].slice(0, 160)}` : ""}`);
 
