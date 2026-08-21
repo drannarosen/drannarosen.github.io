@@ -161,11 +161,33 @@ export function createSceneHost(canvas: HTMLCanvasElement, opts: SceneHostOption
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     if (w === 0 || h === 0) return; // before layout; guessing mis-sizes every star
-    if (w === bufW && h === bufH && !reframe) return;
+    const resized = w !== bufW || h !== bufH;
+    if (!resized && !reframe) return;
     reframe = false;
-    bufW = w;
-    bufH = h;
-    renderer.setSize(w, h, false);
+    /*
+     * A REFRAME MUST NOT RESIZE THE CANVAS.
+     *
+     * `renderer.setSize` assigns `canvas.width`/`canvas.height` unconditionally, and assigning
+     * either RESETS the backing store even when the value is unchanged. That is a clear, not a
+     * resize, and it lands wherever it is called from.
+     *
+     * `redraw()` calls this from `setPositions`/`setAlpha`, which run AFTER the loop has already
+     * painted the frame, and it only repaints itself when the loop is stopped (`if (!raf) draw()`).
+     * So a `setSize` on that path wiped the finished frame and nothing redrew it before it was
+     * presented. Measured on /explore/dynamics with gravity on, where the page reframes on the
+     * bound centre EVERY frame: 292 setSize calls against 291 draws — one clear per paint — and a
+     * panel that was black while `frames` climbed, positions were finite and every alpha was
+     * non-zero. Gravity off never reframes, so the same code rendered fine, which is what made it
+     * look like a physics bug.
+     *
+     * Only the backing store is conditional. The projection below is recomputed for both cases,
+     * because a reframe is exactly a change to it.
+     */
+    if (resized) {
+      bufW = w;
+      bufH = h;
+      renderer.setSize(w, h, false);
+    }
     /*
      * Frame on the SHORT edge, as `renderClusterField` does (`min(w, h)/2`), so a non-square panel
      * crops nothing and the content keeps its aspect.
