@@ -145,19 +145,8 @@ const m = (tex: string) => tex;
               cluster, the one on the plot panel saves that panel's numbers. */}
           <button type="button" data-save-png title="Save the cluster as a PNG">⤓ png</button>
           </span>
-          {/* TWO LINES, NOT ONE. Both clocks matter — Myr is what a reader has intuition for,
-              crossing times is what the cluster actually keeps — but side by side they made a
-              pill wide enough to crowd the frame. Stacked, the chip is as wide as its longer
-              line instead of their sum. The second line is empty without gravity, where
-              t/t_cr is undefined. */}
           <span class="xpl-dyn__clock" data-clock aria-live="off">
             <span data-clock-t>t = 0.0 Myr</span>
-            {/* KaTeX for the SYMBOL, rendered at build time, with JS filling only the number —
-                census's pattern. It read literally "0.0 t_cr" on the one readout the page asks a
-                reader to think in. */}
-            <span class="xpl-dyn__clock-sub" data-clock-tcr hidden
-              ><output data-v="tcr-now">—</output> <Math tex={m("t/t_\\mathrm{cr}")} /></span
-            >
           </span>
         </div>
         <div class="xpl-dyn__hud xpl-dyn__hud--bottom">
@@ -882,7 +871,6 @@ const m = (tex: string) => tex;
     const gammaVal = $<HTMLOutputElement>("[data-gamma-val]");
     const playBtn = $<HTMLButtonElement>("[data-play]");
     const clockT = $<HTMLElement>("[data-clock-t]");
-    const clockTcr = $<HTMLElement>("[data-clock-tcr]");
     const hint = $<HTMLElement>("[data-hint]");
     const driftEl = $<HTMLElement>("[data-v=\"drift\"]");
     const scaleBar = root.querySelector<HTMLElement>("[data-scalebar]");
@@ -1475,11 +1463,6 @@ const m = (tex: string) => tex;
          when there is no gravity: it is undefined there, and a dash inside a running clock
          reads as a broken readout rather than an absent quantity. */
       clockT.textContent = `t = ${tSim.toFixed(1)} Myr`;
-      /* The symbol is typeset in the markup; only the number is written here, so the readout
-         cannot lose its units to a string edit. Hidden rather than emptied without gravity —
-         t/t_cr is undefined there, and a bare "—" inside a running clock reads as broken. */
-      clockTcr.hidden = !s;
-      if (s) setStat("tcr-now", s.tCross.toFixed(1));
       setStat("rhi", `${hi.toFixed(2)} pc`);
       setStat("rlo", `${lo.toFixed(2)} pc`);
       /*
@@ -3489,10 +3472,6 @@ const m = (tex: string) => tex;
           setStat("legend-bn", Number.isFinite(p.bn) ? `${(p.bn * 100).toFixed(0)}%` : "—");
           driftEl.textContent = Number.isFinite(p.e) ? p.e.toExponential(1) : "—";
           clockT.textContent = `t = ${p.t.toFixed(1)} Myr`;
-          /* Same split as the live path: the symbol is typeset, only the number is written.
-             Setting textContent here would have wiped the KaTeX out of the chip for good. */
-          clockTcr.hidden = !run;
-          if (run) setStat("tcr-now", (p.t / run.built.timeUnit).toFixed(1));
         }
       }
       syncPlay();
@@ -3974,11 +3953,6 @@ const m = (tex: string) => tex;
   /* Legible over a star field of unknown brightness: the readout gets the same
      panel-tinted plate census gives its H–R card, rather than bare text that
      disappears the moment a bright star drifts under it. */
-  .xpl-dyn__clock-sub {
-    display: block;
-    text-align: end;
-    color: var(--ink-soft);
-  }
   .xpl-dyn__hud .xpl-dyn__clock {
     padding: 0.15em 0.6em;
     border: 1px solid var(--border);
