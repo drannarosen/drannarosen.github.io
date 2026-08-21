@@ -33,6 +33,18 @@ import * as imf from "../src/novascope/core/imf/index.ts";
  * would a consumer who never renders anything want this?
  */
 const ALLOWED = [
+  /*
+   * The BOUNDS, which pass the header's test: a consumer who never renders anything still needs
+   * them, because a mass function is not defined without the range it normalizes over —
+   * Maschberger (2013) Table 1's caption says the limits "are only needed for the normalization",
+   * which makes them part of the mathematics rather than a caller's preference.
+   *
+   * They are exported precisely so there is ONE copy. Before this, the floor was 0.1 in
+   * core/cluster, 0.08 in the exporter and 0.01 in the shipped catalogues — three live values for
+   * one physical constant, which is the drift this gate exists to make visible.
+   */
+  "IMF_M_MAX_MSUN",
+  "IMF_M_MIN_MSUN",
   "MASCHBERGER_BETA",
   "MASCHBERGER_MU",
   "alpha3FromEnvironment",
