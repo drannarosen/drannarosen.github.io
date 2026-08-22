@@ -57,11 +57,13 @@ export default defineConfig({
     // are never advertised in the first place.
     sitemap({
       filter: (page) =>
-        // /explore/feedback-budget is deferred rather than a sandbox: it is
-        // finished, but it is not carded on the hub yet. Advertising it to
-        // search engines while nothing on the site links to it is the worst
-        // combination — a reader arrives from Google with no way to have got
-        // there deliberately, and no signal the page is being held back.
+        // /explore/feedback-budget is QUARANTINED, not a sandbox: its render is
+        // wrong (the gas is nearly invisible, the stars draw as squares), so it
+        // is held back until that is fixed. This said "it is finished" — the
+        // copy may be, the picture is not. Advertising it to search engines
+        // while nothing on the site links to it is the worst combination — a
+        // reader arrives from Google with no way to have got there
+        // deliberately, and no signal the page is being held back.
         ![
           '/style-guide',
           '/volume-lab',

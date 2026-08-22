@@ -4,20 +4,40 @@ import PageHeader from "../../components/PageHeader.astro";
 import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
 
 /*
- * DEFERRED, not abandoned: this page is finished and its copy is accurate, but
- * it is deliberately not carded on the /explore hub yet.
+ * QUARANTINED 2026-08-21: what this page RENDERS is wrong, and it is held back
+ * until that is fixed rather than until someone remembers to card it.
  *
- * Held back in all three places at once, which is what the other unlinked
- * pages do and what this one was missing entirely:
+ * This said "finished and its copy is accurate". The copy may well be; the
+ * picture is not. Observed on the three.js port, at 1512x857:
+ *
+ *   - the gas cloud renders very nearly invisible — a near-black frame with
+ *     stars over it. `viz/cloudScene.ts`'s DISPLAY_DEFAULTS comment names that
+ *     exact outcome as what a previous attempt shipped.
+ *   - the stars render as hard-edged bright SQUARES, not the soft discs
+ *     `clusterPoints` draws elsewhere.
+ *
+ * Anna's read, which is the one that counts here: "the visuals are very bad,
+ * the data looks wrong or weird".
+ *
+ * NOT YET DIAGNOSED, and the cause should not be guessed at from this comment.
+ * One thing is ruled out: the star material is not broken in isolation —
+ * `check:cluster-points` passes bit-identical to its pin, and
+ * `check:cluster-live` passes, both drawing the same layer without the gas.
+ * Whatever this is involves the composition, the export, or the display
+ * settings, and it is unmeasured.
+ *
+ * Held back in FOUR places at once, which is what the other unlinked pages do:
  *   1. `noindex` below,
  *   2. the sitemap filter in astro.config.mjs,
  *   3. EXCLUDED in scripts/search/build-index.mjs — which fails the build if
- *      this page ever stops existing, so the hold cannot rot unnoticed.
+ *      this page ever stops existing, so the hold cannot rot unnoticed,
+ *   4. HELD_BACK in scripts/check-explore.mjs, which is what stops the build
+ *      failing for the missing hub card.
  *
  * Being unlinked but indexed was the worst of both: a reader arrived from a
  * search result having had no way to get here deliberately, with nothing
- * saying the page was being held back. Remove all three together when it gets
- * a hub card.
+ * saying the page was being held back. Remove all four together, and not
+ * before the render is right.
  */
 ---
 

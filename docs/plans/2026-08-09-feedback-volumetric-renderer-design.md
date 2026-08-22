@@ -9,6 +9,14 @@ port, illumination, accumulation, HDR, depth interleaving — not a port alone.
 `/explore/feedback-budget` is finished as physics and held back from the `/explore` hub. Its
 visual is the last thing standing between it and the standard set by census and dynamics.
 
+*Annotated 2026-08-21. Steps 1–3 shipped and the visual got WORSE, not better: the gas renders
+nearly invisible and the stars draw as hard-edged squares. Anna's read on seeing it — "the visuals
+are very bad, the data looks wrong or weird" — puts "finished as physics" in question too, since
+the export is an input to both. The page is now quarantined on the render rather than deferred on a
+hub card, and nothing here should be treated as a description of the current state until that is
+diagnosed. What is ruled out: the star layer alone is fine (`check:cluster-points` bit-identical to
+its pin, `check:cluster-live` green). Nothing else has been measured.*
+
 The starting request was to move it onto "the three.js + WebGPU animations we made for the
 dynamics and census pages". Half of that premise was wrong, and the correction is the reason this
 document exists rather than a patch.

@@ -28,7 +28,8 @@ const HUB = resolve(DIST, "explore/index.html");
  * hidden from readers while still being advertised to search engines.
  */
 const HELD_BACK = new Map([
-  ["/explore/feedback-budget", "deferred: finished, not carded on the hub yet"],
+  ["/explore/feedback-budget",
+    "quarantined 2026-08-21: the render is wrong — the gas is nearly invisible and the stars draw as squares. Not a carding decision; the page is not ready. See its own header."],
   ["/explore/mass-segregation", "quarantined 2026-08-07: needs a redesign, not a patch — held back rather than shipped stale"],
 ]);
 

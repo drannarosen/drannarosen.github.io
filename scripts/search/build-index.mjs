@@ -56,7 +56,7 @@ const EXCLUDED = new Map([
   ["/explore/mass-segregation", "quarantined 2026-08-07: needs a redesign, not a patch — held back rather than shipped stale"],
   [
     "/explore/feedback-budget",
-    "deferred: complete and honest, but deliberately not carded on the /explore hub yet",
+    "quarantined 2026-08-21: the render is wrong — nearly invisible gas, stars drawn as squares — so it is held back until fixed, not merely uncarded",
   ],
 ]);
 
