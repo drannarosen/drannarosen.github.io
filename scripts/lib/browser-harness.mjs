@@ -1,13 +1,14 @@
 /*
  * browser-harness.mjs — the shared plumbing for gates that need a real browser.
  *
- * Four gates run code in a browser against the Astro dev server: `check-parity` (the GPU shader
+ * Five gates run code in a browser against the Astro dev server: `check-parity` (the GPU shader
  * against its CPU reference), `check-webgl-camera` (the raymarcher and the star pass agreeing
- * about where the camera is), `check-cluster-points` (the star renderer against a pinned image)
- * and `check-volume-parity` (the volume raymarch against its TypeScript reference). All need the
- * same three things — a dev server, a browser, and a page on the right origin — and the second was
- * about to grow its own copy of all of it, which is the duplication this codebase keeps having to
- * design against.
+ * about where the camera is), `check-cluster-points` (the star renderer against a pinned image),
+ * `check-volume-parity` (the volume raymarch against its TypeScript reference) and
+ * `check-cluster-live` (the star panel still drawing while the loop runs). All need the same three
+ * things — a dev server, a browser, and a page on the right origin — and the second was about to
+ * grow its own copy of all of it, which is the duplication this codebase keeps having to design
+ * against.
  *
  * WHY A DEV SERVER AND NOT `dist/`. The modules these gates drive are dev-only by design:
  * `parity.ts` is never imported, so the production build tree-shakes it away, and both need Vite
@@ -21,6 +22,9 @@ import { spawn, spawnSync } from "node:child_process";
 import { chromium } from "playwright";
 
 const DEFAULT_PORT = Number(process.env.PARITY_PORT ?? 4321);
+
+/** Attempts before a page that keeps reloading is reported as the failure it is. */
+const HMR_ATTEMPTS = 3;
 
 async function serverResponds(origin) {
   try {
@@ -176,19 +180,23 @@ export async function withBrowserPage(fn, opts = {}) {
      * "Execution context was destroyed", which reads like a crash in the gate and is not.
      *
      * It is not rare: running a gate straight after editing the module it exercises hits it almost
-     * every time, and it cost six runs while `check-cluster-live` was being written. Retrying once
-     * on a fresh navigation costs nothing when the run was fine and turns the common case into a
-     * pass. A SECOND failure is left to propagate — if the page keeps reloading, that is a real
-     * problem and the gate should say so rather than loop.
+     * every time, and it cost six runs while `check-cluster-live` was being written.
+     *
+     * A FEW attempts, not one. Retrying once was the first version and it was not enough — editing
+     * four modules queues four HMR updates, and the gate died again on the second. The count is
+     * bounded rather than open: a page that reloads three times running is a real problem, and a
+     * gate that retries forever reports nothing.
      */
     let value;
-    try {
-      value = await fn(page);
-    } catch (e) {
-      if (!/Execution context was destroyed/i.test(String(e))) throw e;
-      log("  the page reloaded mid-run (dev-server HMR after a recent edit) — retrying once");
-      await page.goto(origin, { waitUntil: "domcontentloaded" });
-      value = await fn(page);
+    for (let attempt = 1; ; attempt++) {
+      try {
+        value = await fn(page);
+        break;
+      } catch (e) {
+        if (attempt >= HMR_ATTEMPTS || !/Execution context was destroyed/i.test(String(e))) throw e;
+        log(`  the page reloaded mid-run (dev-server HMR) — attempt ${attempt} of ${HMR_ATTEMPTS}`);
+        await page.goto(origin, { waitUntil: "domcontentloaded" });
+      }
     }
     return { result: value, pageErrors, webgpuAdapter };
   } finally {
