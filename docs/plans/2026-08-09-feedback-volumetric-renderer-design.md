@@ -49,6 +49,20 @@ calibration back in play for no gain.
 depth, which is what makes correct star/gas interleaving possible at all. The current fullscreen
 raymarch cannot participate in a depth test.
 
+*Annotated 2026-08-21, after the shipped code was found claiming something this sentence does not
+say. "Real depth" here means the box has a `matrixWorld` and a position in the scene — the
+precondition for step 9, which composites stars into the raymarch **by depth, not by z-buffer**.
+It is not a claim that a z-buffer occludes stars, and it never could be: a depth test is binary
+against a surface, and gas is not a surface. A star half a cloud deep must be DIMMED by the column
+in front of it, which no depth comparison expresses.*
+
+*Steps 1–3 shipped and the headers written during them turned this into "one scene, one camera, one
+depth buffer — so the stars are IN the cloud", in four files. Nothing implements it: the stars are
+additive and `depthTest: false`, the box is `depthWrite: false`, and the raymarch has no star
+input. The gas draws first (`renderOrder = -1`) and star light is added on top wherever it sits.
+Step 9 is still the mechanism, and step 9 is still unbuilt. `viz/volumeLayer.ts` carries the full
+account.*
+
 **3. The shared projection is ORTHOGRAPHIC, and the volume moves to meet the stars.**
 
 *Revised 2026-08-09 while reading the seam for step 2; the original decision here was to force a

@@ -4,9 +4,13 @@
  * ── WHY THIS EXISTS ──
  *
  * `/explore/feedback-budget` is moving onto three.js so the raymarched gas volume and the star
- * points can share ONE scene, which is what makes a star genuinely occluded by the cloud in front
- * of it rather than composited over it and hoped about
+ * points can share ONE scene — one renderer, one camera, one projection, one frame
  * (docs/plans/2026-08-09-feedback-volumetric-renderer-design.md).
+ *
+ * This used to say the shared scene "is what makes a star genuinely occluded by the cloud in front
+ * of it". It is not, and nothing here delivers that: the stars are additive and depth-untested, the
+ * gas writes no depth, and occlusion needs the design document's step 9, which is unbuilt. See
+ * `volumeLayer`'s header.
  *
  * Sharing a scene means sharing a renderer, a camera, a resize path and a draw loop. Every
  * renderer in this package had been writing its own copy of that — `clusterPoints` and

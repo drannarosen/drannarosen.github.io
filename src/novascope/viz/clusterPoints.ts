@@ -155,8 +155,12 @@ export interface ClusterPoints {
    * Add another Layer-2 renderer's geometry to this scene.
    *
    * The seam the volumetric port needs: the gas mesh joins the SAME pivot the stars hang off, so
-   * both share one camera, one framing and one depth buffer. That is what makes a star inside the
-   * cloud occluded by the cloud rather than composited over it.
+   * both share one camera and one framing, and the pivot's rotation moves them together.
+   *
+   * It does NOT make a star inside the cloud occluded by it — this said so and was wrong. These
+   * stars are additive and depth-untested; the gas is drawn first and their light is added on top
+   * wherever they sit. `volumeLayer`'s header has the account, and the mechanism that would do it
+   * is step 9 of the design document, which is unbuilt.
    *
    * The caller keeps ownership — `dispose()` here does not dispose what it did not create.
    */
@@ -227,8 +231,9 @@ export function createClusterPoints(
    * The renderer, scene, camera, framing and draw loop all belong to `sceneHost` now. This file is
    * the STAR LAYER: geometry, materials, the size/alpha law and the trail, and nothing else.
    *
-   * The split is what lets the gas volume share this scene — one camera, one depth buffer, so a
-   * star inside the cloud is occluded by the cloud rather than composited over it. It also means
+   * The split is what lets the gas volume share this scene — one camera, one projection, one draw
+   * loop. (Not occlusion: the stars are still composited over the gas, and `volumeLayer`'s header
+   * records why a depth buffer was never going to change that.) It also means
    * this file can no longer accidentally change how the view behaves, and the host can no longer
    * change how a star looks, because it never sees one.
    */

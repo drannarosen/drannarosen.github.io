@@ -5,7 +5,15 @@
  *
  * The composition the whole port exists for: `sceneHost` owns the renderer, the orthographic
  * camera and the loop; `volumeLayer` raymarches the cloud; `clusterPoints` draws the stars. One
- * scene, one camera, one depth buffer — so the stars are IN the cloud rather than over it.
+ * scene and one camera, so gas and stars share a projection and a frame instead of being two
+ * pictures laid on each other.
+ *
+ * THE STARS ARE STILL DRAWN OVER THE CLOUD, NOT IN IT. This said "one depth buffer — so the stars
+ * are IN the cloud rather than over it", and that was wrong twice: no depth is written or tested
+ * here, and a depth buffer could not dim a star by the gas in front of it even if it were. The gas
+ * draws first (`renderOrder = -1`) and the additive stars are added on top, wherever they sit.
+ * `volumeLayer`'s header carries the full account and the design document's step 9, which is the
+ * mechanism that would actually do it.
  *
  * It replaces `viz/webgl`'s `createEngine` at the call site, and deliberately exposes only what
  * `/explore/feedback-budget` actually used of it: `setExpel`, `reducedMotion`, `cleanup`. The old

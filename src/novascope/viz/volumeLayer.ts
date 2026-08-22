@@ -3,18 +3,54 @@
  *
  * ── WHAT THIS REPLACES ──
  *
- * The port of `viz/webgl`'s `VOLUME_FS` onto TSL, so the gas and the stars can live in ONE scene
- * with one camera and one depth buffer
- * (docs/plans/2026-08-09-feedback-volumetric-renderer-design.md). The arithmetic is the same
- * arithmetic; `core/transfer/volume.ts` is the reference it is checked against, per ADR 0015's
- * condition that an equation written twice must have its divergence DETECTED.
+ * The port of `viz/webgl`'s `VOLUME_FS` onto TSL, so the gas and the stars can live in ONE scene,
+ * under one camera and one projection
+ * (docs/plans/2026-08-09-feedback-volumetric-renderer-design.md). NOT so a depth buffer can
+ * occlude a star — see the section below for why that was never the mechanism.
  *
- * ── A BOX MESH, NOT A FULLSCREEN TRIANGLE ──
+ * The arithmetic is the same arithmetic; `core/transfer/volume.ts` is the reference it is checked
+ * against, per ADR 0015's condition that an equation written twice must have its divergence
+ * DETECTED.
  *
- * The shipped raymarch draws a fullscreen triangle and reconstructs rays analytically. That cannot
- * participate in a depth test, so a star could never be occluded by the gas in front of it. Real
- * geometry can: the box writes depth, the stars test against it, and "this star sits inside the
- * cloud" becomes a consequence of the scene rather than a compositing guess.
+ * ── STARS ARE NOT OCCLUDED BY THE GAS, AND A DEPTH BUFFER WAS NEVER GOING TO DO IT ──
+ *
+ * Read this before believing any comment that says otherwise. Several said otherwise.
+ *
+ * Today every star's light is ADDED on top of the gas, wherever it sits in the cloud. Three
+ * independent things would each have to change for that not to be true, and all three are absent:
+ *
+ *   depth test        the stars set `depthTest: false`; this box sets `depthWrite: false`.
+ *                     Nothing writes depth and nothing tests it.
+ *   the raymarch      its uniforms are gas-only. The shader has no star input, so it cannot
+ *                     attenuate something it has never been told about.
+ *   the blend         the star material is premultiplied (One, One). Additive blending adds; there
+ *                     is no configuration of it that dims a source by what lies beneath.
+ *
+ * `mesh.renderOrder = -1` below is the whole of the current interleaving: gas first, stars added
+ * over it. That line has always said so.
+ *
+ * AND THE MECHANISM THOSE COMMENTS NAMED COULD NOT HAVE WORKED. A depth buffer answers "is this
+ * fragment behind that surface", which is a binary test against a SURFACE. Gas is not a surface —
+ * a star half a cloud deep should be dimmed by the column of gas in front of it, not switched off
+ * by a wall. Worse, this box draws `BackSide`, so the only depth it could write is its FAR face,
+ * behind everything inside it. Enabling both flags would occlude nothing and would break the
+ * additive star pass on the way.
+ *
+ * The design document had this right and the ported headers garbled it. Step 9 of
+ * docs/plans/2026-08-09-feedback-volumetric-renderer-design.md: "Stars composite into the raymarch
+ * by depth, NOT by z-buffer. Stars are emitters, not opaque geometry. The star pass renders
+ * emission and depth into a target; the raymarch adds each star's contribution at the sample where
+ * the ray crosses its depth, attenuated by the transmittance." That is a second pass and a render
+ * target, it is step 9 of a plan whose step 1 was this port, and it is not built.
+ *
+ * ── SO WHY A BOX MESH, NOT A FULLSCREEN TRIANGLE ──
+ *
+ * Not for the depth test, which is the reason this section used to give. Real geometry carries a
+ * `matrixWorld`, and the ray direction falls out of inverting it (see below) instead of being
+ * reconstructed from `cameraViewMatrix` — a derivation with two plausible readings, where the
+ * wrong one is exactly right at yaw 0 and wrong everywhere else. The mesh also hangs off the same
+ * pivot as the stars, so the pivot's rotation reaches the gas without this file knowing the pivot
+ * exists. Both survive the correction above; the depth argument does not.
  *
  * ── ORTHOGRAPHIC, AND WHY THE RAY DIRECTION IS A UNIFORM ──
  *
