@@ -1,0 +1,65 @@
+{
+  "generated_by": "scripts/gravoturb/export_cluster.py",
+  "realizations": [
+    {
+      "name": "diffuse",
+      "label": "diffuse (low-mass)",
+      "path": "/data/gravoturb/diffuse",
+      "mach": 3.7863426812690895,
+      "n_stars": 656,
+      "m_star_total_msun": 385.53513956123214,
+      "r_half_pc": 0.8046934488530698,
+      "q_virial_at_sfe_ic": 0.02391502940742613
+    },
+    {
+      "name": "orion",
+      "label": "Orion-like",
+      "path": "/data/gravoturb",
+      "mach": 13.11627579764927,
+      "n_stars": 6557,
+      "m_star_total_msun": 4312.209384146878,
+      "r_half_pc": 0.6725024800126282,
+      "q_virial_at_sfe_ic": 0.007593680324662244
+    },
+    {
+      "name": "compact",
+      "label": "massive compact",
+      "path": "/data/gravoturb/compact",
+      "mach": 32.79068949412318,
+      "n_stars": 32787,
+      "m_star_total_msun": 20306.012992286716,
+      "r_half_pc": 0.5394768682959051,
+      "q_virial_at_sfe_ic": 0.0017046555570060234
+    },
+    {
+      "name": "orion-solenoidal",
+      "label": "Orion-like \u00b7 solenoidal",
+      "path": "/data/gravoturb/orion-solenoidal",
+      "mach": 13.11627579764927,
+      "n_stars": 6557,
+      "m_star_total_msun": 4312.2093841468795,
+      "r_half_pc": 0.6769342852768898,
+      "q_virial_at_sfe_ic": 0.01021354949596341
+    },
+    {
+      "name": "orion-compressive",
+      "label": "Orion-like \u00b7 compressive",
+      "path": "/data/gravoturb/orion-compressive",
+      "mach": 13.11627579764927,
+      "n_stars": 6557,
+      "m_star_total_msun": 4312.209384146879,
+      "r_half_pc": 0.6757225132449522,
+      "q_virial_at_sfe_ic": 0.002745689411747978
+    },
+    {
+      "name": "orion-shallow",
+      "label": "Orion-like \u00b7 shallow (evolved) profile",
+      "path": "/data/gravoturb/orion-shallow",
+      "mach": 13.11627579764927,
+      "n_stars": 6557,
+      "m_star_total_msun": 4312.209384146879,
+      "r_half_pc": 0.6767456264113653,
+      "q_virial_at_sfe_ic": 0.013460415169627775
+    }
+  ]
+}

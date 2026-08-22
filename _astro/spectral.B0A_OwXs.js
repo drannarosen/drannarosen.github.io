@@ -1,0 +1,1 @@
+import{n as e,t}from"./colorimetry.DzeZmu3K.js";var n=2.4,r=e=>.3*e[0]+.59*e[1]+.11*e[2];function i(i){let a=t(i),o=r(a),s=t=>e(Math.min(1,Math.max(0,o+(t-o)*n)))*255;return[s(a[0]),s(a[1]),s(a[2])]}export{i as t};
