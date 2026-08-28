@@ -423,31 +423,82 @@ def _sigma_turb(rho: np.ndarray, r_t_pc: float, box_pc: float) -> float:
 def _diagnostics(xyz, mass, vel, gas_menc_frac, r_grid, sfe, G) -> dict:
     """Dynamical diagnostics the web integrator + the ledger need. Virial ratio Q
     uses the spherical enclosed-mass approximation the page also integrates, so
-    the reported number matches the integrated one."""
+    the reported number matches the integrated one.
+
+    TWO CENTRES, deliberately, and the distinction is the whole point of this
+    function. Stellar quantities (r_half, W_stars) are measured about the stars'
+    MASS-WEIGHTED CENTRE OF MASS. The gas term is measured about the BOX CENTRE,
+    because that is where the EFF cloud actually sits -- gas_menc_frac is that
+    cloud's own enclosed-mass profile and is meaningless about any other origin.
+
+    Until 2026-08-27 every radius here was measured about the box centre. The
+    cluster forms offset from the cloud centre by 0.54-0.67 pc -- FURTHER than
+    its own half-mass radius -- so each stellar quantity was reporting that
+    offset rather than the cluster. Measured over the six shipped realizations:
+
+        r_half_pc            3.9-29x too large  (orion: 0.672 vs 0.041)
+        q_virial_stars_only  15-27x too large   (orion: 0.0222 vs 0.0016)
+        t_cross_myr          scales with r_half (orion: 1.714 vs 0.105)
+
+    The failure was silent in the worst way: r_half came out at a healthy-looking
+    0.67 pc, which is roughly right for an Orion-like cluster, so the diagnostic
+    that would have exposed the collapsed star placement underneath it instead
+    concealed it. com_offset_pc is exported so that can never be invisible again
+    -- when it exceeds r_half_pc, the configuration is an offset knot rather than
+    a centrally-concentrated cluster and every quantity here should be doubted.
+
+    t_cross uses the stars' MEASURED dispersion, not a virial one. Note that
+    `core/dynamics/diagnostics.ts` and `core/dynamics/gasExpulsion/index.ts` both
+    build their own t_cross from sigma_virial instead, so the same name means two
+    things either side of the language boundary. That is a known, deliberate
+    difference, not drift: a virial dispersion needs the mass enclosed within
+    r_half, and the natal gas here is an EFF cloud truncated at r_t = 2.0-3.0 pc
+    while r_half is 0.5-0.8 pc, so only ~23% of it lies inside. Taking
+    M_star + M_gas whole (as the gasExpulsion form does, where the gas tracks the
+    cluster) over-counts the enclosed mass ~4x and drives t_cross to ~0.11 Myr,
+    which is below the free-fall time and not a crossing time of anything.
+
+    w_energy mixes the two centres and is therefore only meaningful while the
+    offset is small compared with r_half. It is reported for continuity; nothing
+    on the site reads it, or q_virial_at_sfe_ic which is derived from it.
+    """
     m_star_total = float(mass.sum())
-    r = np.linalg.norm(xyz, axis=1)
-    order = np.argsort(r)
-    m_cum = np.cumsum(mass[order])
-    r_half = float(r[order][np.searchsorted(m_cum, 0.5 * m_star_total)])
-    sigma_3d = float(np.sqrt((mass * (vel**2).sum(axis=1)).sum() / m_star_total))
-    t_cross = 2.0 * r_half / sigma_3d
-    m_gas_ic = m_star_total * (1.0 - sfe) / sfe
-    m_gas_enc = np.interp(r[order], r_grid, gas_menc_frac) * m_gas_ic
-    m_enc = m_cum + m_gas_enc
-    inv_r = 1.0 / np.maximum(r[order], 1e-6)
-    w_energy = -G * float(np.sum(mass[order] * m_enc * inv_r))
-    # Stellar self-gravity ALONE: the same sum with the gas term dropped. This is
-    # the potential the stars fall back into once feedback has expelled the gas,
-    # so T/|W_stars| is the virial ratio AFTER gas removal -- the first-principles
-    # cluster-survival criterion (bound while < 1; Hills 1980, Baumgardt & Kroupa
-    # 2007 refine the bound FRACTION, but the survives/dissolves line is the sign
-    # of the total energy). Reported so the ledger reads it rather than recomputing
-    # from data it is not passed.
-    w_stars = -G * float(np.sum(mass[order] * m_cum * inv_r))
     t_energy = 0.5 * float((mass * (vel**2).sum(axis=1)).sum())
+    sigma_3d = float(np.sqrt((mass * (vel**2).sum(axis=1)).sum() / m_star_total))
+
+    # --- stellar frame: mass-weighted COM -----------------------------------
+    com = (mass[:, None] * xyz).sum(axis=0) / m_star_total
+    r_star = np.linalg.norm(xyz - com, axis=1)
+    order = np.argsort(r_star)
+    m_cum = np.cumsum(mass[order])
+    r_half = float(r_star[order][np.searchsorted(m_cum, 0.5 * m_star_total)])
+    t_cross = 2.0 * r_half / sigma_3d
+    inv_r_star = 1.0 / np.maximum(r_star[order], 1e-6)
+    # Stellar self-gravity ALONE: the gas term dropped. This is the potential the
+    # stars fall back into once feedback has expelled the gas, so T/|W_stars| is
+    # the virial ratio AFTER gas removal -- the first-principles cluster-survival
+    # criterion (bound while < 1; Hills 1980, Baumgardt & Kroupa 2007 refine the
+    # bound FRACTION, but the survives/dissolves line is the sign of the total
+    # energy). Reported so the ledger reads it rather than recomputing from data
+    # it is not passed.
+    w_stars = -G * float(np.sum(mass[order] * m_cum * inv_r_star))
+
+    # --- cloud frame: the EFF profile is centred on the box ------------------
+    r_cloud = np.linalg.norm(xyz, axis=1)
+    o_cloud = np.argsort(r_cloud)
+    m_gas_ic = m_star_total * (1.0 - sfe) / sfe
+    m_gas_enc = np.interp(r_cloud[o_cloud], r_grid, gas_menc_frac) * m_gas_ic
+    m_enc = np.cumsum(mass[o_cloud]) + m_gas_enc
+    inv_r_cloud = 1.0 / np.maximum(r_cloud[o_cloud], 1e-6)
+    w_energy = -G * float(np.sum(mass[o_cloud] * m_enc * inv_r_cloud))
+
     return {
         "m_star_total_msun": m_star_total,
         "r_half_pc": r_half,
+        # Distance from the box/cloud centre to the stars' centre of mass. Read
+        # it against r_half_pc: com_offset_pc > r_half_pc means the stars are a
+        # knot sitting off-centre in the cloud, not a cluster filling it.
+        "com_offset_pc": float(np.linalg.norm(com)),
         "sigma_3d_pc_myr": sigma_3d,
         "t_cross_myr": t_cross,
         "q_virial_at_sfe_ic": t_energy / abs(w_energy),
