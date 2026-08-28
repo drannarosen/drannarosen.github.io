@@ -492,6 +492,26 @@ def _diagnostics(xyz, mass, vel, gas_menc_frac, r_grid, sfe, G) -> dict:
     inv_r_cloud = 1.0 / np.maximum(r_cloud[o_cloud], 1e-6)
     w_energy = -G * float(np.sum(mass[o_cloud] * m_enc * inv_r_cloud))
 
+    # --- density scale inside r_half ----------------------------------------
+    # These were being worked out by hand in throwaway scripts every time the
+    # question came up, and the half-mass-density convention is easy to get
+    # wrong: rho_h = 3M/(8 pi r_h^3) wants M TOTAL (half of it inside r_h), so
+    # feeding it an already-enclosed mass double-counts. Derived here once, from
+    # the enclosed mass directly, so there is no convention left to misapply.
+    #
+    # THE GAS FRACTION IS CLOUD-CENTRED. gas_menc_frac is the EFF cloud's own
+    # spherical M(<r), so f_gas_within_r_half is the gas within r_half of the
+    # CLOUD centre, not of the cluster. The two coincide only while
+    # com_offset_pc << r_half_pc; when it does not, this and everything derived
+    # from it describe a region the cluster is not in. Getting the cluster-
+    # centred value needs the 3-D gas grid, which this function is not passed.
+    f_gas_r_half = float(np.interp(r_half, r_grid, gas_menc_frac))
+    m_enc_r_half = 0.5 * m_star_total + f_gas_r_half * m_gas_ic
+    rho_r_half = m_enc_r_half / ((4.0 / 3.0) * np.pi * max(r_half, 1e-6) ** 3)
+    # Free-fall time of that mean density. G is in pc^3 Msun^-1 Myr^-2, so
+    # 1/(G rho) is Myr^2 and t_ff comes out in Myr with no conversion.
+    t_ff = float(np.sqrt(3.0 * np.pi / (32.0 * G * rho_r_half)))
+
     return {
         "m_star_total_msun": m_star_total,
         "r_half_pc": r_half,
@@ -501,6 +521,14 @@ def _diagnostics(xyz, mass, vel, gas_menc_frac, r_grid, sfe, G) -> dict:
         "com_offset_pc": float(np.linalg.norm(com)),
         "sigma_3d_pc_myr": sigma_3d,
         "t_cross_myr": t_cross,
+        # Natal gas remaining after star formation: M_star (1 - sfe) / sfe. Note
+        # it is spread over the WHOLE EFF cloud out to r_t, so most of it lies
+        # outside r_half -- see f_gas_within_r_half.
+        "m_gas_ic_msun": m_gas_ic,
+        "f_gas_within_r_half": f_gas_r_half,
+        "m_enclosed_r_half_msun": m_enc_r_half,
+        "rho_mean_r_half_msun_pc3": rho_r_half,
+        "t_ff_myr": t_ff,
         "q_virial_at_sfe_ic": t_energy / abs(w_energy),
         # T/|W| in the stars' OWN potential = virial ratio after gas expulsion.
         "q_virial_stars_only": t_energy / abs(w_stars),
