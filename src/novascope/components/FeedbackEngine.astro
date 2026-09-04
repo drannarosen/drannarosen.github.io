@@ -151,7 +151,10 @@ const m = (tex: string) => tex;
         rather than letting the two silently disagree. */}
     <p class="fbe__nondefault" data-nondefault hidden></p>
 
-    <div class="fbe__verdict" data-verdict>
+    {/* Polite live region: these two lines ARE the answer, and they are rewritten
+        on every knob change. Without this a screen-reader user could move a
+        control and get no feedback that anything had happened. */}
+    <div class="fbe__verdict" data-verdict role="status" aria-live="polite">
       <p class="fbe__stage fbe__stage--1" data-stage1>—</p>
       <p class="fbe__stage fbe__stage--2" data-stage2>—</p>
     </div>
@@ -354,7 +357,11 @@ const m = (tex: string) => tex;
       fb = budget;
       renderBudget();
       applyScrub(+scrub.value);
-      if (engine.reducedMotion) { setPlaying(false); play.disabled = true; }
+      /* Default OFF under reduced motion, but do NOT disable the control.
+         sceneHost.ts argues the case at length: motion the reader starts and a
+         visible pause stops is what the preference asks for, so denying opt-in
+         goes further than the preference does. */
+      if (engine.reducedMotion) setPlaying(false);
       // count(), NOT fmt(): fmt switches to exponential above 1e4 and rendered
       // a 10,301-star population as "1.0e+4 stars".
       status.textContent =
@@ -525,6 +532,13 @@ const m = (tex: string) => tex;
       `${(ratioFill(ratio) * 100).toFixed(1)}%`;
     bar.querySelector<HTMLElement>("[data-ratiobar-value]")!.innerHTML =
       `${ratio.toFixed(2)}${tex("times")}`;
+    // Keep the meter in step with the glyph: the KaTeX multiplication sign is
+    // decorative, so the spoken form says "times" in words.
+    const meter = bar.querySelector<HTMLElement>("[data-ratiobar-meter]");
+    if (meter) {
+      meter.setAttribute("aria-valuenow", ratio.toFixed(2));
+      meter.setAttribute("aria-valuetext", `${ratio.toFixed(2)} times the threshold`);
+    }
   }
 
   /**

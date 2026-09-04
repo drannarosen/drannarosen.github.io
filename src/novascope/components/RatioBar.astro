@@ -26,12 +26,26 @@ const { id, label, thresholdLabel, ariaLabel } = Astro.props;
 const THRESH_POS = 0.62;
 ---
 
-<div class="rbar" data-ratiobar={id} role="img" aria-label={ariaLabel}>
+{/*
+  NOT role="img". That made the whole subtree presentational, so the value node
+  below -- the number this component exists to deliver -- was never announced,
+  under any setting. The meter goes on the track, where a value belongs, and
+  `setBar` keeps aria-valuenow/aria-valuetext in step with the rendered text.
+*/}
+<div class="rbar" data-ratiobar={id}>
   <div class="rbar__head">
     <span class="rbar__label">{label}</span>
     <span class="rbar__value" data-ratiobar-value>—</span>
   </div>
-  <div class="rbar__track">
+  <div
+    class="rbar__track"
+    role="meter"
+    aria-label={ariaLabel}
+    aria-valuemin="0"
+    aria-valuenow="0"
+    aria-valuetext="not yet computed"
+    data-ratiobar-meter
+  >
     <div class="rbar__fill" data-ratiobar-fill style="inline-size:0%"></div>
     <div class="rbar__thresh" style={`inset-inline-start:${THRESH_POS * 100}%`}>
       <span class="rbar__thresh-tag">{thresholdLabel}</span>

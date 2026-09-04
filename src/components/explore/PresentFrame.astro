@@ -55,7 +55,24 @@ const { label = "Interactive cluster", hint } = Astro.props;
       ArrowLeft: "present:prev",
       r: "present:reset", R: "present:reset",
     };
+    /*
+     * Only claim a key when the press did NOT come from a control.
+     *
+     * Every slider and chip a page puts in `slot="controls"` renders inside this
+     * element, so their keydowns bubble here. Without this guard the frame
+     * swallowed them: pressing the arrow keys on /explore/feedback-budget's
+     * shell-covering or H II leakage slider moved the EXPULSION scrub by 0.04
+     * and paused playback instead of nudging the slider, and Space on the pause
+     * button stepped the scrub rather than toggling play. Those two sliders --
+     * the ones that page's prose calls out as "exactly why it should be
+     * something you can move" -- were mouse-only.
+     *
+     * The stage keeps the frame keys, which is where they are meant to work.
+     */
+    const CONTROLS = "input, select, textarea, button, [contenteditable], [role='slider']";
     frame.addEventListener("keydown", (e) => {
+      const t = e.target as HTMLElement | null;
+      if (t && t !== frame && t.closest(CONTROLS)) return;
       if (e.key === "f" || e.key === "F") { toggleFs(); e.preventDefault(); return; }
       const type = keymap[e.key];
       if (type) { frame.dispatchEvent(new CustomEvent(type)); e.preventDefault(); }
