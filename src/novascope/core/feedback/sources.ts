@@ -11,7 +11,11 @@
  * scene renders.
  */
 import { luminosity, msLifetime } from "../stellar/index.ts";
-import { R_SUN_CM } from "../constants/index.ts";
+import {
+  G_PC_KMS2_MSUN,
+  R_SUN_CM,
+  R_SUN_PC as RSUN_PC,
+} from "../constants/index.ts";
 
 /* ── mass clamp — the export's own bounds ─────────────────────────────────
  * progenax samples the IMF to 300 Msun (Maschberger, m_max=300) but computes
@@ -44,10 +48,10 @@ export function clampMass(mSun: number): number {
  * G in [pc (km/s)^2 / Msun]: IAU 2015 nominal GM_sun (1.327124400e20 m^3 s^-2)
  * / parsec (3.0856775814913673e16 m) / 1e6. Same value and epoch as
  * scripts/gravoturb/export_cluster.py, so the site and the data agree. */
-const G_PC_KMS2_MSUN = 4.300917270e-3;
+
 
 /** Solar radius in parsec: IAU 2015 nominal R_sun 6.957e8 m / parsec. */
-const RSUN_PC = 2.2546101516841093e-8;
+
 
 /** Solar radius in cm. IAU 2015 nominal — see @novascope/core/constants. */
 const RSUN_CM = R_SUN_CM;

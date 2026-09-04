@@ -123,6 +123,18 @@ const BANNED = [
   { re: /\b6\.62607015e-27\b/, what: "h" },
   { re: /\b1\.380649e-16\b/, what: "k_B" },
   { re: /(?<![.\w])5772(?:\.0|\b)/, what: "T_sun" },
+  /* Added 2026-09-04. core/feedback declared all seven of these locally, and the
+   * gate could not see a single one because this list did not carry them --
+   * a rule enforced everywhere except the module with the most physics in it.
+   * 3.156e7 s is 365.2778 days: neither a Julian nor a tropical year, in the
+   * module whose gate exists (see the header) "for catching a wrong YEAR". */
+  { re: /\b1\.989e33\b/, what: "M_sun (use M_SUN_G, or GM_SUN_CGS for dynamics)" },
+  { re: /\b3\.086e18\b/, what: "parsec (use PC_CM)" },
+  { re: /\b3\.156e(?:7|13)\b/, what: "year/Myr (use YR_S or MYR_S)" },
+  { re: /\b1\.6726e-24\b/, what: "m_H (use M_HYDROGEN_G)" },
+  { re: /\b4\.300917270e-3\b/, what: "G in pc (km/s)^2 / Msun (use G_PC_KMS2_MSUN)" },
+  { re: /\b2\.2546101516841093e-8\b/, what: "R_sun in pc (use R_SUN_PC)" },
+  { re: /\b1\.02271\b/, what: "km/s -> pc/Myr (use KM_S_TO_PC_MYR)" },
 ];
 
 /** Blank comments so a value quoted in prose ("IAU 2015 nominal 5772 K") is not a declaration. */

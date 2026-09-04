@@ -13,6 +13,7 @@
  * profile — and it generalizes to any gamma for free, so nothing here is
  * hardcoded to the gamma = 3 the shipped realizations happen to use.
  */
+import { G_PC_KMS2_MSUN } from "../constants/index.ts";
 import { buildEFFCDF } from "../cluster/profiles.ts";
 
 /**
@@ -101,7 +102,7 @@ export function effEscapeCoefficient(gamma: number, rtOverA: number, nGrid = 409
 
 /* G in [pc (km/s)^2 / Msun] — IAU 2015 nominal, same value and epoch as
  * sources.ts, winds.ts and the export pipeline. */
-const G_PC_KMS2_MSUN = 4.300917270e-3;
+
 
 export interface CloudBinding {
   /** Dimensionless profile coefficient. */

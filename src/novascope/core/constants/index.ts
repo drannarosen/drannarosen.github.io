@@ -139,6 +139,9 @@ export const AB_ZERO_CGS = AB_ZERO_JY * 1e-23;
  */
 export const MYR_S = 365.25 * 86_400 * 1e6;
 
+/** Julian year [s]. The same year MYR_S is built from, so the two cannot drift. */
+export const YR_S = MYR_S / 1e6;
+
 /**
  * Velocity conversion: 1 km/s expressed in pc/Myr.
  *
@@ -164,3 +167,39 @@ export const KM_S_TO_PC_MYR = (1e5 * MYR_S) / PC_CM;
  * available, and because the comparison catches a wrong YEAR — which does matter.
  */
 export const G_PC3_MSUN_MYR2 = (GM_SUN_CGS * MYR_S ** 2) / PC_CM ** 3;
+
+/**
+ * Newtonian gravitational constant [cm^3 g^-1 s^-2]. CODATA 2018.
+ *
+ * Present ONLY so a solar MASS can be derived below. Every dynamical quantity in
+ * this codebase uses GM_SUN_CGS directly, because the product is measured to
+ * ~1e-10 while G alone is known to ~2e-5 — so anything that divides by G throws
+ * away five digits it did not have to.
+ */
+export const G_CGS = 6.6743e-8;
+
+/**
+ * Solar mass [g], derived as GM_sun / G rather than pasted.
+ *
+ * It carries G's ~2e-5 uncertainty and is therefore the WRONG constant for any
+ * gravitational calculation — use GM_SUN_CGS. It exists for the places that need
+ * a mass as a bookkeeping unit: converting a gas density in Msun/pc^3 to a
+ * particle count, which is what the feedback channels do.
+ */
+export const M_SUN_G = GM_SUN_CGS / G_CGS;
+
+/** Hydrogen atom mass [g]. CODATA 2018. */
+export const M_HYDROGEN_G = 1.67262192369e-24;
+
+/** Solar radius in parsecs. */
+export const R_SUN_PC = R_SUN_CM / PC_CM;
+
+/**
+ * G in the stellar-dynamics unit set [pc (km/s)^2 Msun^-1].
+ *
+ * Derived from GM_SUN_CGS and PC_CM, never typed: 4.300917e-3 was hand-written
+ * in four files (sources, winds, binding and its test), each one a chance to
+ * transpose a digit. check-constants already computed this exact expression to
+ * verify KM_S_TO_PC_MYR; it just never exported it.
+ */
+export const G_PC_KMS2_MSUN = GM_SUN_CGS / (PC_CM * 1e10);

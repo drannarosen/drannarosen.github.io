@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { K_B_CGS, M_HYDROGEN_G, M_SUN_G, PC_CM } from "../constants/index.ts";
 import {
   C_II_KMS,
   dFrontRadius,
   dFrontSpeed,
   enclosedGasMass,
   hiiTrapped,
+  ionizedDensity,
+  ionizedMass,
   mergedHiiRegion,
+  MU_ION,
+  T_II,
   numberDensity,
   stromgrenRadius,
 } from "./photoionization.ts";
@@ -125,5 +130,81 @@ describe("stromgrenRadius", () => {
   it("scales as Q^{1/3} n^{-2/3}", () => {
     expect(stromgrenRadius(8e49, 100) / stromgrenRadius(1e49, 100)).toBeCloseTo(2, 6);
     expect(stromgrenRadius(1e49, 100) / stromgrenRadius(1e49, 800)).toBeCloseTo(4, 6);
+  });
+});
+
+
+describe("ionized composition", () => {
+  /* MU_ION and C_II_KMS were both free literals until 2026-09-04 -- MU_ION did
+     not exist and C_II_KMS was a bare 10.0 with no citation. These pin them to
+     the composition MU already encodes, so a change to one cannot silently
+     leave the other behind. */
+
+  it("derives mu_ion from the same helium abundance MU encodes", () => {
+    // MU = 1 + 4y => y = 0.1; ionized particles per H nucleus = 2 + 2y = 2.2
+    expect(MU_ION).toBeCloseTo(1.4 / 2.2, 12);
+  });
+
+  it("puts c_II at the isothermal sound speed of that gas, not a round number", () => {
+    const expected = Math.sqrt((K_B_CGS * T_II) / (MU_ION * M_HYDROGEN_G)) / 1e5;
+    expect(C_II_KMS).toBeCloseTo(expected, 10);
+    expect(C_II_KMS).toBeCloseTo(9.5289, 3);
+    expect(C_II_KMS).not.toBe(10.0);
+  });
+
+  it("keeps the trapping verdict on the right side for the shipped environments", () => {
+    expect(hiiTrapped(2.4)).toBe(false); // diffuse
+    expect(hiiTrapped(8.6)).toBe(false); // orion -- 0.93 km/s of margin, not 1.4
+    expect(hiiTrapped(20.9)).toBe(true); // compact
+  });
+});
+
+describe("ionized interior vs swept shell", () => {
+  /* The H II thermal energy used the SWEPT NEUTRAL mass with the NEUTRAL mu
+     while calling itself "over the ionized gas". Nothing tested it, which is
+     why it survived. These are that test. */
+
+  it("is lighter than the swept shell, because the interior is evacuated", () => {
+    const q = 1e49;
+    const nH = 100;
+    const rs = stromgrenRadius(q, nH);
+    const r = 4 * rs; // well into the D-type phase
+    // swept mass at the ambient density, the quantity that used to be used
+    const swept =
+      (1.4 * M_HYDROGEN_G * nH * (4 / 3) * Math.PI * (r * PC_CM) ** 3) / M_SUN_G;
+    const ionized = ionizedMass(q, r);
+    expect(ionized).toBeGreaterThan(0);
+    expect(ionized).toBeLessThan(swept);
+    // n_ion / n_ambient = (R_S/R)^{3/2} for the recombination-balance interior
+    expect(ionized / swept).toBeCloseTo((rs / r) ** 1.5, 6);
+  });
+
+  it("scales the interior mass as r^{3/2}, not r^3", () => {
+    const q = 1e49;
+    const a = ionizedMass(q, 1.0);
+    const b = ionizedMass(q, 2.0);
+    expect(b / a).toBeCloseTo(2 ** 1.5, 6);
+  });
+
+  it("ties the merged region's thermal energy to the ionized mass", () => {
+    const reg = mergedHiiRegion(1e50, 100, 0.5, 1e4, UNIFORM, 5, 5);
+    const kT_over_mu = (K_B_CGS * T_II) / (MU_ION * M_HYDROGEN_G);
+    const expected = 1.5 * ionizedMass(1e50, reg.radius) * (kT_over_mu / 1e10);
+    expect(reg.thermalEnergy).toBeCloseTo(expected, 6);
+    // and it is NOT the swept shell, which is the bug this replaced
+    const wrong = 1.5 * reg.shellMass * (kT_over_mu / 1e10);
+    expect(reg.thermalEnergy).toBeLessThan(wrong);
+  });
+
+  it("reports zero thermal energy when there is no ionizing source", () => {
+    expect(ionizedMass(0, 1)).toBe(0);
+    expect(ionizedMass(1e49, 0)).toBe(0);
+  });
+});
+
+describe("ionizedDensity", () => {
+  it("balances recombination against the photon rate", () => {
+    // n = sqrt(3 phi S / (4 pi alpha_B r^3)) -- doubling S raises n by sqrt(2)
+    expect(ionizedDensity(2e49, 1) / ionizedDensity(1e49, 1)).toBeCloseTo(Math.SQRT2, 9);
   });
 });

@@ -9,6 +9,7 @@
  * the momentum one, or the reverse, and which of the two actually unbinds a
  * cloud is the tension the tool exists to show.
  */
+import { M_SUN_G as MSUN_G, PC_CM, YR_S } from "../constants/index.ts";
 import { windBudget, type WindBudget, type WindPrescription } from "./winds.ts";
 import { bubbleCeiling, etaPorousKM09, type PorosityCoupling } from "./bubble.ts";
 import { hiiBudget, hiiTrapped, type HiiBudget } from "./photoionization.ts";
@@ -23,10 +24,14 @@ import { starLuminosity, ionizingRate, preSNWindowMyr } from "./sources.ts";
 
 /* CGS conversions, only for the Weaver ceiling (which works in erg/s and
  * g cm/s^2). The ledger itself stays in Msun, km/s and Myr throughout. */
-const MSUN_G = 1.989e33;
+/* Unit conversions. IMPORTED, never declared. These were seven local literals
+ * across this module, invisible to check-constants because its BANNED list did
+ * not carry them -- and one, 3.156e7 s = 365.2778 d, was neither a Julian nor a
+ * tropical year, in a module whose gate exists (by its own comment) "for
+ * catching a wrong YEAR". All four channels move to the exact values together,
+ * so the r_ch/P_II synchronisation radiation.ts warns about is preserved by
+ * construction rather than by four literals agreeing. */
 const KMS_CM = 1e5;
-const YR_S = 3.156e7;
-const PC_CM = 3.086e18;
 
 /**
  * Per-channel leakage. One knob per channel, because the three fail for
@@ -121,7 +126,7 @@ export interface LeakageKnobs {
  * IT DIFFERS BY PRESCRIPTION, and that is worth stating plainly rather than
  * hiding. f_leak ought to be a property of the cloud's mixing physics, not of
  * the wind recipe. But eta_max depends on the mechanical luminosity, and
- * Björklund's higher Mdot gives a ceiling ~2x Vink's (78-94 against 33-53),
+ * Björklund's higher Mdot gives a ceiling ~2x Vink's (72-87 against 31-49),
  * so reaching the SAME measured eta requires leaking away a larger share of a
  * larger number. Calibrating to a measurement means f_leak absorbs that
  * difference; the alternative — one f_leak for both — would put at most one
@@ -131,8 +136,14 @@ export interface LeakageKnobs {
  * and re-derived by check-feedback, which fails if either constant drifts from
  * what the data now implies or if any environment leaves the 3-8 bracket:
  *
- *   Björklund  f_leak 0.948  ->  eta 4.98-5.82  (geometric mean 5.18)
- *   Vink       f_leak 0.894  ->  eta 4.41-6.53  (geometric mean 4.89)
+ *   Björklund  f_leak 0.944  ->  eta 4.98-5.81
+ *   Vink       f_leak 0.885  ->  eta 4.42-6.57
+ *
+ * Re-derived 2026-09-04 when bubbleCeiling started taking the GAS mass rather
+ * than the whole cloud. rho0 fell by (1 - sfe) = 0.8, eta_max with it, and the
+ * bisection followed: 0.948 -> 0.944 and 0.894 -> 0.885. The shift is small
+ * precisely because f_leak had been absorbing the error, which is what made it
+ * invisible.
  *
  * Both spreads TIGHTENED when the export was re-sampled at the corrected IMF
  * (Björklund 4.48-6.43 -> 4.98-5.82, Vink 3.79-7.65 -> 4.41-6.53). Dropping the
@@ -141,15 +152,15 @@ export interface LeakageKnobs {
  *
  * The two moved closer once Björklund adopted Vink's v_inf/v_esc ratios: the
  * ceiling depends on the wind speed, so equalizing the speeds equalizes most of
- * the gap. What remains (0.948 vs 0.894, the values below) is the Mdot difference alone.
+ * the gap. What remains (0.944 vs 0.885, the values below) is the Mdot difference alone.
  *
  * The previous single default of 0.9 was, it turns out, a well-calibrated VINK
  * value — Vink's derived figure is 0.894 — carried unchanged onto Björklund,
  * where it gave eta 10.5-15.8, above the bracket.
  */
 export const WIND_LEAK_DEFAULT: Record<WindPrescription, number> = {
-  bjorklund: 0.948,
-  vink: 0.894,
+  bjorklund: 0.944,
+  vink: 0.885,
 };
 
 export const DEFAULT_LEAKAGE: LeakageKnobs = {
@@ -200,7 +211,6 @@ export interface ChannelEntry {
   disabledReason?: string;
 }
 
-export type Verdict = "blow-out" | "bound" | "marginal";
 
 /**
  * The two-stage gas-expulsion outcome — the question the engine actually
@@ -267,7 +277,14 @@ export interface Ledger {
   energyRatio: number;
   /** Retained momentum / M v_esc. >1 clears the momentum threshold. */
   momentumRatio: number;
-  verdict: Verdict;
+  /* `verdict` was removed 2026-09-04. It keyed a three-way blow-out/marginal/
+   * bound label off `momentumRatio`, which measures against the CLOUD mass --
+   * the threshold docs/feedback-model.md explicitly rejects, because "the stars
+   * are the sources, not the payload". It therefore disagreed with
+   * `gasExpulsion.gasExpelled` by construction for any cloud whose ratio sat
+   * between 1.0 and 1.25, and its 1.2/0.8 band edges carried no rationale.
+   * Nothing rendered it, so no reader ever saw the contradiction. The stage-1
+   * verdict readers DO see is gasExpulsion.gasExpelled, keyed on M_gas. */
   /** The two-stage gas-expulsion outcome (gas expelled? cluster survives?). */
   gasExpulsion: GasExpulsion;
   /**
@@ -426,7 +443,8 @@ export function computeLedger(input: LedgerInput): Ledger {
   const ceiling = bubbleCeiling(
     lWindErgS,
     pDotCgs,
-    input.mCloud,
+    // The bubble sweeps GAS, not stars — the same M_gas the H II channel uses.
+    input.mCloud * (1 - input.sfe),
     input.rCloudPc,
     windowMyr,
   );
@@ -514,11 +532,6 @@ export function computeLedger(input: LedgerInput): Ledger {
     eBindShallow > 0 ? totalEnergy / eBindShallow : 0,
   ];
 
-  let verdict: Verdict;
-  if (momentumRatio >= 1.2) verdict = "blow-out";
-  else if (momentumRatio <= 0.8) verdict = "bound";
-  else verdict = "marginal";
-
   const gasExpulsion = gasExpulsionVerdict(
     totalMomentum,
     input.mCloud,
@@ -535,7 +548,6 @@ export function computeLedger(input: LedgerInput): Ledger {
     binding,
     energyRatio,
     momentumRatio,
-    verdict,
     gasExpulsion,
     energyRatioRange,
     diagnostics: {

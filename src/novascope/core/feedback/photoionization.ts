@@ -10,7 +10,20 @@
  * computed directly. The channel's inefficiency is confinement (champagne flow
  * out of the cloud), which is what its f_leak parameterizes.
  */
-import { K_B_CGS } from "../constants/index.ts";
+/* Unit conversions. IMPORTED, never declared. These were seven local literals
+ * across this module, invisible to check-constants because its BANNED list did
+ * not carry them -- and one, 3.156e7 s = 365.2778 d, was neither a Julian nor a
+ * tropical year, in a module whose gate exists (by its own comment) "for
+ * catching a wrong YEAR". All four channels move to the exact values together,
+ * so the r_ch/P_II synchronisation radiation.ts warns about is preserved by
+ * construction rather than by four literals agreeing. */
+import {
+  K_B_CGS,
+  KM_S_TO_PC_MYR as KMS_TO_PC_MYR,
+  M_HYDROGEN_G as MH_G,
+  M_SUN_G as MSUN_G,
+  PC_CM,
+} from "../constants/index.ts";
 
 /* ── constants, all Krumholz & Matzner (2009) ─────────────────────────────
  * Their fiducial set travels together: alpha_B, phi and T_II were chosen
@@ -34,23 +47,63 @@ export const T_II = 7000;
 /** Hydrogen ionization threshold [eV] -> erg. KM09 (13.6 eV). */
 export const EPS_0_ERG = 13.6 * 1.602176634e-12;
 
-/**
- * Sound speed of photoionized gas [km/s]. This is the threshold the environment
- * axis is built around: photoionization can only drive material out while the
- * cloud's escape speed stays below it, so where v_esc exceeds ~10 km/s the H II
- * region is trapped and the channel cannot unbind the cloud however much Q the
- * cluster produces.
- */
-export const C_II_KMS = 10.0;
-
-/* unit conversions (IAU 2015 nominal; matches sources.ts and the export) */
-const PC_CM = 3.086e18;
-const MSUN_G = 1.989e33;
-const MH_G = 1.6726e-24;
 /** Mean molecular weight per hydrogen nucleus for neutral cloud gas. */
 const MU = 1.4;
-/** km/s -> pc/Myr. */
-const KMS_TO_PC_MYR = 1.02271;
+
+/**
+ * Helium abundance implied by MU, since mu_neutral = 1 + 4y per hydrogen
+ * nucleus. Not a new assumption -- it is the one MU already encodes.
+ */
+const HE_PER_H = (MU - 1) / 4; // 0.100
+
+/**
+ * Mean molecular weight of the IONIZED gas [per particle]. Derived from the same
+ * composition MU encodes, with helium SINGLY ionized -- which is not a free
+ * choice either: PHI_DUST above is KM09's value "after McKee & Williams (1997):
+ * He singly ionized", so the module is already committed to it.
+ *
+ *   particles per H nucleus = 2 (H+ and its electron) + 2y (He+ and its electron)
+ *   mu_ion = (1 + 4y) / (2 + 2y) = 1.4 / 2.2 = 0.6364
+ *
+ * Mass per H nucleus is unchanged by ionization; only the particle count moves,
+ * which is the whole difference between MU and MU_ION.
+ */
+export const MU_ION = MU / (2 + 2 * HE_PER_H);
+
+/**
+ * Isothermal sound speed of photoionized gas [km/s], DERIVED from T_II and
+ * MU_ION rather than asserted: c = sqrt(k T / (mu m_H)) = 9.529 km/s.
+ *
+ * This is the threshold the environment axis is built around: photoionization
+ * can only drive material out while the cloud's escape speed stays below it, so
+ * where v_esc exceeds it the H II region is trapped and the channel cannot
+ * unbind the cloud however much Q the cluster produces.
+ *
+ * It was the literal 10.0 until 2026-09-04, with no citation. That broke the
+ * promise made at the top of this block -- that the fiducial set "travels
+ * together" -- for the one member where it matters most: editing T_II moved
+ * r_ch and P_II and left the Spitzer expansion untouched. Deriving it also makes
+ * the margin honest. `orion` has v_esc = 8.6 km/s, so the gap to the trapping
+ * line is 0.93 km/s, not the 1.4 the round number implied; that verdict is
+ * closer to the line than it looks and is sensitive to T_II.
+ *
+ * Adopting it moved p_HII by -4.7% and left every shipped verdict unchanged
+ * (five of six still clear; compact is still the only trapped environment).
+ */
+export const C_II_KMS = Math.sqrt((K_B_CGS * T_II) / (MU_ION * MH_G)) / 1e5;
+
+/**
+ * Mass of the IONIZED interior [Msun] inside radius `rPc`, at the recombination
+ * -balance density. This is the gas the H II region's thermal energy belongs to;
+ * the swept neutral shell is a different object with a different mass, and
+ * confusing the two is what this function exists to prevent.
+ */
+export function ionizedMass(sPerS: number, rPc: number): number {
+  const n = ionizedDensity(sPerS, rPc);
+  if (!(n > 0) || !(rPc > 0)) return 0;
+  const volCm3 = (4 / 3) * Math.PI * (rPc * PC_CM) ** 3;
+  return (MU * MH_G * n * volCm3) / MSUN_G;
+}
 
 /** Number density [cm^-3] from a mass density in [Msun/pc^3]. */
 export function numberDensity(rhoMsunPc3: number): number {
@@ -173,11 +226,16 @@ export function hiiRegion(
   const v = dFrontSpeed(rs, tMyr);
   // Swept mass at the ambient density (thin-shell approximation, KM09 sec 2).
   const shellMass = (4 / 3) * Math.PI * r ** 3 * rhoLocalMsunPc3;
-  // Ionized-gas thermal energy: (3/2) N k T over the ionized volume. Expressed
-  // in Msun (km/s)^2 so it shares units with the momentum/energy ledger.
-  const kT_over_mu = (K_B_CGS * T_II) / (MU * MH_G); // cm^2/s^2
-  const eThermal =
-    1.5 * ((4 / 3) * Math.PI * r ** 3 * rhoLocalMsunPc3) * (kT_over_mu / 1e10);
+  // Thermal energy of the IONIZED interior: (3/2) N k T, in Msun (km/s)^2 so it
+  // shares units with the momentum/energy ledger.
+  //
+  // Until 2026-09-04 this used the SWEPT mass at the ambient density with the
+  // NEUTRAL mu, while calling itself "over the ionized gas". Both were wrong and
+  // in the same direction: the interior sits at the recombination-balance
+  // density, not the ambient one, and ionized gas has ~2.2 particles per H
+  // nucleus rather than one. Nothing tested it.
+  const kT_over_mu = (K_B_CGS * T_II) / (MU_ION * MH_G); // cm^2/s^2
+  const eThermal = 1.5 * ionizedMass(qPhotonsPerS, r) * (kT_over_mu / 1e10);
   return {
     rStromgren: rs,
     radius: r,
@@ -295,16 +353,19 @@ export function mergedHiiRegion(
   const radius = Math.min(rFree, rCloudPc);
   const speed = dFrontSpeed(rs, tEval);
 
+  // The swept NEUTRAL shell -- what carries the momentum.
   const shellMass = enclosedGasMass(radius, mGasTotal, mencFrac, rMencMaxPc);
-  const kT_over_mu = (K_B_CGS * T_II) / (MU * MH_G); // cm^2/s^2
+  // The IONIZED interior -- what carries the thermal energy. A different object
+  // with a different mass; see hiiRegion above for what conflating them cost.
+  const kT_over_mu = (K_B_CGS * T_II) / (MU_ION * MH_G); // cm^2/s^2
   return {
     rStromgren: rs,
     radius,
     speed,
     shellMass,
     momentum: shellMass * speed,
-    // (3/2) N k T over the ionized gas, in Msun (km/s)^2 to match the ledger.
-    thermalEnergy: 1.5 * shellMass * (kT_over_mu / 1e10),
+    // (3/2) N k T over the ionized interior, in Msun (km/s)^2 to match the ledger.
+    thermalEnergy: 1.5 * ionizedMass(sTotalPerS, radius) * (kT_over_mu / 1e10),
     cloudFilling,
   };
 }

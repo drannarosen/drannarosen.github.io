@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { G_PC_KMS2_MSUN } from "../constants/index.ts";
 import { cloudBinding, effBindingCoefficient, effEscapeCoefficient } from "./binding.ts";
 
 /* The shipped natal profile and one shallow variant. */
@@ -76,7 +77,7 @@ describe("cloudBinding", () => {
   });
 
   it("still reports the surface speed, which the export and the H II test use", () => {
-    expect(B.vEsc).toBeCloseTo(Math.sqrt((2 * 4.300917270e-3 * 20406.04) / 2.5), 10);
+    expect(B.vEsc).toBeCloseTo(Math.sqrt((2 * G_PC_KMS2_MSUN * 20406.04) / 2.5), 10);
   });
 
   it("scales as M^2/r_t in energy and M^{3/2}/r_t^{1/2} in momentum", () => {

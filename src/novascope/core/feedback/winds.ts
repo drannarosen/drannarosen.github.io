@@ -16,6 +16,7 @@
  * prescription: the Vink fit takes v_inf/v_esc as an INPUT term
  * (-1.601 log10[(v_inf/v_esc)/2.0]), so Mdot is evaluated AT an assumed ratio.
  */
+import { G_PC_KMS2_MSUN, R_SUN_PC as RSUN_PC } from "../constants/index.ts";
 import { clampMass } from "./sources.ts";
 
 /* ── composition ──────────────────────────────────────────────────────────
@@ -87,8 +88,8 @@ export function gammaE(lSun: number, mSun: number, hydrogenX: number = X_H): num
 
 /* G in [pc (km/s)^2 / Msun] and Rsun in pc — same values/epoch as
  * core/feedback/sources.ts and the export pipeline (IAU 2015 nominal). */
-const G_PC_KMS2_MSUN = 4.300917270e-3;
-const RSUN_PC = 2.2546101516841093e-8;
+
+
 
 /**
  * EFFECTIVE surface escape speed [km/s]: v_esc = sqrt(2 G M (1 - Gamma_e) / R).

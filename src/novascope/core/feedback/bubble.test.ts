@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { M_SUN_G, YR_S } from "../constants/index.ts";
 import {
   ALPHA_P_TARGET,
   LANCASTER_ALPHA_P_BRACKET,
@@ -31,7 +32,7 @@ describe("Weaver similarity solution", () => {
 });
 
 describe("bubbleCeiling — eta_max", () => {
-  const MSUN = 1.989e33;
+
   const ceil = (lw: number, pdot: number) => bubbleCeiling(lw, pdot, 2e4, 2.5, 3.2);
 
   it("is floored at the momentum-conserving limit", () => {
@@ -47,8 +48,8 @@ describe("bubbleCeiling — eta_max", () => {
        `orion` numbers, where it holds to ~1% (the residual is Weaver's a=0.76
        coefficient bookkeeping). */
     const mdot = 3.1e-6, vinf = 2993; // Msun/yr, km/s
-    const lw = 0.5 * ((mdot * MSUN) / 3.156e7) * (vinf * 1e5) ** 2;
-    const pdot = ((mdot * MSUN) / 3.156e7) * (vinf * 1e5);
+    const lw = 0.5 * ((mdot * M_SUN_G) / YR_S) * (vinf * 1e5) ** 2;
+    const pdot = ((mdot * M_SUN_G) / YR_S) * (vinf * 1e5);
     const c = bubbleCeiling(lw, pdot, 20406, 2.5, 3.2);
     const mWind = mdot * c.tBreakoutMyr * 1e6;
     const predicted = Math.sqrt((15 / 77) * (20406 / mWind));

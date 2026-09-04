@@ -16,7 +16,15 @@
  * work by a hot bubble, f_trap from a photon interacting more than once.
  */
 import { ALPHA_B, PHI_DUST, T_II, EPS_0_ERG, hiiPressure } from "./photoionization.ts";
-import { L_SUN_ERG_S, SIGMA_SB_CGS, C_CM_S as C_CM_S_CONST, K_B_CGS } from "../constants/index.ts";
+import {
+  L_SUN_ERG_S,
+  M_SUN_G as MSUN_G,
+  MYR_S,
+  PC_CM,
+  SIGMA_SB_CGS,
+  C_CM_S as C_CM_S_CONST,
+  K_B_CGS,
+} from "../constants/index.ts";
 
 /* ── constants ────────────────────────────────────────────────────────────
  * Speed of light [cm/s] — exact by SI definition, see @novascope/core/constants. */
@@ -27,9 +35,9 @@ const LSUN_ERG_S = L_SUN_ERG_S;
  * NOT constants.PC_CM (exact). Unifying only this file desynchronised r_ch from the
  * H II pressure it is defined against and broke the P_rad/P_HII = 1 self-consistency
  * check. The feedback channels must move together — see ADR 0015 consequences. */
-const PC_CM = 3.086e18;
 
-const MSUN_G = 1.989e33;
+
+
 const KMS_CM_S = 1e5;
 const K_B = K_B_CGS; // exact by SI definition — see @novascope/core/constants
 
@@ -225,7 +233,7 @@ export function radiationMomentum(
   tMyr: number,
   fTrap: number = F_TRAP_FIDUCIAL,
 ): number {
-  const tS = tMyr * 3.156e13;
+  const tS = tMyr * MYR_S;
   const pCgs = radiationForce(lSun, fTrap) * tS; // g cm/s
   return pCgs / (MSUN_G * KMS_CM_S);
 }

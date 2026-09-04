@@ -175,11 +175,20 @@ export function calibrateWindLeak(
   return 1 - (a + b) / 2;
 }
 
-/* CGS conversions — IAU 2015 nominal solar mass; parsec; Julian year. */
-const MSUN_G = 1.989e33;
-const PC_CM = 3.086e18;
-const YR_S = 3.156e7;
-const MYR_S = 3.156e13;
+/* Unit conversions. IMPORTED, never declared. These were seven local literals
+ * across this module, invisible to check-constants because its BANNED list did
+ * not carry them -- and one, 3.156e7 s = 365.2778 d, was neither a Julian nor a
+ * tropical year, in a module whose gate exists (by its own comment) "for
+ * catching a wrong YEAR". All four channels move to the exact values together,
+ * so the r_ch/P_II synchronisation radiation.ts warns about is preserved by
+ * construction rather than by four literals agreeing. */
+import {
+  M_SUN_G as MSUN_G,
+  MYR_S,
+  PC_CM,
+  YR_S,
+} from "../constants/index.ts";
+
 const KMS_CMS = 1e5;
 
 /** Adiabatic bubble radius [cm] at time t [s]. Weaver eq (21). */
@@ -229,8 +238,8 @@ export interface BubbleCeiling {
  * prescription, which is why the previous version of this paragraph went stale:
  *
  *   prescription   eta_max     breakout (% of window)
- *   Björklund      77.6-93.7   5.6-5.8
- *   Vink           33.1-53.2   2.5-3.5
+ *   Björklund      72.1-87.0   5.2-5.4
+ *   Vink           30.8-49.4   2.3-3.3
  *
  * (Re-measured 2026-09-04. The previous entry -- 96.2-149.4 / 4.0-4.7 and
  * 30.4-71.0 / 2.3-3.9 -- predates the re-sampled export and disagreed with
@@ -255,7 +264,7 @@ export interface BubbleCeiling {
 export function bubbleCeiling(
   lWindErgS: number,
   pDotCgs: number,
-  mCloudMsun: number,
+  mGasMsun: number,
   rCloudPc: number,
   windowMyr: number,
 ): BubbleCeiling {
@@ -263,7 +272,13 @@ export function bubbleCeiling(
     return { etaMax: 1, tBreakoutMyr: Infinity, breaksOut: false };
   }
   const rCm = rCloudPc * PC_CM;
-  const rho0 = (mCloudMsun * MSUN_G) / ((4 / 3) * Math.PI * rCm ** 3);
+  // Ambient density of the medium the bubble SWEEPS, which is gas. This took
+  // the whole cloud mass -- stars included -- until 2026-09-04, making rho0 25%
+  // high at sfe = 0.2 and eta_max ~8% high. It was invisible because f_leak is
+  // calibrated against eta_max and simply absorbed it, and because the H II
+  // channel next door already used the gas mass, so the two channels disagreed
+  // about what the medium was with nothing to notice.
+  const rho0 = (mGasMsun * MSUN_G) / ((4 / 3) * Math.PI * rCm ** 3);
 
   const tBreak = weaverTimeToRadius(lWindErgS, rho0, rCm);
   const tEval = Math.min(tBreak, windowMyr * MYR_S);
