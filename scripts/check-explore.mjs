@@ -29,7 +29,7 @@ const HUB = resolve(DIST, "explore/index.html");
  */
 const HELD_BACK = new Map([
   ["/explore/feedback-budget",
-    "quarantined 2026-08-21: the render is wrong — the gas is nearly invisible and the stars draw as squares. Not a carding decision; the page is not ready. See its own header."],
+    "held back 2026-09-04 pending Anna's sign-off. The 2026-08-21 render defect is FIXED — it was the collapsed star placement upstream, repaired in 4ff0719 and verified in Chrome at 1512x857. Uncarded only until she has reviewed it. See its own header."],
   ["/explore/mass-segregation", "quarantined 2026-08-07: needs a redesign, not a patch — held back rather than shipped stale"],
 ]);
 

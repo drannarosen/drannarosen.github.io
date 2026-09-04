@@ -4,29 +4,43 @@ import PageHeader from "../../components/PageHeader.astro";
 import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
 
 /*
- * QUARANTINED 2026-08-21: what this page RENDERS is wrong, and it is held back
- * until that is fixed rather than until someone remembers to card it.
+ * HELD BACK 2026-09-04 pending Anna's review. This is NOT the old quarantine:
+ * that was a defect hold and the defect is fixed.
  *
- * This said "finished and its copy is accurate". The copy may well be; the
- * picture is not. Observed on the three.js port, at 1512x857:
+ * ── WHAT WAS WRONG, AND WHAT IT ACTUALLY WAS ──
  *
- *   - the gas cloud renders very nearly invisible — a near-black frame with
- *     stars over it. `viz/cloudScene.ts`'s DISPLAY_DEFAULTS comment names that
- *     exact outcome as what a previous attempt shipped.
- *   - the stars render as hard-edged bright SQUARES, not the soft discs
- *     `clusterPoints` draws elsewhere.
+ * From 2026-08-21 this page was quarantined because the gas rendered nearly
+ * invisible and the stars drew as hard-edged squares. The header said the cause
+ * was "NOT YET DIAGNOSED", and that was right not to guess: `check:cluster-points`
+ * passed bit-identical to its pin and `check:cluster-live` passed, because the
+ * star layer was fine. It was drawing exactly what it was handed.
  *
- * Anna's read, which is the one that counts here: "the visuals are very bad,
- * the data looks wrong or weird".
+ * The defect was in the DATA. `progenax`'s FK12 multi-freefall placement
+ * normalizes globally and carries no term for how much gas a cell holds, so it
+ * allocated the peak voxel 4043 Msun of stars against ~800 Msun of gas — a local
+ * star-formation efficiency above 5, with 93.8% of the cluster inside one
+ * 0.047 pc cell and a half-mass radius of 0.041 pc. Every star landed on a
+ * handful of screen pixels; premultiplied additive blending then saturated the
+ * whole sprite quad, so the visible edge stopped being the falloff and became
+ * the quad. Squares. The same collapse is why the gas read as empty.
  *
- * NOT YET DIAGNOSED, and the cause should not be guessed at from this comment.
- * One thing is ruled out: the star material is not broken in isolation —
- * `check:cluster-points` passes bit-identical to its pin, and
- * `check:cluster-live` passes, both drawing the same layer without the gas.
- * Whatever this is involves the composition, the export, or the display
- * settings, and it is unmeasured.
+ * Fixed upstream (progenax 92d5cd0, d66e106) and re-exported here (6188d47,
+ * 4ff0719): 123 -> 2689 occupied cells, peak cell 93.8% -> 14.9%, r_half
+ * 0.041 -> 0.755 pc. Verified by rendering this page in system Chrome at
+ * 1512x857 on 2026-09-04: soft round stars across a resolved cluster, gas
+ * visible, no squares.
  *
- * Held back in FOUR places at once, which is what the other unlinked pages do:
+ * ── WHY IT IS STILL HELD BACK ──
+ *
+ * Because Anna has not signed it off yet, and that is the only reason. The four
+ * mechanisms below stay in place TOGETHER, which is the part that matters:
+ * `check-explore` requires a page with no hub card to also carry `noindex`, sit
+ * in the sitemap filter and sit in the search crawler's EXCLUDED map. Dropping
+ * those while leaving it uncarded would make it unreachable by navigation and
+ * still advertised to search engines — a reader arriving from a search result
+ * with no way to have got here deliberately, which is exactly the worst-of-both
+ * state the old header recorded.
+ *
  *   1. `noindex` below,
  *   2. the sitemap filter in astro.config.mjs,
  *   3. EXCLUDED in scripts/search/build-index.mjs — which fails the build if
@@ -34,10 +48,18 @@ import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
  *   4. HELD_BACK in scripts/check-explore.mjs, which is what stops the build
  *      failing for the missing hub card.
  *
- * Being unlinked but indexed was the worst of both: a reader arrived from a
- * search result having had no way to get here deliberately, with nothing
- * saying the page was being held back. Remove all four together, and not
- * before the render is right.
+ * Remove all four together, and add the hub card in the same change, when Anna
+ * says it is ready.
+ *
+ * ── STILL OPEN, and worth settling before sign-off ──
+ *
+ * - The copy at "Five of these six environments clear their gas" was measured
+ *   against the OLD export and is not gated by check-feedback, which tests
+ *   core-internal consistency only. Re-derive it.
+ * - The page autoplays: FeedbackEngine sets `playing = true` with a 6 s loop, so
+ *   a reader can land on a frame with the gas already gone.
+ * - `canvas.dataset.engine` reads three.js's own version stamp, not ours;
+ *   cloudScene sets it synchronously and three's async WebGPU init overwrites it.
  */
 ---
 

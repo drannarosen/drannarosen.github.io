@@ -57,10 +57,10 @@ export default defineConfig({
     // are never advertised in the first place.
     sitemap({
       filter: (page) =>
-        // /explore/feedback-budget is QUARANTINED, not a sandbox: its render is
-        // wrong (the gas is nearly invisible, the stars draw as squares), so it
-        // is held back until that is fixed. This said "it is finished" — the
-        // copy may be, the picture is not. Advertising it to search engines
+        // /explore/feedback-budget is HELD BACK pending Anna's sign-off, not a
+        // sandbox and no longer a defect hold: the 2026-08-21 render defect was
+        // the collapsed star placement upstream and is fixed (4ff0719, verified
+        // in Chrome 2026-09-04). It stays out until she cards it. Advertising it
         // while nothing on the site links to it is the worst combination — a
         // reader arrives from Google with no way to have got there
         // deliberately, and no signal the page is being held back.
