@@ -2,6 +2,11 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
+import Math from "../../components/Math.astro";
+
+/* KaTeX takes its LaTeX as a plain string; `m` is the identity, present only so
+   the source reads as TeX rather than as an escaped JS literal. */
+const m = (tex: string) => tex;
 
 /*
  * HELD BACK 2026-09-04 pending Anna's review. This is NOT the old quarantine:
@@ -115,7 +120,10 @@ import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
         H II region is trapped and one channel switches off entirely. Every cluster stays
         bound either way — and that is not a verdict the budget decides. These clusters
         are born far below virial equilibrium, so the stars' own self-gravity holds them
-        whatever the gas does.
+        whatever the gas does. Which is why the second verdict line below does not move:
+        it is read from the simulation, and no control on this page changes it. Turn all
+        three channels off and it still reads <em>survives</em>. Only the first line
+        responds to what you do here.
       </p>
       <p>
         The three channels deposit momentum on different schedules. Winds and radiation
@@ -140,7 +148,14 @@ import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
         disagree about is the hot-bubble boost — each is calibrated separately so its
         boost matches the same measured value, which is why switching recipe also
         switches its leakage. Offering both is the honest way to show that spread
-        rather than hide it inside a default.
+        rather than hide it inside a default. Most of that spread is not the recipes
+        disagreeing about a wind, but about which stars have one: Vink's only condition
+        is a temperature, while Björklund's fit is declared over a mass and luminosity
+        box, so it drives eight to twelve times fewer stars in these clusters — fourteen
+        against a hundred and seventy-one in the Orion-like case. The
+        <strong>wind sources</strong> line in the readout is that count.
+      </p>
+      <p>
         <strong>H II leakage</strong> has no measurement behind it at all; it is a placed
         number, which is exactly why it should be something you can move. Both wind
         recipes are calibrated independently, so switching recipe switches its leakage
@@ -151,6 +166,27 @@ import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
         legible stand-in for the anisotropic champagne flows and blister breakouts a full
         radiation-hydrodynamics run resolves. That physics is what my research code
         models; this piece makes its accounting visible.
+      </p>
+      <p>
+        What the accounting assumes, since none of it shows in the picture. Everything is
+        spherical, and the cloud's potential is held fixed as the gas leaves. The H II
+        region is one merged, cloud-centred bubble rather than a region per star. The
+        three channels are added independently, with no coupling between them — in a real
+        cloud a wind bubble and an ionization front interact, and here they do not. The
+        window closes at the first supernova, so nothing on this page is an estimate of
+        what supernovae do. And the stars are held at their zero-age properties
+        throughout: they light the gas, but they do not age while the plot's time axis
+        runs.
+      </p>
+      <p>
+        Two of the reported quantities are computed from this population rather than
+        taken from the paper the method comes from. <Math tex={m("\\psi")} />, the ratio
+        of bolometric to ionizing power, works out at 3.3–4.4 here against a fiducial of
+        1, and the trapping factor is likewise derived from the shell covering rather
+        than held at 2. Since <Math tex={m("r_\\mathrm{ch}")} /> goes as the square of
+        both, the two departures partly cancel and it lands near — but not on — the
+        published relation. It is this cluster's characteristic radius, not the textbook
+        one.
       </p>
     </div>
   </div>
