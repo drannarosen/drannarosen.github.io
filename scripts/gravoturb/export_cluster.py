@@ -191,6 +191,21 @@ class Realization:
     gas_points: int = 55000  # 3-D gas motes
     sfe: float = 0.2  # star-formation efficiency of the IC
     lambda_corr: float = 0.6  # mass<->natal-density coupling (0.6 = reference figure)
+    # eps for the budgeted placement: the largest fraction of a cell's CLOUD gas that
+    # may become stars. Specified by A. Rosen, 2026-08-28 -- a chosen modelling
+    # parameter, not a measured or published constant, and recorded in meta as such.
+    #
+    # The unbudgeted FK12 law it replaces normalizes globally and cannot see how much
+    # gas a cell holds, so it handed the peak voxel 4043 Msun of stars against 799 Msun
+    # of gas: a local efficiency of 5.06, with 93.8% of the cluster inside one 0.047 pc
+    # cell and r_half = 0.041 pc. Measured on the orion realization at eps = 0.5:
+    # 2689 occupied cells, peak cell 14.9%, r_half 0.752 pc, n_eff 1.6 -> 102.8.
+    #
+    # The mathematical floor is the global efficiency sfe (below it no allocation
+    # respects every cap; build_cluster_ic refuses). r_half is insensitive to eps over
+    # 0.25-1.0 (0.75-0.91 pc); what eps sets is how much the densest cell may take
+    # (9.6% at 0.25, 29.1% at 1.0).
+    max_local_sfe: float = 0.5
     dyn_dex: float = 6.0  # display dynamic range for the volume clamp
     # seeds (fixed across a controlled parameter axis; vary for stochastic variety)
     imf_seed: int = 9
@@ -558,7 +573,11 @@ def build_one(r: Realization) -> dict:
         shape=(r.ngrid,) * 3,
     )
     velocity = ff.VelocitySpec(beta_v=r.beta_v, mode="physical", c_s=r.c_s_km_s)
-    composition = ff.CompositionSpec(lambda_corr=r.lambda_corr)
+    composition = ff.CompositionSpec(
+        placement="budgeted_multi_freefall",
+        max_local_sfe=r.max_local_sfe,
+        lambda_corr=r.lambda_corr,
+    )
     masses = IMF.sample(jax.random.PRNGKey(r.imf_seed), r.n_stars)
     ic = ff.build_cluster_ic(
         masses,
@@ -603,6 +622,12 @@ def build_one(r: Realization) -> dict:
         "eff_gamma": r.eff_gamma,
         "eff_r_t_pc": r.eff_rt,
         "lambda_corr": composition.lambda_corr,
+        "placement": composition.placement,
+        "max_local_sfe": composition.max_local_sfe,
+        "max_local_sfe_provenance": (
+            "chosen modelling parameter (A. Rosen, 2026-08-28), not a measured or "
+            "published value; floor is the global sfe"
+        ),
         "n_stars": int(st["stars"].shape[0]),
         # RECORDED, because its absence is why the 0.01 floor went unnoticed for so long: nothing
         # downstream could check the population it was being handed.
