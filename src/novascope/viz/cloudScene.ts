@@ -70,6 +70,15 @@ export interface CloudSceneOptions {
   emit?: number;
   absorb?: number;
   gamma?: number;
+  /**
+   * Display floor: the normalised log-density below which the cloud is fully
+   * transparent. Defaults to the export's own `densityFloor`, the VOLUME-WEIGHTED
+   * MEAN — which for a turbulent lognormal field sits well above the median, so
+   * it renders 97.2% of the fiducial cube invisible. That is a reasonable window
+   * for a filament close-up and the wrong one for a page whose subject is a
+   * cluster embedded in gas, so the caller may lower it.
+   */
+  floor?: number;
   onReady?: () => void;
   forceWebGL?: boolean;
 }
@@ -141,7 +150,7 @@ export function createCloudScene(
   const volume: VolumeLayer = createVolumeLayer(
     { volume: data.volume, ngrid: data.ngrid, logRange: data.logRange },
     {
-      floor: data.densityFloor,
+      floor: opts.floor ?? data.densityFloor,
       gamma: opts.gamma ?? DISPLAY_DEFAULTS.gamma,
       emit: opts.emit ?? DISPLAY_DEFAULTS.emit,
       absorb: opts.absorb ?? DISPLAY_DEFAULTS.absorb,

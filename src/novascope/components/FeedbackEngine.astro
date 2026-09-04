@@ -408,7 +408,24 @@ const m = (tex: string) => tex;
       /* One three.js scene for the gas AND the stars — see viz/cloudScene. Drag-to-orbit and
          wheel-zoom come from the shared host, so there is no separate interaction layer to
          attach. */
-      engine = createCloudScene(canvas, scene);
+      /*
+       * Display settings for THIS page, not the shared defaults.
+       *
+       * The shared ones are a filament close-up: the floor sits at the export's
+       * volume-weighted mean, which on a turbulent lognormal field renders 97.2%
+       * of the cube fully transparent, and the gas read as a faint wisp behind
+       * the stars. Anna's note is that those numbers were tuned for a different
+       * activity on a different backend, so carrying them here was the mistake,
+       * not the numbers.
+       *
+       * Chosen by sweeping floor/emit/absorb on the WebGPU path and measuring
+       * the composited canvas: floor 0.296 -> 0.02 takes the gas from p90 = 81
+       * to 180 against volume-lab's 199, with p75 22 -> 82. The renderer itself
+       * is not in question -- check-volume-parity agrees with the proven CPU
+       * reference to a median of 0.6 levels on a real Metal adapter, so this is
+       * presentation, which is exactly what these three knobs are.
+       */
+      engine = createCloudScene(canvas, scene, { floor: 0.02, emit: 8, absorb: 20 });
       fb = budget;
       renderBudget();
       applyScrub(+scrub.value);

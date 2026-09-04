@@ -83,6 +83,7 @@ import {
   uniform,
   texture3D,
   positionLocal,
+  screenCoordinate,
   max,
   min,
   clamp,
@@ -256,9 +257,16 @@ export function createVolumeLayer(data: VolumeData, opts: VolumeLayerOptions = {
       const spm = ro.add(rd.mul(tm)).add(0.5);
       probe.assign(texture3D(tex, vec3(0.5).add(spm.sub(0.5).div(uS))).r);
       const dt = t1.sub(t0).div(float(VOLUME_STEPS)).toVar();
-      /* A hash of the fragment position, so neighbouring rays start at different offsets and the
-         112 steps do not band. Zeroed in parity mode — see VolumeLayerOptions. */
-      const seed = positionLocal.xy
+      /* A hash of the SCREEN coordinate, so neighbouring rays start at different offsets and the
+         112 steps do not band. Zeroed in parity mode — see VolumeLayerOptions.
+         
+         This hashed `positionLocal.xy` until 2026-09-04. That is the interpolated local vertex
+         position on the cube face -- a smooth ramp, not a per-pixel quantity -- so it could not
+         decorrelate neighbouring rays the way the comment claimed. Fixed on those grounds alone.
+         It did NOT change the picture: it was tried against the visible lattice over the gas and
+         that lattice is unmoved, so the banding this jitter defends against is not what is being
+         seen there. Recorded so the next person does not spend the same hour on it. */
+      const seed = screenCoordinate.xy
         .dot(vec3(12.9898, 78.233, 0).xy)
         .sin()
         .mul(43758.5453)
