@@ -13,9 +13,13 @@
  */
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
-import { starCount } from "../../lib/gravoturb";
+import { starCount, cellOccupancy } from "../../lib/gravoturb";
 import PresentFrame from "../../components/explore/PresentFrame.astro";
 import Math from "../../components/Math.astro";
+
+/* Cell statistics are DERIVED, never retyped — this paragraph shipped
+   "7,973" against a 6,557-star cluster by being typed once and left. */
+const cells = cellOccupancy();
 ---
 
 <BaseLayout
@@ -58,16 +62,13 @@ import Math from "../../components/Math.astro";
       </p>
       <p class="ms__caveat">
         <strong>One caveat about this realization.</strong> Its star positions come
-        from the gas grid rather than from a continuous profile: the
-        {starCount()} stars occupy only 139 distinct cells of 0.047 pc, and the
-        densest single cell holds 7,973 of them. So the density each star couples to
-        takes only 139 distinct values, and the maximum is shared by more than
-        three-quarters of the cluster — the coupling is real and so is the
-        re-pairing you are driving, but it is sorting stars among 139 density levels,
-        not a continuous field, and “the densest cell” is not a single star's prize.
-        The clumps you can see are those cells. Fixing it means changing how
-        <code>progenax</code> places stars within a cell, which is upstream of this
-        page.
+        from the gas grid rather than from a continuous profile, so the density each
+        star couples to is quantized: the {starCount()} stars occupy {cells.occupied.toLocaleString("en-US")}
+        {" "}distinct cells of {cells.cellPc.toFixed(3)} pc, and the most populated
+        holds {cells.densest} of them ({cells.densestPercent}%).
+        The coupling is real and so is the re-pairing you are driving, but it sorts
+        stars among that many density levels rather than a continuous field, and the
+        clumps you can see are those cells.
       </p>
     </div>
   </div>

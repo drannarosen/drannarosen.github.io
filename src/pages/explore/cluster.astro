@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { starCount } from "../../lib/gravoturb";
 
 /*
  * /explore/cluster — "Birth of a cluster" scrollytelling. One sticky WebGL cluster
@@ -31,7 +32,7 @@ const scenes: Scene[] = [
   {
     title: "The stars ignite",
     caption:
-      "Ten thousand stars switch on — sampled from a real initial mass function and placed by the density they formed in. Cool red dwarfs are common; the rare hot stars are the whole story.",
+      `${starCount()} stars switch on — sampled from a real initial mass function and placed by the density they formed in. Cool red dwarfs are common; the rare hot stars are the whole story.`,
     alpha: 1, expel: 0, zoom: 0.9,
   },
   {

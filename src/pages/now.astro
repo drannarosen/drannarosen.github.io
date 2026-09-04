@@ -39,7 +39,20 @@ import {
 } from "../data/teaching";
 
 const updated = nowUpdated;
-const now = updated;
+/*
+ * TWO CLOCKS, deliberately. `updated` is the editorial stamp — when Anna last
+ * wrote this page — and every dated, first-person sentence below is allowed to
+ * age against it; that is what a /now page is.
+ *
+ * `now` answers CALENDAR questions (which courses are running, what is next,
+ * what season it is) and must be the real present. Until 2026-09-04 it was
+ * assigned from `updated`, so the teaching block reasoned from the day the page
+ * was written: with the stamp at 2026-07-21 it rendered "It's summer — no
+ * classes" from 16 August, when the fall term had begun, and would have kept
+ * saying so until December. A page may age; it may not assert a false
+ * present-tense fact about the world.
+ */
+const now = new Date();
 
 const packages = await getPackages();
 const byId = new Map(packages.map((p) => [p.id, p]));
