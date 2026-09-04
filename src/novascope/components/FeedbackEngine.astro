@@ -67,79 +67,100 @@ const m = (tex: string) => tex;
     <canvas slot="stage" data-cluster aria-label="A young star cluster embedded in its natal gas."></canvas>
 
     <div slot="controls" class="fbe__controls">
-      <div class="fbe__toolbar">
+      {/*
+        THREE TIERS, not one flat column. Twenty controls at equal visual weight
+        made "which cloud am I looking at" (the comparison the page is for) look
+        exactly like "what covering fraction should the shell have" (a parameter
+        most readers should never touch). The order is the order of the
+        questions: which cloud, then when, then which channel, then — folded
+        away — the modelling choices behind the numbers.
+      */}
+
+      {/* 1 ── WHICH CLOUD. The comparison; the only control that changes the data. */}
+      <div class="fbe__tier fbe__tier--env">
+        <span class="fbe__tier-lead">environment</span>
         <div class="fbe__pills" data-realizations role="group" aria-label="Choose an environment">
           <!-- realization pills injected from the manifest -->
         </div>
+      </div>
+
+      {/* 2 ── WHEN. Time drives the gas through the ledger, so this is the axis
+              everything else is read against. */}
+      <div class="fbe__tier fbe__tier--time">
         <button type="button" class="fbe__action" data-play aria-pressed="false">▶ play</button>
-      </div>
-
-      <label class="fbe__scrub">
-        <span class="fbe__scrub-head">
-          <span class="fbe__scrub-name">Time</span>
-          <span class="fbe__cleared" data-cleared>embedded</span>
-          <span class="fbe__endpts">0 <Math tex={m("\\rightarrow")} /> first supernova</span>
-        </span>
-        <input type="range" min="0" max="1" step="0.005" value="0" autocomplete="off" data-scrub />
-      </label>
-
-      <div class="fbe__channels" role="group" aria-label="Feedback channels — turn off to see each contribution">
-        <span class="fbe__channels-lead">channels</span>
-        <button type="button" class="fbe__chip is-active" data-ch="winds" aria-pressed="true">winds</button>
-        <button type="button" class="fbe__chip is-active" data-ch="photoionization" aria-pressed="true">H II</button>
-        <button type="button" class="fbe__chip is-active" data-ch="radiation" aria-pressed="true">radiation</button>
-      </div>
-
-      {/* Why a channel is inert in THIS environment. The core computes a reason
-          string per channel; without somewhere to put it the reader sees a lit
-          chip contributing zero and no explanation. */}
-      <p class="fbe__chnote" data-chnote hidden></p>
-
-      {/* Mass-loss prescription. Both are calibrated (see WIND_LEAK_DEFAULT):
-          switching recipes switches f_leak with it, so the comparison is
-          between two CALIBRATED wind models rather than between one model and
-          the same model with the wrong leakage. */}
-      <div class="fbe__channels" role="group" aria-label="Mass-loss prescription">
-        {/* NOT "winds" — that label sits directly under a channels row that
-            already has a chip by that name, and the two mean different things
-            (a channel to switch off vs which recipe drives it). */}
-        <span class="fbe__channels-lead">wind recipe</span>
-        <button type="button" class="fbe__chip is-active" data-presc="bjorklund" aria-pressed="true">Björklund 2023</button>
-        <button type="button" class="fbe__chip" data-presc="vink" aria-pressed="false">Vink 2001</button>
-      </div>
-
-      {/* The two genuinely uncertain parameters, exposed rather than defended.
-          C_f is KM09's covering fraction and drives BOTH the radiation direct
-          term and (through the coupling) the wind venting — one control,
-          because they are one physical structure. f_leak,II is the only knob in
-          the ledger with no citation behind it, which is precisely why a reader
-          should be able to move it. */}
-      <div class="fbe__knobs">
-        <label class="fbe__knob">
-          <span class="fbe__knob-head">
-            <span>shell covering <Math tex={m("C_f")} /></span>
-            <output data-cf-out>0.50</output>
+        <label class="fbe__scrub">
+          <span class="fbe__scrub-head">
+            <span class="fbe__cleared" data-cleared>embedded</span>
+            <span class="fbe__endpts">0 <Math tex={m("\\rightarrow")} /> first supernova</span>
           </span>
-          <input type="range" min="0" max="1" step="0.01" value="0.5" autocomplete="off" data-cf />
-          <span class="fbe__knob-foot">porous ← → sealed</span>
-        </label>
-
-        <label class="fbe__knob">
-          <span class="fbe__knob-head">
-            <span>H II leakage</span>
-            <output data-hii-out>0.50</output>
-          </span>
-          <input type="range" min="0" max="1" step="0.01" value="0.5" autocomplete="off" data-hii />
-          <span class="fbe__knob-foot">confined ← → champagne flow</span>
+          <input type="range" min="0" max="1" step="0.005" value="0" autocomplete="off"
+                 data-scrub aria-label="Time through the pre-supernova window" />
         </label>
       </div>
 
-      <div class="fbe__channels" role="group" aria-label="How shell porosity couples to the wind">
-        <span class="fbe__channels-lead">coupling</span>
-        <button type="button" class="fbe__chip is-active" data-coup="simple" aria-pressed="true"><Math tex={m("f_\\mathrm{vent} = 1 - C_f")} /></button>
-        <button type="button" class="fbe__chip" data-coup="km09" aria-pressed="false">KM09 porous</button>
-        <button type="button" class="fbe__chip" data-coup="independent" aria-pressed="false">uncoupled</button>
+      {/* 3 ── WHICH CHANNEL. Stays visible: this is the page's heartbeat, the
+              toggle that visibly stalls the gas. */}
+      <div class="fbe__tier fbe__tier--ch">
+        <span class="fbe__tier-lead">channels</span>
+        <div class="fbe__chiprow" role="group" aria-label="Feedback channels — turn one off to see what it was carrying">
+          <button type="button" class="fbe__chip is-active" data-ch="winds" aria-pressed="true">winds</button>
+          <button type="button" class="fbe__chip is-active" data-ch="photoionization" aria-pressed="true">H II</button>
+          <button type="button" class="fbe__chip is-active" data-ch="radiation" aria-pressed="true">radiation</button>
+        </div>
+        <p class="fbe__chnote" data-chnote hidden></p>
       </div>
+
+      {/* 4 ── THE MODELLING CHOICES, folded. Not hidden because they are
+              unimportant — the prose calls two of them the least certain things
+              in the accounting — but because a reader meeting this page should
+              not have to decide about a covering fraction before they have seen
+              the gas move. `data-nondefault` surfaces above whenever any of
+              these leaves its default, so folding cannot hide a changed state. */}
+      <details class="fbe__adv">
+        <summary class="fbe__adv-summary">
+          <span>model settings</span>
+          <span class="fbe__adv-hint">wind recipe · shell covering · H II leakage · coupling</span>
+        </summary>
+
+        <div class="fbe__tier">
+          <span class="fbe__tier-lead">wind recipe</span>
+          <div class="fbe__chiprow" role="group" aria-label="Mass-loss prescription">
+            <button type="button" class="fbe__chip is-active" data-presc="bjorklund" aria-pressed="true">Björklund 2023</button>
+            <button type="button" class="fbe__chip" data-presc="vink" aria-pressed="false">Vink 2001</button>
+          </div>
+        </div>
+
+        <div class="fbe__knobs">
+          <label class="fbe__knob">
+            <span class="fbe__knob-head">
+              <span>shell covering <Math tex={m("C_f")} /></span>
+              <output data-cf-out>0.50</output>
+            </span>
+            <input type="range" min="0" max="1" step="0.01" value="0.5" autocomplete="off"
+                   data-cf aria-label="Shell covering fraction C_f" />
+            <span class="fbe__knob-foot">porous ← → sealed</span>
+          </label>
+
+          <label class="fbe__knob">
+            <span class="fbe__knob-head">
+              <span>H II leakage</span>
+              <output data-hii-out>0.50</output>
+            </span>
+            <input type="range" min="0" max="1" step="0.01" value="0.5" autocomplete="off"
+                   data-hii aria-label="H II leakage fraction" />
+            <span class="fbe__knob-foot">confined ← → champagne flow</span>
+          </label>
+        </div>
+
+        <div class="fbe__tier">
+          <span class="fbe__tier-lead">coupling</span>
+          <div class="fbe__chiprow" role="group" aria-label="How shell porosity couples to the wind">
+            <button type="button" class="fbe__chip is-active" data-coup="simple" aria-pressed="true"><Math tex={m("f_\\mathrm{vent} = 1 - C_f")} /></button>
+            <button type="button" class="fbe__chip" data-coup="km09" aria-pressed="false">KM09 porous</button>
+            <button type="button" class="fbe__chip" data-coup="independent" aria-pressed="false">uncoupled</button>
+          </div>
+        </div>
+      </details>
 
       <p class="fbe__status" data-status aria-live="polite">Loading cluster…</p>
     </div>
@@ -742,6 +763,70 @@ const m = (tex: string) => tex;
   .fbe__controls { display: grid; gap: 0.7rem; }
   .fbe__toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-s); flex-wrap: wrap; }
   .fbe__pills { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+  /* ── three tiers ────────────────────────────────────────────────────────
+     Weight follows importance: the environment picker reads first, time
+     second, channels third, and the modelling knobs sit behind a fold. Each
+     tier is separated by a rule rather than by more whitespace, so the groups
+     are legible without the column growing. */
+  .fbe__tier { display: grid; gap: 0.45rem; padding-block: 0.7rem; }
+  .fbe__tier + .fbe__tier { border-block-start: 1px solid var(--bg-hairline, #2b2d38); }
+  .fbe__tier-lead {
+    font-family: var(--font-mono); font-size: var(--step--2);
+    letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  .fbe__chiprow { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+  /* Time is the axis everything else is read against, so it gets the row to
+     itself with the play control beside it rather than above it. */
+  /* Play sits on the slider's row, not above its label: the readout is a
+     property of the slider and belongs on its line. */
+  .fbe__tier--time {
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "lead head" "play track";
+    align-items: center; gap: 0.35rem 0.75rem;
+    border-block-start: 1px solid var(--bg-hairline, #2b2d38);
+  }
+  .fbe__tier--time .fbe__action { grid-area: play; }
+  .fbe__tier--time .fbe__scrub {
+    grid-area: head / head / track / track;
+    display: grid; grid-template-columns: subgrid; margin: 0;
+  }
+  @supports not (grid-template-columns: subgrid) {
+    .fbe__tier--time { grid-template-columns: auto 1fr; }
+    .fbe__tier--time .fbe__scrub { display: grid; gap: 0.35rem; }
+  }
+  .fbe__tier--time .fbe__scrub-head {
+    grid-area: head; display: flex; justify-content: space-between;
+    align-items: baseline; gap: 0.75rem;
+  }
+  .fbe__tier--time input[type="range"] { grid-area: track; }
+
+  /* ── the fold ───────────────────────────────────────────────────────────
+     Closed by default. `data-nondefault` above still reports any knob that has
+     left its default, so folding cannot hide a changed state from the reader. */
+  .fbe__adv { border-block-start: 1px solid var(--bg-hairline, #2b2d38); margin-block-start: 0.2rem; }
+  .fbe__adv-summary {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem;
+    padding-block: 0.7rem; cursor: pointer; list-style: none;
+    font-family: var(--font-mono); font-size: var(--step--2);
+    letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-dim);
+  }
+  .fbe__adv-summary::-webkit-details-marker { display: none; }
+  .fbe__adv-summary::before {
+    content: "▸"; display: inline-block; transition: transform var(--dur-fast) var(--ease-out);
+    color: var(--ink-faint);
+  }
+  .fbe__adv[open] .fbe__adv-summary::before { transform: rotate(90deg); }
+  .fbe__adv-summary:hover { color: var(--ink); }
+  .fbe__adv-summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+  .fbe__adv-hint {
+    text-transform: none; letter-spacing: 0; color: var(--ink-faint);
+    font-size: var(--step--2);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fbe__adv-summary::before { transition: none; }
+  }
 
   /* pills + chips share the Census chip recipe */
   .fbe__pill, .fbe__chip, .fbe__action {
