@@ -51,6 +51,31 @@ import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
  * Remove all four together, and add the hub card in the same change, when Anna
  * says it is ready.
  *
+ * ── EVERY NUMBER IN THE COPY BELOW, RE-DERIVED 2026-09-04 ──
+ *
+ * Against the shipped six at the code's own defaults (Björklund, cover 0.50,
+ * H II leak 0.50), through feedbackInputFromParts -> computeLedger:
+ *
+ *   five of six clear their gas       p/p_need 5.36 1.99 0.51 1.99 1.99 2.16
+ *   the one that does not is `compact`  and it IS the most massive cloud (101,530 Msun)
+ *   its H II region is trapped        v_esc 20.9 km/s > C_II_KMS = 10, the only one
+ *   every cluster stays bound         q_post 0.201-0.288, all inside the "survives" band
+ *
+ * THE BUDGET DOES NOT DEPEND ON THE STAR PLACEMENT. feedbackInputFromParts reads
+ * only mass/teff/radius out of stars.f32 and never the positions, so the
+ * 2026-09-04 re-export left every one of these numbers bit-identical -- checked
+ * by running the ledger against the pre-export stars.f32 at 821e42b. What the
+ * re-export did change is q_post (0.022 -> 0.208, through the corrected virial
+ * diagnostics), and the verdict it implies is unchanged.
+ *
+ * The wind sentence used to say the two recipes "disagree about the wind boost
+ * by roughly a factor of five". They do not, and did not: both are calibrated to
+ * the Lancaster bracket, so the BOOST agrees (eta 4.98-5.82 Björklund vs
+ * 4.41-6.53 Vink, ratio 0.88-1.22) -- those ranges reproduce WIND_LEAK_DEFAULT's
+ * own recorded calibration exactly. What differs is the mass-loss rate and so the
+ * delivered wind momentum, by 4.9-11.4x. The claim predates the re-export; it was
+ * never a stale-data problem.
+ *
  * ── STILL OPEN, and worth settling before sign-off ──
  *
  * - The copy at "Five of these six environments clear their gas" was measured
@@ -109,9 +134,13 @@ import FeedbackEngine from "../../novascope/components/FeedbackEngine.astro";
         <strong>Shell covering</strong> is one slider rather than two because it is one
         physical structure: the same holes that let starlight escape without ever
         touching the gas also let the hot shocked wind vent out of them. How strongly
-        those are tied together is itself unsettled — the two published treatments offered
-        here disagree about the wind boost by roughly a factor of five, and switching
-        between them is the honest way to see that rather than hide it inside a default.
+        those are tied together is itself unsettled. So is the wind itself: the two
+        published mass-loss treatments offered here deliver wind momentum differing by
+        five to eleven times across these six environments. What they do <em>not</em>
+        disagree about is the hot-bubble boost — each is calibrated separately so its
+        boost matches the same measured value, which is why switching recipe also
+        switches its leakage. Offering both is the honest way to show that spread
+        rather than hide it inside a default.
         <strong>H II leakage</strong> has no measurement behind it at all; it is a placed
         number, which is exactly why it should be something you can move. Both wind
         recipes are calibrated independently, so switching recipe switches its leakage

@@ -10,11 +10,14 @@
  * Two deliberately SEPARATE axes: the scrub is expulsion PROGRESS (embedded →
  * cleared) driving the outward gas render (setExpel), because the gas clears
  * early in the window and time would make a blink-and-miss animation. (How
- * early is environment- and prescription-dependent — measured 2026-08-09 under
- * the Björklund default, t_remove runs from 6.2% of the window for `diffuse`
- * through ~14% for the Orion-like set to 54% for `compact`. This comment said
- * "~10%" as though it were a property of the engine; it was the Orion-like case
- * alone, and `compact` misses it by a factor of five.)
+ * early is environment- and prescription-dependent — re-measured 2026-09-04
+ * under the Björklund default, t_remove is 5.2% of the window for `diffuse`,
+ * 42.5-46.7% for the Orion-like set, and `compact` never reaches the threshold
+ * at all. This comment said "~10%" as though it were a property of the engine;
+ * it was the Orion-like case alone. The 2026-08-09 figures it then carried —
+ * 6.2% / ~14% / 54% — were themselves superseded by the re-sampled export, so
+ * this is the second time this sentence has gone stale by being written down
+ * instead of derived.)
  *
  * The real-time story -- how fast, which channel leads -- lives in the plot,
  * with t_remove marked. The bars and verdict are the accounting the spectacle

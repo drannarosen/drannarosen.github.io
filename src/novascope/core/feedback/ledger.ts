@@ -141,7 +141,7 @@ export interface LeakageKnobs {
  *
  * The two moved closer once Björklund adopted Vink's v_inf/v_esc ratios: the
  * ceiling depends on the wind speed, so equalizing the speeds equalizes most of
- * the gap. What remains (0.956 vs 0.905) is the Mdot difference alone.
+ * the gap. What remains (0.948 vs 0.894, the values below) is the Mdot difference alone.
  *
  * The previous single default of 0.9 was, it turns out, a well-calibrated VINK
  * value — Vink's derived figure is 0.894 — carried unchanged onto Björklund,

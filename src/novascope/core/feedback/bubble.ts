@@ -228,9 +228,15 @@ export interface BubbleCeiling {
  * MEASURED ON THE SHIPPED SET, 2026-08-09 — and the numbers depend on the wind
  * prescription, which is why the previous version of this paragraph went stale:
  *
- *   prescription   eta_max      breakout (% of window)
- *   Björklund      96.2-149.4   4.0-4.7
- *   Vink           30.4-71.0    2.3-3.9
+ *   prescription   eta_max     breakout (% of window)
+ *   Björklund      77.6-93.7   5.6-5.8
+ *   Vink           33.1-53.2   2.5-3.5
+ *
+ * (Re-measured 2026-09-04. The previous entry -- 96.2-149.4 / 4.0-4.7 and
+ * 30.4-71.0 / 2.3-3.9 -- predates the re-sampled export and disagreed with
+ * ledger.ts's own "78-94 against 33-53" in the same module. These invert
+ * exactly from the shipped f_leak and the eta range check-feedback prints,
+ * so the two files now agree.)
  *
  * The old text stated 30-71 and 2-4% as if they were properties of the module.
  * They are Vink's, and the default had become Björklund. Any figure here is a
