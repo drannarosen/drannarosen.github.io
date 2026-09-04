@@ -5,8 +5,8 @@
   "nStars": 6557,
   "mStarMsun": 4312.2093792930245,
   "fingerprint": {
-    "stars": "b8b418f4684d3239",
-    "velocities": "095e9d0365d26a8f",
+    "stars": "a20892765b8d0555",
+    "velocities": "6b6f13cf6fb05496",
     "gasMenc": "a315af82aee3cb81",
     "G": 0.004498479820381242,
     "gasMencRMax": 5.196152422706632,
@@ -22,35 +22,35 @@
       "sfe": 0.05,
       "tauOverTCross": 1,
       "qTarget": 0.5,
-      "tCross": 0.056045250138236975,
+      "tCross": 0.06442019663818489,
       "settled": {
-        "boundMassFraction": 0.945073994400629,
-        "boundFraction": 0.8002135122769559,
-        "rHalf": 0.44588436638569584,
-        "energy": -1271513.034449202,
-        "qVirial": 0.9517705908221923,
-        "localSfe": 0.19155359537411729
+        "boundMassFraction": 0.9718300129741541,
+        "boundFraction": 0.9216104926033247,
+        "rHalf": 0.684942548693549,
+        "energy": -1128927.0615292774,
+        "qVirial": 0.5095916783742999,
+        "localSfe": 0.08873636896799743
       },
       "after": [
         {
           "tCross": 5,
-          "survivingFraction": 0.4254320282849314,
-          "boundMassFraction": 0.4020920495465668,
-          "boundFraction": 0.35443037974683544,
-          "rHalf": 0.9233568704013493,
-          "energy": 242685.2000853115,
-          "qVirial": 10.119526680653868,
-          "mGas": 552.0533266866266
+          "survivingFraction": 0.1717344255059632,
+          "boundMassFraction": 0.16688994018975273,
+          "boundFraction": 0.09791062986121701,
+          "rHalf": 1.0599958545285593,
+          "energy": 153266.72150684497,
+          "qVirial": 9.340699060708856,
+          "mGas": 552.0533266866797
         },
         {
           "tCross": 10,
-          "survivingFraction": 0.3115445849344607,
-          "boundMassFraction": 0.294452679518367,
-          "boundFraction": 0.258197346347415,
-          "rHalf": 1.3287747628838333,
-          "energy": 248424.4405030942,
-          "qVirial": 22.118294452846687,
-          "mGas": 3.7197060558870088
+          "survivingFraction": 0.06966384425628695,
+          "boundMassFraction": 0.06769868514752901,
+          "boundFraction": 0.03919475369833766,
+          "rHalf": 1.3847133390042403,
+          "energy": 157256.0470141363,
+          "qVirial": 21.941856667155786,
+          "mGas": 3.7197060558877357
         }
       ]
     },
@@ -59,35 +59,35 @@
       "sfe": 0.2,
       "tauOverTCross": 1,
       "qTarget": 0.5,
-      "tCross": 0.11209050027647395,
+      "tCross": 0.12884039327636979,
       "settled": {
-        "boundMassFraction": 0.9412213981243943,
-        "boundFraction": 0.7878603019673631,
-        "rHalf": 0.4218635340219665,
-        "energy": -287130.776391547,
-        "qVirial": 0.8375678740822899,
-        "localSfe": 0.7172412780608323
+        "boundMassFraction": 0.9657969924298943,
+        "boundFraction": 0.9118499313710539,
+        "rHalf": 0.6490737011388131,
+        "energy": -254010.493860549,
+        "qVirial": 0.5650121698468362,
+        "localSfe": 0.3237987482128402
       },
       "after": [
         {
           "tCross": 5,
-          "survivingFraction": 0.9348530134695544,
-          "boundMassFraction": 0.8799036603786172,
-          "boundFraction": 0.7137410401098063,
-          "rHalf": 0.5090872117452633,
-          "energy": 34090.82817838482,
-          "qVirial": 1.546768125001021,
-          "mGas": 116.22175298665826
+          "survivingFraction": 0.62913266756544,
+          "boundMassFraction": 0.6076144381740983,
+          "boundFraction": 0.4207716943724264,
+          "rHalf": 1.2057493405453976,
+          "energy": 15040.897153350514,
+          "qVirial": 1.808878254052922,
+          "mGas": 116.22175298666943
         },
         {
           "tCross": 10,
-          "survivingFraction": 0.9337848152230686,
-          "boundMassFraction": 0.8788982493315858,
-          "boundFraction": 0.7117584261095012,
-          "rHalf": 0.6136176882847799,
-          "energy": 35798.592175911384,
-          "qVirial": 1.688497745004813,
-          "mGas": 0.7830960117656862
+          "survivingFraction": 0.598019065994377,
+          "boundMassFraction": 0.5775650153531038,
+          "boundFraction": 0.3794418179045295,
+          "rHalf": 1.7911985278666187,
+          "energy": 15907.800020580693,
+          "qVirial": 2.470690529883237,
+          "mGas": 0.7830960117658392
         }
       ]
     },
@@ -96,35 +96,35 @@
       "sfe": 0.5,
       "tauOverTCross": 1,
       "qTarget": 0.5,
-      "tCross": 0.17723064247069556,
+      "tCross": 0.20371454869258623,
       "settled": {
-        "boundMassFraction": 0.861189743260581,
-        "boundFraction": 0.7213664785725179,
-        "rHalf": 0.23382494081333385,
-        "energy": -82336.34917860325,
-        "qVirial": 0.8072204663182354,
-        "localSfe": 0.958762145278418
+        "boundMassFraction": 0.9509417383071636,
+        "boundFraction": 0.884398352905292,
+        "rHalf": 0.548920991910443,
+        "energy": -78508.22028284518,
+        "qVirial": 0.566197011050846,
+        "localSfe": 0.6685445300236443
       },
       "after": [
         {
           "tCross": 5,
-          "survivingFraction": 0.9772380653353322,
-          "boundMassFraction": 0.8415873985906016,
-          "boundFraction": 0.6957450053378069,
-          "rHalf": 0.2143636270948124,
-          "energy": -8514.186876029446,
-          "qVirial": 0.8770377597720108,
-          "mGas": 29.05543824664622
+          "survivingFraction": 0.9537390889201852,
+          "boundMassFraction": 0.9069312348897459,
+          "boundFraction": 0.7992984596614305,
+          "rHalf": 1.0474224169114836,
+          "energy": -10586.67134854431,
+          "qVirial": 0.6160844002522046,
+          "mGas": 29.055438246679998
         },
         {
           "tCross": 10,
-          "survivingFraction": 0.976368852536566,
-          "boundMassFraction": 0.8408388414435933,
-          "boundFraction": 0.6948299527222815,
-          "rHalf": 0.20101543010954015,
-          "energy": -7836.021829387959,
-          "qVirial": 0.87620934919092,
-          "mGas": 0.19577400294117428
+          "survivingFraction": 0.9465024756219861,
+          "boundMassFraction": 0.9000497819733242,
+          "boundFraction": 0.791673021198719,
+          "rHalf": 0.88816654531323,
+          "energy": -10298.79824958284,
+          "qVirial": 0.5903470828256122,
+          "mGas": 0.19577400294133426
         }
       ]
     }
