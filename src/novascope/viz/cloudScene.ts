@@ -15,8 +15,9 @@
  * `volumeLayer`'s header carries the full account and the design document's step 9, which is the
  * mechanism that would actually do it.
  *
- * It replaces `viz/webgl`'s `createEngine` at the call site, and deliberately exposes only what
- * `/explore/feedback-budget` actually used of it: `setExpel`, `reducedMotion`, `cleanup`. The old
+ * It replaces `viz/webgl`'s `createEngine` at the call site with a deliberately small surface:
+ * `setExpel`, `setGasFraction`, `backend`, `reducedMotion`, `cleanup`. (This said "only what
+ * /explore/feedback-budget actually used of it" and then listed three of the five.) The old
  * engine's other twelve methods were surface the page never touched.
  *
  * ── THE STARS COME FROM `toRenderModel`, WHICH IS THE POINT ──
