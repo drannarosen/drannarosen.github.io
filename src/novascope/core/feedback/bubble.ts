@@ -268,7 +268,35 @@ export function bubbleCeiling(
   rCloudPc: number,
   windowMyr: number,
 ): BubbleCeiling {
-  if (!(lWindErgS > 0) || !(pDotCgs > 0)) {
+  /*
+   * NaN is a BUG; zero is a physical state. Distinguishing them is not
+   * pedantry -- it is the whole reason this function got a guard clause.
+   *
+   * `!(x > 0)` is false for NaN, so a NaN wind luminosity used to take the
+   * same exit as "this population has no massive stars" and return the
+   * perfectly plausible eta_max = 1. On 2026-09-04 a missing YR_S export made
+   * pDotCgs NaN and this returned 1 without complaint; the only symptom was a
+   * ledger test three files away asserting that one coupling delivered more
+   * momentum than another, and it took a hypothesis to trace back here. Under
+   * plain Node the same missing export throws a SyntaxError at import and names
+   * itself; under Vite it resolves to `undefined` and the arithmetic carries the
+   * silence forward. This function should not be the thing that launders it.
+   */
+  for (const [name, v] of [
+    ["lWindErgS", lWindErgS], ["pDotCgs", pDotCgs], ["mGasMsun", mGasMsun],
+    ["rCloudPc", rCloudPc], ["windowMyr", windowMyr],
+  ] as const) {
+    if (!Number.isFinite(v)) {
+      throw new TypeError(
+        `bubbleCeiling: ${name} is ${v}, which is not a number. This is a ` +
+        `programming error upstream (an undefined constant or a bad unit ` +
+        `conversion), not an absent wind -- returning eta_max = 1 here would ` +
+        `hide it behind a physically reasonable answer.`,
+      );
+    }
+  }
+  // A genuinely absent source: no massive stars, so no bubble and no boost.
+  if (lWindErgS <= 0 || pDotCgs <= 0) {
     return { etaMax: 1, tBreakoutMyr: Infinity, breaksOut: false };
   }
   const rCm = rCloudPc * PC_CM;

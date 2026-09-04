@@ -127,3 +127,27 @@ describe("etaPorousKM09 — the porous-bubble coupling", () => {
     expect(Number.isFinite(etaPorousKM09(0.99))).toBe(false);
   });
 });
+
+describe("bubbleCeiling refuses NaN", () => {
+  /* A missing YR_S export made pDotCgs NaN on 2026-09-04, and `!(x > 0)` sent it
+     down the same path as "no massive stars", returning eta_max = 1. Nothing
+     complained; the failure surfaced as a ledger test three files away comparing
+     two porosity couplings. Zero still means zero. */
+
+  it("still reports no boost when the wind is genuinely absent", () => {
+    expect(bubbleCeiling(0, 0, 1e4, 2.5, 4).etaMax).toBe(1);
+    expect(bubbleCeiling(-1, 1, 1e4, 2.5, 4).etaMax).toBe(1);
+  });
+
+  it("throws rather than returning a plausible answer for NaN", () => {
+    expect(() => bubbleCeiling(NaN, 1e30, 1e4, 2.5, 4)).toThrow(/lWindErgS/);
+    expect(() => bubbleCeiling(1e38, NaN, 1e4, 2.5, 4)).toThrow(/pDotCgs/);
+    expect(() => bubbleCeiling(1e38, 1e30, NaN, 2.5, 4)).toThrow(/mGasMsun/);
+    expect(() => bubbleCeiling(1e38, 1e30, 1e4, 2.5, undefined as never)).toThrow(/windowMyr/);
+  });
+
+  it("names the culprit, so the message points upstream", () => {
+    expect(() => bubbleCeiling(1e38, NaN, 1e4, 2.5, 4))
+      .toThrow(/programming error upstream/);
+  });
+});
