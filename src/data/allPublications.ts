@@ -79,17 +79,30 @@ const withNote = <T extends { doi: string | null; bibcode: string | null }>(w: T
 });
 
 /*
- * doi -> identifiers ORCID does not carry. Only fills a null field, so a value
- * that later starts flowing through ORCID wins over this file rather than being
- * shadowed by it. See publications.identifiers.json.
+ * doi -> identifiers ORCID does not carry. A bibcode fills a null field, or
+ * replaces a preprint (arXiv) bibcode once the paper is published, so a journal
+ * value that later starts flowing through ORCID wins over this file rather than
+ * being shadowed by it. A title here fixes casing only (ORCID can hold a
+ * journal's all-caps title). See publications.identifiers.json.
  */
 const identifierIndex = new Map(
-  identifiers.identifiers.map((i) => [i.doi.toLowerCase(), i] as const),
+  (identifiers.identifiers as { doi: string; bibcode?: string; title?: string }[]).map(
+    (i) => [i.doi.toLowerCase(), i] as const,
+  ),
 );
 
-const withIdentifiers = <T extends { doi: string | null; bibcode: string | null }>(w: T): T => {
+const isPreprintBibcode = (b: string | null) => b != null && b.includes("arXiv");
+
+const withIdentifiers = <
+  T extends { doi: string | null; bibcode: string | null; title: string },
+>(
+  w: T,
+): T => {
   const extra = identifierIndex.get((w.doi ?? "").toLowerCase());
-  return extra ? { ...w, bibcode: w.bibcode ?? extra.bibcode ?? null } : w;
+  if (!extra) return w;
+  const bibcode =
+    w.bibcode && !isPreprintBibcode(w.bibcode) ? w.bibcode : (extra.bibcode ?? w.bibcode);
+  return { ...w, bibcode, title: extra.title ?? w.title };
 };
 
 /*
@@ -300,9 +313,25 @@ export function shortCitation(w: SyncedWork): string | null {
 }
 
 /** Canonical external link for a work: DOI first, then ADS, then arXiv. */
+/** The SciX record for a bibcode. SciX replaced NASA ADS; bibcodes carry over. */
+export const scixUrl = (bibcode: string) =>
+  `https://scixplorer.org/abs/${bibcode}/abstract`;
+
+/** The bibcode inside a SciX (or legacy ADS) abstract URL, if it is one. */
+export const bibcodeOf = (url: string | null | undefined): string | null =>
+  url?.match(/\/abs\/([^/?#]+)/)?.[1] ?? null;
+
+/** arXiv's own DOIs (10.48550/arXiv.*) are preprints, not a journal. */
+const isArxivDoi = (doi: string | null) => doi != null && doi.toLowerCase().startsWith("10.48550/");
+
+/** The published version, through its DOI. Null for a preprint-only work. */
+export const journalUrl = (w: SyncedWork): string | null =>
+  w.doi && !isArxivDoi(w.doi) ? `https://doi.org/${w.doi}` : null;
+
+/** Where a work's title links: the journal, else SciX, else arXiv. */
 export function workUrl(w: SyncedWork): string | null {
   if (w.doi) return `https://doi.org/${w.doi}`;
-  if (w.bibcode) return `https://ui.adsabs.harvard.edu/abs/${w.bibcode}/abstract`;
+  if (w.bibcode) return scixUrl(w.bibcode);
   if (w.arxiv) return `https://arxiv.org/abs/${w.arxiv}`;
   return null;
 }
@@ -328,7 +357,7 @@ export function bibtex(w: SyncedWork): string {
     ["doi", w.doi],
     ["eprint", w.arxiv],
     ["archivePrefix", w.arxiv ? "arXiv" : null],
-    ["adsurl", w.bibcode ? `https://ui.adsabs.harvard.edu/abs/${w.bibcode}/abstract` : null],
+    ["adsurl", w.bibcode ? scixUrl(w.bibcode) : null],
     [
       "note",
       w.acceptedIn

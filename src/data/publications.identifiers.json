@@ -1,16 +1,15 @@
 {
-  "_comment": "HUMAN-OWNED. Identifiers that belong to a work ORCID already knows about, but which the ORCID record itself does not carry. ORCID frequently holds the DOI and nothing else, which leaves the bibliography with no ADS link even for a published paper. The sync never reads or writes this file, so these survive every regeneration of generated/publications.json.",
-
+  "_comment": "HUMAN-OWNED. Identifiers that belong to a work ORCID already knows about, but which the ORCID record itself does not carry. ORCID frequently holds the DOI and nothing else, which leaves the bibliography with no SciX (formerly ADS) link even for a published paper. The sync never reads or writes this file, so these survive every regeneration of generated/publications.json.",
   "_howToUse": [
     "Key on `doi` — the identifier ORCID reliably does have.",
-    "Only FILLS IN a field the synced record leaves null; it never overwrites a",
-    "value ORCID supplied, so if ADS later flows through ORCID this file",
-    "quietly stops mattering rather than fighting it.",
-    "Verify a bibcode before adding it. The one below was checked against",
-    "Crossref (10.3847/1538-4357/ae6cdc -> ApJ 1004, 14, 2026), which matches",
-    "the volume and page encoded in the bibcode itself."
+    "`bibcode` FILLS IN a null field, and REPLACES a preprint (arXiv) bibcode once",
+    "the paper is published; it never overwrites a journal bibcode ORCID supplied.",
+    "`title` overrides ORCID's title — only for casing or typography fixes, never",
+    "for a different title.",
+    "Verify a bibcode before adding it. Entries added 2026-10-17 come from SciX's",
+    "own DOI resolution (scixplorer.org/abs/<doi>), each checked against the",
+    "volume Crossref gives for that DOI."
   ],
-
   "identifiers": [
     {
       "doi": "10.3847/1538-4357/ae6cdc",
@@ -21,6 +20,101 @@
       "doi": "10.1016/j.jcp.2016.10.048",
       "bibcode": "2017JCoPh.330..924R",
       "why": "Rosen et al. (2017), HARM². ORCID carries only the DOI; the bibcode (checked: JCoPh 330, 924, 2017 — matches the DOI's volume/page) also lets the featured card resolve this paper's abstract by identifier rather than its differing title."
+    },
+    {
+      "doi": "10.3847/1538-4357/ae4690",
+      "bibcode": "2026ApJ..1000..102P"
+    },
+    {
+      "doi": "10.3847/1538-4357/ae3c7a",
+      "bibcode": "2026ApJ...998..318R",
+      "why": "ORCID carries the preprint bibcode 2025arXiv251203129R; SciX resolves the DOI to the published record."
+    },
+    {
+      "doi": "10.3847/1538-4357/ad83bc",
+      "bibcode": "2024ApJ...976...98P"
+    },
+    {
+      "doi": "10.3847/1538-4357/ad8c41",
+      "bibcode": "2024ApJ...977...45W"
+    },
+    {
+      "doi": "10.1051/0004-6361/202451842",
+      "bibcode": "2024A&A...692A.219G"
+    },
+    {
+      "doi": "10.1093/mnras/stad3609",
+      "bibcode": "2024MNRAS.527.6732F"
+    },
+    {
+      "doi": "10.3847/1538-4357/ace897",
+      "bibcode": "2023ApJ...954...93A"
+    },
+    {
+      "doi": "10.3847/1538-4357/ac9f3d",
+      "bibcode": "2022ApJ...941..202R"
+    },
+    {
+      "doi": "10.1093/mnras/stac1737",
+      "bibcode": "2022MNRAS.515..167G"
+    },
+    {
+      "doi": "10.1093/mnras/stac1784",
+      "bibcode": "2022MNRAS.517.1491H"
+    },
+    {
+      "doi": "10.1093/mnras/stac3268",
+      "bibcode": "2023MNRAS.518.4693G"
+    },
+    {
+      "doi": "10.1093/mnras/stac526",
+      "bibcode": "2022MNRAS.512..216G"
+    },
+    {
+      "doi": "10.3847/1538-4357/ac4be3",
+      "bibcode": "2022ApJ...927...75A"
+    },
+    {
+      "doi": "10.3847/1538-4357/abd24a",
+      "bibcode": "2021ApJ...908...68O"
+    },
+    {
+      "doi": "10.1116/6.0001183",
+      "bibcode": "2021JVSTA..39e3207M"
+    },
+    {
+      "doi": "10.3847/1538-3881/ab9abf",
+      "bibcode": "2020AJ....160...78R"
+    },
+    {
+      "doi": "10.3847/2041-8213/ababae",
+      "bibcode": "2020ApJ...899L..30G"
+    },
+    {
+      "doi": "10.1007/s11214-020-00688-5",
+      "bibcode": "2020SSRv..216...62R"
+    },
+    {
+      "doi": "10.3847/1538-4357/ab54c6",
+      "bibcode": "2019ApJ...887..108R"
+    },
+    {
+      "doi": "10.21105/joss.00809",
+      "bibcode": "2018JOSS....3..809G"
+    },
+    {
+      "doi": "10.1093/mnras/stw2153",
+      "bibcode": "2016MNRAS.463.2553R"
+    },
+    {
+      "doi": "10.1093/mnras/stu1037",
+      "bibcode": "2014MNRAS.442.2701R"
+    },
+    {
+      "doi": "10.1088/0004-637x/748/2/97",
+      "bibcode": "2012ApJ...748...97R",
+      "title": "What Sets the Initial Rotation Rates of Massive Stars?",
+      "why": "ORCID carries the journal's all-caps title; casing as SciX and the CV give it."
     }
   ]
 }

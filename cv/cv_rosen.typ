@@ -109,10 +109,10 @@
 // Highlight author name in teal bold
 #let me(name) = text(weight: "bold", fill: accent, name)
 
-// ADS link pill
+// SciX (formerly NASA ADS) link pill
 #let ads-link(url) = {
   h(4pt)
-  link(url, pill("NASA ADS"))
+  link(url, pill("SciX"))
 }
 
 // Small teal star for refereed-publication indicator
@@ -262,7 +262,7 @@
     cv-section("Education")
     cv-entry([*Ph.D.*, Astronomy & Astrophysics, UC Santa Cruz], "2017")
     block(inset: (left: 10pt), text(size: 9pt, fill: secondary, style: "italic",
-      link("https://ui.adsabs.harvard.edu/abs/2017PhDT.......182R/abstract",
+      link("https://scixplorer.org/abs/2017PhDT.......182R/abstract",
         text(fill: accent, "The Destructive Birth of Massive Stars & Massive Star Clusters"))))
     v(2pt)
     cv-entry([*M.S.*, Astronomy & Astrophysics, UC Santa Cruz], "2012")
@@ -668,14 +668,14 @@
   [_The Astrophysical Journal_],
   status: "accepted",
   first-author: true,
-  url: "https://ui.adsabs.harvard.edu/abs/2026arXiv260315779R/abstract",
+  url: "https://scixplorer.org/abs/2026arXiv260315779R/abstract",
 )
 
 #pub(33,
   "Bridging Theory and Observation: Synthetic Far-infrared Insights into Star Formation Efficiency",
   [Escamilla, A., Grudić, M.Y., #me("Rosen, A.L.")],
   [2026, _The Astrophysical Journal_, 1004, 14],
-  url: "https://ui.adsabs.harvard.edu/abs/2026ApJ..1004...14E/abstract",
+  url: "https://scixplorer.org/abs/2026ApJ..1004...14E/abstract",
   first-author: false,
 )
 
@@ -683,77 +683,77 @@
   "Investigating the " + $gamma$ + "-Ray Emission from Explosive Dispersal Outflows with Fermi-LAT",
   [Pandey, P., Lenker, S.C., Lopez, L.A., #me("Rosen, A.L."), Linden, T., Thompson, T.A., Offner, S.S.R., Auchettl, K., Hirata, C.M.],
   [2026, _The Astrophysical Journal_, 1000, 102],
-  url: "https://ui.adsabs.harvard.edu/abs/2026ApJ..1000..102P/abstract",
+  url: "https://scixplorer.org/abs/2026ApJ..1000..102P/abstract",
 )
 
 #pub(31,
   "Taming the Tarantula: How Stellar Wind Feedback Shapes Gas and Dust in 30 Doradus",
   [Rodriguez, J.A., Lopez, L.A., Lancaster, L., #me("Rosen, A.L."), Nayak, O., Lopez, S., Holland-Ashford, T., Webb, T.L.],
   [2026, _The Astrophysical Journal_, 998, 318],
-  url: "https://ui.adsabs.harvard.edu/abs/2026ApJ...998..318R",
+  url: "https://scixplorer.org/abs/2026ApJ...998..318R/abstract",
 )
 
 #pub(30,
   "The HADES Simulations: I. Impact of Protostellar Magnetic Fields on the Accretion Modes",
   [Gaches, B.A.L., Tan, J.C., #me("Rosen, A.L."), Kuiper, R.],
   [2024, _Astronomy & Astrophysics_, 692, A219],
-  url: "https://ui.adsabs.harvard.edu/abs/2024A&A...692A.219G/abstract",
+  url: "https://scixplorer.org/abs/2024A&A...692A.219G/abstract",
 )
 
 #pub(29,
   "FORGE'd in FIRE III: The IMF in Quasar Accretion Disks from STARFORGE",
   [Hopkins, P.F., Grudić, M.Y., Kremer, K., Offner, S.S.R., Guszejnov, D., #me("Rosen, A.L.")],
   [2024, _The Open Journal of Astrophysics_, 7, 71],
-  url: "https://ui.adsabs.harvard.edu/abs/2024OJAp....7E..71H/abstract",
+  url: "https://scixplorer.org/abs/2024OJAp....7E..71H/abstract",
 )
 
 #pub(28,
   "Constraining the Diffusion Coefficient and Cosmic-Ray Acceleration Efficiency Using Gamma-Ray Emission from RCW 38",
   [Pandey, P., Lopez, L.A., #me("Rosen, A.L."), Thompson, T.A., Linden, T., Blackstone, I.],
   [2024, _The Astrophysical Journal_, 976, 98],
-  url: "https://ui.adsabs.harvard.edu/abs/2024ApJ...976...98P/abstract",
+  url: "https://scixplorer.org/abs/2024ApJ...976...98P/abstract",
 )
 
 #pub(27,
   "Detection of Diffuse Hot Gas Around the Young, Potential Superstar Cluster H72.97-69.39",
   [Webb, T.L., Rodriguez, J.A., Lopez, L.A., #me("Rosen, A.L."), Lancaster, L., Nayak, O., McLeod, A.F., Pandey, P., Olivier, G.M.],
   [2024, _The Astrophysical Journal_, 977, 45],
-  url: "https://ui.adsabs.harvard.edu/abs/2024ApJ...977...45W/abstract",
+  url: "https://scixplorer.org/abs/2024ApJ...977...45W/abstract",
 )
 
 #pub(26,
   "Stellar populations in STARFORGE: the origin and evolution of star clusters and associations",
   [Farias, J.P., Offner, S.S.R., Grudić, M.Y., Guszejnov, D., #me("Rosen, A.L.")],
   [2024, _MNRAS_, 527, 6732],
-  url: "https://ui.adsabs.harvard.edu/abs/2024MNRAS.527.6732F/abstract",
+  url: "https://scixplorer.org/abs/2024MNRAS.527.6732F/abstract",
 )
 
 #pub(25,
   "What Sets the Star Formation Rate of Molecular Clouds? The Density Distribution as a Fingerprint of Compression and Expansion Rates",
   [Appel, S.M., Burkhart, B., Semenov, V.A., Federrath, C., #me("Rosen, A.L."), Tan, J.C.],
   [2023, _The Astrophysical Journal_, 954, 93],
-  url: "https://ui.adsabs.harvard.edu/abs/2023ApJ...954...93A/abstract",
+  url: "https://scixplorer.org/abs/2023ApJ...954...93A/abstract",
 )
 
 #pub(24,
   "The TEMPO Survey I: Predicting Yields of Transiting Exosatellites, Moons, and Planets from a 30-day Survey of Orion with Roman",
   [Limbach, M.A., Soares-Furtado, M., Vanderburg, A., Best, W.J., Cody, A.M., D'Onghia, E., Heller, R., Hensley, B.S., Kounkel, A., Kraus, A., Mann, A.W., Robberto, M., #me("Rosen, A.L."), Townsend, R., Vos, J.M.],
   [2023, _PASP_, 135, 1043],
-  url: "https://ui.adsabs.harvard.edu/abs/2023PASP..135a4401L/abstract",
+  url: "https://scixplorer.org/abs/2023PASP..135a4401L/abstract",
 )
 
 #pub(23,
   "Effects of the environment on the multiplicity properties of stars in the STARFORGE simulations",
   [Guszejnov, D., Raju, A.N., Offner, S.S.R., Grudić, M.Y., Faucher-Giguère, C., Hopkins, P.F., #me("Rosen, A.L.")],
   [2023, _MNRAS_, 518, 4693],
-  url: "https://ui.adsabs.harvard.edu/abs/2023MNRAS.518.4693G/abstract",
+  url: "https://scixplorer.org/abs/2023MNRAS.518.4693G/abstract",
 )
 
 #pub(22,
   "A Massive Star is Born: How Feedback from Stellar Winds, Radiation Pressure, and Collimated Outflows Limits Accretion onto Massive Stars",
   [#me("Rosen, A.L.")],
   [2022, _The Astrophysical Journal_, 941, 202],
-  url: "https://ui.adsabs.harvard.edu/abs/2022ApJ...941..202R/abstract",
+  url: "https://scixplorer.org/abs/2022ApJ...941..202R/abstract",
   first-author: true,
 )
 
@@ -761,84 +761,84 @@
   "Dust in the Wind with Resonant Drag Instabilities: I. The Dynamics of Dust-Driven Outflows in GMCs and H II Regions",
   [Hopkins, P.F., #me("Rosen, A.L."), Squire, J., Panopoulou, G.V., Soliman, N.H., Seligman, D., Steinwandel, U.P.],
   [2022, _MNRAS_, 517, 1491],
-  url: "https://ui.adsabs.harvard.edu/abs/2021arXiv210704608H/abstract",
+  url: "https://scixplorer.org/abs/2021arXiv210704608H/abstract",
 )
 
 #pub(20,
   "Effects of the environment and feedback physics on the IMF of stars in the STARFORGE simulations",
   [Guszejnov, D., Grudić, M.Y., Offner, S.S.R., Faucher-Giguère, C., Hopkins, P.F., #me("Rosen, A.L.")],
   [2022, _MNRAS_, 515, 4929],
-  url: "https://ui.adsabs.harvard.edu/abs/2022MNRAS.515.4929G/abstract",
+  url: "https://scixplorer.org/abs/2022MNRAS.515.4929G/abstract",
 )
 
 #pub(19,
   "Cluster assembly and the origin of mass segregation in the STARFORGE simulations",
   [Guszejnov, D., Markey, C., Offner, S.S.R., Grudić, M.Y., Faucher-Giguère, C., #me("Rosen, A.L."), Hopkins, P.F.],
   [2022, _MNRAS_, 515, 167],
-  url: "https://ui.adsabs.harvard.edu/abs/2022MNRAS.515..167G/abstract",
+  url: "https://scixplorer.org/abs/2022MNRAS.515..167G/abstract",
 )
 
 #pub(18,
   "The dynamics and outcome of star formation with jets, radiation, winds, and supernovae in concert",
   [Grudić, M.Y., Guszejnov, D., Offner, S.S.R., #me("Rosen, A.L."), Raju, A.N., Faucher-Giguère, C., Hopkins, P.F.],
   [2022, _MNRAS_, 512, 216],
-  url: "https://ui.adsabs.harvard.edu/abs/2022arXiv220100882G/abstract",
+  url: "https://scixplorer.org/abs/2022arXiv220100882G/abstract",
 )
 
 #pub(17,
   "Less wrong: a more realistic initial condition for simulations of turbulent molecular clouds",
   [Lane, H.B., Grudić, M.Y., Guszejnov, D., Offner, S.S.R., Faucher-Giguère, C., #me("Rosen, A.L.")],
   [2022, _MNRAS_, 510, 4767],
-  url: "https://ui.adsabs.harvard.edu/abs/2022MNRAS.510.4767L/abstract",
+  url: "https://scixplorer.org/abs/2022MNRAS.510.4767L/abstract",
 )
 
 #pub(16,
   "ORION2: A magnetohydrodynamics code for star formation",
   [Li, P.S., Cunningham, A.J., Gaches, B.L., Klein, R.I., Krumholz, M.R., Lee, A.T., McKee, C.F., Offner, S.S.R., #me("Rosen, A.L."), Skinner, M.A.],
   [_Journal of Open Source Software_],
-  url: "https://joss.theoj.org/papers/10.21105/joss.03771",
+  url: "https://scixplorer.org/abs/2021JOSS....6.3771L/abstract",
 )
 
 #pub(15,
   "The Effects of Magnetic Fields and Outflow Feedback on the Shape and Evolution of the Density PDF in Turbulent Star-Forming Clouds",
   [Appel, S.M., Burkhart, B., Semenov, V.A., Federrath, C., #me("Rosen, A.L.")],
   [2022, _The Astrophysical Journal_, 927, 75],
-  url: "https://ui.adsabs.harvard.edu/abs/2021arXiv210913271A/abstract",
+  url: "https://scixplorer.org/abs/2021arXiv210913271A/abstract",
 )
 
 #pub(14,
   "Observations of the Ag(3" + $times$ + "1) Phase on Ge(111)",
   [Mullet, C.H., #me("Rosen, A.L."), Chiang, S.],
   [2021, _Journal of Vacuum Science & Technology A_, 39, Issue 5],
-  url: "https://ui.adsabs.harvard.edu/abs/2021JVSTA..39e3207M/abstract",
+  url: "https://scixplorer.org/abs/2021JVSTA..39e3207M/abstract",
 )
 
 #pub(13,
   "Evolution of Stellar Feedback in H II Regions",
   [Olivier, G.M., Lopez, L.A., #me("Rosen, A.L."), Nayak, O., Reiter, M., Krumholz, M.R., Bolatto, A.D.],
   [2021, _The Astrophysical Journal_, 908, 68],
-  url: "https://ui.adsabs.harvard.edu/abs/2021ApJ...908...68O/abstract",
+  url: "https://scixplorer.org/abs/2021ApJ...908...68O/abstract",
 )
 
 #pub(12,
   "Continuity of Accretion from Clumps to Class 0 High-Mass Protostars",
   [Avison, A., Fuller, G.A., Peretto, N., Duarte-Cabral, A., #me("Rosen, A.L."), Traficante, A., Pineda, J.E., Güsten, R., Cunningham, N.],
   [2021, _Astronomy & Astrophysics_, 645, A142],
-  url: "https://ui.adsabs.harvard.edu/abs/2021A%26A...645A.142A/abstract",
+  url: "https://scixplorer.org/abs/2021A%26A...645A.142A/abstract",
 )
 
 #pub(11,
   "Winds in Star Clusters Drive Kolmogorov Turbulence",
   [Gallegos-Garcia, M., Burkhart, B., #me("Rosen, A.L."), Naiman, J.P., Ramirez-Ruiz, E.],
   [2020, _ApJ Letters_, 899, 30],
-  url: "https://ui.adsabs.harvard.edu/abs/2020ApJ...899L..30G/abstract",
+  url: "https://scixplorer.org/abs/2020ApJ...899L..30G/abstract",
 )
 
 #pub(10,
   "The Role of Outflows, Radiation Pressure, and Magnetic Fields in Massive Star Formation",
   [#me("Rosen, A.L."), Krumholz, M.R.],
   [2020, _Astronomical Journal_, 160, 78],
-  url: "https://ui.adsabs.harvard.edu/abs/2020AJ....160...78R/abstract",
+  url: "https://scixplorer.org/abs/2020AJ....160...78R/abstract",
   first-author: true,
 )
 
@@ -846,7 +846,7 @@
   "Zooming in on Individual Star Formation: Low- and High-mass Stars",
   [#me("Rosen, A.L."), Offner, S.S.R., Sadavoy, S.I., Bhandare, A., Vázquez-Semadeni, E., Ginsburg, A.],
   [2020, _Space Science Reviews_, 216, 62],
-  url: "https://ui.adsabs.harvard.edu/abs/2020SSRv..216...62R/abstract",
+  url: "https://scixplorer.org/abs/2020SSRv..216...62R/abstract",
   first-author: true,
 )
 
@@ -854,21 +854,21 @@
   "Formation and Evolution of Disks Around Young Stellar Objects",
   [Zhao, B., Tomida, K., Hennebelle, P., Tobin, J.J., Maury, A., Hirota, T., Sánchez-Monge, Á., Kuiper, R., #me("Rosen, A."), Bhandare, A., Padovani, M., Lee, Y.],
   [2020, _Space Science Reviews_, 216, 43],
-  url: "https://ui.adsabs.harvard.edu/abs/2020SSRv..216...43Z/abstract",
+  url: "https://scixplorer.org/abs/2020SSRv..216...43Z/abstract",
 )
 
 #pub(7,
   "Circumbinary Disks: Accretion and Torque as a Function of Mass Ratio and Disk",
   [Duffell, P.C., D'Orazio, D., Derdzinski, A., Haiman, Z., MacFayden, A., #me("Rosen, A.L."), Zrake, J.],
   [2020, _The Astrophysical Journal_, 901, 25],
-  url: "https://ui.adsabs.harvard.edu/abs/2020ApJ...901...25D/abstract",
+  url: "https://scixplorer.org/abs/2020ApJ...901...25D/abstract",
 )
 
 #pub(6,
   "Massive Star Formation via the Collapse of Subvirial and Virialized Turbulent Massive Cores",
   [#me("Rosen, A.L."), Li, P.S., Zhang, Q., Burkhart, B.],
   [2019, _The Astrophysical Journal_, 887, 108],
-  url: "https://ui.adsabs.harvard.edu/abs/2019ApJ...887..108R/abstract",
+  url: "https://scixplorer.org/abs/2019ApJ...887..108R/abstract",
   first-author: true,
 )
 
@@ -876,14 +876,14 @@
   [unyt: Handle, manipulate, and convert data with units in Python],
   [Goldbaum, N.J., ZuHone, J.A., Turk, M.J., Kowalik, K., #me("Rosen, A.L.")],
   [2018, _Journal of Open Source Software_, 3, 28, 809],
-  url: "http://adsabs.harvard.edu/abs/2018arXiv180602417G",
+  url: "https://scixplorer.org/abs/2018arXiv180602417G/abstract",
 )
 
 #pub(4,
   [HARM#super("2"): A Highly Parallel Method for Radiation Hydrodynamics on Adaptive Grids],
   [#me("Rosen, A.L."), Krumholz, M.R., Oishi, J.S., Lee, A.T., Klein, R.I.],
   [2017, _Journal of Computational Physics_, 330, 924],
-  url: "http://adsabs.harvard.edu/abs/2017JCoPh.330..924R",
+  url: "https://scixplorer.org/abs/2017JCoPh.330..924R/abstract",
   first-author: true,
 )
 
@@ -891,7 +891,7 @@
   "An Unstable Truth: How Massive Stars get their Mass",
   [#me("Rosen, A.L."), Krumholz, M.R., McKee, C.F., Klein, R.I.],
   [2016, _MNRAS_, 463, 2553],
-  url: "http://adsabs.harvard.edu/abs/2016MNRAS.463.2553R",
+  url: "https://scixplorer.org/abs/2016MNRAS.463.2553R/abstract",
   first-author: true,
 )
 
@@ -899,7 +899,7 @@
   "Gone with the Wind: Where is the Missing Stellar Wind Energy from Massive Star Clusters?",
   [#me("Rosen, A.L."), Lopez, L.A., Krumholz, M.R., Ramirez-Ruiz, E.],
   [2014, _MNRAS_, 442, 2701],
-  url: "http://adsabs.harvard.edu/abs/2014MNRAS.442.2701R",
+  url: "https://scixplorer.org/abs/2014MNRAS.442.2701R/abstract",
   first-author: true,
 )
 
@@ -907,7 +907,7 @@
   "What Sets the Initial Rotation Rates of Massive Stars?",
   [#me("Rosen, A.L."), Krumholz, M.R., Ramirez-Ruiz, E.],
   [2012, _The Astrophysical Journal_, 748, 97],
-  url: "http://adsabs.harvard.edu/abs/2012ApJ...748...97R",
+  url: "https://scixplorer.org/abs/2012ApJ...748...97R/abstract",
   first-author: true,
 )
 

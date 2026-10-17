@@ -481,9 +481,11 @@ states: `planned` → `in-preparation` → `submitted` → `published`.
 
 Every post's `paper.ads` is **required** by the schema, and the paper title —
 on the post and on the hub card — links to it. A reader is then always one
-click from the record rather than from a summary of it, and ADS is the record:
+click from the record rather than from a summary of it, and SciX is the record:
 it carries the abstract, the citation graph and the published version, which an
-arXiv link alone does not.
+arXiv link alone does not. SciX (scixplorer.org) is NASA ADS's successor and
+keeps ADS bibcodes, so every record link is `https://scixplorer.org/abs/<bibcode>/abstract`;
+the field keeps its old name, `ads`.
 
 Required rather than optional because a link that is usually there is a link a
 reader stops looking for. A post without one fails the build with

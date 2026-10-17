@@ -79,7 +79,7 @@ export const moviePapers: readonly MoviePaper[] = [
     venue: "MNRAS, 463, 2553",
     year: "2016",
     role: "The simulations shown on this page.",
-    ads: "https://ui.adsabs.harvard.edu/abs/2016MNRAS.463.2553R/abstract",
+    ads: "https://scixplorer.org/abs/2016MNRAS.463.2553R/abstract",
     arxiv: "https://arxiv.org/abs/1607.03117",
   },
   {
@@ -88,7 +88,7 @@ export const moviePapers: readonly MoviePaper[] = [
     venue: "Journal of Computational Physics, 330, 924",
     year: "2017",
     role: "The radiation method these runs use.",
-    ads: "https://ui.adsabs.harvard.edu/abs/2017JCoPh.330..924R/abstract",
+    ads: "https://scixplorer.org/abs/2017JCoPh.330..924R/abstract",
     arxiv: "https://arxiv.org/abs/1607.01802",
   },
 ];

@@ -42,7 +42,7 @@ export const news: readonly NewsItem[] = [
     links: [
       {
         label: "Paper on ADS",
-        href: "https://ui.adsabs.harvard.edu/abs/2020ApJ...899L..30G/abstract",
+        href: "https://scixplorer.org/abs/2020ApJ...899L..30G/abstract",
       },
       {
         label: "astrobites summary",
