@@ -30,9 +30,13 @@ import ReadinessMeter from "../components/ReadinessMeter.astro";
           <li class="te-resource">
             <span class="te-resource__kind">{r.kind}</span>
             <h3 class="te-resource__name">
-              <a href={r.url} rel="noopener">
-                {r.name} ↗
-              </a>
+              {r.url ? (
+                <a href={r.url} rel="noopener">
+                  {r.name} ↗
+                </a>
+              ) : (
+                r.name
+              )}
             </h3>
             <p class="te-resource__blurb">{r.blurb}</p>
             {(r.status || r.readiness) && (
@@ -66,6 +70,7 @@ import ReadinessMeter from "../components/ReadinessMeter.astro";
                 c.title
               )}
             </h3>
+            {c.formerly && <p class="te-course__formerly">formerly {c.formerly}</p>}
             <p class="te-course__blurb">{c.blurb}</p>
           </li>
         ))
@@ -130,6 +135,11 @@ import ReadinessMeter from "../components/ReadinessMeter.astro";
   }
   .te-course__title a:hover {
     color: var(--spec-teal-bright);
+  }
+  .te-course__formerly {
+    color: var(--ink-dim);
+    font-size: var(--step--1);
+    margin-block-end: var(--space-2xs);
   }
   .te-course__blurb {
     color: var(--ink-dim);

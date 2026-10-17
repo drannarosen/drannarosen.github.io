@@ -11,7 +11,7 @@
  * That is a deliberate act, which is the point: the feed fires on a real
  * update, not on every rebuild.
  */
-export const nowUpdated = new Date("2026-07-21");
+export const nowUpdated = new Date("2026-10-17");
 
 /*
  * The single feed item's summary. A /now feed is unusual — the page is a

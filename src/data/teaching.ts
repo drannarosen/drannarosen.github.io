@@ -77,6 +77,12 @@ export interface Course {
   terms: Term[];
   url?: string | null;
   /*
+   * The catalog title before a rename. Kept because teaching evaluations,
+   * syllabi and university records from earlier terms carry the old name, and
+   * a reader matching them against this list needs the link between the two.
+   */
+  formerly?: string;
+  /*
    * Course development, which the CV's "courses developed" stat counts.
    *
    * "new" is a course that did not exist before; "redesigned" is an existing
@@ -131,12 +137,14 @@ export const courses: Course[] = [
   },
   {
     code: "COMP 536",
-    title: "Computational Modeling for Scientists",
+    title: "Scientific Modeling and Machine Learning",
+    formerly: "Computational Modeling for Scientists",
     blurb:
-      "Think computationally: solve differential equations, fit models to data, and write maintainable scientific code.",
+      "Advanced computational methods and machine learning, implemented from mathematical foundations: Monte Carlo, Bayesian inference and MCMC, Gaussian processes, and neural networks.",
     terms: [
       { season: "spring", year: 2025 },
       { season: "spring", year: 2026 },
+      { season: "spring", year: 2027 },
     ],
     url: "https://astrobytes-edu.github.io/comp536-sp26/",
     developed: "redesigned"
@@ -164,11 +172,15 @@ export const courses: Course[] = [
   },
   {
     code: "COMP 521",
-    title: "Introduction to Computational Science",
+    title: "Introduction to Scientific Computing and Data Science",
+    formerly: "Introduction to Computational Science",
     blurb:
       "From scratch to professional practice: numerical methods, data science, and software engineering — all in Python.",
-    terms: [{ season: "fall", year: 2024 }],
-    url: null,
+    terms: [
+      { season: "fall", year: 2024 },
+      { season: "fall", year: 2026 },
+    ],
+    url: "https://astrobytes-edu.github.io/comp521/",
     developed: "redesigned"
   },
 ];
@@ -176,7 +188,11 @@ export const courses: Course[] = [
 export interface LearningResource {
   name: string;
   blurb: string;
-  url: string;
+  /*
+   * Omitted while the thing exists but is not public — Sophie's repository is
+   * private until release, and a link to it is a 404 for every reader.
+   */
+  url?: string;
   kind: string;
   /*
    * Development status, shown with the same badge + meter as /software. These
@@ -196,7 +212,6 @@ export const learningResources: LearningResource[] = [
     kind: "Authoring platform",
     blurb:
       "A schema-driven, AI-authorable platform for interactive textbooks, course sites and slides — one lesson, many accessible outputs.",
-    url: "https://github.com/drannarosen/sophie",
     status: "active-build",
     readiness: "advanced",
     maturity: "Active development · not yet released for external use",

@@ -193,8 +193,7 @@ const fmt = (d: Date) =>
       <h2 class="now__h2">On my desk</h2>
       <div class="prose flow">
         <p>
-          I'm writing the <a href="/software/progenax">progenax</a> methods paper,
-          and I expect it out later this summer.
+          I'm writing the <a href="/software/progenax">progenax</a> methods paper.
         </p>
         {
           underReview.map((p) => (
@@ -348,9 +347,13 @@ const fmt = (d: Date) =>
         {
           hobby.map((r) => (
             <li>
-              <a class="now__name" href={r.url} rel="noopener">
-                {r.name}
-              </a>
+              {r.url ? (
+                <a class="now__name" href={r.url} rel="noopener">
+                  {r.name}
+                </a>
+              ) : (
+                <span class="now__name">{r.name}</span>
+              )}
               <span class="now__meta">{r.blurb}</span>
             </li>
           ))

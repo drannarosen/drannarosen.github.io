@@ -401,7 +401,7 @@
   [#link("https://www.startastro.org", text(fill: accent, "STARTAstro")) Program (community college transfer student)]))
 #v(3pt)
 
-#cv-entry([Alex Escamilla (SDSU) #ref-star], "2024--2026")
+#cv-entry([Alex Escamilla (SDSU) #ref-star], "2024--2025")
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
   [Bridging Theory and Observation: Synthetic FIR Insights into Star Formation Efficiency]))
 #v(3pt)
@@ -531,12 +531,13 @@
 #cv-entry([
   #text(font: mono, fill: accent, size: 9.5pt, "COMP 536")
   #h(4pt)
-  #text(font: sans, weight: "semibold", link("https://astrobytes-edu.github.io/comp536-sp26/", text(fill: accent, "Computational Modeling for Scientists")))
+  #text(font: sans, weight: "semibold", link("https://astrobytes-edu.github.io/comp536-sp26/", text(fill: accent, "Scientific Modeling and Machine Learning")))
   #h(4pt)
   #pill("course modernization")
-], "Spring 2025, 2026")
+], "Spring 2025, 2026, 2027")
+#block(inset: (left: 12pt), text(size: 8.5pt, fill: secondary, [formerly Computational Modeling for Scientists]))
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
-  [Think computationally: solve differential equations, fit models to data, and write maintainable scientific code]))
+  [Advanced computational methods and machine learning, implemented from mathematical foundations: Monte Carlo, Bayesian inference and MCMC, Gaussian processes, and neural networks]))
 #v(3pt)
 
 #cv-entry([
@@ -560,10 +561,11 @@
 #cv-entry([
   #text(font: mono, fill: accent, size: 9.5pt, "COMP 521")
   #h(4pt)
-  #text(font: sans, weight: "semibold", "Introduction to Computational Science")
+  #text(font: sans, weight: "semibold", link("https://astrobytes-edu.github.io/comp521/", text(fill: accent, "Introduction to Scientific Computing and Data Science")))
   #h(4pt)
   #pill("course modernization")
-], "Fall 2024")
+], "Fall 2024, 2026")
+#block(inset: (left: 12pt), text(size: 8.5pt, fill: secondary, [formerly Introduction to Computational Science]))
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
   [From scratch to professional practice: numerical methods, data science, and software engineering — all in Python]))
 #v(4pt)
