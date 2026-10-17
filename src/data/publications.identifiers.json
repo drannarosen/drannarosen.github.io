@@ -1,5 +1,6 @@
 {
   "_comment": "HUMAN-OWNED. Identifiers that belong to a work ORCID already knows about, but which the ORCID record itself does not carry. ORCID frequently holds the DOI and nothing else, which leaves the bibliography with no SciX (formerly ADS) link even for a published paper. The sync never reads or writes this file, so these survive every regeneration of generated/publications.json.",
+
   "_howToUse": [
     "Key on `doi` — the identifier ORCID reliably does have.",
     "`bibcode` FILLS IN a null field, and REPLACES a preprint (arXiv) bibcode once",
@@ -10,6 +11,7 @@
     "own DOI resolution (scixplorer.org/abs/<doi>), each checked against the",
     "volume Crossref gives for that DOI."
   ],
+
   "identifiers": [
     {
       "doi": "10.3847/1538-4357/ae6cdc",

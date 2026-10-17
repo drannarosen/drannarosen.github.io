@@ -26,6 +26,10 @@
     {
       "doi": "10.1017/S1743921314004657",
       "reason": "IAU proceedings (Highlights of Astronomy), which ORCID mistypes as a journal-article. A conference-summary Anna neither wrote nor reviewed — every attendee was listed as an author — so it does not belong in the bibliography. Proceedings are excluded per policy above."
+    },
+    {
+      "doi": "10.48550/arXiv.2509.02679",
+      "reason": "arXiv preprint of the 2026 ApJ γ-ray paper (10.3847/1538-4357/ae4690), retitled before publication; SciX resolves both to 2026ApJ..1000..102P. Listing both counted one paper twice."
     }
   ]
 }
