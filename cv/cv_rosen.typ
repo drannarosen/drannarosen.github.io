@@ -346,7 +346,7 @@
   [#smallcaps[AstroRAG]: Evidence-Aware Scientific Literature Retrieval --- a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery]))
 #v(3pt)
 
-#cv-entry([Aisling Acuna (Masters Student, SDSU)], "2024--Present")
+#cv-entry([Aisling Acuna (M.S. Astronomy, SDSU)], "2024--2026")
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
   // NOT #smallcaps here, unlike the code names in the descriptions above and
   // below: this is a THESIS TITLE quoted as written, and smallcaps rendered it

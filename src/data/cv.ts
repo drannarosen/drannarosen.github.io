@@ -120,7 +120,7 @@ export const graduateAdvisees: Advisee[] = [
   // `completed`, not `finishing`: he is done, and those two fields are what put
   // a student under "just finished" versus "nearly out the door" on /now.
   { name: "Surinder Singh Chhabra", completed: "Summer 2026", affiliation: "M.S. Computational Science — Data Science, SDSU", date: "2025–2026", project: "AstroRAG: Evidence-Aware Scientific Literature Retrieval — a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery" , group: true },
-  { name: "Aisling Acuna", affiliation: "Masters Student, SDSU", finishing: "August 2026", date: "2024–Present", project: "Bridging STARFORGE and SKIRT: A Synthetic Observation Pipeline for High-Fidelity Star Cluster Formation Simulations" , group: true },
+  { name: "Aisling Acuna", completed: "August 2026", affiliation: "M.S. Astronomy, SDSU", date: "2024–2026", project: "Bridging STARFORGE and SKIRT: A Synthetic Observation Pipeline for High-Fidelity Star Cluster Formation Simulations" , group: true },
   { name: "Paarmita Pandey", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Fermi Observations of the Diffuse γ-ray Emission of Young Massive Star Clusters", refereed: true },
   { name: "Jennifer Rodriguez", affiliation: "PhD Student, OSU", date: "2022–Present", project: "Tracing the Impact of Stellar Wind Feedback in N79 & 30 Doradus in the LMC with Chandra", refereed: true },
   { name: "Sabrina Appel", affiliation: "PhD Student, Rutgers; Postdoc, AMNH", date: "2020–2023", project: "Effects of B-fields and Feedback on the Shape and Evolution of the Density PDF in Star Formation", refereed: true },
