@@ -14,6 +14,7 @@ import annotations from "./publications.notes.json";
 import additions from "./publications.additions.json";
 import identifiers from "./publications.identifiers.json";
 import humanAbstracts from "./publications.abstracts.json";
+import studentLeadRecord from "../../cv/generated/student-lead.json";
 
 export interface SyncedWork {
   title: string;
@@ -313,6 +314,17 @@ export function shortCitation(w: SyncedWork): string | null {
 }
 
 /** Canonical external link for a work: DOI first, then ADS, then arXiv. */
+/*
+ * Papers a student I advised led (first author). Derived once, by
+ * scripts/cv/check.mjs from the advisee records, and read here and by the CV —
+ * so the two cannot disagree about which papers carry the star.
+ */
+const studentLedDois = new Set(
+  studentLeadRecord.papers.map((p) => (p.doi ?? "").toLowerCase()).filter(Boolean),
+);
+export const isStudentLed = (w: SyncedWork): boolean =>
+  w.doi != null && studentLedDois.has(w.doi.toLowerCase());
+
 /** The SciX record for a bibcode. SciX replaced NASA ADS; bibcodes carry over. */
 export const scixUrl = (bibcode: string) =>
   `https://scixplorer.org/abs/${bibcode}/abstract`;

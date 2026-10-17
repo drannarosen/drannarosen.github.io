@@ -132,6 +132,11 @@
 // scripts/cv/check.mjs, which also gates that no recorded paper is missing here.
 #let cv-counts = json("generated/counts.json")
 
+// Entry numbers of papers a student I advised led (first author), DERIVED by
+// scripts/cv/check.mjs from the advisee records in src/data/cv.ts. pub() stars
+// those; nothing here is marked by hand.
+#let student-lead = json("generated/student-lead.json").papers.map(p => p.cv)
+
 // Global text defaults
 #set text(font: serif, size: 10pt, fill: body-color)
 #set par(leading: 0.55em)
@@ -619,6 +624,10 @@
 // ============================================================
 #cv-section("Refereed Publications")
 
+#block(inset: (left: 0pt), text(size: 9pt, fill: secondary,
+  [#ref-star A student I advised, as lead author]))
+#v(4pt)
+
 // Helper for a publication entry
 #let pub(n, title, authors, journal, url: none, status: none, first-author: false) = {
   let entry-content = {
@@ -629,6 +638,10 @@
       {
         text(font: sans, weight: "semibold", size: 10pt, fill: charcoal, title)
         linebreak()
+        if student-lead.contains(n) {
+          ref-star
+          h(1.5pt)
+        }
         text(size: 9.5pt, authors)
         linebreak()
         {

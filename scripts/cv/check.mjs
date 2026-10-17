@@ -18,10 +18,17 @@
  * live in cv/cv-omit.json, human-owned with a reason — the same pattern as
  * publications.exclude.json.
  *
- *   node scripts/cv/check.mjs           # write counts, report drift
- *   node scripts/cv/check.mjs --check   # exit 1 on drift or stale counts (CI)
+ * It also derives which papers a student I advised LED (first author, matched
+ * against the advisee records in src/data/cv.ts). Both the CV and /publications
+ * star those from this one output, so a new student paper is marked by the
+ * next sync rather than by someone remembering to.
  *
- * Output: cv/generated/counts.json (generated — do not hand-edit)
+ *   node scripts/cv/check.mjs           # write counts, report drift
+ *   node scripts/cv/check.mjs --check   # exit 1 on drift or stale output (CI)
+ *
+ * Output (generated — do not hand-edit):
+ *   cv/generated/counts.json        publication counts, read by the CV
+ *   cv/generated/student-lead.json  student-led papers, read by the CV and /publications
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
@@ -35,6 +42,8 @@ const ADDITIONS = resolve(ROOT, "src/data/publications.additions.json");
 const OMIT = resolve(ROOT, "cv/cv-omit.json");
 const TYPST = resolve(ROOT, "cv/cv_rosen.typ");
 const OUT = resolve(ROOT, "cv/generated/counts.json");
+const ADVISEES = resolve(ROOT, "src/data/cv.ts");
+const OUT_LEAD = resolve(ROOT, "cv/generated/student-lead.json");
 
 /* ---- normalisation helpers ---- */
 
@@ -86,8 +95,14 @@ const cvBibcodes = new Set();
 const cvSigs = new Set();
 const cvTitles = new Set();
 
-for (const m of pubSection.matchAll(/#pub\(\s*\d+,\s*([\s\S]*?)\n\)/g)) {
-  const block = m[1];
+// Per-block keys too, so a record can be traced back to its CV entry number.
+const cvBlocks = [];
+
+for (const m of pubSection.matchAll(/#pub\(\s*(\d+),\s*([\s\S]*?)\n\)/g)) {
+  const n = Number(m[1]);
+  const block = m[2];
+  const keys = { n, doi: null, bib: null, sig: null, title: null };
+  cvBlocks.push(keys);
   const brackets = [...block.matchAll(/\[([\s\S]*?)\]/g)].map((b) => b[1]);
   // The title is the first argument. It is EITHER a quoted string (then the
   // brackets are [authors, venue]) OR itself bracketed (then [title, authors,
@@ -95,12 +110,15 @@ for (const m of pubSection.matchAll(/#pub\(\s*\d+,\s*([\s\S]*?)\n\)/g)) {
   const titleIsBracketed = block.trimStart().startsWith("[");
   const title = titleIsBracketed ? brackets[0] : block.slice(0, block.indexOf("["));
   cvTitles.add(titleKey(title));
+  keys.title = titleKey(title);
 
   const url = block.match(/url:\s*"([^"]+)"/)?.[1] ?? "";
   const bib = url.match(/\/abs\/([^/]+)\/abstract/i)?.[1];
   if (bib) cvBibcodes.add(norm(bib));
+  keys.bib = bib ? norm(bib) : null;
   const doi = url.match(/(?:doi\.org\/|10\.21105\/)(\S+)/i)?.[0]?.replace(/^https?:\/\/doi\.org\//i, "");
   if (doi) cvDois.add(norm(doi));
+  keys.doi = doi ? norm(doi) : null;
 
   // Venue line is the LAST bracket. It may be [YEAR, _Journal_, VOL, PAGE] or
   // carry an extra issue number [YEAR, _Journal_, VOL, ISSUE, PAGE], so take the
@@ -112,6 +130,7 @@ for (const m of pubSection.matchAll(/#pub\(\s*\d+,\s*([\s\S]*?)\n\)/g)) {
   if (year && nums.length >= 1) {
     const s = sig(year, nums[0], nums[nums.length - 1]);
     if (s) cvSigs.add(s);
+    keys.sig = s;
   }
 }
 
@@ -124,6 +143,56 @@ const inCv = (w) =>
   cvTitles.has(titleKey(w.title));
 
 const missing = expected.filter((w) => !inCv(w));
+
+/* ---- student-led papers (derived) ---- */
+
+// Advisee names, read from the two advisee arrays in src/data/cv.ts — the same
+// records the CV's Advising section and /group print.
+const cvTs = readFileSync(ADVISEES, "utf8");
+const adviseeNames = ["graduateAdvisees", "undergraduateAdvisees"].flatMap((arr) => {
+  const start = cvTs.indexOf(`export const ${arr}`);
+  const body = cvTs.slice(start, cvTs.indexOf("\n];", start));
+  return [...body.matchAll(/\bname:\s*"([^"]+)"/g)].map((m) => m[1]);
+});
+
+// Family name + first initial, accents folded: "Grudić, Michael Y." and
+// "Grudic, M." match; "Escamilla, Alexander" matches advisee "Alex Escamilla".
+const fold = (s) => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const adviseeKeys = new Map(
+  adviseeNames.map((name) => {
+    const parts = name.trim().split(/\s+/);
+    return [`${fold(parts[parts.length - 1])}|${fold(parts[0])[0]}`, name];
+  }),
+);
+const authorKey = (a) => {
+  const [family, given = ""] = (a ?? "").split(",");
+  return `${fold(family)}|${fold(given)[0] ?? ""}`;
+};
+
+const cvNumberOf = (w) =>
+  cvBlocks.find(
+    (b) =>
+      (w.doi && b.doi === norm(w.doi)) ||
+      (w.bibcode && b.bib === norm(w.bibcode)) ||
+      (b.sig && b.sig === sig(w.year, w.volume, w.page)) ||
+      b.title === titleKey(w.title),
+  )?.n ?? null;
+
+const studentLead = expected
+  .map((w) => ({ w, student: adviseeKeys.get(authorKey(w.authors?.[0])) }))
+  .filter(({ student }) => student)
+  .map(({ w, student }) => ({ student, doi: w.doi ?? null, cv: cvNumberOf(w), title: w.title }));
+
+const leadJson =
+  JSON.stringify(
+    {
+      _comment:
+        "GENERATED by scripts/cv/check.mjs: papers whose first author is a student I advised (src/data/cv.ts advisee records). Do not hand-edit. Read by cv/cv_rosen.typ (by `cv`, the entry number) and /publications (by `doi`).",
+      papers: studentLead,
+    },
+    null,
+    2,
+  ) + "\n";
 
 /* ---- counts (derived, for the typst headline) ---- */
 
@@ -160,9 +229,16 @@ if (isCheck) {
     failed = true;
     console.error(`[cv] ${OUT} is stale — run: node scripts/cv/check.mjs`);
   }
+  const currentLead = existsSync(OUT_LEAD) ? readFileSync(OUT_LEAD, "utf8") : "";
+  if (currentLead !== leadJson) {
+    failed = true;
+    console.error(`[cv] ${OUT_LEAD} is stale — run: node scripts/cv/check.mjs`);
+  }
   process.exit(failed ? 1 : 0);
 }
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, countsJson);
+writeFileSync(OUT_LEAD, leadJson);
+console.log(`[cv] student-led: ${studentLead.length} paper(s) -> ${OUT_LEAD}`);
 console.log(`[cv] counts: ${counts.refereed} refereed, ${counts.firstAuthor} first-author, ${counts.software} software, ${counts.submitted} submitted -> ${OUT}`);

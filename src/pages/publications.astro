@@ -18,6 +18,7 @@ import {
   abstractFor,
   allPublications,
   bibcodeOf,
+  isStudentLed,
   journalUrl,
   scixUrl,
   type SyncedWork,
@@ -168,6 +169,9 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     <h2 id="all-pubs" class="allpubs__heading">
       Full bibliography <span class="allpubs__count">{publicationCount} works</span>
     </h2>
+    <p class="allpubs__legend">
+      <span class="allpubs__star" aria-hidden="true">★</span> A student I advised, as lead author
+    </p>
 
     {/* Progressive enhancement: without JS this control is absent and both
         groups simply render, which is the complete bibliography. */}
@@ -212,7 +216,17 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
                       ) : w.submittedTo && (
                         <span class="allpubs__pill">Submitted to {w.submittedTo}</span>
                       )}
-                      {line && <span class="allpubs__authors">{line}</span>}
+                      {line && (
+                        <span class="allpubs__authors">
+                          {isStudentLed(w) && (
+                            <span class="allpubs__star" title="A student I advised, as lead author">
+                              <span aria-hidden="true">★ </span>
+                              <span class="visually-hidden">Student-led: </span>
+                            </span>
+                          )}
+                          {line}
+                        </span>
+                      )}
                       {w.venue && <span class="allpubs__venue">{w.venue}</span>}
                       {(journalUrl(w) || w.bibcode || w.arxiv) && (
                         <span class="allpubs__links">
@@ -606,6 +620,14 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     border-radius: 999px;
     padding: 1px 8px;
     vertical-align: 2px;
+  }
+  .allpubs__star {
+    color: var(--spec-teal-bright);
+  }
+  .allpubs__legend {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-dim);
   }
   .allpubs__authors {
     display: block;
