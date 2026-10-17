@@ -23,7 +23,7 @@ export interface Publication {
   authors: string;
   venue: string;
   year: string;
-  status?: "submitted" | null;
+  status?: "submitted" | "accepted" | null;
   /*
    * Where a submission has got to, in one clause, shown only on /now.
    * `status` is the record and stays coarse; this is the news, and news is
@@ -45,9 +45,7 @@ export const featuredPublications: Publication[] = [
     authors: "**Rosen, A. L.**",
     venue: "The Astrophysical Journal",
     year: "2026",
-    status: "submitted",
-    // Reads as a mid-sentence clause after an em dash, so it starts lowercase.
-    reviewNote: "the referee report was positive",
+    status: "accepted",
     arxiv: "https://arxiv.org/abs/2603.15779",
     ads: "https://ui.adsabs.harvard.edu/abs/2026arXiv260315779R/abstract",
     summary:

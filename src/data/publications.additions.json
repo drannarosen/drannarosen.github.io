@@ -4,7 +4,8 @@
   "_howToUse": [
     "Add an entry when a paper is submitted, with `submittedTo` set to the short",
     "journal name for the pill (e.g. \"ApJ\", \"MNRAS\").",
-    "When it is accepted and appears in ORCID, DELETE the entry here — the sync",
+    "When it is accepted, replace `submittedTo` with `acceptedIn` (same short name).",
+    "Once it appears in ORCID, DELETE the entry here — the sync",
     "will carry it from then on. Entries are matched to synced works by DOI,",
     "arXiv id and title, so a brief overlap de-duplicates rather than double-lists.",
     "`authors` drives the first-author/co-authored split, same as synced works."
@@ -15,7 +16,7 @@
       "title": "Confidently Wrong: Why Ignoring Binaries Biases IMF Inference at Large Sample Sizes",
       "year": "2026",
       "venue": "arXiv preprint",
-      "submittedTo": "ApJ",
+      "acceptedIn": "ApJ",
       "type": "preprint",
       "doi": null,
       "bibcode": "2026arXiv260315779R",

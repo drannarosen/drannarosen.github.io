@@ -92,9 +92,7 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
             <span class="pub__venue">
               {p.year} · {p.venue}
             </span>
-            {p.status === "submitted" && (
-              <span class="pub__badge">submitted</span>
-            )}
+            {p.status && <span class="pub__badge">{p.status}</span>}
           </p>
           <h2 class="pub__title">{p.title}</h2>
           <p class="pub__authors">
@@ -195,7 +193,9 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
                       ) : (
                         <span>{w.title}</span>
                       )}
-                      {w.submittedTo && (
+                      {w.acceptedIn ? (
+                        <span class="allpubs__pill">Accepted in {w.acceptedIn}</span>
+                      ) : w.submittedTo && (
                         <span class="allpubs__pill">Submitted to {w.submittedTo}</span>
                       )}
                       {line && <span class="allpubs__authors">{line}</span>}

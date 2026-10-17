@@ -251,7 +251,7 @@ export const selectedPublications: Publication[] = [
     authors: "**Rosen, A. L.**",
     venue: "The Astrophysical Journal",
     year: "2026",
-    status: "submitted",
+    status: "accepted",
     ads: "https://ui.adsabs.harvard.edu/abs/2026arXiv260315779R/abstract",
   },
   {

@@ -61,6 +61,8 @@ const focus = pick(["gravax", "startrax"]);
 const simmering = pick(["fluxax", "informax"]);
 
 const underReview = featuredPublications.filter((p) => p.status === "submitted");
+// Clears itself once the record moves on to "published".
+const accepted = featuredPublications.filter((p) => p.status === "accepted");
 
 const teachingNow = coursesNow(courses, now);
 const upNext = nextCourse(courses, now);
@@ -199,6 +201,22 @@ const fmt = (d: Date) =>
             <p>
               <span class="now__title">{p.title}</span> is under review at {p.venue}
               {p.reviewNote && <> — {p.reviewNote}</>}
+              {p.arxiv && (
+                <>
+                  {". "}
+                  <a href={p.arxiv} rel="noopener">
+                    Read it on arXiv
+                  </a>
+                </>
+              )}
+              .
+            </p>
+          ))
+        }
+        {
+          accepted.map((p) => (
+            <p>
+              <span class="now__title">{p.title}</span> was accepted to {p.venue}
               {p.arxiv && (
                 <>
                   {". "}

@@ -43,6 +43,8 @@ export interface SyncedWork {
    * publications.additions.json.
    */
   submittedTo?: string | null;
+  /** Short journal name once a paper is accepted but not yet in ORCID. */
+  acceptedIn?: string | null;
   /** Journal volume, from Crossref — ORCID does not carry it. */
   volume?: string | null;
   /** Page or article number, from Crossref. */
@@ -148,7 +150,8 @@ const extra: SyncedWork[] = additions.additions
       arxiv: a.arxiv,
       authors: a.authors,
       firstAuthor: isFirstAuthor(a.authors),
-      submittedTo: a.submittedTo,
+      submittedTo: (a as { submittedTo?: string }).submittedTo ?? null,
+      acceptedIn: (a as { acceptedIn?: string }).acceptedIn ?? null,
       // A submitted paper ORCID cannot see yet may still carry its own abstract
       // here (verbatim from arXiv). Dropped automatically once it enters ORCID
       // and this addition de-dupes out.
@@ -326,7 +329,14 @@ export function bibtex(w: SyncedWork): string {
     ["eprint", w.arxiv],
     ["archivePrefix", w.arxiv ? "arXiv" : null],
     ["adsurl", w.bibcode ? `https://ui.adsabs.harvard.edu/abs/${w.bibcode}/abstract` : null],
-    ["note", w.submittedTo ? `Submitted to ${w.submittedTo}` : null],
+    [
+      "note",
+      w.acceptedIn
+        ? `Accepted for publication in ${w.acceptedIn}`
+        : w.submittedTo
+          ? `Submitted to ${w.submittedTo}`
+          : null,
+    ],
   ];
 
   const body = fields

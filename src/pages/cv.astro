@@ -244,9 +244,7 @@ const navItems = sections.map((s) => ({ id: slugify(s.title), label: s.nav }));
                     <span class="cv-pub__venue">
                       {p.year} · {p.venue}
                     </span>
-                    {p.status === "submitted" && (
-                      <span class="cv-pub__badge">submitted</span>
-                    )}
+                    {p.status && <span class="cv-pub__badge">{p.status}</span>}
                     {p.ads && (
                       <a class="cv-pub__ads" href={p.ads} rel="noopener">
                         NASA ADS ↗

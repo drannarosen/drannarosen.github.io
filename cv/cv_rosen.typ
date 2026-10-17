@@ -664,7 +664,7 @@
   "Confidently Wrong: Why Ignoring Binaries Biases IMF Inference at Large Sample Sizes",
   [#me("Rosen, A.L.")],
   [_The Astrophysical Journal_],
-  status: "submitted",
+  status: "accepted",
   first-author: true,
   url: "https://ui.adsabs.harvard.edu/abs/2026arXiv260315779R/abstract",
 )
