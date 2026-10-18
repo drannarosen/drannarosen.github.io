@@ -5,6 +5,8 @@
  * Research page.
  */
 
+import topicsRecord from "./publications.topics.json";
+
 export interface RelatedLink {
   label: string;
   href: string;
@@ -47,6 +49,17 @@ export interface ResearchQuestion {
   figure?: ResearchFigure;
 }
 
+/*
+ * A link to one topic of the /publications filter. Built from the topic record
+ * rather than typed as a URL, and throws on an unknown id, so renaming a topic
+ * fails the build instead of leaving a link that quietly filters to nothing.
+ */
+function papersOn(topicId: string): RelatedLink {
+  const t = topicsRecord.topics.find((x) => x.id === topicId);
+  if (!t) throw new Error(`research.ts: no publications topic "${topicId}".`);
+  return { label: `${t.label} papers`, href: `/publications?topic=${t.id}#all-pubs` };
+}
+
 export const researchQuestions: ResearchQuestion[] = [
   {
     question: "How do massive stars assemble against their own feedback?",
@@ -58,7 +71,7 @@ export const researchQuestions: ResearchQuestion[] = [
       "Magnetic fields",
       "Accretion",
     ],
-    related: [{ label: "Selected publications", href: "/cv#cv-pubs" }],
+    related: [papersOn("massive-star-formation")],
   },
   {
     question: "How does stellar feedback sculpt clusters and the interstellar medium?",
@@ -70,6 +83,7 @@ export const researchQuestions: ResearchQuestion[] = [
       "Turbulence",
       "30 Doradus & the LMC",
     ],
+    related: [papersOn("stellar-feedback")],
   },
   {
     id: "identifiability",
@@ -82,7 +96,10 @@ export const researchQuestions: ResearchQuestion[] = [
       "Identifiability",
       "Rubin/LSST & Gaia",
     ],
-    related: [{ label: "Selected publications", href: "/cv#cv-pubs" }],
+    related: [
+      papersOn("clusters-imf"),
+      { label: "Confidently Wrong, in plain language", href: "/astrobytes/confidently-wrong" },
+    ],
     figure: {
       id: "informax-telescope-adds-ten-pounds",
     },
@@ -97,7 +114,7 @@ export const researchQuestions: ResearchQuestion[] = [
       "Optimal experimental design",
       "Scientific software",
     ],
-    related: [{ label: "The Jaxstro ecosystem", href: "/software" }],
+    related: [{ label: "The Jaxstro ecosystem", href: "/software" }, papersOn("methods-software")],
     figure: {
       id: "gravax-demo-01",
     },
