@@ -225,6 +225,23 @@ export const topicsOf = (w: SyncedWork): string[] => {
   const k = topicKey(w);
   return (k ? topicsByKey.get(k) : undefined) ?? [];
 };
+
+/*
+ * The topics of the paper an astrobyte is about, matched on what its
+ * frontmatter already declares: the SciX bibcode, else the arXiv id. A post
+ * inherits its paper's topics rather than restating them, so the hub and
+ * /publications cannot disagree. A post about a paper outside my bibliography
+ * matches nothing and carries no topic, which is correct.
+ */
+export function topicsOfPaper(paper: { ads: string; arxiv?: string } | undefined): string[] {
+  if (!paper) return [];
+  const bib = bibcodeOf(paper.ads);
+  const arx = paper.arxiv?.match(/arxiv\.org\/abs\/(\d{4}\.\d{4,5})/i)?.[1] ?? null;
+  const w =
+    (bib ? allPublications.find((x) => x.bibcode === bib) : undefined) ??
+    (arx ? allPublications.find((x) => x.arxiv === arx) : undefined);
+  return w ? topicsOf(w) : [];
+}
 /** Counts the merged list, so additions are included rather than only synced. */
 export const publicationCount: number = allPublications.length;
 /**

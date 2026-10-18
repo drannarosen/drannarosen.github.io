@@ -3,10 +3,24 @@ import { getCollection } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import ProvenanceBadge from "../../components/post/ProvenanceBadge.astro";
+import { topics, topicsOfPaper } from "../../data/allPublications";
 
 const posts = (await getCollection("astrobytes", ({ data }) => !data.draft)).sort(
   (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
 );
+
+/*
+ * Topics come from the paper each post is about (publications.topics.json),
+ * never from the post, so the hub and /publications agree by construction.
+ * Only topics that have a post get a button, and the bar appears only once the
+ * posts span two topics — before that it would be a control that does nothing.
+ */
+const postTopics = new Map(posts.map((p) => [p.id, topicsOfPaper(p.data.paper)]));
+const topicLabel = new Map(topics.map((t) => [t.id, t.label]));
+const usedTopics = topics
+  .map((t) => ({ ...t, n: posts.filter((p) => postTopics.get(p.id)!.includes(t.id)).length }))
+  .filter((t) => t.n > 0);
+const showTopicBar = usedTopics.length >= 2;
 
 // Format in UTC: frontmatter dates are bare (2026-07-19) and parse to UTC
 // midnight, so formatting in a west-of-UTC local zone would render a day early.
@@ -55,10 +69,30 @@ const fmt = (d: Date) =>
   </div>
   </div>
 
-  <ul class="wrap ab-list" role="list">
+  {
+    showTopicBar && (
+      <div class="wrap">
+        <div class="ab-topics" hidden data-topic-bar>
+          <span class="ab-topics__label" id="ab-topic-label">Topic</span>
+          <div class="ab-topics__opts" role="group" aria-labelledby="ab-topic-label">
+            <button type="button" class="ab-chip" data-topic="all" aria-pressed="true">
+              All <span class="ab-chip__n">{posts.length}</span>
+            </button>
+            {usedTopics.map((t) => (
+              <button type="button" class="ab-chip" data-topic={t.id} aria-pressed="false">
+                {t.label} <span class="ab-chip__n">{t.n}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  <ul class="wrap ab-list" role="list" id="ab-list">
     {
       posts.map((p) => (
-        <li class="ab-card">
+        <li class="ab-card" data-topics={postTopics.get(p.id)!.join(" ")}>
           <p class="ab-card__meta">
             <time datetime={p.data.date.toISOString()}>{fmt(p.data.date)}</time>
             <span class="ab-card__level">{p.data.level}</span>
@@ -77,11 +111,64 @@ const fmt = (d: Date) =>
               — {p.data.paper.authors} ({p.data.paper.year})
             </p>
           )}
+          {postTopics.get(p.id)!.length > 0 && (
+            <p class="ab-card__topics">
+              {postTopics.get(p.id)!.map((t) => (
+                <a
+                  class="ab-tag"
+                  href={showTopicBar ? `/astrobytes?topic=${t}` : `/publications?topic=${t}#all-pubs`}
+                  data-topic-link={t}
+                >
+                  {topicLabel.get(t)}
+                </a>
+              ))}
+            </p>
+          )}
         </li>
       ))
     }
     {posts.length === 0 && <li class="ab-empty">No posts yet.</li>}
   </ul>
+
+  <script>
+    // Topic filter. The bar is revealed only once JS runs, so a no-JS visitor
+    // sees every post and no dead control. ?topic= makes a filter linkable,
+    // matching /publications.
+    const bar = document.querySelector<HTMLElement>("[data-topic-bar]");
+    const cards = [...document.querySelectorAll<HTMLElement>(".ab-card")];
+    if (bar) {
+      bar.hidden = false;
+      const btns = [...bar.querySelectorAll<HTMLButtonElement>("[data-topic]")];
+      const known = new Set(btns.map((b) => b.dataset.topic));
+      let topic = new URLSearchParams(location.search).get("topic") ?? "all";
+      if (!known.has(topic)) topic = "all";
+
+      const apply = () => {
+        for (const b of btns) b.setAttribute("aria-pressed", String(b.dataset.topic === topic));
+        for (const c of cards) {
+          c.hidden = topic !== "all" && !(c.dataset.topics ?? "").split(" ").includes(topic);
+        }
+      };
+      const setTopic = (t: string) => {
+        topic = t;
+        const url = new URL(location.href);
+        if (t === "all") url.searchParams.delete("topic");
+        else url.searchParams.set("topic", t);
+        history.replaceState(null, "", url);
+        apply();
+      };
+      for (const b of btns) b.addEventListener("click", () => setTopic(b.dataset.topic ?? "all"));
+      for (const a of document.querySelectorAll<HTMLAnchorElement>("[data-topic-link]")) {
+        if (!known.has(a.dataset.topicLink)) continue;
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          setTopic(a.dataset.topicLink ?? "all");
+          bar.scrollIntoView({ block: "start" });
+        });
+      }
+      apply();
+    }
+  </script>
 </BaseLayout>
 
 <style>
@@ -134,6 +221,66 @@ const fmt = (d: Date) =>
     margin-block-start: var(--space-2xs);
     font-size: var(--step--1);
     color: var(--ink-dim);
+  }
+  .ab-topics {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s);
+    padding-block-end: var(--space-l);
+  }
+  .ab-topics__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+  }
+  .ab-topics__opts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+  .ab-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-3xs);
+    padding: var(--space-3xs) var(--space-xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .ab-chip:hover {
+    color: var(--ink);
+    border-color: var(--border-strong);
+  }
+  .ab-chip[aria-pressed="true"] {
+    color: var(--spec-teal-bright);
+    border-color: color-mix(in srgb, var(--spec-teal-bright) 45%, transparent);
+  }
+  .ab-chip__n {
+    color: var(--ink-faint);
+  }
+  .ab-card__topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs) var(--space-2xs);
+    margin-block-start: var(--space-2xs);
+  }
+  .ab-tag {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0 var(--space-2xs);
+  }
+  .ab-tag:hover {
+    color: var(--spec-teal-bright);
+    border-color: color-mix(in srgb, var(--spec-teal-bright) 45%, transparent);
   }
   .ab-empty {
     color: var(--ink-dim);
