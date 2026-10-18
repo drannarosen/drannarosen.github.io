@@ -1,0 +1,296 @@
+{
+  "_comment": "HUMAN-OWNED. Research topics for every paper in the bibliography, keyed by DOI (or arxiv:<id> for a paper with no DOI yet). A paper may carry several topics. Read by src/data/allPublications.ts; the build fails if a listed paper has no entry, or an entry names an undefined topic, so a newly synced paper must be placed here before it ships. Agreed with Anna 2026-10-17.",
+  "topics": [
+    {
+      "id": "massive-star-formation",
+      "label": "Massive star formation"
+    },
+    {
+      "id": "stellar-feedback",
+      "label": "Stellar feedback"
+    },
+    {
+      "id": "clusters-imf",
+      "label": "Star clusters & the IMF"
+    },
+    {
+      "id": "clouds-turbulence",
+      "label": "Molecular clouds & turbulence"
+    },
+    {
+      "id": "high-energy",
+      "label": "High-energy astrophysics"
+    },
+    {
+      "id": "disks-binaries",
+      "label": "Disks & binaries"
+    },
+    {
+      "id": "methods-software",
+      "label": "Methods & software"
+    },
+    {
+      "id": "other",
+      "label": "Other"
+    }
+  ],
+  "papers": [
+    {
+      "key": "arxiv:2603.15779",
+      "note": "Confidently Wrong (accepted; no DOI yet)",
+      "topics": [
+        "clusters-imf"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/ae6cdc",
+      "note": "2026 Escamilla: Bridging Theory and Observation: Synthetic Far-infrared Insi",
+      "topics": [
+        "clouds-turbulence"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/ae4690",
+      "note": "2026 Pandey: Investigating the γ-Ray Emission from Explosive Dispersal Ou",
+      "topics": [
+        "high-energy"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/ae3c7a",
+      "note": "2026 Rodriguez: Taming the Tarantula: How Stellar Wind Feedback Shapes Gas a",
+      "topics": [
+        "stellar-feedback",
+        "clusters-imf",
+        "high-energy"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/ad83bc",
+      "note": "2024 Pandey: Constraining the Diffusion Coefficient and Cosmic-Ray Accele",
+      "topics": [
+        "high-energy"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/ad8c41",
+      "note": "2024 Webb: Detection of Diffuse Hot Gas around the Young, Potential Sup",
+      "topics": [
+        "stellar-feedback",
+        "clusters-imf",
+        "high-energy"
+      ]
+    },
+    {
+      "key": "10.3389/fspas.2024.1462935",
+      "note": "2024 Wurster: Editorial: Star formation: numerical simulations and what th",
+      "topics": [
+        "methods-software"
+      ],
+      "astrobyte": false,
+      "why": "Editorial, not a research paper."
+    },
+    {
+      "key": "10.33232/001c.122857",
+      "note": "2024 Hopkins: FORGE'd in FIRE III: The IMF in Quasar Accretion Disks from ",
+      "topics": [
+        "clusters-imf"
+      ]
+    },
+    {
+      "key": "10.1051/0004-6361/202451842",
+      "note": "2024 Gaches: The High-resolution Accretion Disks of Embedded protoStars (",
+      "topics": [
+        "disks-binaries"
+      ]
+    },
+    {
+      "key": "10.1093/mnras/stad3609",
+      "note": "2023 Farias: Stellar populations in STARFORGE: the origin and evolution o",
+      "topics": [
+        "clusters-imf"
+      ]
+    },
+    {
+      "key": "10.1088/1538-3873/acafa4",
+      "note": "2023 Limbach: The TEMPO Survey. I. Predicting Yields of Transiting Exosate",
+      "topics": [
+        "other"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/ace897",
+      "note": "2023 Appel: What Sets the Star Formation Rate of Molecular Clouds? The D",
+      "topics": [
+        "clouds-turbulence"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/ac9f3d",
+      "note": "2022 Rosen: A Massive Star Is Born: How Feedback from Stellar Winds, Rad",
+      "topics": [
+        "massive-star-formation",
+        "stellar-feedback"
+      ]
+    },
+    {
+      "key": "10.1093/mnras/stac1737",
+      "note": "2022 Guszejnov: Cluster assembly and the origin of mass segregation in the S",
+      "topics": [
+        "clusters-imf"
+      ]
+    },
+    {
+      "key": "10.1093/mnras/stac1784",
+      "note": "2022 Hopkins: Dust in the wind with resonant drag instabilities – I. The d",
+      "topics": [
+        "stellar-feedback"
+      ]
+    },
+    {
+      "key": "10.1093/mnras/stac2060",
+      "note": "2022 Guszejnov: Effects of the environment and feedback physics on the initi",
+      "topics": [
+        "clusters-imf"
+      ]
+    },
+    {
+      "key": "10.1093/mnras/stac3268",
+      "note": "2022 Guszejnov: Effects of the environment on the multiplicity properties of",
+      "topics": [
+        "clusters-imf",
+        "disks-binaries"
+      ]
+    },
+    {
+      "key": "10.1093/mnras/stab3739",
+      "note": "2022 Lane: Less wrong: a more realistic initial condition for simulatio",
+      "topics": [
+        "clouds-turbulence",
+        "methods-software"
+      ]
+    },
+    {
+      "key": "10.1093/mnras/stac526",
+      "note": "2022 Grudić: The dynamics and outcome of star formation with jets, radiat",
+      "topics": [
+        "stellar-feedback"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/ac4be3",
+      "note": "2022 Appel: The Effects of Magnetic Fields and Outflow Feedback on the S",
+      "topics": [
+        "clouds-turbulence"
+      ]
+    },
+    {
+      "key": "10.1051/0004-6361/201936043",
+      "note": "2021 Avison: Continuity of accretion from clumps to Class 0 high-mass pro",
+      "topics": [
+        "massive-star-formation"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/abd24a",
+      "note": "2021 Olivier: Evolution of Stellar Feedback in H ii Regions",
+      "topics": [
+        "stellar-feedback"
+      ]
+    },
+    {
+      "key": "10.1116/6.0001183",
+      "note": "2021 Mullet: Observations of the Ag(3 × 1) phase on Ge(111)",
+      "topics": [
+        "other"
+      ],
+      "astrobyte": false,
+      "why": "Surface physics, outside the series."
+    },
+    {
+      "key": "10.21105/joss.03771",
+      "note": "2021 Li: ORION2: A magnetohydrodynamics code for star formation",
+      "topics": [
+        "methods-software"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/abab95",
+      "note": "2020 Duffell: Circumbinary Disks: Accretion and Torque as a Function of Ma",
+      "topics": [
+        "disks-binaries"
+      ]
+    },
+    {
+      "key": "10.1007/s11214-020-00664-z",
+      "note": "2020 Zhao: Formation and Evolution of Disks Around Young Stellar Object",
+      "topics": [
+        "disks-binaries"
+      ]
+    },
+    {
+      "key": "10.3847/1538-3881/ab9abf",
+      "note": "2020 Rosen: The Role of Outflows, Radiation Pressure, and Magnetic Field",
+      "topics": [
+        "massive-star-formation"
+      ]
+    },
+    {
+      "key": "10.3847/2041-8213/ababae",
+      "note": "2020 Gallegos-Garcia: Winds in Star Clusters Drive Kolmogorov Turbulence",
+      "topics": [
+        "stellar-feedback",
+        "clouds-turbulence"
+      ]
+    },
+    {
+      "key": "10.1007/s11214-020-00688-5",
+      "note": "2020 Rosen: Zooming in on Individual Star Formation: Low- and High-Mass ",
+      "topics": [
+        "massive-star-formation"
+      ]
+    },
+    {
+      "key": "10.3847/1538-4357/ab54c6",
+      "note": "2019 Rosen: Massive-star Formation via the Collapse of Subvirial and Vir",
+      "topics": [
+        "massive-star-formation"
+      ]
+    },
+    {
+      "key": "10.21105/joss.00809",
+      "note": "2018 J. Goldbaum: unyt: Handle, manipulate, and convert data with units in Pyt",
+      "topics": [
+        "methods-software"
+      ]
+    },
+    {
+      "key": "10.1016/j.jcp.2016.10.048",
+      "note": "2017 Rosen: Hybrid Adaptive Ray-Moment Method (HARM2): A highly parallel",
+      "topics": [
+        "methods-software"
+      ]
+    },
+    {
+      "key": "10.1093/mnras/stw2153",
+      "note": "2016 Rosen: An unstable truth: how massive stars get their mass",
+      "topics": [
+        "massive-star-formation"
+      ]
+    },
+    {
+      "key": "10.1093/mnras/stu1037",
+      "note": "2014 Rosen: Gone with the wind: Where is the missing stellar wind energy",
+      "topics": [
+        "stellar-feedback"
+      ]
+    },
+    {
+      "key": "10.1088/0004-637x/748/2/97",
+      "note": "2012 Rosen: WHAT SETS THE INITIAL ROTATION RATES OF MASSIVE STARS?",
+      "topics": [
+        "massive-star-formation"
+      ]
+    }
+  ]
+}

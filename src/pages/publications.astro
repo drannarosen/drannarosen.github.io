@@ -21,6 +21,8 @@ import {
   isStudentLed,
   journalUrl,
   scixUrl,
+  topics,
+  topicsOf,
   type SyncedWork,
 } from "../data/allPublications";
 import { renderAbstract } from "../lib/abstract";
@@ -79,6 +81,9 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   // Software (JOSS) papers carved out of the author groups — see isSoftwarePaper.
   { id: "software", label: "Software", works: softwarePapers },
 ].filter((g) => g.works.length > 0);
+
+const topicLabel = new Map(topics.map((t) => [t.id, t.label]));
+const topicCount = (id: string) => allPublications.filter((w) => topicsOf(w).includes(id)).length;
 ---
 
 <BaseLayout
@@ -191,6 +196,30 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
       </div>
     </div>
 
+    {/* Topic filter, on the same progressive-enhancement terms as the scope
+        bar above: absent without JS, where every paper simply renders. It
+        combines with the scope (first-authored AND massive star formation). */}
+    <div class="scope" hidden data-topic-bar>
+      <span class="scope__label" id="topic-label">Topic</span>
+      <div class="scope__opts" role="group" aria-labelledby="topic-label">
+        <button type="button" class="scope__btn" data-topic="all" aria-pressed="true">
+          All
+        </button>
+        {
+          topics.map((t) => (
+            <button type="button" class="scope__btn" data-topic={t.id} aria-pressed="false">
+              {t.label} <span class="scope__n">{topicCount(t.id)}</span>
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <p class="allpubs__empty" hidden data-filter-empty>
+      No papers match both filters.
+      <button type="button" class="scope__btn" data-filter-reset>Show everything</button>
+    </p>
+
     {
       groups.map((g) => (
         <div class="allpubs__group" data-group={g.id}>
@@ -205,7 +234,7 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
                   const href = workUrl(w);
                   const line = authorLine(w);
                   return (
-                    <li class="allpubs__item">
+                    <li class="allpubs__item" data-topics={topicsOf(w).join(" ")}>
                       {href ? (
                         <a href={href} rel="noopener">{w.title}</a>
                       ) : (
@@ -241,6 +270,13 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
                           )}
                         </span>
                       )}
+                      <span class="allpubs__topics">
+                        {topicsOf(w).map((t) => (
+                          <a class="allpubs__topic" href={`/publications?topic=${t}#all-pubs`} data-topic-link={t}>
+                            {topicLabel.get(t)}
+                          </a>
+                        ))}
+                      </span>
                       {w.note && <span class="allpubs__note">{w.note}</span>}
                       <button
                         type="button"
@@ -332,26 +368,72 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
       });
     }
 
-    // Scope control: narrows which group is visible. Revealed only once JS is
+    // Scope (which author group) and topic controls. Revealed only once JS is
     // running, so a no-JS visitor is never shown a control that does nothing.
+    // The two combine: a paper shows when its group AND its topics match.
     const bar = document.querySelector<HTMLElement>("[data-scope-bar]");
-    const groupEls = [
-      ...document.querySelectorAll<HTMLElement>("[data-group]"),
-    ];
-    if (bar && groupEls.length > 0) {
+    const topicBar = document.querySelector<HTMLElement>("[data-topic-bar]");
+    const groupEls = [...document.querySelectorAll<HTMLElement>("[data-group]")];
+    if (bar && topicBar && groupEls.length > 0) {
       bar.hidden = false;
-      const btns = [...bar.querySelectorAll<HTMLButtonElement>("[data-scope]")];
-      for (const btn of btns) {
-        btn.addEventListener("click", () => {
-          const scope = btn.dataset.scope;
-          for (const b of btns) {
-            b.setAttribute("aria-pressed", String(b === btn));
+      topicBar.hidden = false;
+      const scopeBtns = [...bar.querySelectorAll<HTMLButtonElement>("[data-scope]")];
+      const topicBtns = [...topicBar.querySelectorAll<HTMLButtonElement>("[data-topic]")];
+      const knownTopics = new Set(topicBtns.map((b) => b.dataset.topic));
+      const empty = document.querySelector<HTMLElement>("[data-filter-empty]");
+      let scope = "all";
+      let topic = new URLSearchParams(location.search).get("topic") ?? "all";
+      if (!knownTopics.has(topic)) topic = "all";
+
+      const apply = () => {
+        for (const b of scopeBtns) b.setAttribute("aria-pressed", String(b.dataset.scope === scope));
+        for (const b of topicBtns) b.setAttribute("aria-pressed", String(b.dataset.topic === topic));
+        for (const g of groupEls) {
+          let shown = 0;
+          for (const year of g.querySelectorAll<HTMLElement>(".allpubs__year")) {
+            let inYear = 0;
+            for (const li of year.querySelectorAll<HTMLElement>(".allpubs__item")) {
+              const match = topic === "all" || (li.dataset.topics ?? "").split(" ").includes(topic);
+              li.hidden = !match;
+              if (match) inYear += 1;
+            }
+            year.hidden = inYear === 0;
+            shown += inYear;
           }
-          for (const g of groupEls) {
-            g.hidden = scope !== "all" && g.dataset.group !== scope;
-          }
+          g.hidden = (scope !== "all" && g.dataset.group !== scope) || shown === 0;
+        }
+        if (empty) empty.hidden = groupEls.some((g) => !g.hidden);
+      };
+
+      const setTopic = (t: string) => {
+        topic = t;
+        const url = new URL(location.href);
+        if (t === "all") url.searchParams.delete("topic");
+        else url.searchParams.set("topic", t);
+        history.replaceState(null, "", url);
+        apply();
+      };
+
+      for (const b of scopeBtns) {
+        b.addEventListener("click", () => {
+          scope = b.dataset.scope ?? "all";
+          apply();
         });
       }
+      for (const b of topicBtns) b.addEventListener("click", () => setTopic(b.dataset.topic ?? "all"));
+      document.querySelector("[data-filter-reset]")?.addEventListener("click", () => {
+        scope = "all";
+        setTopic("all");
+      });
+      // A paper's topic tag filters in place rather than reloading the page.
+      for (const a of document.querySelectorAll<HTMLAnchorElement>("[data-topic-link]")) {
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          setTopic(a.dataset.topicLink ?? "all");
+          document.getElementById("all-pubs")?.scrollIntoView({ block: "start" });
+        });
+      }
+      apply();
     }
   </script>
 </BaseLayout>
@@ -607,6 +689,33 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
   .allpubs__item a { color: var(--ink); text-decoration-color: var(--border); }
   .allpubs__item a:hover { text-decoration-color: var(--spec-cyan, #4fd6c4); }
   .allpubs__links a { color: var(--spec-teal-bright); text-decoration: none; }
+  .allpubs__empty {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s);
+    margin-block-start: var(--space-l);
+    color: var(--ink-dim);
+  }
+  .allpubs__topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs) var(--space-2xs);
+    margin-block-start: var(--space-3xs);
+  }
+  .allpubs__item a.allpubs__topic {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-dim);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0 var(--space-2xs);
+  }
+  .allpubs__item a.allpubs__topic:hover {
+    color: var(--spec-teal-bright);
+    border-color: color-mix(in srgb, var(--spec-teal-bright) 45%, transparent);
+  }
   .allpubs__links a:hover { text-decoration: underline; }
   .allpubs__pill {
     display: inline-block;
@@ -716,9 +825,12 @@ const groups: { id: string; label: string; works: SyncedWork[] }[] = [
     .allpubs__year { grid-template-columns: 1fr; gap: var(--space-2xs); }
   }
 
-  /* On paper the scope control is meaningless and every group should print. */
+  /* On paper the scope and topic controls are meaningless: every group, year
+     and paper prints, whatever was filtered on screen. */
   @media print {
     .scope { display: none; }
     .allpubs__group[hidden] { display: block !important; }
+    .allpubs__year[hidden] { display: grid !important; }
+    .allpubs__item[hidden] { display: list-item !important; }
   }
 </style>

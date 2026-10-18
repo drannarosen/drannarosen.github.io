@@ -15,6 +15,7 @@ import additions from "./publications.additions.json";
 import identifiers from "./publications.identifiers.json";
 import humanAbstracts from "./publications.abstracts.json";
 import studentLeadRecord from "../../cv/generated/student-lead.json";
+import topicsRecord from "./publications.topics.json";
 
 export interface SyncedWork {
   title: string;
@@ -178,6 +179,52 @@ export const allPublications: SyncedWork[] = [...extra, ...synced].sort(
   (a, b) => (Number(b.year) || 0) - (Number(a.year) || 0) || a.title.localeCompare(b.title),
 );
 export const publicationsSource: string = generated.source;
+
+/*
+ * Research topics, from the human-owned publications.topics.json. A paper may
+ * carry several. Keyed by DOI, or `arxiv:<id>` for a paper with no DOI yet.
+ *
+ * Checked in both directions at build time: every listed paper must have at
+ * least one known topic, and every entry must name a listed paper. A paper the
+ * ORCID sync adds therefore fails the build until it is placed, instead of
+ * shipping untagged — invisible under every topic filter.
+ */
+export interface Topic {
+  id: string;
+  label: string;
+}
+export const topics: Topic[] = topicsRecord.topics;
+
+const topicKey = (w: SyncedWork): string | null =>
+  w.doi ? w.doi.toLowerCase() : w.arxiv ? `arxiv:${w.arxiv}` : null;
+
+const topicsByKey = new Map(topicsRecord.papers.map((p) => [p.key.toLowerCase(), p.topics]));
+
+{
+  const known = new Set(topics.map((t) => t.id));
+  const listed = new Set(allPublications.map(topicKey).filter((k): k is string => k != null));
+  const problems: string[] = [];
+  for (const w of allPublications) {
+    const k = topicKey(w);
+    const ts = k ? topicsByKey.get(k) : undefined;
+    if (!ts || ts.length === 0) problems.push(`no topic for "${w.title}" (key ${k ?? "none"})`);
+    for (const t of ts ?? []) if (!known.has(t)) problems.push(`unknown topic "${t}" on ${k}`);
+  }
+  for (const k of topicsByKey.keys()) {
+    if (!listed.has(k)) problems.push(`topic entry ${k} matches no listed paper`);
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `publications.topics.json is out of step with the bibliography:\n  ${problems.join("\n  ")}`,
+    );
+  }
+}
+
+/** A work's topic ids, in the order the topics file lists them. */
+export const topicsOf = (w: SyncedWork): string[] => {
+  const k = topicKey(w);
+  return (k ? topicsByKey.get(k) : undefined) ?? [];
+};
 /** Counts the merged list, so additions are included rather than only synced. */
 export const publicationCount: number = allPublications.length;
 /**
