@@ -1,11 +1,12 @@
 ---
-import { getCollection, render, type CollectionEntry } from "astro:content";
+import { render, type CollectionEntry } from "astro:content";
+import { getAstrobytes } from "../../lib/astrobytes";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import ProvenanceBadge from "../../components/post/ProvenanceBadge.astro";
 
 export async function getStaticPaths() {
-  const posts = await getCollection("astrobytes", ({ data }) => !data.draft);
+  const posts = await getAstrobytes();
   return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
 }
 
@@ -15,7 +16,7 @@ interface Props {
 
 const { post } = Astro.props;
 const { Content } = await render(post);
-const { title, dek, date, paper, level, provenance, sources } = post.data;
+const { title, dek, date, paper, level, provenance, sources, draft } = post.data;
 
 // Format in UTC: frontmatter dates are bare (2026-07-19) and parse to UTC
 // midnight, so formatting in a west-of-UTC local zone would render a day early.
@@ -45,6 +46,17 @@ const fmt = (d: Date) =>
   }}
 >
   <PageHeader eyebrow="Astrobytes" title={title} lede={dek} />
+
+  {
+    draft && (
+      <div class="wrap">
+        <p class="post-draft" role="note">
+          Draft, shown only on the dev server. A production build does not
+          include it until it is reviewed and set to <code>draft: false</code>.
+        </p>
+      </div>
+    )
+  }
 
   <div class="wrap post-meta">
     <p class="post-meta__line">
@@ -102,6 +114,15 @@ const fmt = (d: Date) =>
 </BaseLayout>
 
 <style>
+  .post-draft {
+    margin-block-end: var(--space-m);
+    padding: var(--space-2xs) var(--space-s);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--spec-rose);
+    border: 1px solid color-mix(in srgb, var(--spec-rose) 45%, transparent);
+    border-radius: var(--radius-s);
+  }
   .post-meta {
     padding-block-end: var(--space-l);
   }

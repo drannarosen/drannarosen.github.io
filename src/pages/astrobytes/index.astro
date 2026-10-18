@@ -1,11 +1,11 @@
 ---
-import { getCollection } from "astro:content";
+import { getAstrobytes } from "../../lib/astrobytes";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PageHeader from "../../components/PageHeader.astro";
 import ProvenanceBadge from "../../components/post/ProvenanceBadge.astro";
 import { topics, topicsOfPaper } from "../../data/allPublications";
 
-const posts = (await getCollection("astrobytes", ({ data }) => !data.draft)).sort(
+const posts = (await getAstrobytes()).sort(
   (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
 );
 
@@ -97,6 +97,7 @@ const fmt = (d: Date) =>
             <time datetime={p.data.date.toISOString()}>{fmt(p.data.date)}</time>
             <span class="ab-card__level">{p.data.level}</span>
             <ProvenanceBadge provenance={p.data.provenance} compact />
+            {p.data.draft && <span class="ab-card__draft">draft · not published</span>}
           </p>
           <h2 class="ab-card__title">
             <a href={`/astrobytes/${p.id}`}>{p.data.title}</a>
@@ -200,6 +201,9 @@ const fmt = (d: Date) =>
     letter-spacing: 0.05em;
     font-size: var(--step--2);
     color: var(--ink-faint);
+  }
+  .ab-card__draft {
+    color: var(--spec-rose);
   }
   .ab-card__title {
     font-size: var(--step-2);

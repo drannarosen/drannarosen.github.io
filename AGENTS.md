@@ -416,11 +416,17 @@ building things (the site, the software) and has no paper; the paper card, the
 hub citation line and the publications cross-reference all omit cleanly when it
 is absent.
 
-An AI-drafted post may not enter the collection until it has actually been
-reviewed: the provenance gate requires a named reviewer, a date and the model,
-and setting those before the review has happened is the exact fabrication the
-site-claims rule forbids. Draft such posts in `docs/drafts/` — a working file
-makes no published claim — and move them in only once the review is real.
+An AI-drafted post may not PUBLISH until it has actually been reviewed. Put it
+in the collection with `draft: true`: the dev server renders it, with a draft
+banner, "not yet reviewed" provenance and placeholders for figures not yet in
+`figures.json`, so Anna reviews it as a page rather than as source. A
+production build never builds a draft (`src/lib/astrobytes.ts`), and RSS,
+search and the /publications cross-link skip drafts in every mode.
+
+To publish, the schema requires `draft: false` together with a named reviewer,
+a review date and the model. Setting those before the review has happened is
+the exact fabrication the site-claims rule forbids, and that is the line —
+not where the file lives.
 
 ## Search
 

@@ -42,7 +42,10 @@ const fmt = (d: Date) =>
     </span>
   ) : (
     <aside class:list={["prov", `prov--${p.authorship}`]} aria-label="How this page was written">
-      <p class="prov__head">{LABEL[p.authorship]}</p>
+      <p class="prov__head">
+        {/* "reviewed by me" is a claim; an unreviewed draft must not make it. */}
+        {p.authorship !== "human" && !p.reviewedBy ? `${p.authorship === "ai-drafted" ? "AI-drafted" : "Machine-generated"} · not yet reviewed` : LABEL[p.authorship]}
+      </p>
       <dl class="prov__grid">
         {p.model && (
           <>

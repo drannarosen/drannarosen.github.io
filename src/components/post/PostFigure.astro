@@ -12,7 +12,7 @@
  *   variant="side" → floats into the margin field; prose runs alongside
  */
 import { slugify } from "../../lib/slug";
-import { getFigure, figureSrc, figureBox } from "../../lib/figures";
+import { getFigure, getFigureOrNull, figureSrc, figureBox } from "../../lib/figures";
 
 interface Props {
   /*
@@ -27,26 +27,38 @@ interface Props {
 }
 
 const { id: figureId, variant, eager } = Astro.props;
-const f = getFigure(figureId);
-const { alt, width, height, credit } = f;
-const src = figureSrc(f);
+/*
+ * On the dev server a figure not yet in figures.json renders as a labelled
+ * placeholder, so a draft can be reviewed before its images are sourced. A
+ * production build still throws, so a missing figure can never ship.
+ */
+const f = import.meta.env.DEV ? getFigureOrNull(figureId) : getFigure(figureId);
 const cls = ["figure", variant && `fig-${variant}`].filter(Boolean).join(" ");
-const id = `fig-${slugify(src.split("/").pop() ?? "figure")}`;
+const src = f ? figureSrc(f) : null;
+const id = src ? `fig-${slugify(src.split("/").pop() ?? "figure")}` : undefined;
 ---
 
 <figure class={cls} id={id}>
-  <img
-    class="figure-box"
-    style={figureBox(f)}
-    src={src}
-    alt={alt}
-    width={width}
-    height={height}
-    loading={eager ? "eager" : "lazy"}
-    decoding="async"
-  />
+  {
+    f && src ? (
+      <img
+        class="figure-box"
+        style={figureBox(f)}
+        src={src}
+        alt={f.alt}
+        width={f.width}
+        height={f.height}
+        loading={eager ? "eager" : "lazy"}
+        decoding="async"
+      />
+    ) : (
+      <p class="fig-missing">
+        Figure not added yet: <code>{figureId}</code>
+      </p>
+    )
+  }
   <figcaption>
     <slot />
-    {credit && <span class="fig-credit">{credit}</span>}
+    {f?.credit && <span class="fig-credit">{f.credit}</span>}
   </figcaption>
 </figure>

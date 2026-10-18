@@ -8,8 +8,10 @@
  * missing arXiv link or an unparseable date.
  *
  * PROVENANCE: the review requirement is enforced by the schema rather than by a
- * separate linter, so an AI-drafted post with no sign-off cannot build at all.
- * A gate that only warns is a gate that gets ignored.
+ * separate linter, so an AI-drafted post with no sign-off cannot be published.
+ * A gate that only warns is a gate that gets ignored. An unreviewed post lives
+ * in the collection with `draft: true`: the dev server renders it for review,
+ * and a production build never builds it (src/lib/astrobytes.ts).
  * See docs/plans/2026-07-19-content-integrity-design.md.
  */
 import { defineCollection } from "astro:content";
@@ -20,32 +22,16 @@ import { glob } from "astro/loaders";
 import { z } from "zod";
 
 /** How a page came to exist. Disclosed publicly on the page. */
-const provenance = z
-  .object({
-    authorship: z.enum(["human", "ai-drafted", "machine-generated"]),
-    /** Who signed off. Required unless a human wrote it unaided. */
-    reviewedBy: z.string().optional(),
-    reviewedOn: z.coerce.date().optional(),
-    /** Which model was involved, when one was. */
-    model: z.string().optional(),
-    /** Free-text note on what the review actually checked. */
-    note: z.string().optional(),
-  })
-  .superRefine((p, ctx) => {
-    if (p.authorship === "human") return;
-    for (const field of ["reviewedBy", "reviewedOn", "model"] as const) {
-      if (!p[field]) {
-        ctx.addIssue({
-          code: "custom",
-          path: [field],
-          message:
-            `provenance.${field} is required when authorship is "${p.authorship}". ` +
-            "Nothing a model touched may publish without a named reviewer, a " +
-            "review date, and the model that produced it.",
-        });
-      }
-    }
-  });
+const provenance = z.object({
+  authorship: z.enum(["human", "ai-drafted", "machine-generated"]),
+  /** Who signed off. Required unless a human wrote it unaided. */
+  reviewedBy: z.string().optional(),
+  reviewedOn: z.coerce.date().optional(),
+  /** Which model was involved, when one was. */
+  model: z.string().optional(),
+  /** Free-text note on what the review actually checked. */
+  note: z.string().optional(),
+});
 
 /** A source a quantitative claim can point at. */
 const source = z.object({
@@ -102,6 +88,29 @@ const astrobytes = defineCollection({
   .refine((d) => d.kind === "meta" || d.paper !== undefined, {
     message: "A science post must cite a paper (set `paper`), or set kind: meta.",
     path: ["paper"],
+  })
+  /*
+   * Nothing a model touched may PUBLISH without a named reviewer, a review
+   * date and the model that produced it. A draft is exempt from the reviewer
+   * and date, because review is what a draft is waiting for; it still names
+   * its model. Setting reviewedBy to get past this before the review has
+   * happened is the fabrication the gate exists to prevent.
+   */
+  .superRefine((d, ctx) => {
+    const p = d.provenance;
+    if (p.authorship === "human") return;
+    const required = d.draft ? (["model"] as const) : (["reviewedBy", "reviewedOn", "model"] as const);
+    for (const field of required) {
+      if (!p[field]) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["provenance", field],
+          message:
+            `provenance.${field} is required when authorship is "${p.authorship}"` +
+            (d.draft ? "." : " and the post is not a draft. Keep it at draft: true until it is reviewed."),
+        });
+      }
+    }
   }),
 });
 

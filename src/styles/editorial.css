@@ -151,6 +151,18 @@
     color: var(--ink-dim);
     text-wrap: pretty;
   }
+  /* Dev-server placeholder for a draft's figure that is not sourced yet. */
+  .editorial .fig-missing {
+    display: grid;
+    place-items: center;
+    min-block-size: 12rem;
+    padding: var(--space-m);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--spec-rose);
+    border: 1px dashed color-mix(in srgb, var(--spec-rose) 45%, transparent);
+    border-radius: var(--radius-m);
+  }
   .editorial .fig-credit {
     display: block;
     margin-block-start: var(--space-3xs);

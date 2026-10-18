@@ -68,6 +68,9 @@ export function getFigure(id: string): FigureRecord {
   return found;
 }
 
+/** A figure, or null for an unknown id. Only for dev-server draft previews. */
+export const getFigureOrNull = (id: string): FigureRecord | null => byId.get(id) ?? null;
+
 /** Public URL for a figure, derived from its recorded path. */
 export const figureSrc = (f: FigureRecord) => `/${f.path}`;
 
