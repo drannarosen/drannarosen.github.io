@@ -99,6 +99,12 @@ const topicCount = (id: string) => allPublications.filter((w) => topicsOf(w).inc
     lede={`Selected first-author papers, each with a short account of what it did and why it matters — followed by the complete bibliography of ${publicationCount} works, synced from ORCID.`}
   />
 
+  {/* The selected papers run ~10 screens on a phone before the full list and
+      its filters begin, so the full list gets a way in from the top. */}
+  <p class="pubs__jump wrap">
+    <a href="#all-pubs">Jump to the full bibliography ({publicationCount} works), by topic ↓</a>
+  </p>
+
   <div class="pubs wrap">
     {
       featuredPublications.map((p) => (
@@ -403,6 +409,17 @@ const topicCount = (id: string) => allPublications.filter((w) => topicsOf(w).inc
           g.hidden = (scope !== "all" && g.dataset.group !== scope) || shown === 0;
         }
         if (empty) empty.hidden = groupEls.some((g) => !g.hidden);
+        // Where a bar scrolls sideways (narrow screens), keep the selected chip
+        // in view — a ?topic= link can select one that starts off-screen.
+        for (const b of [...scopeBtns, ...topicBtns]) {
+          if (b.getAttribute("aria-pressed") !== "true") continue;
+          const row = b.parentElement;
+          if (!row || row.scrollWidth <= row.clientWidth) continue;
+          const left = b.offsetLeft - row.offsetLeft;
+          if (left < row.scrollLeft || left + b.offsetWidth > row.scrollLeft + row.clientWidth) {
+            row.scrollLeft = left - (row.clientWidth - b.offsetWidth) / 2;
+          }
+        }
       };
 
       const setTopic = (t: string) => {
@@ -571,6 +588,11 @@ const topicCount = (id: string) => allPublications.filter((w) => topicsOf(w).inc
     font-size: var(--step-0);
   }
 
+  .pubs__jump {
+    padding-block-end: var(--space-l);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
   .pubs__note {
     padding-block-end: var(--space-2xl);
     color: var(--ink-dim);
@@ -583,6 +605,8 @@ const topicCount = (id: string) => allPublications.filter((w) => topicsOf(w).inc
     margin-block-start: var(--space-xl);
   }
   .allpubs__heading {
+    /* Lands below the sticky site header when reached by the jump link. */
+    scroll-margin-block-start: calc(var(--header-h, 3.7rem) + var(--space-m));
     font-size: var(--step-1);
     display: flex;
     align-items: baseline;
@@ -823,6 +847,21 @@ const topicCount = (id: string) => allPublications.filter((w) => topicsOf(w).inc
   }
   @media (max-width: 34rem) {
     .allpubs__year { grid-template-columns: 1fr; gap: var(--space-2xs); }
+  }
+  /* On narrow screens each filter bar is one row that scrolls sideways, rather
+     than wrapping into a wall of chips (the topic bar ran 7 rows at 375px).
+     The fade at the trailing edge says there is more to scroll to. */
+  @media (max-width: 46rem) {
+    .scope__opts {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      padding-inline-end: var(--space-l);
+      mask-image: linear-gradient(to right, #000 calc(100% - var(--space-l)), transparent);
+    }
+    .scope__opts::-webkit-scrollbar { display: none; }
+    .scope__btn { flex: none; white-space: nowrap; }
   }
 
   /* On paper the scope and topic controls are meaningless: every group, year
