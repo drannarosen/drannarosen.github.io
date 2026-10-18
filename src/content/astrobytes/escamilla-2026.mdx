@@ -1,0 +1,288 @@
+---
+kind: science
+title: "Measuring how fast a cloud makes stars, from inside a simulation"
+dek: "We observed a simulated star-forming cloud the way a far-infrared survey would. The low efficiencies observers measure come out naturally, and so do the biases built into how they are measured."
+date: 2026-10-17
+paper:
+  title: "Bridging Theory and Observation: Synthetic Far-infrared Insights into Star Formation Efficiency"
+  authors: "Escamilla, A., Grudić, M. Y., & Rosen, A. L."
+  venue: "The Astrophysical Journal"
+  year: "2026"
+  status: published
+  arxiv: "https://arxiv.org/abs/2610.12729"
+  ads: "https://scixplorer.org/abs/2026ApJ..1004...14E/abstract"
+provenance:
+  authorship: ai-drafted
+  model: "claude-opus-5-5"
+  note: >-
+    Drafted from the arXiv v1 full text, then re-checked against the
+    published ApJ version, which is the source of truth. Numbers were copied
+    from the paper, not generated.
+sources:
+  - id: paper
+    label: "Escamilla, Grudić & Rosen (2026), ApJ 1004, 14"
+    url: "https://scixplorer.org/abs/2026ApJ..1004...14E/abstract"
+  - id: arxiv
+    label: "arXiv:2610.12729"
+    url: "https://arxiv.org/abs/2610.12729"
+  - id: pokhrel2021
+    label: "Pokhrel et al. (2021), The Single-cloud Star Formation Relation"
+    url: "https://doi.org/10.3847/2041-8213/abf564"
+  - id: grudic2022
+    label: "Grudić et al. (2022), STARFORGE with jets, radiation, winds, and supernovae"
+    url: "https://doi.org/10.1093/mnras/stac526"
+draft: true
+level: undergraduate
+tags: ["star formation efficiency", "molecular clouds", "synthetic observations", "stellar feedback"]
+---
+
+import PostFigure from "../../components/post/PostFigure.astro";
+
+{/*
+  DRAFT — AI-drafted, NOT reviewed.
+
+  Status: raw material, not for publication as-is. This post was drafted by
+  claude-opus-5-5 on 2026-10-17 from the arXiv v1 full text (2610.12729v1),
+  then re-checked the same day by the same model against the PUBLISHED version,
+  Escamilla, Grudić & Rosen (2026), ApJ 1004, 14, doi:10.3847/1538-4357/ae6cdc
+  (iopscience full-text HTML), which is now the source of truth. Numbers,
+  figure numbers and captions match the published text; two wordings were
+  aligned to it (Figure 3 caption, AGN sentence). The check read the HTML
+  through quoted excerpts, not a line-by-line read of the PDF. It has NOT been
+  reviewed or rewritten by Anna. It is `draft: true`, so only the dev server
+  renders it and it carries no review provenance it has not earned.
+
+  Before it is set to draft: false:
+    1. Anna reviews and rewrites it in her own voice.
+    2. The three figures are added to src/data/figures.json (see FIGURE PLAN),
+       taken from the published CC BY 4.0 article. NOTE: arXiv v1 is posted
+       under the arXiv.org perpetual non-exclusive license, NOT CC BY, so the
+       CC BY credit line applies only to the journal version's figures.
+    3. Only after the review has actually happened: add provenance.reviewedBy
+       and provenance.reviewedOn. They are deliberately absent here.
+    4. Delete this comment block and the FIGURE PLAN block below.
+*/}
+
+{/*
+  FIGURE PLAN — nothing downloaded. Ids are placeholders; none exist in
+  src/data/figures.json yet. PostFigure renders the credit from figures.json,
+  so the credit line belongs in each record's `credit` field, not the caption.
+  Alt text must be written after looking at the actual image; the caption
+  text below is not an alt-text substitute.
+
+  Figure numbers are the PUBLISHED (ApJ 1004, 14) numbering; arXiv v1 uses the
+  same numbers for these figures. Image URLs are the published article's
+  "Download figure" files (_hr high resolution, _lr standard); each was
+  confirmed to resolve (HTTP 200, image/jpeg) with a headers-only request on
+  2026-10-17, nothing downloaded. Take the figure from the published file,
+  since only it carries the CC BY 4.0 license. The arXiv v1 URLs are kept as a
+  labelled fallback for viewing only.
+
+  1. escamilla-2026-fig2  (paper Figure 2)  variant="side"
+     Shows: a synthetic far-infrared observation of one snapshot of the
+       fiducial simulation — gas surface density map, contours marking the
+       apertures used to compute epsilon_ff, magenta stars for YSOs.
+     Why: shows the reader what "observing a simulation" produces, and that
+       the protostars sit in the densest gas — before any efficiency number.
+     published image: https://content.cld.iop.org/journals/0004-637X/1004/1/14/revision1/apjae6cdcf2_hr.jpg
+       (standard: .../apjae6cdcf2_lr.jpg)
+     fallback (arXiv v1, not CC BY): https://arxiv.org/html/2610.12729v1/map_teal_consistent.png
+     credit: "Figure 2 of Escamilla, Grudić & Rosen (2026), ApJ 1004, 14. CC BY 4.0."
+
+  2. escamilla-2026-fig3  (paper Figure 3)  variant="wide"
+     Shows: epsilon_ff vs Sigma_gas over ~10 Myr, one track (binned median)
+       per snapshot, coloured early (purple) to late (yellow), against the
+       1-sigma band of Milky Way GMCs from Pokhrel et al. (2021).
+     Why: the headline result — the simulated cloud lands in the observed
+       band, and its own tracks move around inside it as it ages.
+     published image: https://content.cld.iop.org/journals/0004-637X/1004/1/14/revision1/apjae6cdcf3_hr.jpg
+       (standard: .../apjae6cdcf3_lr.jpg)
+     fallback (arXiv v1, not CC BY): https://arxiv.org/html/2610.12729v1/main.png
+     credit: "Figure 3 of Escamilla, Grudić & Rosen (2026), ApJ 1004, 14. CC BY 4.0."
+
+  3. escamilla-2026-fig8  (paper Figure 8)  variant="wide"
+     Shows: epsilon_ff vs Sigma_gas for the four definitions of Table 1
+       (observational, simulation, and two hybrids), crossing near
+       log Sigma_gas ~ 2.3.
+     Why: the methodological result in one picture — which half of the
+       observer's recipe (the star-formation rate or the geometry) causes
+       which part of the offset.
+     published image: https://content.cld.iop.org/journals/0004-637X/1004/1/14/revision1/apjae6cdcf8_hr.jpg
+       (standard: .../apjae6cdcf8_lr.jpg)
+     fallback (arXiv v1, not CC BY): https://arxiv.org/html/2610.12729v1/master_plot.png
+     credit: "Figure 8 of Escamilla, Grudić & Rosen (2026), ApJ 1004, 14. CC BY 4.0."
+
+  Considered, not planned: Figure 5 (three resolutions; published image
+  https://content.cld.iop.org/journals/0004-637X/1004/1/14/revision1/apjae6cdcf5_hr.jpg,
+  fallback arXiv v1 https://arxiv.org/html/2610.12729v1/different_resolutions.png)
+  — the resolution result is stated in prose instead; add it if Anna wants a
+  fourth.
+*/}
+
+Alex Escamilla led this paper with Mike Grudić and me, as an undergraduate in
+my group at SDSU; Alex is now an Astronomy Ph.D. student at UMass Amherst. We
+took a STARFORGE simulation of a star-forming cloud, observed it the way a
+far-infrared survey observes a real one, and asked how much of what observers
+measure is the cloud and how much is the measurement.
+
+## Clouds make stars slowly
+
+Stars form in giant molecular clouds: cold, dense clouds of gas, mostly
+molecular hydrogen, with a little dust mixed in. Gravity pulls the densest
+pockets of gas inward until they collapse into protostars, which keep growing
+by drawing in gas from their surroundings.
+
+With gravity alone, a cloud would collapse on its free-fall time $t_{\rm ff}$,
+the time it takes to fall in on itself if nothing pushes back; denser gas
+collapses faster. However, astronomers find that clouds are inefficient: they
+turn only about 1% of their gas into stars per free-fall time. The standard
+measure is the star formation efficiency per free-fall time,
+
+$$
+\epsilon_{\rm ff} = \frac{\dot{M}_\star}{M_{\rm gas}/t_{\rm ff}},
+$$
+
+the fraction of a cloud's gas mass $M_{\rm gas}$ turned into stars in one
+gravitational free-fall time $t_{\rm ff}$, given a star formation rate
+$\dot{M}_\star$.
+
+Something must slow the collapse. The candidates are turbulence, magnetic
+fields, and stellar feedback, the energy and momentum young stars inject into
+their surroundings. But none of the three quantities in $\epsilon_{\rm ff}$
+can be measured directly. Every observed value is an inference, so the
+measurement itself needs scrutiny.
+
+## The observer's recipe
+
+We followed the method
+[Pokhrel et al. (2021)](https://doi.org/10.3847/2041-8213/abf564) applied to
+nearby Milky Way clouds. Dust glows in the far infrared; fitting that emission
+gives the dust column, and an assumed dust-to-gas ratio converts it to a gas
+surface density $\Sigma_{\rm gas}$. Contours at a series of $\Sigma_{\rm gas}$
+thresholds define the regions to measure.
+
+The star formation rate comes from counting the youngest protostars, Class 0
+young stellar objects (YSOs), inside each contour and assuming they all share
+one mass and one lifetime:
+
+$$
+\dot{M}_\star = \frac{N_{\rm YSOs}\,\langle M_{\rm YSO}\rangle}{\langle t_{\rm YSO}\rangle},
+$$
+
+with $\langle M_{\rm YSO}\rangle = 0.5\,M_\odot$ and a Class 0 lifetime of
+$0.5$ Myr. The free-fall time treats the gas inside the contour as a uniform
+sphere.
+
+In a real cloud there is no way to check which of these assumptions bias the
+result. In a simulation there is.
+
+## Observing a simulation
+
+We used the fiducial STARFORGE run, built on the GIZMO magnetohydrodynamics
+code: a turbulent, magnetized cloud of $2 \times 10^4\,M_\odot$ and radius
+$\approx 10$ pc that collapses into a star cluster under feedback from
+radiation, collimated outflows and stellar winds. It resolves the mass function
+of stellar systems down to $0.1\,M_\odot$, and feedback disrupts the cloud at
+$\approx 10$ Myr, about 2.5 free-fall times.
+
+<PostFigure id="escamilla-2026-fig2" variant="side">
+  One snapshot, observed. Color is gas surface density; contours mark the apertures used to compute $\epsilon_{\rm ff}$. Magenta stars are young stellar objects, which form mostly in the densest gas.
+</PostFigure>
+
+With the meshoid analysis package, we turned the simulated gas density and
+dust temperature into synthetic dust emission maps at 150, 250, 350 and
+500 μm, the bands of the SPIRE instrument on the Herschel Space Observatory,
+and ran the observer's recipe on them with the same 1% dust-to-gas ratio. This
+time we know the answer: every protostar's true formation time and accretion
+history, and the true three-dimensional gas distribution.
+
+## Low efficiencies that change with time
+
+<PostFigure id="escamilla-2026-fig3" variant="wide">
+  $\epsilon_{\rm ff}$ against $\Sigma_{\rm gas}$ for the simulated cloud over $\sim$10 Myr; each track is the binned median of one snapshot, colored from early (purple) to late (yellow). The gray band is the $1\sigma$ scatter of the Milky Way clouds in Pokhrel et al. (2021), with their median as a solid line.
+</PostFigure>
+
+Measured this way, the simulated cloud's efficiency spans 0.05% to 10% across
+surface density and time, mostly 1% to 3%, in agreement with observed clouds.
+Feedback-regulated star formation produces those low values without extreme
+initial conditions.
+
+The efficiency also changes as the cloud evolves. For the first 3–5 Myr,
+$\epsilon_{\rm ff} \approx 0.3$–$0.5\%$ at low $\Sigma_{\rm gas}$ and rises
+steeply toward higher densities. Later, at fixed thresholds, it rises and falls
+in episodes, reaching $\approx 5\%$. The variation within this one cloud
+mirrors the variation seen across surveys of many clouds.
+
+Clouds in a survey are caught at different ages, so much of the observed
+scatter may reflect evolutionary stage rather than real differences in how
+clouds form stars.
+
+## Where the recipe goes wrong
+
+Because the simulation knows the true star formation rate and the true
+free-fall time of every gas element, we could swap halves of the recipe. The
+paper compares four definitions: fully observational, fully simulation-based,
+and two hybrids that take the star formation rate from one and the free-fall
+time from the other.
+
+<PostFigure id="escamilla-2026-fig8" variant="wide">
+  $\epsilon_{\rm ff}$ against $\Sigma_{\rm gas}$ for the four definitions; shaded regions are the $1\sigma$ scatter. The observational form (red) sits above the simulation values (blue) at low $\Sigma_{\rm gas}$ and below them at high $\Sigma_{\rm gas}$; the two cross near $\log\Sigma_{\rm gas} \approx 2.3$ ($M_\odot\,{\rm pc}^{-2}$). The hybrids (green, purple) show which assumption drives each offset.
+</PostFigure>
+
+The observed and true values cross near $\log\Sigma_{\rm gas} \approx 2.3$
+($\Sigma_{\rm gas}$ in $M_\odot\,{\rm pc}^{-2}$). Below the crossing, the
+observer's method gives higher efficiencies, mainly through the star formation
+rate: where few stars form, the population is too sparse to sample the mass
+function, and a fixed mean mass of $0.5\,M_\odot$ is hard to justify.
+
+Above the crossing, the method gives lower efficiencies. Treating the gas as a
+smooth sphere spreads out dense structure, which lengthens the inferred
+free-fall time and raises the enclosed gas mass; the second effect wins and
+pushes $\epsilon_{\rm ff}$ down. Massive protostars break both fixed
+assumptions at once: they accrete quickly and spend less time as protostars,
+so counting them underestimates the star formation rate exactly where massive
+stars form.
+
+The crossing point is set by the method and the resolution, and it moves when
+they change.
+
+## Of the biases tested, resolution matters most
+
+<aside class="sidenote">
+  <strong>dex</strong>
+  A difference in a base-10 logarithm. A change of 1 dex is a factor of ten.
+</aside>
+
+We repeated the measurement at three map resolutions: 0.01 pc, the
+simulation's own, and 0.04 and 0.08 pc, the last matching Herschel/SPIRE
+observations of nearby clouds. Coarser maps blur the compact gas around
+protostars, and the inferred efficiency drops, by up to 0.3 dex between 0.08
+and 0.01 pc.
+
+Contamination matters less. Background active galactic nuclei (AGN) can pass
+for young stellar objects in a protostar catalog, so we injected them at 9 per
+square degree, the rate adopted from Pokhrel et al. (2020). They raised
+$\epsilon_{\rm ff}$ by up to $\sim 0.1$ dex, only for nearby clouds
+(0.1–0.4 kpc) and only at low surface density; by 1 kpc the effect is
+negligible.
+
+## What this does not show
+
+This is one simulated cloud with idealized initial conditions: a uniform
+sphere of fixed mass, radius, metallicity and magnetic field, whose turbulence
+decays instead of being driven, unlike clouds in the Milky Way. The radiative
+transfer uses approximations that can underestimate radiation pressure in
+complex geometries, and the synthetic maps assume optically thin dust emission.
+
+The protostars were not identified from the synthetic images. They are the
+simulation's sink particles, labeled Class 0 by their recorded age, which skips
+the misclassification a real pipeline would add. The paper expects a full
+observational identification to add scatter without removing the two main
+trends, the time dependence and the resolution dependence, but that is not
+tested here. Each sink particle may also stand for a single star or an
+unresolved multiple system.
+
+So an observed $\epsilon_{\rm ff}$ is a snapshot of a quantity that changes
+over a cloud's life, read through a method with its own biases. Stellar
+feedback sets the efficiency; the method and the resolution set the number we
+read off.

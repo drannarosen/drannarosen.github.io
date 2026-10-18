@@ -1,0 +1,269 @@
+---
+kind: science
+title: "Where the Tarantula's wind energy goes"
+dek: "Classical wind-bubble models predict more X-ray light than massive star-forming regions emit. Two million seconds of Chandra data on 30 Doradus point to where the missing energy goes: out through gaps in the shells, and into a turbulent boundary where hot gas mixes and cools."
+date: 2026-10-17
+paper:
+  title: "Taming the Tarantula: How Stellar Wind Feedback Shapes Gas and Dust in 30 Doradus"
+  authors: "Rodriguez, J. A., Lopez, L. A., Lancaster, L., Rosen, A. L., et al."
+  venue: "The Astrophysical Journal"
+  year: "2026"
+  status: published
+  arxiv: "https://arxiv.org/abs/2512.03129"
+  ads: "https://scixplorer.org/abs/2026ApJ...998..318R/abstract"
+provenance:
+  authorship: ai-drafted
+  model: "claude-opus-5-5"
+  note: >-
+    Drafted from the full text of the published article (ApJ 998, 318).
+    Every number is copied from the paper; none were computed.
+sources:
+  - id: paper
+    label: "Rodriguez et al. (2026), ApJ 998, 318"
+    url: "https://doi.org/10.3847/1538-4357/ae3c7a"
+  - id: rosen2014
+    label: "Rosen et al. (2014), where is the missing stellar wind energy?"
+    url: "https://arxiv.org/abs/1405.1427"
+  - id: lancaster2025
+    label: "Lancaster et al. (2025), 3D simulations of wind-blown bubbles"
+    url: "https://arxiv.org/abs/2505.22733"
+  - id: townsley2024
+    label: "Townsley et al. (2024), T-ReX: the Chandra survey of 30 Doradus"
+    url: "https://arxiv.org/abs/2403.16944"
+draft: true
+level: undergraduate
+tags: ["stellar feedback", "stellar winds", "X-ray astronomy", "30 Doradus", "star clusters"]
+---
+
+import PostFigure from "../../components/post/PostFigure.astro";
+
+{/*
+  DRAFT — Astrobytes post on Rodriguez et al. (2026), ApJ 998, 318.
+
+  Status: AI-drafted (claude-opus-5-5, 2026-10-17). NOT reviewed by Anna.
+  It is `draft: true`, so only the dev server renders it and it carries no
+  review provenance it has not earned.
+
+  Before it is set to draft: false it needs, at minimum:
+    1. Anna's review and rewrite in her own voice. Then, and only then, add
+       provenance.reviewedBy and provenance.reviewedOn (deliberately absent
+       here; the schema refuses a non-draft without them, which is correct).
+    2. A fact-check of every number against the version of record. Numbers
+       were copied from the published ApJ HTML (iopscience), which differs
+       from arXiv v1 in places (e.g. arXiv v1's Figure 12 caption says a
+       3e3 Msun cluster; the published text and caption say 5e3 Msun).
+    3. A decision on the dust-temperature scaling (see FLAG in the dust
+       section below) before any scaling relation for dust is quoted.
+    4. The three figures added to src/data/figures.json (path, alt, width,
+       height, sha256, credit, usedIn) — the PostFigure ids below do not
+       exist yet; the dev server shows placeholders, a production build fails.
+    5. Delete this banner and the FIGURE PLAN block.
+*/}
+
+{/*
+  FIGURE PLAN (nothing downloaded; source the images from the VERSION OF
+  RECORD, which is CC BY 4.0 per Crossref and the IOP article page. The
+  arXiv v1 HTML is under the arXiv non-exclusive licence, so do not take the
+  images from arXiv.)
+
+  Credit line for every figures.json `credit` field:
+    "Figure N of Rodriguez et al. (2026), ApJ 998, 318. CC BY 4.0."
+
+  1. id rodriguez-2026-fig3 — paper Figure 3.
+     Shows: (a) HST H-alpha, (b) Chandra broad-band X-rays with the 60
+     spectral regions, (c) H-alpha (green) + X-rays (blue) composite around
+     R136; 5.5' x 5.5'.
+     Why: the whole paper in one picture. A reader sees the hot gas sitting
+     inside the H-alpha cavities before any profile is explained.
+     Image (VoR): https://content.cld.iop.org/journals/0004-637X/998/2/318/revision1/apjae3c7af3_hr.jpg
+     (arXiv v1 splits it into hst_SB.png, chandra_SB_smallreg.png,
+     2color_SB.png under https://arxiv.org/html/2512.03129v1/)
+     Alternative if a single striking opener is wanted instead: Figure 1,
+     the 22' x 22' three-colour X-ray mosaic,
+     https://content.cld.iop.org/journals/0004-637X/998/2/318/revision1/apjae3c7af1_hr.jpg
+
+  2. id rodriguez-2026-fig9 — paper Figure 9.
+     Shows: annuli around R136 cut into 60-degree wedges, and the normalized
+     X-ray and H-alpha surface-brightness profile for each wedge (a)-(f).
+     Why: this is the measurement behind "partial confinement" — the reader
+     can see the X-ray peak sit inside the H-alpha peak in (b), (c), (d).
+     Image (VoR): https://content.cld.iop.org/journals/0004-637X/998/2/318/revision1/apjae3c7af9_hr.jpg
+     (arXiv v1: https://arxiv.org/html/2512.03129v1/SB_R136.png)
+
+  3. id rodriguez-2026-fig12 — paper Figure 12.
+     Shows: mock X-ray and H-alpha observation of the Lancaster et al. (2025)
+     wind-bubble simulation: temperature slice, emissivities, two-colour
+     map, normalized profiles.
+     Why: the place where models and data disagree (interior dip, too few
+     hard X-rays), which is the paper's most forward-looking result.
+     Image (VoR): https://content.cld.iop.org/journals/0004-637X/998/2/318/revision1/apjae3c7af12_hr.jpg
+     (arXiv v1: https://arxiv.org/html/2512.03129v1/figures/X_ray_Ha_SB_plot_0030.png)
+*/}
+
+*This paper was led by Jennifer Rodriguez, a PhD student I advise at Ohio
+State, with Laura Lopez, Lachlan Lancaster, Omnarayani Nayak, Sebastian Lopez,
+Tyler Holland-Ashford and Trinity Webb. I'm a co-author.*
+
+The most massive stars do not leave their birth clouds quietly. They launch
+fast winds that slam into the surrounding gas, shock-heat it to around
+$10^7$ K, and blow out bubbles of hot, tenuous gas that glows in X-rays.
+
+The classical picture of such a bubble seals all that hot gas inside a dense
+shell of swept-up material. That picture predicts more X-ray light than we
+actually see from massive star-forming regions. So a significant fraction of
+the wind energy is being lost, and how much the winds actually do to their
+surroundings is not well understood.
+
+## Three ways to lose the energy
+
+The paper tests three candidate drains:
+
+- **Leakage.** The shell is porous, and hot gas escapes through the gaps.
+- **Dust.** Turbulence at the boundary stirs dust grains into the hot gas,
+  where collisions heat them and eventually destroy them.
+- **Turbulent mixing.** Hot gas churned together with cold gas at the
+  boundary lands at intermediate temperatures, around $10^5$ K, where gas
+  radiates its energy away most efficiently.
+
+Each one leaves a different fingerprint, and you need several wavelengths to
+see them. X-rays trace the hot gas. Infrared traces the dust. H$\alpha$, the
+red line of hydrogen, traces warm ionized gas at about $10^4$ K — the inner
+skin of the shells, where hot gas meets cold.
+
+## The best place to look
+
+30 Doradus, the Tarantula Nebula, is the most luminous and massive H II region
+in the Local Group. At its centre sits R136, a young (~1–2 Myr) super star
+cluster with a bolometric luminosity of $7.8 \times 10^7\,L_\odot$, home to
+R136a1, the most massive star known, with an initial mass of
+$\geq 250\,M_\odot$. R136 is too young to have had supernovae, though older
+clusters elsewhere in the nebula likely have.
+
+It is also close and clear. 30 Dor lies in the Large Magellanic Cloud, at
+~50 kpc, nearly face-on, behind a low absorbing column. And Chandra stared at
+it for 2 Ms as part of the T-ReX program, observing it 51 times between 2014
+May and 2016 January.
+
+The paper combines those data with JWST and Spitzer images of the dust,
+published dust models fit to Spitzer and Herschel data, and Hubble H$\alpha$
+imaging. It fits X-ray spectra in 84 regions, each 42″ on a side, covering
+~70 × 120 pc² — about 20% of 30 Dor's area — and in 60 more regions laid out
+to follow the H$\alpha$ cavities around R136.
+
+<PostFigure id="rodriguez-2026-fig3" variant="wide">
+  The hot gas sits in the holes. <strong>(a)</strong> Hubble H$\alpha$, tracing warm ionized gas. <strong>(b)</strong> Chandra broad-band (0.5–7 keV) X-rays, with the regions used for spectral fitting. <strong>(c)</strong> The two together, H$\alpha$ in green and X-rays in blue; R136 is the cyan ×. The hot gas fills the H$\alpha$ cavities, as if held in by a shell of cooler gas.
+  {/* credit (figures.json): "Figure 3 of Rodriguez et al. (2026), ApJ 998, 318. CC BY 4.0." */}
+</PostFigure>
+
+## Is the hot gas heating the dust?
+
+<aside class="sidenote">
+  <strong>Temperature in keV</strong>
+  X-ray astronomers quote gas temperatures as an energy, $kT$. The fitted range
+  here, 0.24–0.82 keV, is about $2.8 \times 10^6$ to $9.5 \times 10^6$ K.
+</aside>
+
+The spectra give the hot gas temperature, 0.24–0.82 keV, peaking at R136, and
+densities of 0.04–0.21 cm$^{-3}$. Both the hot gas and the dust get cooler
+with distance from R136. Neither falls off as the simple models say. The hot
+gas temperature declines as $kT \propto r^{-0.44}$, much more gently than the
+$r^{-4/3}$ expected for a freely, adiabatically expanding wind. The dust
+temperature declines more gently still.
+
+{/* FLAG for Anna: the paper compares the measured dust trend,
+    T_dust,warm ∝ r^-0.18, with "T_dust ∝ r^-2 for radiative heating" (§3.3,
+    §4.1, Fig. 6). With the paper's own T_dust = 20 U^(1/6) K and an
+    inverse-square U ∝ r^-2, the expectation would be r^(-1/3), not r^-2.
+    This is my reading, not checked with the authors, so the draft quotes
+    neither dust scaling. Decide before publishing. */}
+
+Two things that both fall with distance will correlate whether or not one
+causes the other. So the paper removes the shared trend with distance and asks
+whether the leftovers line up: is the dust warmer wherever the hot gas is
+hotter? They do not line up. There is no significant correlation, which
+suggests the dust is not being heated by collisions with the hot gas. It sits
+in the swept-up shells and is heated by starlight — and not only R136's, which
+supplies ~30% of the extreme-ultraviolet light of 30 Dor.
+
+The paper also estimates how long a grain would last if it did get mixed into
+the hot gas: for a 0.1 μm grain, ~0.5–2.25 Myr, about 0.85 Myr on average.
+That is comparable to R136's age, so larger grains could survive. But the long
+lifetime reflects how rarely grains collide with particles in the hot gas,
+and those same rare collisions are what would heat them.
+
+## The shells leak
+
+The sharper test comes from H$\alpha$. The team drew rings around R136 and
+around two cavities beside it, cut each ring into 60° wedges, and measured how
+the X-ray and H$\alpha$ brightness change with radius along each wedge.
+
+<PostFigure id="rodriguez-2026-fig9" variant="wide">
+  Rings around R136, cut into 60° wedges, and the X-ray and H$\alpha$ brightness along each one, each normalized to its own peak. Radius runs from 10″ to 70″ (2.4–17 pc). In wedges <strong>(b)</strong>, <strong>(c)</strong> and <strong>(d)</strong>, the X-rays peak inside the H$\alpha$ peak: the hot gas is partly held in by the shell.
+  {/* credit (figures.json): "Figure 9 of Rodriguez et al. (2026), ApJ 998, 318. CC BY 4.0." */}
+</PostFigure>
+
+The H$\alpha$ is limb-brightened: it climbs toward the shell, as a thin skin
+seen edge-on should. The X-rays are not. They stay fairly flat across the
+interior, peak inside the H$\alpha$ shell, and fade as the H$\alpha$ rises.
+Around R136, where the X-rays peak inside the shell, they do so 5″–30″
+(≈1–7 pc) inside it, and drop by 5%–40% by the time they reach it.
+
+To put a number on that, the paper compares the X-ray light inside the
+H$\alpha$ peak with the total. The average of that apparent confinement is
+46% around R136, 55% for the northern cavity and 73% for the eastern one. In
+some wedges the X-rays peak at or beyond the shell instead, which points to
+gaps through which hot gas may be escaping.
+
+<p class="pullquote">
+  The bubbles are not sealed. They are partly confined, and the seams are where
+  the paper finds signs of both leakage and mixing.
+</p>
+
+Both drains fit what is seen. The shells are fragmented rather than smooth
+spheres, which opens channels for hot gas to escape. And an X-ray glow that
+fades where it meets the shell is what efficient cooling at the hot–cold
+boundary would produce — the turbulent-mixing channel.
+
+## Where the simulations disagree
+
+The paper then holds the observations up against a mock observation of a 3D
+simulation of a wind-blown bubble from Lancaster et al. (2025), built for a
+$5 \times 10^3\,M_\odot$ cluster. It was not tuned to R136, so only the shapes
+of the normalized profiles are compared.
+
+<PostFigure id="rodriguez-2026-fig12" variant="wide">
+  The same measurement made on a simulated wind-blown bubble. The hot (≳10<sup>7</sup> K) shocked wind is surrounded by photoionized gas near 10<sup>4</sup> K, and the simulated X-rays come mostly from the mixing layer at the bubble's surface. The result is an X-ray profile with a dip in the middle, almost all in the soft band — unlike the flatter interiors and harder X-rays in the observations.
+  {/* credit (figures.json): "Figure 12 of Rodriguez et al. (2026), ApJ 998, 318. CC BY 4.0." */}
+</PostFigure>
+
+The broad picture agrees: X-rays inside H$\alpha$ shells. The details do not.
+The simulated bubble is dark in the middle and nearly all its X-rays are soft;
+the real one is bright in the middle, with more comparable contributions from
+soft, medium and hard X-rays.
+
+The paper's suggested culprit is something the simulation leaves out: thermal
+conduction. Conduction would carry heat into the shell and evaporate cool gas
+into the bubble, loading the interior with more gas to glow and producing
+more emission at higher temperatures — more X-rays in the middle, and harder
+ones. Another possibility it raises is inverse-Compton scattering of starlight
+by cosmic-ray electrons, though predictions for star-forming regions have not
+yet been made.
+
+## What this does not show
+
+These are morphologies and temperatures, not an energy budget. The paper
+identifies which drains the data support; it does not say how much of the wind
+energy each one removes.
+
+The confinement fractions should be read with caution: projection and the
+irregular shapes of the shells affect them, and the profiles depend on which
+wedges were chosen. The densities assume the hot gas fills each region
+completely, so they are lower limits. The spectra are fit with a single
+temperature over the soft 0.5–3 keV band. And the simulation comparison is
+qualitative by design, against a simulation not built to represent R136 or
+30 Dor.
+
+The thermal-conduction explanation is a hypothesis. Testing it, as the paper
+says, needs bubble models that include conduction, compared against these same
+X-ray and H$\alpha$ profiles. That is what this paper leaves behind: a
+measurement that models of wind-blown bubbles can be tested against.
