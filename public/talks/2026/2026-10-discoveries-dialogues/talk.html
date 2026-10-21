@@ -170,6 +170,24 @@ Anna L. Rosen <span>San Diego State University</span>
 R136 · NASA, ESA, CSA, STScI
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Open:</strong> “We can photograph this cluster. How much of its history can we recover?” Pause; look at the audience.</li>
+<li><strong>Point:</strong> R136 in an actual JWST image: present-day starlight, with depth and earlier history hidden.</li>
+<li><strong>Promise:</strong> Follow physical models from possible birth conditions to light, then ask what observations can constrain.</li>
+<li><strong>Next:</strong> Separate what the telescope measures from what we infer.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="snapshot" class="slide level2 photo-split">
 <h2>We measure starlight. We infer masses and ages.</h2>
@@ -196,6 +214,24 @@ Many faint stars remain unseen
 R136 · JWST · NASA, ESA, CSA, STScI
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Land:</strong> Positions, colors, and brightnesses are measured; masses and ages require models.</li>
+<li><strong>Reveal together:</strong> Point to the bright core. Rare massive stars drive radiation, winds, and later supernovae.</li>
+<li><strong>Contrast:</strong> Light weights the census unevenly. Many faint stars remain unseen, yet still contribute mass and gravity.</li>
+<li><strong>Next:</strong> Predict what a population would look like before trying to infer its physical properties.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="forward-inverse" class="slide level2 forward-inverse-slide">
 <h2>Predicting starlight. Inferring the physics.</h2>
@@ -221,6 +257,24 @@ Which stars and physics could explain this light?
 Different explanations can fit the same observations.
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Forward:</strong> Choose physical inputs; predict the starlight those stars would produce.</li>
+<li><strong>Reveal inverse:</strong> Ask which inputs are compatible with the observed light. Imagine two different explanations fitting one image.</li>
+<li><strong>Keep straight:</strong> Uncertainty and degeneracy remain. Inference does not reverse physical time or promise a unique history.</li>
+<li><strong>Next:</strong> We need fast predictions and a way to calculate what changes them.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="jax-intro" class="slide level2 jax-slide">
 <h2>JAX computes predictions and their derivatives</h2>
@@ -244,6 +298,25 @@ A Python library for ML/AI and high-performance scientific computing.
 Conceptual illustration · not simulation data
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Point to the illustration:</strong> Nudge one input; follow the change through the numerical prediction.</li>
+<li><strong>Land:</strong> JAX is a Python library for ML/AI and high-performance scientific computing.</li>
+<li><strong>Reveal:</strong> Just-in-time compilation accelerates computation; automatic differentiation follows the numerical operation chain to calculate sensitivities.</li>
+<li><strong>Keep straight:</strong> The illustration is conceptual. These physical models are not thereby learned neural-network emulators.</li>
+<li><strong>Next:</strong> JAX supplies the computing capability; Jaxstro connects the physical pieces.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="ecosystem" class="slide level2 map-slide">
 <h2>Jaxstro connects stellar physics to observations</h2>
@@ -303,6 +376,25 @@ Inference
 Jaxstro is a composable ecosystem designed for joint star-cluster modeling and inference.
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Follow the reveals:</strong> Birth populations; stellar models; gravity; telescope observations; inference. Explain the connections instead of reciting names.</li>
+<li><strong>Pause at the pair:</strong> StarTrax provides rapid stellar-evolution prescriptions; Stellax models detailed one-dimensional stellar structure and evolution.</li>
+<li><strong>Land:</strong> A physical assumption can affect several later predictions, including what the telescope sees.</li>
+<li><strong>Scope:</strong> Composable components designed for joint inference; these examples do not demonstrate completed R136 recovery.</li>
+<li><strong>Next:</strong> Before building a cluster model, notice what projection hides.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="projection" class="slide level2" data-stage="progenax">
 <h2>Telescopes observe 2D projections of 3D clusters.</h2>
@@ -347,6 +439,24 @@ The same cluster looks different from different viewing angles.
 First view: OpenAI concept illustration. Second: saved Gravoturb / Progenax catalog · marker color encodes depth; size encodes mass
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Concept first:</strong> The cloud and plane illustrate depth being lost. This first view is explanatory art.</li>
+<li><strong>Reveal real views:</strong> All three contain the identical saved stars. Point to a concentration whose apparent shape changes.</li>
+<li><strong>Pause:</strong> Let “the same cluster” land. These are viewing directions, not time steps or independent realizations.</li>
+<li><strong>Next:</strong> Construct a physical birth model whose predictions can be viewed from different directions.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="cloud-construction" class="slide level2 cloud-slide" data-stage="progenax">
 <h2>Building a cluster from its birth cloud</h2>
@@ -402,6 +512,24 @@ Our model links gas density<br>to where stars form
 Gravoturb / Progenax · same example cluster · model construction
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Land:</strong> Denser gas collapses faster; the model turns that physical motivation into a star-formation prescription.</li>
+<li><strong>Across the reveals:</strong> Gas structure; mass assigned to stars; sampled stars plus remaining gas. Follow the registered cloud landmarks.</li>
+<li><strong>Keep straight:</strong> These are construction stages, not a gas-evolution movie. Counts and masses are drawn first; their realized mass sets the allocation.</li>
+<li><strong>Next:</strong> The same physical parameters need not produce one unique cluster.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="stochastic" class="slide level2 ensemble-slide" data-stage="progenax">
 <h2>One model produces many possible clusters</h2>
@@ -489,6 +617,24 @@ Marker size: stellar mass. Marker color: depth.
 Twelve independent saved realizations · scale bars: <span class="math inline">2\,\mathrm{pc}</span>
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Pause:</strong> Give the twelve panels a moment before explaining them.</li>
+<li><strong>Land:</strong> Same parameters; independent random draws change cloud structure, counts, masses, and positions.</li>
+<li><strong>Point:</strong> Compare concentrated and dispersed appearances. Marker size represents stellar mass; color represents depth.</li>
+<li><strong>Next:</strong> A birth snapshot must also evolve under gravity.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="dynamics" class="slide level2 movie-slide" data-stage="gravax">
 <h2>Gravity moves the stars after birth</h2>
@@ -505,6 +651,24 @@ Play / restart
 A separate gravity-only simulation.
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Let it play:</strong> Give the motion a moment. Then point to the moving stars and the structure/kinematics curves.</li>
+<li><strong>Land:</strong> Gravity changes the arrangement after birth; an observed cluster is not a frozen birth catalog.</li>
+<li><strong>Keep straight:</strong> A separate gravity-only calculation, not the preceding gas model with coupled stellar evolution or feedback. The horizontal clock is in crossing times.</li>
+<li><strong>Next:</strong> Motion is one piece. To connect the stars to light, we also need stellar evolution.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="sun-prediction" class="slide level2 sun-slide" data-stage="stellax">
 <h2>Stellar models connect physical inputs to observable light</h2>
@@ -522,6 +686,25 @@ Broader calibration needs observations across mass, composition, and evolutionar
 Non-diffusive model · gold star: solar reference · idealized model clock from <span class="math inline">\sim2\,\mathrm{yr}</span>.
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Start on the right:</strong> Follow the main-sequence closeup and identify the present-day solar reference.</li>
+<li><strong>Then the left:</strong> Trace the evolutionary overview through first helium ignition. The model predicts beyond the Sun’s current age.</li>
+<li><strong>Land:</strong> This Sun-like star illustrates how physical inputs become observable predictions; it does not represent every stellar mass or composition.</li>
+<li><strong>Keep straight:</strong> This saved non-diffusive calculation differs from the next derivative baseline. Its early model clock follows idealized initialization.</li>
+<li><strong>Next:</strong> Which physical inputs change the predicted light, and how does that sensitivity evolve?</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="sun-sensitivities" class="slide level2 sun-slide" data-stage="stellax">
 <h2>How do composition and energy transport affect stellar light?</h2>
@@ -540,6 +723,25 @@ How luminosity and temperature sensitivities change with age
 Local <span class="math inline">+1\%</span> relative input changes · fixed age/schedule · bars match the gold-star history values
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Orient:</strong> Initial helium on the left; convection on the right. Luminosity above; effective temperature below.</li>
+<li><strong>Trace:</strong> Compare how the responses change with age. Use the gold stars as the solar-age reference.</li>
+<li><strong>Land:</strong> Composition and energy transport leave different signatures, and those signatures change during evolution.</li>
+<li><strong>Keep straight:</strong> Local, first-order responses to one-percent relative input changes at fixed recorded ages and schedule; not separate perturbed simulations.</li>
+<li><strong>Next:</strong> Use derivative information to guide calibration against observations. The actual fit next uses its own starting model and Jacobian.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="sun-calibration" class="slide level2 sun-slide" data-stage="stellax">
 <h2>Observations calibrate stellar models across masses and metallicities</h2>
@@ -565,6 +767,25 @@ This fit tests one star. Other masses and metallicities require their own observ
 Fixed <span class="math inline">1\,M_\odot</span>, <span class="math inline">4.5673\,\mathrm{Gyr}</span> · fit <span class="math inline">L</span>, <span class="math inline">R</span>, and envelope <span class="math inline">Z/X</span> with <span class="math inline">Y_0</span>, <span class="math inline">Z_0</span>, and <span class="math inline">\alpha_{\mathrm{MLT}}</span> · own starting model and derivatives
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Land:</strong> Now calibrate against adopted observed-Sun constraints. The Sun is the worked example, not a claim about all stars.</li>
+<li><strong>Point:</strong> The main-sequence endpoint and gold star. Before/after paths nearly overlap: the starting luminosity missed by only 0.122 percent. Improved numerical agreement is not observational precision.</li>
+<li><strong>Fit:</strong> Fix solar mass and age; adjust initial helium, initial metals, and convection to fit luminosity, radius, and envelope composition. Temperature is derived, not another independent target.</li>
+<li><strong>Inset:</strong> A reminder of the preceding local sensitivities; its baseline differs from the calibration’s own derivatives.</li>
+<li><strong>Scope and next:</strong> A fit constrains a model without proving unique interior physics. Other masses and metallicities need their own constraints; cluster light adds more physical inputs.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="observation" class="slide level2" data-stage="fluxax">
 <h2>Which model inputs change the predicted image?</h2>
@@ -652,6 +873,25 @@ Each panel is normalized to its own peak.
 Fluxax · same saved population and field in both views · derivatives of the expected image
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Top row:</strong> The same synthetic population, first blurred by optics, then with sky and noise.</li>
+<li><strong>Reveal both derivatives:</strong> Give equal attention to the high-mass IMF slope and the binary mass-ratio exponent intercept.</li>
+<li><strong>Land:</strong> Bright pixels locate where predicted flux is more sensitive to that input. This is where the bright stars “pop” in the derivative maps.</li>
+<li><strong>Keep straight:</strong> Independently peak-normalized absolute responses of the expected image: no signed brightening or direct cross-panel strength comparison.</li>
+<li><strong>Next:</strong> What if binaries are missing from the model? The next controlled test uses idealized mass addition, not image fitting.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="confidently-wrong" class="slide level2" data-stage="informax">
 <h2>More stars can make a wrong answer more precise</h2>
@@ -674,6 +914,25 @@ More data cannot fix a missing piece of the model.
 Rosen (2026), <em>Confidently Wrong: Why Ignoring Binaries Biases IMF Inference at Large Sample Sizes</em><br><em>The Astrophysical Journal</em>, accepted · arXiv:2603.15779
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Ask:</strong> “Would a narrower error bar make you more confident?” Brief pause.</li>
+<li><strong>Point:</strong> Purple curves narrow away from the vertical truth line as the number of stars grows.</li>
+<li><strong>Reveal:</strong> Including binaries recovers the input slope in this controlled test. More data cannot repair the omitted model component.</li>
+<li><strong>Keep straight:</strong> Idealized synthetic unresolved-component mass addition; not an R136 fit or a universal bias estimate.</li>
+<li><strong>Next:</strong> Return to the opening image. Which observation could challenge competing explanations?</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="next-measurement" class="slide level2 photo-split" data-stage="question">
 <h2>Which observations can distinguish competing models?</h2>
@@ -695,6 +954,25 @@ Jaxstro connects stellar physics, cluster dynamics, and starlight to infer how s
 R136 · NASA, ESA, CSA, STScI · proposed constraints, not a completed R136 inference
 </p>
 
+<aside class="notes">
+<ul>
+<li><strong>Callback:</strong> R136 from the opening. “If several models fit this image, what would you measure next?”</li>
+<li><strong>Reveal motions:</strong> Constrain the dynamical state.</li>
+<li><strong>Reveal spectra and companions:</strong> Constrain stellar properties and multiplicity.</li>
+<li><strong>Scope:</strong> Proposed ways to distinguish models; no optimal R136 measurement or joint recovery has been demonstrated here.</li>
+<li><strong>Next:</strong> Physics guides the predictions; observations decide which explanations hold up.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="closing" class="slide level2 hero closing" data-background-image="assets/r136.webp" data-background-size="cover" data-background-color="#102a43">
 <h2></h2>
@@ -717,6 +995,24 @@ R136 · NASA, ESA, CSA, STScI
 </p>
 
 
+<aside class="notes">
+<ul>
+<li><strong>Return:</strong> This image is the starting point for testable physical questions.</li>
+<li><strong>Pause:</strong> Let “More than pretty space pictures” land; look at the audience.</li>
+<li><strong>Reveal:</strong> Finish with the physics-and-observations takeaway, without adding another explanation.</li>
+<li><strong>Close:</strong> Leave R136 on screen and invite questions.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
     </div>
   <div class="quarto-auto-generated-content" style="display: none;">
