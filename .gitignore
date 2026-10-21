@@ -34,3 +34,6 @@ wp-media/
 # accumulate on every session; one got committed in 5aa0914 before this line
 # existed.
 .playwright-mcp/
+
+# Vendored Reveal runtime is a delivery dependency, not website build output.
+!public/talks/**/talk_files/libs/revealjs/dist/
