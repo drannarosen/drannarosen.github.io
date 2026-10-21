@@ -1,0 +1,370 @@
+
+@font-face {font-family:Inter;src:url('fonts/inter-400.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face {font-family:Inter;src:url('fonts/inter-600.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face {font-family:Inter;src:url('fonts/inter-700.ttf') format('truetype');font-weight:700;font-display:swap}
+@font-face {font-family:Manrope;src:url('fonts/manrope-500.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face {font-family:Manrope;src:url('fonts/manrope-700.ttf') format('truetype');font-weight:700;font-display:swap}
+@font-face {font-family:Manrope;src:url('fonts/manrope-800.ttf') format('truetype');font-weight:800;font-display:swap}
+:root {--ink:#000;--muted:#52626f;--teal:#0b7285;--sky:#d9f1f2;--night:#102a43;--gold:#a16207;--mauve:#80556f;--line:#cfdae0;--space:36px}
+.reveal {font-family:Inter,Arial,sans-serif;color:var(--ink)}
+.reveal .slides {text-align:left}
+.reveal .slides>section {padding:25px 25px 0;box-sizing:border-box;height:900px}
+.reveal h1,.reveal h2,.reveal h3 {font-family:Manrope,Inter,sans-serif;font-weight:700;letter-spacing:-.035em;color:var(--ink);text-transform:none}
+.reveal h2 {font-size:59px;line-height:1.12;margin:0 0 26px;max-width:1490px}
+.reveal h3 {font-size:43px;line-height:1.16;margin:15px 0 24px}
+.reveal p {line-height:1.35;margin:0 0 24px}
+.reveal strong {color:var(--teal);font-weight:600}
+.reveal .lede {font-size:32px;color:var(--muted);max-width:1440px;margin-bottom:24px}
+.reveal .eyebrow,.reveal .tag {font-size:20px;font-weight:700;letter-spacing:.12em;color:var(--teal);line-height:1.3}
+.reveal .small {font-size:28px;color:var(--muted);line-height:1.4}
+.reveal .credit {font-size:17px;color:var(--muted);position:absolute;left:25px;bottom:39px;margin:0;max-width:1480px;line-height:1.3}
+.reveal .takeaway {font-size:40px;line-height:1.3;max-width:1450px;margin:24px 0 0;color:var(--teal);font-weight:600}
+.reveal .scope {font-size:25px;color:var(--muted);line-height:1.4;margin-top:40px;max-width:1440px}
+.reveal img {margin:0;border:0;box-shadow:none;max-width:100%;max-height:none}
+.reveal .figure {display:block;object-fit:contain;object-position:center;width:100%;height:580px}
+.reveal .imf {height:490px;margin-top:32px}
+.reveal .split {display:grid;grid-template-columns:1.07fr 1fr;gap:65px;align-items:center;height:640px}
+.reveal .photo {width:100%;height:610px;object-fit:cover}
+.reveal .statement-stack {padding:12px 0 0 18px}
+.reveal .statement-stack p {font-size:45px;line-height:1.2;margin:16px 0 30px}
+.reveal .statement-stack .tag {color:var(--gold)}
+.reveal .hero {padding:0;height:900px;color:white}
+.reveal .hero h2 {display:none}
+.reveal .hero-copy {position:relative;padding:75px 55px 30px;width:1060px;box-sizing:border-box}
+.reveal .hero-copy h1 {color:white;font-size:96px;line-height:1.02;letter-spacing:-.05em;margin:38px 0 35px;font-weight:800}
+.reveal .hero-copy .eyebrow {color:#d9f1f2;font-size:22px;letter-spacing:.16em}
+.reveal .hero-copy .subtitle {font-size:32px;line-height:1.4;max-width:830px;color:white}
+.reveal .hero-copy .byline {font-size:27px;color:white;margin-top:60px}
+.reveal .hero-copy .byline span {display:block;font-size:22px;color:#d9f1f2;margin-top:6px}
+.reveal .photo-credit {position:absolute;bottom:27px;right:25px;color:#fff;font-size:15px;margin:0;text-shadow:0 1px 4px #000}
+.reveal .slide-background.hero:after {content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(2,13,25,.92) 0%,rgba(2,13,25,.78) 46%,rgba(2,13,25,.08) 100%)}
+.reveal .closing .hero-copy h1 {font-size:108px}
+.reveal .closing .hero-copy .subtitle {font-size:34px}
+.reveal .three-up {display:grid;grid-template-columns:repeat(3,1fr);gap:55px;padding:65px 15px 20px}
+.reveal .three-up>div {border-top:5px solid var(--teal);padding-top:18px}
+.reveal .three-up>div:nth-child(2) {border-color:var(--gold)}
+.reveal .three-up>div:nth-child(3) {border-color:var(--mauve)}
+.reveal .three-up p {font-size:37px;line-height:1.3}
+.reveal .three-up .small {font-size:28px;margin-top:36px}
+.reveal .three-up .ordinal {font-size:24px;color:var(--muted);margin:0}
+.reveal .weighting+.takeaway {margin-top:45px}
+.reveal .ecosystem {display:grid;grid-template-columns:1.03fr 1.45fr 1fr 1fr 1.1fr;gap:24px;align-items:center;height:510px;position:relative}
+.reveal .ecosystem:before {content:"";position:absolute;left:0;right:0;top:50%;height:3px;background:var(--line);z-index:-1}
+.reveal .node {background:white;border-top:5px solid var(--teal);padding:25px 17px 20px;min-height:180px;box-sizing:border-box}
+.reveal .node span {font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.07em}
+.reveal .node h3 {font-size:36px;margin:15px 0 12px}
+.reveal .node p {font-size:25px;line-height:1.3;margin:0}
+.reveal .stellar-pair {display:grid;gap:28px}
+.reveal .stellar-pair .node:first-child {border-color:var(--gold)}
+.reveal .stellar-pair .node:last-child {border-color:var(--mauve)}
+.reveal .map-slide .scope {margin-top:5px;font-size:27px;max-width:1350px}
+.reveal .map-slide .takeaway {margin-top:0;margin-bottom:28px}
+.reveal .return-map {height:430px}
+.reveal .projection-grid {display:grid;grid-template-columns:repeat(3,1fr);gap:22px;height:510px}
+.reveal .projection-grid figure {margin:0;text-align:center}
+.reveal .projection-grid img {height:465px;width:100%;object-fit:contain}
+.reveal .projection-grid figcaption {font-size:26px;color:var(--muted);margin-top:7px}
+.reveal .model-split {height:520px;grid-template-columns:.92fr 1fr;gap:100px}
+.reveal .model-split h3 {font-size:64px;margin:35px 0}
+.reveal .model-split .contrast-pair {border-left:3px solid var(--line);padding-left:55px}
+.reveal .contrast-pair>div {padding:12px 0 22px}
+.reveal .contrast-pair p {font-size:35px;margin:15px 0 10px}
+.reveal .contrast-pair .small {font-size:30px}
+.reveal .cloud-layout {display:grid;grid-template-columns:820px 1fr;gap:70px;height:665px;align-items:center}
+.reveal .cloud-layout>img {width:820px;height:655px;object-fit:contain;object-position:center}
+.reveal .cloud-layout h3 {font-size:56px;line-height:1.15;margin:30px 0}
+.reveal .cloud-layout p {font-size:40px;line-height:1.3}
+.reveal .cloud-layout .eyebrow {font-size:20px}
+.reveal .cloud-layout .small {font-size:29px;margin-top:35px}
+.reveal .ensemble {display:grid;grid-template-columns:repeat(6,1fr);gap:14px;height:565px;padding-top:5px}
+.reveal .ensemble figure {position:relative;margin:0;background:#000}
+.reveal .ensemble img {width:100%;height:100%;object-fit:contain}
+.reveal .ensemble figcaption {position:absolute;left:12px;top:8px;font-size:22px;font-weight:700;color:white;background:#000b;padding:0 8px}
+.reveal .ensemble-slide .takeaway {margin-top:24px}
+.reveal .movie-slide video {display:block;width:100%;height:570px;object-fit:contain;background:#111;margin:0}
+.reveal .movie-actions {display:flex;align-items:center;gap:28px;margin-top:14px}
+.reveal button {font-family:Inter,sans-serif;font-size:23px;border:2px solid var(--teal);background:white;color:var(--teal);padding:10px 18px;border-radius:3px;cursor:pointer}
+.reveal button:focus-visible {outline:4px solid var(--gold);outline-offset:5px}
+.reveal #video-status {font-size:22px;color:var(--muted)}
+.reveal .movie-slide .takeaway {margin-top:16px}
+.reveal .matched {height:555px}
+.reveal .sun-slide h2 {margin-bottom:10px}
+.reveal .sun-slide .eyebrow {font-size:18px;margin:0 0 15px}
+.reveal .sun-figure {height:590px}
+.reveal .response-figure {height:615px}
+.reveal .calibration-figure {height:555px}
+.reveal .sun-slide .takeaway {font-size:40px;margin-top:12px}
+.reveal .sun-slide .calibration-takeaway {font-size:40px;line-height:1.3;max-width:1450px;margin-top:20px}
+.reveal .inference-loop {display:grid;grid-template-columns:1fr 70px 1.2fr 70px 1fr;gap:10px;align-items:center;margin:120px 10px 0}
+.reveal .inference-loop>div {border-top:5px solid var(--teal);padding:28px 10px}
+.reveal .inference-loop h3 {font-size:45px;margin:25px 0}
+.reveal .inference-loop p {font-size:29px;color:var(--muted)}
+.reveal .arrow {font-size:54px;color:var(--muted)}
+.reveal .return-arrow {font-size:31px;text-align:center;color:var(--gold);padding:32px 0;border-top:2px solid var(--line);margin:15px 0 40px}
+.reveal .posterior {height:420px;margin-top:38px}
+.reveal .paper-takeaways {display:grid;grid-template-columns:1fr 1fr;gap:70px;margin:28px 15px 0}
+.reveal .paper-takeaways p {font-size:31px;line-height:1.4}
+.reveal .paper-cite {font-size:21px;line-height:1.45;color:var(--muted);margin:22px 15px 0}
+.reveal .measurement-options {padding-left:15px}
+.reveal .measurement-options h3 {font-size:53px;margin:22px 0 28px}
+.reveal .measurement-options p {font-size:29px;line-height:1.35}
+.reveal .backup-figure {height:650px}
+.reveal .backup .scope {font-size:26px;margin-top:20px}
+.reveal .information-figure {height:700px;width:1000px;object-fit:contain}
+.reveal .info-scope {position:absolute;right:10px;top:280px;max-width:500px;font-size:32px!important}
+.reveal .slide-number {font-family:Inter,sans-serif;font-size:16px;background:transparent;color:var(--muted);bottom:16px;right:30px}
+.reveal .progress {color:var(--teal);height:5px}
+.reveal .controls {color:var(--teal)}
+.stage-map {position:absolute;left:25px;right:150px;bottom:10px;display:flex;gap:21px;align-items:center;font:15px/1.4 Inter,Arial,sans-serif;color:var(--muted)}
+.stage-map b {color:var(--teal);font-weight:700}
+.stage-map span:after {content:' ·';padding-left:20px;color:var(--line)}
+.stage-map span:last-child:after {display:none}
+.stage-map .map-label {text-transform:uppercase;letter-spacing:.08em;color:var(--teal);font-size:13px}
+.reveal .fragment {transition-duration:.35s}
+@media(prefers-reduced-motion:reduce) {.reveal .fragment,.reveal .slides section {transition:none!important;animation:none!important}}
+@media print {
+  .reveal .slides>section {height:900px!important}
+  .movie-actions {display:none!important}
+  video {display:none!important}
+  .print-poster {display:block!important;width:100%;height:570px;object-fit:contain;background:#111}
+  .reveal .controls,.reveal .progress {display:none!important}
+}
+.print-poster {display:none}
+/* Focused revision: inferred IMF constraints and an explicit real-Sun calibration. */
+.reveal .forest-layout {display:grid;grid-template-columns:600px 1fr;gap:35px;align-items:start;height:790px}
+.reveal .imf-inferred h2 {position:absolute;top:25px;left:25px;width:600px;font-size:52px}
+.reveal .forest-explanation {padding-top:145px}
+.reveal .forest-figure {height:790px;width:100%;object-fit:contain}
+.reveal .forest-explanation h3 {font-size:48px;margin:18px 0}
+.reveal .forest-explanation p {font-size:31px;line-height:1.3;margin-bottom:20px}
+.reveal .forest-explanation .small {font-size:27px}
+.reveal .forest-explanation .takeaway {font-size:40px;margin-top:25px}
+.reveal .solar-contract {display:grid;grid-template-columns:1fr 1fr;gap:50px;margin:5px 0 10px}
+.reveal .solar-contract strong {font-size:24px;display:block}
+.reveal .solar-contract>div>span {font-size:24px;display:block;margin-top:4px}
+.reveal .calibration-figure {height:485px}
+.reveal .solar-agreement {font-size:27px;color:var(--teal);margin:6px 0 4px;font-weight:600;text-align:center}
+.reveal .sun-slide .calibration-takeaway {font-size:40px;line-height:1.3;margin-top:7px}
+.reveal .solar-agreement {display:grid;grid-template-columns:1fr 1fr 1.16fr;gap:20px;font-size:23px;text-align:center;align-items:center}
+.reveal .sun-slide .response-figure {height:615px}
+
+/* Two focused views remain one logical Reveal slide; print export expands them. */
+.reveal .figure-swap {position:relative;height:690px;margin-top:6px}
+.reveal .swap-trigger {position:absolute;width:1px;height:1px;pointer-events:none}
+.reveal .swap-view {position:absolute;inset:0;opacity:1;visibility:visible;transition:opacity .35s ease,visibility .35s ease}
+.reveal .swap-second {opacity:0;visibility:hidden}
+.reveal .figure-swap:has(>.swap-trigger.visible)>.swap-first {opacity:0;visibility:hidden}
+.reveal .figure-swap:has(>.swap-trigger.visible)>.swap-second {opacity:1;visibility:visible}
+.reveal .view-label {font-size:28px;font-weight:600;color:var(--muted);margin:0 0 12px}
+.reveal .figure-swap .figure {height:565px}
+.reveal .figure-swap .takeaway {font-size:40px;margin:12px 0 0}
+.reveal .view-detail {font-size:22px;color:var(--muted);margin:7px 0 0}
+.reveal .solar-swap {height:680px}
+.reveal .solar-swap .figure {height:575px}
+.reveal .solar-swap .view-label {font-size:26px;margin-bottom:8px}
+@media(prefers-reduced-motion:reduce) {.reveal .swap-view {transition:none}}
+/* Focused editorial revision: one fixed Fluxax geometry across both states. */
+.reveal .fluxax-stage {display:grid;grid-template-columns:740px 1fr;gap:35px;align-items:center;height:690px;margin-top:10px}
+.reveal .fluxax-fixed-figure {display:grid;grid-template-columns:286px 286px 95px;grid-template-rows:34px 286px 34px 286px;column-gap:16px;row-gap:8px;align-items:center;justify-content:center}
+.reveal .fluxax-panel-title {font-size:23px;font-weight:600;text-align:center;white-space:nowrap;color:var(--muted)}
+.reveal .expected-title {grid-column:1;grid-row:1}.reveal .nominal-title {grid-column:2;grid-row:1}
+.reveal .expected-panel {grid-column:1;grid-row:2}.reveal .nominal-panel {grid-column:2;grid-row:2}
+.reveal .alpha-title {grid-column:1;grid-row:3}.reveal .binary-title {grid-column:2;grid-row:3}
+.reveal .alpha-panel {grid-column:1;grid-row:4}.reveal .binary-panel {grid-column:2;grid-row:4}
+.reveal .fluxax-panel {width:286px;height:286px;object-fit:contain;outline:3px solid transparent;outline-offset:3px;transition:outline-color .35s}
+.reveal .fluxax-scale {grid-column:3;grid-row:4;width:95px;height:298px;object-fit:contain}
+.reveal .fluxax-stage .expected-panel,.reveal .fluxax-stage .nominal-panel {outline-color:var(--teal)}
+.reveal .fluxax-stage:has(.swap-trigger.visible) .expected-panel,.reveal .fluxax-stage:has(.swap-trigger.visible) .nominal-panel {outline-color:transparent}
+.reveal .fluxax-stage:has(.swap-trigger.visible) .alpha-panel {outline-color:var(--gold)}
+.reveal .fluxax-copy {height:535px;margin:0}
+.reveal .fluxax-copy h3 {font-size:57px;margin:24px 0 30px}
+.reveal .fluxax-copy p {font-size:31px;line-height:1.4}
+.reveal .fluxax-copy .eyebrow {font-size:18px}
+.reveal .fluxax-copy .small {font-size:26px;color:var(--muted);margin-top:26px}
+.reveal section[data-print-view="1"] .fluxax-stage .expected-panel,.reveal section[data-print-view="1"] .fluxax-stage .nominal-panel {outline-color:transparent}
+.reveal section[data-print-view="1"] .fluxax-stage .alpha-panel {outline-color:var(--gold)}
+.reveal #sun-prediction .sun-figure {height:550px}
+.reveal .sun-context {font-size:40px;font-weight:600;color:var(--teal);margin:12px 0 0}
+.reveal .solar-scope {font-size:24px;line-height:1.35;color:var(--muted);margin-top:10px;max-width:1440px}
+.reveal .solar-agreement {font-size:24px;grid-template-columns:1fr 1fr 1.2fr;margin:9px 0 5px}
+.reveal .solar-agreement b {display:block;font-size:21px;font-weight:600;color:var(--muted);margin-bottom:3px}
+.reveal .closing .hero-copy {width:1250px}
+.reveal .closing .hero-copy h1 {font-size:91px;line-height:1.08}
+.reveal .fluxax-cell {width:286px;height:286px}
+.reveal .expected-cell {grid-column:1;grid-row:2}.reveal .nominal-cell {grid-column:2;grid-row:2}
+.reveal .alpha-cell {grid-column:1;grid-row:4}.reveal .binary-cell {grid-column:2;grid-row:4}
+.reveal .fluxax-scale-cell {grid-column:3;grid-row:4;width:95px;height:298px}
+/* Revision 5: restored mechanisms, a clear forward/inverse bridge and common emphasis. */
+.reveal #ecosystem .ecosystem {height:360px;margin-top:8px}
+.reveal #ecosystem .node {min-height:140px;padding:14px 14px 12px}
+.reveal #ecosystem .node h3 {font-size:34px;margin:9px 0}
+.reveal #ecosystem .node p {font-size:23px}
+.reveal #ecosystem .stellar-pair {gap:16px}
+.reveal .why-jax {display:grid;grid-template-columns:1fr 1.25fr;gap:60px;border-top:2px solid var(--line);padding-top:20px}
+.reveal .why-jax p {font-size:29px;line-height:1.35;margin:8px 0}
+.reveal #ecosystem .scope {font-size:22px;margin-top:18px}
+.reveal .projection-illustration {height:590px}
+.reveal .ensemble {height:520px}
+.reveal .ensemble-key {font-size:28px;color:var(--muted);margin-top:12px}
+.reveal .fluxax-copy {height:625px}
+.reveal .fluxax-copy h3 {font-size:48px;margin:16px 0 20px}
+.reveal .fluxax-copy p {font-size:30px;line-height:1.35;margin-bottom:18px}
+.reveal .fluxax-copy .small {font-size:27px;margin-top:15px;margin-bottom:16px}
+.reveal .fluxax-copy .derivative-equation {font-size:40px;color:var(--gold);margin:0 0 15px}
+.reveal .fluxax-copy .response-definition {font-size:22px;color:var(--muted);line-height:1.45;margin:0}
+.reveal .fluxax-panel-title {font-size:21px}
+.reveal .solar-agreement {font-weight:400}
+.reveal .calibration-figure {height:455px}
+.reveal .solar-swap .figure {height:550px}
+.reveal .paper-takeaways strong {font-size:40px;line-height:1.25;display:inline-block}
+.reveal .posterior {height:375px;margin-top:25px}
+.reveal .snapshot-layout {display:grid;grid-template-columns:690px 1fr;gap:60px;align-items:center;height:655px}
+.reveal .snapshot-layout .photo {height:635px}
+.reveal .snapshot-copy .small {font-size:28px}
+.reveal .snapshot-copy h3 {font-size:43px;margin:20px 0}
+.reveal .snapshot-stakes {display:grid;gap:13px;margin-top:25px}
+.reveal .snapshot-stakes p {font-size:27px;line-height:1.3;margin:0}
+.reveal .snapshot-copy .takeaway {font-size:40px;margin-top:26px}
+.reveal .forward-inverse {display:grid;grid-template-columns:1fr 1fr;gap:75px;margin-top:35px}
+.reveal .forward-inverse>div {border-top:5px solid var(--teal);padding:20px 18px 0}
+.reveal .forward-inverse>div:nth-child(2) {border-color:var(--gold)}
+.reveal .forward-inverse h3 {font-size:50px;margin:15px 0 20px}
+.reveal .forward-inverse p {font-size:33px;line-height:1.35;margin-bottom:20px}
+.reveal .forward-inverse .model-steps {font-size:35px;line-height:1.5;color:var(--teal)}
+.reveal .forward-inverse .small {font-size:28px;color:var(--muted)}
+.reveal .derivative-bridge {font-size:40px;color:var(--teal);font-weight:600;margin-top:35px;line-height:1.3}
+.reveal .katex {font-size:1.08em}
+.reveal .calibration-baseline {font-size:23px;color:var(--muted);margin:5px 0 8px}
+.reveal .calibration-figure {height:430px}
+.reveal .projection-swap {height:690px}
+.reveal .projection-swap .projection-grid {height:505px}
+.reveal .projection-swap .projection-grid img {height:460px}
+.reveal section[id^="observation"] h2 {font-size:54px}
+/* Approved revision 6: black canvas, readable contrast; scientific pixels unchanged. */
+:root {--ink:#f4f5f7;--muted:#bdc8d2;--teal:#67d4de;--gold:#f0c365;--mauve:#d6abc9;--line:#334155}
+body,.reveal-viewport {background:#000}
+.reveal .node {background:#000}
+.reveal .node span {font-size:20px}
+.reveal .node h3 {font-size:40px}
+.reveal .node p {font-size:29px}
+.reveal .small {font-size:30px}
+.reveal .credit {font-size:18px}
+.reveal .lede {font-size:34px}
+.reveal .eyebrow,.reveal .tag {font-size:22px}
+.reveal .view-label,.reveal .solar-swap .view-label {font-size:30px}
+.reveal .sun-slide .eyebrow {font-size:22px}
+.reveal .solar-scope {font-size:26px}
+.reveal .solar-agreement {font-size:26px}
+.reveal .solar-agreement b {font-size:24px}
+.reveal .calibration-baseline {font-size:25px}
+.reveal .fluxax-copy p {font-size:32px}
+.reveal .fluxax-copy .small {font-size:28px}
+.reveal .fluxax-copy .response-definition {font-size:24px}
+.reveal .fluxax-panel-title {font-size:23px;letter-spacing:-.02em}
+.reveal .snapshot-copy .snapshot-observed {font-size:43px;line-height:1.25;margin:0 0 45px}
+.reveal .snapshot-stakes {gap:36px;margin:0}
+.reveal .snapshot-stakes p {font-size:43px;line-height:1.25}
+.reveal .snapshot-copy .takeaway {margin-top:45px;font-size:43px}
+.reveal .approved-forward {height:500px;align-items:center;margin-top:25px}
+.reveal .approved-forward h3 {font-size:48px;color:var(--teal)}
+.reveal .approved-forward>div:nth-child(2) h3 {color:var(--gold)}
+.reveal .approved-forward p {font-size:48px;line-height:1.25}
+.reveal #ecosystem .approved-ecosystem {height:570px;margin-top:10px}
+.reveal #ecosystem .approved-ecosystem .node {min-height:170px;padding:30px 17px}
+.reveal #ecosystem .approved-ecosystem .node h3 {font-size:40px}
+.reveal #ecosystem .approved-ecosystem .node p {font-size:30px}
+.reveal #ecosystem .scope {font-size:32px;margin-top:20px}
+.reveal .birth-cues {margin:140px 70px 0;max-width:1330px}
+.reveal .birth-cues p {font-size:66px;line-height:1.2;margin:0 0 75px;color:var(--ink)}
+.reveal .birth-cues p:nth-child(2) {color:var(--teal)}
+.reveal .jax-intro-copy {font-size:34px;margin:10px 0 18px}
+.reveal .jax-layout {display:grid;grid-template-columns:970px 1fr;gap:45px;height:600px;align-items:center}
+.reveal .jax-concept {position:relative;width:970px;height:546px}
+.reveal .jax-concept>img {width:970px;height:546px;object-fit:contain}
+.reveal .jax-label {position:absolute;font-size:29px;font-weight:600;color:#fff;background:#000b;padding:3px 9px}
+.reveal .label-input {left:6%;top:29%}.reveal .label-model {left:39%;top:9%}
+.reveal .label-prediction {left:74%;top:2%}.reveal .label-sensitivity {left:74%;top:47%}
+.reveal .jax-capabilities p {font-size:35px;line-height:1.3;margin:0 0 60px}
+.reveal .jax-capabilities strong {font-size:38px}
+.reveal .construction-swap {height:695px}
+.reveal .construction-view {display:grid;grid-template-columns:920px 1fr;gap:45px;align-items:center;height:680px}
+.reveal .construction-figure {width:920px;height:675px;object-fit:contain;object-position:center}
+.reveal .construction-label {font-size:48px;font-weight:600;color:var(--teal);line-height:1.25}
+.reveal .swap-third {opacity:0;visibility:hidden}
+.reveal .construction-swap:has(>.swap-trigger[data-fragment-index="1"].visible)>.swap-second {opacity:0;visibility:hidden}
+.reveal .construction-swap:has(>.swap-trigger[data-fragment-index="1"].visible)>.swap-third {opacity:1;visibility:visible}
+.reveal .ensemble {height:550px}
+.reveal .ensemble-key {font-size:30px}
+.stage-map {font-size:17px;gap:18px}
+.stage-map .map-label {font-size:15px}
+.reveal .movie-slide video {height:620px}
+.reveal button {background:#000;font-size:26px}
+.reveal #video-status {font-size:24px}
+@media print {html.print-pdf body,.pdf-page {background:#000!important}.print-poster {height:620px!important}}
+/* Retain the original gradient/ticks; the display-transform legend is now in notes. */
+.reveal .fluxax-scale-cell {width:58px;overflow:hidden}
+.reveal .fluxax-scale-cell>.fluxax-scale {max-width:none}
+.reveal #sun-prediction h2 {font-size:54px}
+.reveal #sun-calibration .solar-contract {margin-bottom:5px}
+.reveal #sun-calibration .calibration-baseline {margin-top:2px;margin-bottom:5px}
+/* Approved general stellar-model framing; saved scientific pixels remain intact. */
+.reveal #sun-sensitivities h2 {font-size:52px}
+.reveal .sensitivity-intro,.reveal .calibration-intro {font-size:32px;line-height:1.3;margin:0 0 10px}
+.reveal #sun-sensitivities .solar-swap {height:650px;margin-top:10px}
+.reveal #sun-sensitivities .solar-swap .figure {height:550px}
+.reveal #sun-calibration h2 {font-size:48px;max-width:1490px;margin-bottom:10px}
+.reveal .calibration-example {font-size:22px;color:var(--teal);margin:0 0 5px}
+.reveal .calibration-canvas {position:relative;height:560px}
+.reveal #sun-calibration .calibration-figure {height:560px;width:1173px;object-fit:contain;object-position:left top}
+.reveal .calibration-inset {position:absolute;top:34px;right:0;width:560px;margin:0;background:#000;padding:8px;box-sizing:border-box;border:1px solid var(--line)}
+.reveal .calibration-inset figcaption {font-size:22px;color:var(--muted);margin-bottom:7px;line-height:1.3}
+.reveal .calibration-inset img {width:100%;height:auto;display:block}
+.reveal .calibration-scope {font-size:26px;line-height:1.35;margin:9px 0 0;max-width:1490px}
+.reveal .compact-loop {grid-template-columns:1fr 45px 1.1fr 45px 1.15fr 45px 1fr;gap:9px;margin-top:170px;height:240px}
+.reveal .compact-loop>div {align-self:stretch;display:flex;align-items:center;padding:22px 8px}
+.reveal .compact-loop h3 {font-size:43px;margin:0}
+.reveal #inference .takeaway {margin-top:60px}
+.reveal #population-bridge h2 {font-size:54px}
+.reveal .population-swap {height:680px;margin-top:16px}
+.reveal .population-swap .swap-view {display:grid;grid-template-columns:1000px 1fr;gap:35px;align-items:center}
+.reveal .population-swap .figure {height:600px;width:1000px}
+.reveal .population-swap h3 {font-size:48px;color:var(--teal);line-height:1.22}
+.reveal .population-swap:has(>.swap-trigger[data-fragment-index="1"].visible)>.swap-second {opacity:0;visibility:hidden}
+.reveal .population-swap:has(>.swap-trigger[data-fragment-index="1"].visible)>.swap-third {opacity:1;visibility:visible}
+.reveal #confidently-wrong .posterior {height:410px;margin-top:15px}
+.reveal #confidently-wrong .paper-takeaways {margin-top:10px;gap:50px}
+.reveal #confidently-wrong .paper-takeaways p {font-size:31px;margin:0}
+.reveal #confidently-wrong .paper-takeaways strong {font-size:40px}
+.reveal #confidently-wrong .paper-bottom {margin:16px 15px 0;font-size:40px}
+.reveal #confidently-wrong .paper-cite {font-size:19px;margin-top:14px}
+.reveal #next-measurement .measurement-options p {font-size:37px;line-height:1.3;margin-bottom:45px}
+.reveal #next-measurement .measurement-options .eyebrow {font-size:22px}
+.reveal .closing .hero-copy {width:1150px}
+.reveal .closing .hero-copy h1 {font-size:106px;margin-top:60px}
+.reveal .closing-playful {font-size:38px;color:#d9f1f2;margin:25px 0 32px}
+.reveal .closing .hero-copy .subtitle {font-size:36px}
+
+/* Keep inset inside blank upper-right area and leave space above the footer. */
+.reveal .calibration-canvas {height:540px}
+.reveal #sun-calibration .calibration-figure {height:540px;width:1131px}
+.reveal .calibration-inset {top:0}
+/* Reveal derivatives after the telescope images without moving any panel. */
+.reveal .fluxax-stage .alpha-title,.reveal .fluxax-stage .binary-title,.reveal .fluxax-stage .alpha-cell,.reveal .fluxax-stage .binary-cell,.reveal .fluxax-stage .fluxax-scale-cell {visibility:hidden;opacity:0;transition:opacity .35s ease,visibility .35s ease}
+.reveal .fluxax-stage:has(.swap-trigger.visible) .alpha-title,.reveal .fluxax-stage:has(.swap-trigger.visible) .binary-title,.reveal .fluxax-stage:has(.swap-trigger.visible) .alpha-cell,.reveal .fluxax-stage:has(.swap-trigger.visible) .binary-cell,.reveal .fluxax-stage:has(.swap-trigger.visible) .fluxax-scale-cell,
+.reveal section[data-print-view="1"] .fluxax-stage .alpha-title,.reveal section[data-print-view="1"] .fluxax-stage .binary-title,.reveal section[data-print-view="1"] .fluxax-stage .alpha-cell,.reveal section[data-print-view="1"] .fluxax-stage .binary-cell,.reveal section[data-print-view="1"] .fluxax-stage .fluxax-scale-cell {visibility:visible;opacity:1}
+
+/* Register the physical axes, not the exports with different legend margins. */
+.reveal .construction-registration {position:relative;width:920px;height:680px}
+.reveal .construction-registration>.construction-figure {position:absolute;max-width:none;max-height:none;margin:0;object-fit:contain;object-position:center}
+/* Revision 7: approved consolidation and equally explicit image derivatives. */
+.reveal .construction-copy p {font-size:42px;line-height:1.25;margin:0 0 45px}
+.reveal .construction-copy p:last-child {color:var(--teal);font-weight:600;margin-bottom:0}
+.reveal .fluxax-fixed-figure {grid-template-rows:34px 286px 46px 286px}
+.reveal .fluxax-panel-title.alpha-title,.reveal .fluxax-panel-title.binary-title {font-size:22px;line-height:1.1;white-space:normal}
+.reveal .fluxax-derivatives {display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:20px}
+.reveal .fluxax-derivatives>div {border-top:2px solid var(--line);padding-top:12px}
+.reveal .fluxax-derivatives>div>p:first-child {font-size:28px;line-height:1.2;min-height:68px;margin:0 0 14px;color:var(--muted)}
+.reveal .fluxax-copy .fluxax-derivatives .derivative-equation {font-size:40px;margin-bottom:12px}
+.reveal .fluxax-copy h3 {font-size:48px}
+.reveal .fluxax-copy .small {margin-top:24px}
+.reveal .fluxax-stage:has(.swap-trigger.visible) .binary-panel,.reveal section[data-print-view="1"] .fluxax-stage .binary-panel {outline-color:var(--gold)}
