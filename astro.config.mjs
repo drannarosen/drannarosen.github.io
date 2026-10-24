@@ -78,6 +78,8 @@ export default defineConfig({
           // noindex but sitemapped is a contradiction: the sitemap advertises a
           // URL the same page asks robots to ignore.
           '/dynamics-lab',
+          '/extinction-lab',
+          '/star-render-lab',
         ].some((p) => page.replace(/\/$/, '').endsWith(p)),
     }),
   ],
