@@ -259,22 +259,23 @@ moment — read the skill, do not re-derive it here:
 
 ## Analytics
 
-Three tags ship, all in `src/layouts/BaseLayout.astro`, all **production-only**:
+Two tags ship, both in `src/layouts/BaseLayout.astro`, both **production-only**:
 
-- **Google Analytics** (gtag.js, `G-50FCCTYBRH`) — in `<head>`.
 - **Umami** (`cloud.umami.is`, website id `d4cebfe0-4683-4561-b28f-7bdeebf67bf6`)
-  — in `<head>`. Added 2026-08-04, running alongside the other two.
+  — in `<head>`. Added 2026-08-04.
 - **Cloudflare Web Analytics** — end of `<body>`.
 
-**Do not paste any of these into a page.** Both Google's and Umami's setup text
-say to add the snippet to every page, which is advice for hand-written HTML;
-here every page renders through `BaseLayout`, so a new page inherits all three
-automatically. Adding one to a page would double-count that page's traffic and
-breaks Google's own "no more than one Google tag per page" rule.
+Google Analytics (`G-50FCCTYBRH`) was removed 2026-10-24: it was the only
+cookie-setting tag, and Umami and Cloudflare already cover traffic without
+cookies. Do not add it back without Anna asking.
 
-The three will not agree with each other, and that is expected rather than a
-bug: they count bots, blocked scripts and repeat visitors differently, and
-Umami and Cloudflare are cookieless while Google is not.
+**Do not paste either of these into a page.** Umami's setup text says to add
+the snippet to every page, which is advice for hand-written HTML; here every
+page renders through `BaseLayout`, so a new page inherits both automatically.
+Adding one to a page would double-count that page's traffic.
+
+The two will not agree with each other, and that is expected rather than a
+bug: they count bots, blocked scripts and repeat visitors differently.
 
 If a page ever bypasses `BaseLayout`, it gets no analytics — that is the correct
 default, not a bug to patch per page. Add the layout instead.
