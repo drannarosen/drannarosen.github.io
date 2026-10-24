@@ -80,6 +80,8 @@ export default defineConfig({
           '/dynamics-lab',
           '/extinction-lab',
           '/star-render-lab',
+          // Anna's unlisted talks index: noindex and linked from nowhere.
+          '/talks',
         ].some((p) => page.replace(/\/$/, '').endsWith(p)),
     }),
   ],

@@ -53,6 +53,7 @@ const EXCLUDED = new Map([
   ["/star-render-lab", "Three.js star-rendering sandbox, linked from nowhere"],
   ["/dynamics-lab", "N-body integrator sandbox, linked from nowhere"],
   ["/extinction-lab", "dust-reddening sandbox, linked from nowhere"],
+  ["/talks", "unlisted index of Anna's talk decks, linked from nowhere"],
   ["/explore/mass-segregation", "quarantined 2026-08-07: needs a redesign, not a patch — held back rather than shipped stale"],
   [
     "/explore/feedback-budget",
@@ -109,6 +110,10 @@ for (const file of walk(DIST)) {
   if (/http-equiv=["']refresh["']/i.test(html)) continue;
 
   if (EXCLUDED.has(url)) continue;
+
+  // Decks under /talks/ are unlisted like their index. Matched by prefix so a
+  // future deck whose index.html is not a redirect cannot leak into search.
+  if (url.startsWith("/talks/")) continue;
 
   const title = decode(html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? "").split(" — ")[0];
   const description = decode(

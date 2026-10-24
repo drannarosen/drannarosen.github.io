@@ -1,0 +1,111 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHeader from "../../components/PageHeader.astro";
+
+/*
+ * /talks — Anna's own launchpad for the decks she presents.
+ *
+ * UNLISTED, not private: linked from nowhere, noindex, out of the sitemap and
+ * out of site search, but anyone holding the URL can open it, and this
+ * repository is public. GitHub Pages has no access control to offer.
+ *
+ * Each deck is static files under public/talks/<year>/<yyyy-mm-slug>/. To add a
+ * talk, publish its folder there and add one entry below, newest first. Fill
+ * only what the deck or Anna states; leave a field out rather than guess.
+ */
+interface Talk {
+  title: string;
+  event: string;
+  when: string;
+  slides: string;
+  pdf?: string;
+}
+
+const talks: Talk[] = [
+  {
+    title: "How do you reverse-engineer a star cluster?",
+    event: "Discoveries & Dialogues",
+    when: "October 2026",
+    slides: "/talks/2026/2026-10-discoveries-dialogues/talk.html",
+    pdf: "/talks/2026/2026-10-discoveries-dialogues/star-cluster-talk-static.pdf",
+  },
+];
+---
+
+<BaseLayout
+  title="Talks — Anna Rosen, Ph.D."
+  description="Slides from my talks."
+  path="/talks"
+  noindex
+>
+  <PageHeader eyebrow="Talks" title="Talks" />
+
+  <ul class="cards wrap" role="list">
+    {
+      talks.map((t) => (
+        <li class="card">
+          <p class="card__meta">
+            {t.when} · {t.event}
+          </p>
+          <h2 class="card__title">
+            <a href={t.slides}>{t.title}</a>
+          </h2>
+          <p class="card__links">
+            <a href={t.slides}>Slides →</a>
+            {t.pdf && <a href={t.pdf}>PDF</a>}
+          </p>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+
+<style>
+  .cards {
+    list-style: none;
+    padding: 0;
+    margin-block: var(--space-l) var(--space-3xl);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: var(--space-m);
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+    margin: 0;
+    padding: var(--space-m);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    background: color-mix(in oklab, var(--bg-void) 55%, transparent);
+    transition: border-color 0.15s ease;
+  }
+  .card:hover {
+    border-color: var(--spec-cyan, #4fd6c4);
+  }
+  .card__meta {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .card__title {
+    font-size: var(--step-1);
+  }
+  .card__title a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .card__links {
+    display: flex;
+    gap: var(--space-s);
+    margin-block-start: auto;
+    padding-block-start: var(--space-xs);
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+  }
+  .card__links a {
+    color: var(--spec-cyan, #4fd6c4);
+  }
+</style>
