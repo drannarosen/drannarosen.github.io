@@ -7,15 +7,19 @@ const links = activeLinks();
 ---
 
 <BaseLayout
-  title="Contact — Anna Rosen"
+  title="Contact — Anna Rosen, Ph.D."
   description="Get in touch with Anna Rosen, Assistant Professor of Astronomy at San Diego State University."
   path="/contact"
 >
   <PageHeader
     eyebrow="Contact"
     title="Get in touch"
-    lede="The best way to reach me is email. Prospective students: please include your background and what you'd like to work on."
-  />
+  >
+    <Fragment slot="lede">
+      The best way to reach me is email. Prospective students: here's <a
+        href="/group/#email-heading">what to include</a>.
+    </Fragment>
+  </PageHeader>
 
   <section class="contact wrap">
     <p class="contact__label">Email</p>

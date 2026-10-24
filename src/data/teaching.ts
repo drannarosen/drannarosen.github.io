@@ -95,8 +95,21 @@ export interface Course {
   developed?: "new" | "redesigned";
 }
 
-/** Display string for a course's terms. Derived — never authored. */
-export const courseWhen = (c: Course) => termLabel(c.terms);
+/**
+ * Display string for a course's terms. Derived — never authored. A term that
+ * has not started by build time is marked, so a scheduled course never reads
+ * as already taught.
+ */
+export const courseWhen = (c: Course, now: Date = new Date()) => {
+  const started = c.terms.filter((t) => termStart(t) <= now.getTime());
+  const scheduled = c.terms.filter((t) => termStart(t) > now.getTime());
+  return [
+    started.length > 0 ? termLabel(started) : "",
+    scheduled.length > 0 ? `${termLabel(scheduled)} (scheduled)` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+};
 
 /**
  * Which season today falls in, or null in the gap between terms.
