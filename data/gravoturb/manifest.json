@@ -1,0 +1,65 @@
+{
+  "generated_by": "scripts/gravoturb/export_cluster.py",
+  "realizations": [
+    {
+      "name": "diffuse",
+      "label": "diffuse (low-mass)",
+      "path": "/data/gravoturb/diffuse",
+      "mach": 3.7863426812690895,
+      "n_stars": 656,
+      "m_star_total_msun": 385.5351395612321,
+      "r_half_pc": 1.0522014950632328,
+      "q_virial_at_sfe_ic": 0.06876792816374995
+    },
+    {
+      "name": "orion",
+      "label": "Orion-like",
+      "path": "/data/gravoturb",
+      "mach": 13.11627579764927,
+      "n_stars": 6557,
+      "m_star_total_msun": 4312.209384146876,
+      "r_half_pc": 0.7553422205363002,
+      "q_virial_at_sfe_ic": 0.05688411889092742
+    },
+    {
+      "name": "compact",
+      "label": "massive compact",
+      "path": "/data/gravoturb/compact",
+      "mach": 32.79068949412318,
+      "n_stars": 32787,
+      "m_star_total_msun": 20306.012992286705,
+      "r_half_pc": 0.6070816364333016,
+      "q_virial_at_sfe_ic": 0.05679479688206454
+    },
+    {
+      "name": "orion-solenoidal",
+      "label": "Orion-like \u00b7 solenoidal",
+      "path": "/data/gravoturb/orion-solenoidal",
+      "mach": 13.11627579764927,
+      "n_stars": 6557,
+      "m_star_total_msun": 4312.209384146876,
+      "r_half_pc": 0.80013742587329,
+      "q_virial_at_sfe_ic": 0.057493766990908746
+    },
+    {
+      "name": "orion-compressive",
+      "label": "Orion-like \u00b7 compressive",
+      "path": "/data/gravoturb/orion-compressive",
+      "mach": 13.11627579764927,
+      "n_stars": 6557,
+      "m_star_total_msun": 4312.209384146876,
+      "r_half_pc": 0.9100362006336855,
+      "q_virial_at_sfe_ic": 0.06726736498159154
+    },
+    {
+      "name": "orion-shallow",
+      "label": "Orion-like \u00b7 shallow (evolved) profile",
+      "path": "/data/gravoturb/orion-shallow",
+      "mach": 13.11627579764927,
+      "n_stars": 6557,
+      "m_star_total_msun": 4312.209384146876,
+      "r_half_pc": 0.9671042124962818,
+      "q_virial_at_sfe_ic": 0.07819428439067458
+    }
+  ]
+}
