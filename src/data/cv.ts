@@ -77,7 +77,7 @@ export interface Advisee {
  * them at module-evaluation time, and a const referenced before its
  * declaration is a temporal-dead-zone error rather than a fallback.
  */
-export const talkCounts = { invited: 55, contributed: 36 };
+export const talkCounts = { invited: 56, contributed: 37 };
 
 /**
  * Advisees due to finish, for /now.
@@ -114,6 +114,7 @@ export const formerOf = (people: Advisee[]) =>
   groupMembers(people).filter((a) => !isCurrent(a));
 
 export const graduateAdvisees: Advisee[] = [
+  { name: "Saloni Agrawal", affiliation: "M.S. Astronomy, SDSU", date: "August 2026–Present", project: "Provisional thesis: Optimal Experimental Design for Star Cluster Dynamics and Mass Inference. Masters Thesis Advisor (Committee Chair)." },
   // SDSU's M.S. in Computational Science takes a CULMINATING PROJECT rather
   // than a thesis, which is what his title page says, so the wording here is
   // "project" deliberately and should not be "corrected" to thesis.
@@ -130,6 +131,8 @@ export const graduateAdvisees: Advisee[] = [
 ];
 
 export const undergraduateAdvisees: Advisee[] = [
+  { name: "Tiffany Kjosness", affiliation: "Undergraduate (Astronomy Major), SDSU", date: "August 2026–Present", project: "Research Mentor" },
+  { name: "Brandon Seetahal", affiliation: "Undergraduate (Astronomy Major), SDSU", date: "August 2026–Present", project: "Astronomy Senior Thesis Advisor" },
   { name: "Victor Del Rio", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" , group: true },
   { name: "Edwin Sarabia", affiliation: "SDSU", date: "Summer 2025", project: "STARTAstro Program (community-college transfer student)" , group: true },
   // Advised 2024–2025, through his B.S.; he stayed on into early 2026 to finish
@@ -365,6 +368,8 @@ export const serviceEarlier: DatedEntry[] = [
 /** Counts from the CV's presentations callout. */
 
 export const selectedTalks: DatedEntry[] = [
+  { role: "Invited Talk, SDSU Discoveries & Dialogues Colloquium Series", date: "October 21, 2026", note: "How Do You Reverse-Engineer a Star Cluster? Teaching simulations to work backward from starlight." },
+  { role: "Talk, Rubin Observatory Stars, Milky Way, and Local Volume Science Collaboration telecon", org: "Virtual", date: "August 24, 2026", note: "Building Stellar Populations Forward, Understanding Them Backward: Differentiable Models from Cluster Birth to Rubin Observables." },
   { role: "Invited Talk, Star Formation, Stellar Feedback, and the Ecology of Galaxies", org: "Visegrád, Hungary", date: "2025" },
   { role: "Invited Talk, TOSCA — Topical Overview on Star Cluster Astrophysics", org: "Siena, Italy", date: "2024" },
   { role: "Invited Talk, The Fullness of Space: Celebrating the Career of Christopher F. McKee", org: "Berkeley, CA", date: "2024" },

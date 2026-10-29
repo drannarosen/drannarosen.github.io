@@ -203,8 +203,8 @@
     // -- At a Glance --
     sidebar-label("At a Glance")
     stat-block(str(cv-counts.refereed), "Publications")
-    stat-block("55+", "Invited Talks")
-    stat-block("9", "Graduate Students Mentored")
+    stat-block("56+", "Invited Talks")
+    stat-block("10", "Graduate Students Mentored")
     stat-block("5", "Courses Developed / Taught")
     v(6pt)
 
@@ -346,6 +346,11 @@
 
 #cv-subsection("Graduate Students")
 
+#cv-entry([Saloni Agrawal (M.S. Astronomy, SDSU)], "August 2026--Present")
+#block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
+  [Provisional thesis: Optimal Experimental Design for Star Cluster Dynamics and Mass Inference. Masters Thesis Advisor (Committee Chair).]))
+#v(3pt)
+
 #cv-entry([Surinder Singh Chhabra (M.S. Computational Science --- Data Science, SDSU)], "2025--2026")
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
   [#smallcaps[AstroRAG]: Evidence-Aware Scientific Literature Retrieval --- a multi-stage retrieval and evidence-summarisation framework for astrophysics literature discovery]))
@@ -395,6 +400,16 @@
 
 #v(4pt)
 #cv-subsection("Undergraduate Students")
+
+#cv-entry([Tiffany Kjosness (Astronomy Major, SDSU)], "August 2026--Present")
+#block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
+  [Research Mentor]))
+#v(3pt)
+
+#cv-entry([Brandon Seetahal (Astronomy Major, SDSU)], "August 2026--Present")
+#block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
+  [Astronomy Senior Thesis Advisor]))
+#v(3pt)
 
 #cv-entry([Victor Del Rio (SDSU)], "Summer 2025")
 #block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
@@ -927,6 +942,7 @@
 // ============================================================
 // SCIENTIFIC PRESENTATIONS
 // ============================================================
+#block(breakable: false)[
 #cv-section("Scientific Presentations")
 
 // Stats callout box
@@ -940,12 +956,12 @@
     grid(
       columns: (auto, 8pt, auto),
       {
-        text(font: sans, size: 20pt, weight: "bold", fill: accent, "55")
+        text(font: sans, size: 20pt, weight: "bold", fill: accent, "56")
         text(font: sans, size: 10pt, fill: charcoal, " invited talks")
       },
       [],
       {
-        text(font: sans, size: 20pt, weight: "bold", fill: accent, "36")
+        text(font: sans, size: 20pt, weight: "bold", fill: accent, "37")
         text(font: sans, size: 10pt, fill: charcoal, " contributed talks")
       },
     )
@@ -955,6 +971,16 @@
 #v(4pt)
 #text(size: 10pt, fill: body-color, [Selected presentations:])
 #v(3pt)
+
+#cv-entry([Invited Talk, SDSU _Discoveries & Dialogues_ Colloquium Series], "October 21, 2026")
+#block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
+  [How Do You Reverse-Engineer a Star Cluster? Teaching simulations to work backward from starlight.]))
+]
+#v(2pt)
+#cv-entry([Talk, Rubin Observatory Stars, Milky Way, and Local Volume Science Collaboration telecon (virtual)], "August 24, 2026")
+#block(inset: (left: 12pt), text(size: 9.5pt, fill: secondary, style: "italic",
+  [Building Stellar Populations Forward, Understanding Them Backward: Differentiable Models from Cluster Birth to Rubin Observables.]))
+#v(2pt)
 
 #cv-entry([Invited Talk, _Star Formation, Stellar Feedback, and the Ecology of Galaxies_; Visegrad, Hungary], "2025")
 #v(2pt)
